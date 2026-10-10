@@ -69,6 +69,7 @@ import { readPrVerdict } from "./pr-verdict.js";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { type Runner } from "./run.js";
 import { mergedClaims, readStoryClaims, type StoryClaimingPr, type StoryClaimsRead, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
+import { issuesRepoSlug } from "./verdict-repos.js";
 
 /** What the merge-anchored derivation produced for one pull request. */
 export type DeriveOutcome = { ok: true; base: string; head: string } | { ok: false; problem: string; message: string };
@@ -773,9 +774,7 @@ function renderLines(
  * open or closed-unmerged pull request, and the derivation narrows to merged ones itself (D7).
  */
 export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, record: number | null = null): CloseRangesDeps {
-    const slash = issuesRepo.lastIndexOf("/");
-    const owner = issuesRepo.slice(0, slash).split("/").pop() ?? "";
-    const slug: RepoSlug = { owner, repo: issuesRepo.slice(slash + 1) };
+    const slug: RepoSlug = issuesRepoSlug(issuesRepo);
     return {
         readClaims: (story) => readStoryClaims(run, root, slug, story),
         checkoutFor: (repo) => resolveRepoCheckout(root, run, repo),

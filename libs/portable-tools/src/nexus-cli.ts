@@ -3034,22 +3034,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         const n = value === undefined ? null : recordNumber(value);
         return n !== null && n > 0 ? n : null;
     };
-    // Keyed by what each names, so the same epic or pull request given twice is one target. A pull
-    // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
-    // checkout's own repository, so `--pr 5` and `--pr owner/repo#5` there are one pull request.
-    const targets = new Map<string, { form: string; target: CloseTarget }>();
-    let own: string[] | null | undefined;
-    const ownRepo = (): string[] | null => (own ??= canonicalRepoRef(closeMigrationRunner, io.cwd)?.split("/") ?? null);
-    const add = (form: string, target: CloseTarget): void => {
-        let key: string;
-        if ("epic" in target) key = `epic ${target.epic}`;
-        else {
-            const [host, owner, name] = ownRepo() ?? [];
-            const repo = target.pr.repo ?? (owner === undefined ? "" : `${owner}/${name}`);
-            key = `pr ${target.pr.host ?? host ?? "github.com"}/${repo}#${target.pr.number}`.toLowerCase();
-        }
-        if (!targets.has(key)) targets.set(key, { form, target });
-    };
+    const given: { form: string; target: CloseTarget }[] = [];
     let recover: number | undefined;
     let handoff: string | null = null;
     const paths: string[] = [];
@@ -3059,16 +3044,16 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             const value = argv[++i];
             const epic = issueNumber(value);
             if (epic === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
-            add(`--epic ${value}`, { epic });
+            given.push({ form: `--epic ${value}`, target: { epic } });
         } else if (a === "--pr") {
             const value = argv[++i];
             const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
             // gh addresses a forge by host alone, so a URL that needs a port cannot be read through it.
-            if (/^https?:\/\/[^/\s]*:\d+\//i.test(value ?? "")) {
+            if (ref.port !== undefined) {
                 return refuse(`--pr cannot read a pull-request URL with a port through gh; run close from a checkout on that forge with --pr owner/repo#N; got ${got(value)}.`);
             }
-            add(`--pr ${value}`, { pr: ref });
+            given.push({ form: `--pr ${value}`, target: { pr: ref } });
         } else if (a === "--recover") {
             const value = argv[++i];
             const epic = issueNumber(value);
@@ -3085,12 +3070,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         else if (/^#?\d+$/.test(a)) {
             const epic = issueNumber(a);
             if (epic === null) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
-            add(a, { epic });
+            given.push({ form: a, target: { epic } });
         }
         else paths.push(a);
     }
     if (recover !== undefined) {
-        if (targets.size > 0 || handoff !== null || paths.length > 0) {
+        if (given.length > 0 || handoff !== null || paths.length > 0) {
             io.stderr(`close --recover takes only the closed epic's issue number: nexus close --recover <epic>.\n${usage}`);
             return 2;
         }
@@ -3099,6 +3084,18 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         for (const line of rendered.stdout) io.stdout(line);
         for (const line of rendered.stderr) io.stderr(line);
         return rendered.exitCode;
+    }
+    // Keyed by what each names, so the same epic or pull request given twice is one target. A pull
+    // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
+    // checkout's own repository, read only when there is more than one target to compare.
+    const targets = new Map<string, { form: string; target: CloseTarget }>();
+    const own = given.length > 1 ? (canonicalRepoRef(closeMigrationRunner, io.cwd)?.split("/") ?? []) : [];
+    for (const g of given) {
+        const t = g.target;
+        const [host, owner, name] = own;
+        const key =
+            "epic" in t ? `epic ${t.epic}` : `pr ${t.pr.host ?? host ?? "github.com"}/${t.pr.repo ?? (owner === undefined ? "" : `${owner}/${name}`)}#${t.pr.number}`.toLowerCase();
+        if (!targets.has(key)) targets.set(key, g);
     }
     if (targets.size > 1) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${[...targets.values()].map((t) => t.form).join(" and ")}.`);

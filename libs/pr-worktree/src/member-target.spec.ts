@@ -45,7 +45,7 @@ describe("parsePrReference", () => {
     it("keeps the forge host a pull-request URL names", () => {
         expect(parsePrReference("https://GHE.corp/acme/widget/pull/7")?.host).toBe("ghe.corp");
         expect(parsePrReference("https://www.github.com/acme/widget/pull/7")?.host).toBe("github.com");
-        expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")?.host).toBe("ghe.corp");
+        expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "8443" });
     });
 
     it("rejects an unrecognized string", () => {

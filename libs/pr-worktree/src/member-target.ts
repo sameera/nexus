@@ -24,6 +24,8 @@ export interface ParsedPrReference {
     number: number;
     /** The lowercased forge host a pull-request URL names; absent for the other forms, which name none. */
     host?: string;
+    /** The port a pull-request URL names, kept apart from `host` so a caller decides what to do with it. */
+    port?: string;
 }
 
 const BARE_RE = /^(\d+)$/;
@@ -40,7 +42,12 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     if (qualified) return { repo: `${qualified[1]}/${qualified[2]}`.toLowerCase(), number: Number(qualified[3]) };
 
     const url = URL_RE.exec(trimmed);
-    if (url) return { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: url[1].toLowerCase().replace(/^.*@/, "").replace(/:\d+$/, "").replace(/^www\./, "") };
+    if (url) {
+        const authority = /^(?:.*@)?(?:www\.)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
+        const host = authority?.[1] ?? url[1].toLowerCase();
+        const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host };
+        return authority?.[2] === undefined ? parsed : { ...parsed, port: authority[2] };
+    }
 
     return null;
 }

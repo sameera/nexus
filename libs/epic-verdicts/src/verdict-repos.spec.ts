@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveVerdictRepos } from "./verdict-repos.js";
+import { issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
@@ -108,5 +108,13 @@ describe("resolveVerdictRepos across a hub and a member checkout (#783)", () => 
         if (r.ok) return;
         expect(r.error.problem).toBe("repo-unresolved");
         expect(r.error.message).toContain(member);
+    });
+});
+
+describe("issuesRepoSlug — the one parse of the issues repository (#906)", () => {
+    it("reads owner/repo, host/owner/repo, and a URL with or without a trailing slash or .git", () => {
+        for (const configured of ["acme/issues", "github.com/acme/issues", "https://github.com/acme/issues", "https://github.com/acme/issues/", "https://github.com/acme/issues.git"]) {
+            expect(issuesRepoSlug(configured), configured).toEqual({ owner: "acme", repo: "issues" });
+        }
     });
 });

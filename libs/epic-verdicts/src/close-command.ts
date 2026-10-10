@@ -66,7 +66,7 @@ import { type FilerEnvironment } from "@nexus/delivery-config/story-filer/enviro
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
-import { parseIssueRef, parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
+import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import {
@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, resolveVerdictRepos } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -395,11 +395,17 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    const newest = epicComments.ok ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER)) : undefined;
-    const earlierBlock = newest === undefined ? null : machineBlock(newest.body);
+    // The newest trusted close comment that is this epic's own: one that stamps another epic (quoted
+    // onto this issue) is passed over, and an older one that stamps this epic still counts.
+    const stampOf = (body: string): number | null => {
+        const block = machineBlock(body);
+        return block === null ? null : recordNumber(block["epic"]);
+    };
+    const earlierClose = epicComments.ok
+        ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER) && [null, epic].includes(stampOf(c.body)))
+        : undefined;
+    const earlierBlock = earlierClose === undefined ? null : machineBlock(earlierClose.body);
     const stamped = earlierBlock === null ? null : recordNumber(earlierBlock["epic"]);
-    // A close comment that stamps another epic (one quoted onto this issue) is not this epic's close.
-    const earlierClose = newest !== undefined && (stamped === null || stamped === epic) ? newest : undefined;
 
     // A number the lead typed must be filed as an epic, checked before anything, even the re-run
     // shortcut, can close it; the story ladder already checked the epic it found from a pull
@@ -1054,17 +1060,6 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
     return { stdout: [], stderr: err, exitCode: 1 };
 }
 
-/**
- * The issues repository as the slug the epic-resolve reads take: `owner/repo` or `host/owner/repo`,
- * else its last two path segments, so a configured epic-repo written as a URL still reads.
- */
-function issuesSlug(issuesRepo: string): { owner: string; repo: string } {
-    const id = parseRepoIdentity(issuesRepo);
-    if (id !== null) return { owner: id.owner, repo: id.name };
-    const segments = issuesRepo.replace(/\.git$/, "").split("/").filter((p) => p.length > 0);
-    return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
-}
-
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
     // How the repository files issues, read once per checkout however many reads need it.
@@ -1089,7 +1084,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {
             const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
-            const slug = issuesSlug(issuesRepo);
+            const slug = issuesRepoSlug(issuesRepo);
             return resolveStories(run, root, slug, kinds.classification, {
                 prRepo,
                 closingIssues: pr.closingIssues,
@@ -1101,7 +1096,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         issueKind: (root, issuesRepo, issue) => {
             const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, message: kinds.error.message };
-            const slug = issuesSlug(issuesRepo);
+            const slug = issuesRepoSlug(issuesRepo);
             const facts = fetchIssueFacts(run, root, slug, issue);
             if (!facts.ok) return { ok: false, message: facts.error.message };
             if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null };
@@ -1110,7 +1105,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {
-            const slug = issuesSlug(issuesRepo);
+            const slug = issuesRepoSlug(issuesRepo);
             const r = fetchSubIssueFacts(run, root, slug, epic);
             return r.ok ? { ok: true, facts: r.facts } : { ok: false, message: r.error.message };
         },

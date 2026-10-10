@@ -485,6 +485,18 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).toMatch(/remedy: .*file it as one/);
     });
 
+    it("finishes from an older close comment of this epic when a newer one quotes another epic's", () => {
+        const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const quoted = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#99"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [own, quoted] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+        expect(h.writes).toEqual([`close #${EPIC}`]);
+    });
+
     it("does not take a close comment that stamps another epic as this epic's earlier close", () => {
         const quoted = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#99"\n\`\`\``, authorAssociation: "OWNER" };
         const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [quoted] : [] }) });

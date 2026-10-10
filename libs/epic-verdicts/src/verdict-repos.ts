@@ -16,7 +16,8 @@
  */
 
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
-import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
+import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
+import { parseRepoIdentity } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -56,4 +57,16 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
             message: `the repository at ${cwd} could not be resolved, so the repositories a verdict names cannot be established: ${detail}`,
         },
     };
+}
+
+/**
+ * The issues repository as the slug the epic-resolve reads take: `owner/repo` or `host/owner/repo`,
+ * else its last two path segments, so a configured epic-repo written as a URL (with a trailing
+ * slash or `.git`) still reads. The one parse every close read of the issues repository uses.
+ */
+export function issuesRepoSlug(issuesRepo: string): RepoSlug {
+    const id = parseRepoIdentity(issuesRepo);
+    if (id !== null) return { owner: id.owner, repo: id.name };
+    const segments = issuesRepo.replace(/\.git\/?$/, "").split("/").filter((p) => p.length > 0);
+    return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }
