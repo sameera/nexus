@@ -515,6 +515,21 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(out.resumed).toBe(false);
     });
 
+    it("prints a record-revised waiver naming the record as owner/repo#N when the issues repository names a host", () => {
+        const digest = "d".repeat(64);
+        const h = harness({
+            issuesRepo: () => ({ ok: true, repos: { issuesRepo: `https://github.com/${ISSUES}`, repo: ISSUES } }),
+            ranges: () => ({
+                ok: true,
+                untrusted: [],
+                ranges: ranges({ states: [{ story: 864, state: "stale", findings: [{ repo: ISSUES, pr: PR, finding: "record-revised", record: RECORD, stampedDigest: "e".repeat(64), currentDigest: digest, remedies: [] }] }, { story: 865, state: "current", findings: [] }] }),
+            }),
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain(`record: "${ISSUES}#${RECORD}"`);
+        expect(err).not.toContain(`record: "github.com/`);
+    });
+
     it("finishes its own close comment when epic-repo is configured as a URL or in SSH form", () => {
         const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: ${ISSUES}\n\`\`\``;
         for (const configured of [`https://github.com/${ISSUES}`, `git@github.com:${ISSUES}.git`]) {
@@ -901,14 +916,19 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/not merged/);
     });
 
+    it("refuses a pull-request URL on an Enterprise host when the issues repository states none", () => {
+        const h = harness();
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } })))).toMatch(/ghe\.corp/);
+    });
+
     it("does not guess a pull request's forge when the checkout names none", () => {
         const h = harness({ checkoutForge: () => null, issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, viaPr()))).exitCode).toBe(0);
     });
 
-    it("does not guess a forge for an issues repository that states no host", () => {
+    it("reads a github.com pull-request URL when the issues repository states no host", () => {
         const h = harness({ checkoutForge: () => null });
-        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } }))).exitCode).toBe(0);
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "github.com" } } }))).exitCode).toBe(0);
     });
 
     it("reads an entry path whose link is empty as linking nothing, never the next line", () => {
@@ -918,10 +938,10 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })))).toMatch(/no link naming the epic/);
     });
 
-    it("reads a pull-request URL on an Enterprise checkout whose issues repository names no host", () => {
-        const h = harness({ checkoutForge: () => "ghe.corp" });
+    it("reads a pull-request URL on an Enterprise host when the issues repository states that host", () => {
+        const h = harness({ checkoutForge: () => "ghe.corp", issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
         const { stdout } = closed(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } });
-        expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
+        expect(stdout).toContain(`epic ghe.corp/${ISSUES}#${EPIC} passed every gate`);
     });
 
     it("checks a bare pull request, read on the checkout's forge, against a stated issues forge", () => {

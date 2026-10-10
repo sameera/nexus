@@ -29,7 +29,7 @@ import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
 import { readPrVerdict } from "./pr-verdict.js";
 import { type Runner } from "./run.js";
 import { mergedOnly, readStoryClaims, type StoryMergedPr, type StoryMergedPrsRead, type StoryReadFailure } from "./story-prs.js";
-import { issuesRepoSlug } from "./verdict-repos.js";
+import { issuesRepoSlug, onIssuesHost } from "./verdict-repos.js";
 
 /** The selected receipt of one pull request: the receipt, null when it carries none, or why it could not be read. */
 export type ReceiptRead = { ok: true; receipt: AnalyzeReceipt | null } | { ok: false; cause: string };
@@ -154,7 +154,7 @@ function renderLines(stories: readonly StoryEvidence[], coversNone: ReadonlyArra
 export function evidenceDeps(run: Runner, cwd: string, issuesRepo: string): EvidenceDeps {
     const slug: RepoSlug = issuesRepoSlug(issuesRepo);
     return {
-        readClaims: (story) => mergedOnly(readStoryClaims(run, cwd, slug, story)),
+        readClaims: (story) => mergedOnly(readStoryClaims(onIssuesHost(run, issuesRepo), cwd, slug, story)),
         readReceipt: (pr) => {
             const v = readPrVerdict(run, cwd, pr.pr, pr.repo, issuesRepo, { ghRepo: pr.repo });
             if (!v.ok) return { ok: false, cause: v.error.message };

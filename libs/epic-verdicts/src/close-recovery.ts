@@ -167,13 +167,14 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
             stops.push({ reason: `the waiver comments on ${ref} could not be read: ${waivers.message}. A failed read is not the same as no waiver`, item, remedy: `re-run ${rerun} once the read succeeds` });
             continue;
         }
-        const match = matchRecordWaiver(waivers.waivers, record, digest, issuesRepo);
+        // A waiver names the record as owner/repo#N, the one form the waiver reader parses.
+        const match = matchRecordWaiver(waivers.waivers, record, digest, issuesRepoPath(issuesRepo));
         if (match.applied === null) {
             stops.push({
                 reason: `${ref} has neither a verdict judged against the current revision of ${recordRef} (${digest}) nor a trusted waiver accepting it${match.rejected.map((w) => `; ${describeRejected(w)}`).join("")}`,
                 item,
                 remedy: `run /nxs.analyze --pr ${pr.pr} on ${ref}, or post this waiver comment on ${ref} as someone who can speak for the repository; then re-run ${rerun}`,
-                post: { on: ref, comment: waiverComment(["waive: record-revised", `record: "${recordRef}"`, `digest: ${digest}`]) },
+                post: { on: ref, comment: waiverComment(["waive: record-revised", `record: "${issuesRepoPath(issuesRepo)}#${record}"`, `digest: ${digest}`]) },
             });
             continue;
         }

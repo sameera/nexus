@@ -468,10 +468,13 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // on one and the issues on the other. A URL names its forge, any other form is read on the
         // checkout's. An issues repository that states no host is left to gh's own host, which close
         // cannot see, so there is nothing to compare against.
+        // A URL on a host other than github.com, beside an issues repository that states none, cannot
+        // be confirmed as the forge gh reads the issues on, as for an --epic URL.
         const statedForge = issuesRepoHost(issuesRepo);
         const knownPr = ref.host ?? deps.checkoutForge(repoRoot);
         const prForge = knownPr === null ? null : forgeHost(knownPr);
-        if (statedForge !== null && prForge !== null && prForge !== statedForge) {
+        const unconfirmed = statedForge === null && ref.host !== undefined && forgeHost(ref.host) !== "github.com";
+        if (unconfirmed || (statedForge !== null && prForge !== null && prForge !== statedForge)) {
             return stopped({
                 reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,
                 item: asLabel,
@@ -1070,7 +1073,8 @@ function storyStops(s: StoryState, issuesRepo: string, record: number | null, re
                                 reason: `story ${ref} is stale: the decision record ${recordRef} was revised after ${pr(f)}'s verdict (${f.stampedDigest} → ${f.currentDigest})${(f.waivers ?? []).map((w) => `; ${describeRejected(w)}`).join("")}`,
                                 item,
                                 remedy: `run ${analyze(f)} on ${pr(f)}, or post this waiver comment on ${pr(f)} as someone who can speak for the repository; then re-run ${rerun}`,
-                                post: { on: pr(f), comment: waiverComment(["waive: record-revised", `record: "${recordRef}"`, `digest: ${f.currentDigest}`]) },
+                                // The waiver names the record as owner/repo#N, the one form the waiver reader parses.
+                                post: { on: pr(f), comment: waiverComment(["waive: record-revised", `record: "${issuesRepoPath(issuesRepo)}#${record ?? f.record}"`, `digest: ${f.currentDigest}`]) },
                             },
                         ];
                     }
@@ -1202,7 +1206,8 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),
-                issuesRepo,
+                // owner/repo: the form a record-revised waiver names the record in, and is matched in.
+                issuesRepo: issuesRepoPath(issuesRepo),
             });
             return derived.ok ? { ok: true, ranges: derived.ranges, untrusted: collected.collected.untrusted } : derived;
         },
