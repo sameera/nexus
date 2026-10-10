@@ -293,7 +293,11 @@ function shellWord(value: string): string {
 
 /** An epic target as `--epic` takes it back: `N`, or `owner/repo#N` / `host/owner/repo#N`. */
 function epicReference(target: { epic: number; repo?: string }): string {
-    return target.repo === undefined ? `${target.epic}` : `${target.repo}#${target.epic}`;
+    if (target.repo === undefined) return `${target.epic}`;
+    // A host with no dot (an intranet name) reads back only as a URL: host/owner/repo#N needs a dotted host.
+    const [host, ...path] = target.repo.split("/");
+    if (path.length === 2 && !host.includes(".")) return `https://${host}/${path.join("/")}/issues/${target.epic}`;
+    return `${target.repo}#${target.epic}`;
 }
 
 /** A parsed pull-request reference as `--pr` takes it back: `N`, `owner/repo#N`, or the URL it came from. */

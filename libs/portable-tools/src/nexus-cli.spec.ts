@@ -2209,6 +2209,8 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--pr", "5", "notes/epics/e#3"], "nexus close --pr 5"],
         [["--pr", "12", "./queue/epic#7"], "nexus close --pr 12"],
         [["https://github.com/geo-nexus/docs/issues/159"], "nexus close --epic 'github.com/geo-nexus/docs#159'"],
+        // The form close prints an epic on a dotless intranet host in, read back.
+        [["--epic", "https://ghe/acme/app/issues/7"], "nexus close --epic https://ghe/acme/app/issues/7"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
         expect(await runNexusCli(["close", ...args], io)).toBe(1);
@@ -2230,6 +2232,7 @@ describe("nexus close — the argument forms (#906)", () => {
         // A positional shaped like owner/repo#N is the epic; the refusal says how to pass it as a path.
         [["--pr", "12", "queue/epic#7"], ["one way", "./queue/epic#7"]],
         [["https://ghe.corp:8443/acme/app/issues/7"], ["port", "ghe.corp:8443"]],
+        [["https://github.com/acme/app/pull/12"], ["--pr", "https://github.com/acme/app/pull/12"]],
     ])("refuses the malformed value in %j, naming what it expected and what it got", async (args, named) => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", ...args], io)).toBe(2);

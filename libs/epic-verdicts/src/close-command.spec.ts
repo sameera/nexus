@@ -473,6 +473,12 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
+    it("names an epic on a dotless intranet host by its URL in a re-run hint, which close reads back", () => {
+        const h = harness({ issuesRepo: () => ({ ok: false, error: { problem: "repo-unresolved", message: "no remote" } }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: `ghe/${ISSUES}` } })));
+        expect(err).toContain(`nexus close --epic https://ghe/${ISSUES}/issues/${EPIC}`);
+    });
+
     it("takes a github.com URL when the issues repository states no host", () => {
         const epicUrl = harness();
         expect(renderCloseOutcome(runCloseCommand(epicUrl.deps, input(epicUrl, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } }))).exitCode).toBe(0);

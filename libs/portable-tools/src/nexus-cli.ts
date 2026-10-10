@@ -3153,6 +3153,9 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             // the issue's URL; anything else is the entry path (an entry path of that shape is ./<path>).
             const ref = epicRef(a) ?? issueUrl(a);
             if (ref === "port") return refuse(`close cannot read an issue URL with a port through gh; got ${got(a)}.`);
+            if (ref === null && /^https?:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/pull\/\d+/i.test(a)) {
+                return refuse(`a pull request's URL goes with --pr; got ${got(a)}. Run nexus close --pr ${a}.`);
+            }
             if (ref !== null) {
                 given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
                 if (ref.repo !== null && !/^https?:\/\//i.test(a)) qualifiedPositionals.push(a);
