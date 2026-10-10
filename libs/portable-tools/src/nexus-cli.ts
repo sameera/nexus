@@ -59,7 +59,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parsePrReference, prRepoName, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { forgeHost, parsePrReference, prRepoName, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -113,6 +113,9 @@ import {
     TEMPLATE_PAYLOAD_DIRNAME,
     type SeedTemplatesResult,
 } from "./seed-templates.js";
+import { runConceptInvariants } from "./concept-invariants.js";
+import { runRecordConceptCheck } from "./record-concept-check.js";
+import { readingListPath, renderReadingGroup, runReadingList, type ReadingList } from "./reading-list.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
@@ -565,6 +568,48 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      content changes only through the revision path.",
         ].join("\n"),
         run: runRazorOffer,
+    },
+    "reading-list": {
+        summary: "Build the epic's concept-page reading list from page frontmatter, or apply the reviewer's selection.",
+        usage: [
+            "  nexus reading-list --draft <epic.md> [--input <file>] [--store <dir>]",
+            "      Match the input, the draft's title and its Description against the active pages' titles",
+            "      and aliases as whole phrases, add the pages they name one step away, cap the list at",
+            "      seven, write it into the draft's `concepts:` field and print it. Offered pages are",
+            "      saved beside the draft so razor-offer shows them. A draft that already carries a list",
+            "      keeps it.",
+            "  nexus reading-list --draft <epic.md> --apply <page,page,...>",
+            "      Write the reviewer's ticked pages into the draft; refuses a page that was not offered",
+            "      and any set larger than seven.",
+            "  nexus reading-list --check <epic.md> [--store <dir>]",
+            "      Print, as JSON, the listed pages that exist and are active (with their paths), the",
+            "      ones that do not, and the sentence that opens the record's Concept-store changes.",
+        ].join("\n"),
+        run: async (argv: string[], io: CliIo): Promise<number> => runReadingList(argv, io),
+    },
+    "record-concept-check": {
+        summary: "Check a record draft's Concept-store changes: each quoted statement is on its page, each cited decision states a trade-off.",
+        usage: [
+            "  nexus record-concept-check --draft <record.md> [--store <dir>]",
+            "      For each declared change, confirm the quoted statement appears on the named page (whitespace",
+            "      normalised), that the change cites a decision of the record, and that the decision states a",
+            "      trade-off. Also requires the pages-read sentence, and \"No concept-store change.\" when no",
+            "      change is listed. Writes nothing; exits 1 and names each line on a problem. A record with no",
+            "      Concept-store changes section is left alone.",
+        ].join("\n"),
+        run: async (argv: string[], io: CliIo): Promise<number> => runRecordConceptCheck(argv, io),
+    },
+    "concept-invariants": {
+        summary: "List the invariants on the epic's reading-list pages as they stood at the change's base, marking those a stated change covers.",
+        usage: [
+            "  nexus concept-invariants --epic <epic.md> --base <ref> [--record <record-body.md>] [--root <checkout>]",
+            "      Read each listed page from git at <ref> (never the working tree), list every numbered Key",
+            "      Invariant that is not struck through and mark each one a declared change in the record covers.",
+            "      Prints JSON with the invariants, any page not found, and the report sentence. In a hub",
+            "      workspace pass the hub checkout as --root. Exits 1 and prints nothing when the base cannot",
+            "      be read while the list is not empty.",
+        ].join("\n"),
+        run: async (argv: string[], io: CliIo): Promise<number> => runConceptInvariants(argv, io),
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -2621,7 +2666,16 @@ async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
         return 0;
     }
     const items: ChecklistItem[] = checklist(body);
-    io.stdout(renderChecklist(flags.draft, items));
+    // The reading list is one more numbered group, continuing the checklist's numbering, so one
+    // typed selection flips pages and stories alike (epic #896, story #897).
+    let offered: ReadingList | undefined;
+    try {
+        offered = JSON.parse(fs.readFileSync(readingListPath(path.resolve(io.cwd, flags.draft)), "utf8")) as ReadingList;
+    } catch {
+        offered = undefined;
+    }
+    const group: string[] = offered === undefined ? [] : renderReadingGroup(offered, items.length + 1);
+    io.stdout([renderChecklist(flags.draft, items), ...group].join("\n"));
     return 0;
 }
 
@@ -3110,8 +3164,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     // forge cannot be closed from here without mixing the two. github.com's SSH aliases are github.com.
     if (only !== undefined && "pr" in only.target && only.target.pr.host !== undefined) {
         const ownHost = (own ?? canonicalRepoRef(closeMigrationRunner, io.cwd))?.split("/")[0]?.toLowerCase();
-        const forge = (host: string): string => (host === "github.com" || host.endsWith(".github.com") || host.startsWith("github.com-") ? "github.com" : host);
-        if (ownHost !== undefined && forge(ownHost) !== forge(only.target.pr.host)) {
+        if (ownHost !== undefined && forgeHost(ownHost) !== forgeHost(only.target.pr.host)) {
             return refuse(`--pr names a pull request on ${only.target.pr.host}, but this checkout is on ${ownHost}; run close from a checkout on that forge; got ${got(only.form.slice("--pr ".length))}.`);
         }
     }

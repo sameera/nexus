@@ -251,6 +251,14 @@ The doc is the authoritative *why* source; the from-scratch architect analysis i
 **stripped** when deriving the record, because the record is decisions-and-rationale prose only
 (§template rule: no file paths / type names / API specs).
 
+## Phase 0.6 — Read the epic's reading list
+
+Run `nexus reading-list --check "${QDIR}/epic.md"`. It reads the `concepts:` list from the resolved epic and checks each name against the concept store. Pass the full text of every page it reports under `read` to the architect as `READING_LIST_PAGES`, whole: do not summarise, extract or truncate, because the refuted alternatives live in decision-log prose that no extraction finds reliably.
+
+- A page under `missing` (no such page, or not active) is **named to the lead in the run's output and in the record**, and the run continues without it. It is never an error.
+- An epic with no `concepts:` field, a hand-filed epic or one filed before the reading list existed, reads as an empty list.
+- Keep the command's `sentence` as `PAGES_READ`. Phase 3 writes it as the first line of Concept-store changes, so the record always says which pages it read, or that it read none.
+
 ## Phase 1 — Architectural analysis (delegate to nxs-architect)
 
 **Resolve the docs root first**. The architect reads context under it and never resolves it for
@@ -306,9 +314,10 @@ Inputs to read:
 - <docs-root>/product/context.md    # personas, strategy (reference, don't re-tabulate)
 - <docs-root>/system/stack.md       # technology stack
 - <docs-root>/system/standards/*    # standards-conformance pass (flag deviations + justify)
-- Any concept reading-list pages named in epic.md `concepts:` frontmatter.
-  (B3 makes this read live; until then it is manual / README-driven — if a concepts
-  list is present, grep docs for the matching pages and read them. Do NOT block if absent.)
+- READING_LIST_PAGES         # the full text of every active page named in epic.md `concepts:`
+                             #   (Phase 0.6): summary, behaviour, invariants and decision log, whole.
+                             #   Treat their recorded invariants as binding and their refuted
+                             #   alternatives as already decided. Do not search the docs for pages.
 
 Record format: approval-first   # or: old format, for a --revise of a record approved in
                                 #   the old format (chosen by Phase 3 step 1, before this call)
@@ -326,6 +335,10 @@ Number decisions D1…, guarantees G1…, risks R1… so each can cite the other
   quoted from the epic or story, the exact new wording, status pending); Delivered by (the story
   that delivers it; a decision no story delivers is new scope and must be said so); Guarantees
   (the IDs it supports).
+- CONCEPT CHANGES: for each place the design contradicts or replaces a statement on a listed page,
+  the page, the statement quoted exactly as the page words it, the replacing statement, and the
+  decision that causes it. The decision's trade-off names the recorded reasoning it reverses. If the
+  design contradicts no listed page, say so.
 - GUARANTEES the build must preserve, including security boundaries: one checkable sentence each,
   grouped under headings naming what a reviewer checks, each ending with its supporting decision
   IDs. Behaviour already true that must not break goes under "Existing behaviour to preserve".
@@ -394,7 +407,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       converted to the new format would match none of them.
 
     For the default template, verify it keeps the approval-first section order: How it works,
-    Approval brief, Guarantees, Risks and dependencies, optional Concept-store changes, and Design
+    Approval brief, Guarantees, Risks and dependencies, Concept-store changes, and Design
     rationale and mechanism. A template with those headings out of order stops the draft; move the old copy
     aside, run `nexus seed-templates`, then carry local tuning into the new copy. This check matters
     even when the Guarantees heading exists, because a reordered brief can hide the approval surface
@@ -413,12 +426,11 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     | `complexity` | Required sections |
     | --- | --- |
     | **S** or **M** | **How it works**, **Guarantees** and the appendix's **Decisions and reasons**. All other sections optional: omit if empty; do not force-fill. |
-    | **L** or **XL** | **Every** template section, except Concept-store changes. A required section left empty states why. |
+    | **L** or **XL** | **Every** template section. A required section left empty states why. |
 
     The **Approval brief appears at every size whenever any of its groups has an entry**, because it
     is a list fixed by rule and a tier cannot make it optional. At L or XL an empty brief states
-    why, like any other empty section. Concept-store changes appears only when the design changes a
-    concept-store statement, at every size.
+    why, like any other empty section. Concept-store changes is present in every new-format record at every size: it opens with the pages-read sentence, then lists the changes the design makes to concept-store statements. The rule lives here, not in the template, so a project's seeded template copy keeps working.
 
     An old-format revision keeps the old tiers: **Key Decisions** and **Constraints & Invariants**
     at S or M, and every section at L or XL.
@@ -436,7 +448,25 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     - **Guarantees.** The architect's groups, each named for what a reviewer checks. Each
       guarantee ends with the decisions it supports, or sits under "Existing behaviour to
       preserve".
-    - **Risks and dependencies**, and **Concept-store changes** when the architect named any.
+    - **Risks and dependencies**.
+    - **Concept-store changes**, always. Open with the pages-read sentence from Phase 0.6 as a plain
+      line, not a list item, so the section reader still lists only declared changes. Then list the
+      changes the architect named. A **guarantee that keeps an invariant on a listed page** names that
+      page and the invariant's number inside its sentence, for example "as the concept-store page's
+      invariant 7 requires", with the closing decision citation last (the section reader takes a
+      guarantee's decisions only from a trailing parenthetical). A guarantee with no decision of its
+      own goes under "Existing behaviour to preserve".
+      **State every design change to a listed page as a declared change**, one list item each, in
+      this exact form: `- <page> page: "<current statement, copied exactly>" becomes "<replacing
+      statement>" (D<n>)`. It names the page by its file name, quotes the page's current statement
+      exactly, gives the replacing statement and cites the decision that causes it on the same line.
+      A design that contradicts an invariant on a listed page must state it this way; it is never
+      left to the guarantees alone. **The decision a change cites must state, as its Trade-off, the
+      recorded reasoning the change reverses**, naming it. Writing `none` there is refused at the
+      checkpoint. The existing rule that every decision with a trade-off appears once in the Approval
+      brief then puts the reversal in front of the approver, under "Choices with trade-offs" or
+      "Resolve before approval". A design that changes no listed page closes the section with the
+      plain line "No concept-store change." instead of a list. Never state both.
     - **How it works.** Explain how the design meets the epic's outcomes, from the Mechanism and the
       decisions. Use only the vocabulary of the epic and its stories, and name no internal
       component: no term from the appendix's Terms list appears here. Do not restate an outcome the
@@ -585,6 +615,14 @@ story issue to make the wording appear. The lead applies the wording on GitHub, 
 decision to the wording the issue already uses, and the check runs again on the next pass through
 this checkpoint. A new BLOCKER risk is model-added, so it appears on the cut list below like any
 other.
+
+**Then check the Concept-store changes** (new format only), beside the amendment check:
+
+```bash
+nexus record-concept-check --draft "<scratch>/record-body.labelled.md"
+```
+
+It confirms that each declared change's quoted statement appears on the named page, with whitespace normalised because pages hard-wrap their lines, that the change cites a decision of this record, that the decision states a trade-off, and that the section opens with the pages-read sentence and says "No concept-store change." when it lists no change. **A non-zero exit stops the run: file nothing.** Report each line it names verbatim. Fix the quote, the citation or the trade-off in the draft and run the check again; never paraphrase around a mismatch, and never delete a change to get past it. A record cannot state a change to a page that does not exist yet.
 
 **Second, run the record checker again** on the labelled draft, now that the amendment results are
 written into it:

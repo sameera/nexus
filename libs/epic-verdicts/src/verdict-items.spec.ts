@@ -490,3 +490,38 @@ describe("the key decisions are the record's decisions plus confirmed stubs (epi
         expect(parseItemDraft(JSON.stringify({ departures: [], confirmedStubs: [{ ...stub, reason: "" }] })).ok).toBe(false);
     });
 });
+
+describe("a concept-invariant departure rides the ordinary departure machinery (epic #896, D11; G19, G20, G23)", () => {
+    const concept = (over: Partial<DepartureDraft> = {}): DepartureDraft =>
+        draft({ departsFrom: "distiller page, invariant 3", summary: "writes the store from the reading list", breaksGuarantee: false, files: ["libs/x.ts"], ...over });
+
+    it("is high, not critical, and blocks until answered", () => {
+        const j = assignItemIds(null, [concept()]);
+        expect(j.items[0]).toMatchObject({ id: "DV1", severity: "high", answer: null, found: true });
+        expect(openCounts(j)).toMatchObject({ critical: 0, high: 1 });
+    });
+
+    it("keeps its ID and answer across re-runs, and is reported as no longer found when it goes", () => {
+        const one = assignItemIds(null, [concept()]);
+        const answered: Judgments = { ...one, items: one.items.map((d) => ({ ...d, answer: ANSWER })) };
+        expect(assignItemIds(answered, [concept()]).items[0]).toMatchObject({ id: "DV1", answer: ANSWER });
+        const gone = assignItemIds(answered, []).items[0];
+        expect(gone).toMatchObject({ id: "DV1", found: false, answer: ANSWER });
+    });
+
+    it("counts an answered concept departure as nothing open", () => {
+        const one = assignItemIds(null, [concept()]);
+        const answered: Judgments = { ...one, items: one.items.map((d) => ({ ...d, answer: ANSWER })) };
+        expect(openCounts(answered)).toMatchObject({ critical: 0, high: 0 });
+    });
+
+    it("tells apart two invariants of one page", () => {
+        const j = assignItemIds(null, [concept(), concept({ departsFrom: "distiller page, invariant 4" })]);
+        expect(ids(j)).toEqual(["DV1", "DV2"]);
+    });
+
+    it("records its judgment under the existing guarantee result kind, which an earlier release reads", () => {
+        const results = [{ kind: "guarantee", about: "distiller page, invariant 3", verdict: "broken", files: ["libs/x.ts"] }];
+        expect(parseItemDraft(JSON.stringify({ departures: [], results, epicLevel: "skip" }))).toMatchObject({ ok: true, results });
+    });
+});

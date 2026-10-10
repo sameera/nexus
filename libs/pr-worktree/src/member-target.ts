@@ -57,13 +57,23 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
 }
 
 /**
+ * The forge a host names, as gh addresses it: github.com for github.com's SSH aliases
+ * (`github.com-work`, `ssh.github.com`), the host itself otherwise, lowercased.
+ */
+export function forgeHost(host: string): string {
+    const h = host.toLowerCase();
+    return h === "github.com" || h.endsWith(".github.com") || h.startsWith("github.com-") ? "github.com" : h;
+}
+
+/**
  * The `host/owner/repo` a pull-request reference lives in. A URL names its forge; `owner/repo#N`
  * lives on the checkout's own, `own` as canonicalRepoRef gives it; a bare number is the checkout's
  * own repository. `owner/repo` alone when no host is known; null for a bare number with no `own`.
  */
 export function prRepoOnForge(ref: ParsedPrReference, own: string | null): string | null {
     if (ref.repo === null) return own;
-    const host = ref.host ?? own?.split("/")[0];
+    const ownHost = own?.split("/")[0];
+    const host = ref.host ?? (ownHost === undefined ? undefined : forgeHost(ownHost));
     return host === undefined ? ref.repo : `${host}/${ref.repo}`;
 }
 

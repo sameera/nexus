@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parsePrReference, prRepoName, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
+import { forgeHost, parsePrReference, prRepoName, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
 import { defaultRunner } from "./run.js";
 import { initRepo, makeParent, writeCommit } from "./git-fixtures.js";
 
@@ -35,6 +35,12 @@ describe("prRepoOnForge — which forge a pull-request reference lives on", () =
         expect(prRepoOnForge({ repo: "acme/app", number: 1, host: "github.com" }, own)).toBe("github.com/acme/app");
         expect(prRepoOnForge({ repo: "acme/app", number: 1 }, own)).toBe("ghe.corp/acme/app");
         expect(prRepoOnForge({ repo: null, number: 1 }, own)).toBe(own);
+    });
+
+    it("reads owner/repo#N on github.com when the checkout's remote uses a github.com SSH alias", () => {
+        expect(prRepoOnForge({ repo: "acme/app", number: 1 }, "github.com-work/acme/hub")).toBe("github.com/acme/app");
+        expect(forgeHost("ssh.github.com")).toBe("github.com");
+        expect(forgeHost("GHE.corp")).toBe("ghe.corp");
     });
 
     it("leaves the host to the caller when the checkout names no forge", () => {

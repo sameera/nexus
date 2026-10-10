@@ -212,6 +212,14 @@ describe("the sections a later stage reads from an approved record (epic #787, s
         expect(recordSections(body).conceptChanges[0]).toMatchObject({ page: "Derived Filing Body", old: undefined, new: undefined, text: expect.stringContaining("added as the sixth") });
     });
 
+    it("splits a change that cites its decision after the new wording, and reads the earlier form as before", () => {
+        const body: string = '## Guarantees\n\n- G1. A thing.\n\n## Concept-store changes\n\nThis record read the concept page distiller.\n\n- distiller page: "It infers." becomes "It infers; the list is never a drain input." (D4)\n- distiller page: "A." becomes "B", (D1, D2).\n- distiller page: "A" becomes "B".\n';
+        const changes = recordSections(body).conceptChanges;
+        expect(changes).toHaveLength(3);
+        expect(changes[0]).toMatchObject({ page: "distiller", old: "It infers.", new: "It infers; the list is never a drain input.", decisions: ["D4"] });
+        expect(changes[2]).toMatchObject({ old: "A", new: "B", decisions: [] });
+    });
+
     it("reads a blocker risk and a guarantee that cites no decision in the other worked example", () => {
         const record: RecordSections = recordSections(RECORD_245);
         expect(record.format).toBe("new");

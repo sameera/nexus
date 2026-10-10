@@ -248,6 +248,8 @@ export interface SectionConceptChange {
     page: string | undefined;
     old: string | undefined;
     new: string | undefined;
+    /** The decisions the line cites after the new wording, e.g. `(D4)`; empty for a line in the earlier form. */
+    decisions: string[];
     text: string;
 }
 
@@ -309,8 +311,9 @@ function sectionConceptChange(c: RecordLine): SectionConceptChange {
     const page: string | undefined = text.match(/^([^:"]+?)(?: page)?:\s/)?.[1].trim();
     // Split only a line that ends at the new wording: anything after it is part of the rewrite, and
     // a split would drop it. Such a line is given whole in `text`.
-    const rewrite: RegExpMatchArray | null = text.match(/:\s*"([^"]+)"\s+becomes\s+"([^"]+)"\.?$/);
-    return { line: c.line, page, old: rewrite?.[1], new: rewrite?.[2], text };
+    // The decision that causes the change may close the line: `... becomes "<new>" (D4).`
+    const rewrite: RegExpMatchArray | null = text.match(/:\s*"([^"]+)"\s+becomes\s+"([^"]+)"\.?(?:\s*\(((?:D\d+)(?:\s*,\s*D\d+)*)\)\.?)?$/);
+    return { line: c.line, page, old: rewrite?.[1], new: rewrite?.[2], decisions: rewrite?.[3] === undefined ? [] : idsIn(rewrite[3], "D"), text };
 }
 
 /**

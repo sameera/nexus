@@ -5,7 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.94.0
+## 0.98.0
 
 - **Close takes the epic.** `nexus close --epic <N>`, or a bare `nexus close <N>`, closes epic
   `<N>` in the issues repository the checkout resolves to. Close reads no single pull request: its
@@ -31,6 +31,62 @@ behaviour says so.
   no longer answers a typing mistake with "close runs only against a merged pull request".
   `--epic`, `--pr` and a bare number together are refused. `/nxs.close` relays all three forms
   unchanged, and its refusal without arguments names `nexus close --epic <N>`.
+
+## 0.97.0
+
+- **The conformance gate flags code that breaks an invariant on a listed concept page.** Analyze
+  now reads the numbered invariants on the pages in the epic's reading list, as those pages stood
+  at the base the change is diffed from, so a pull request that edits a page cannot change what it
+  is checked against. It skips any invariant the record's stated concept-store changes quote and
+  judges the rest against the code. Code that breaks one is listed as a departure that names the
+  page and the invariant number, at severity high, and it blocks close until an engineer answers it
+  like any other departure: accepted, left open, kept across re-runs and reported as no longer
+  found. The review gains one line stating how many concept invariants were checked, or that none
+  were checked because the epic lists no concept pages, and naming any listed page it could not
+  find. If the store cannot be read at the base while the epic lists pages, the run stops and
+  publishes nothing. This works with no record too. The verdict adds no new field or result kind,
+  so an earlier release's close and merge pre-check read it normally. New verb: `nexus
+  concept-invariants`.
+
+## 0.96.0
+
+- **A design that contradicts a concept page says so at approval.** `/nxs.decision-record` now
+  states every change the design makes to a listed page as one line: the page, the page's current
+  statement quoted exactly, the replacing statement and the decision that causes it. A design that
+  changes no listed page says "No concept-store change." The cited decision must state, as its
+  trade-off, the recorded reasoning the change reverses, so the reversal appears in the approval
+  brief with the other trade-offs. Before filing, `nexus record-concept-check` confirms that each
+  quoted statement appears on its page (whitespace normalised), that each change cites a decision
+  of the record, and that the decision's trade-off is not `none`. A mismatch stops the run and
+  names the line, and nothing is filed. A record with no Concept-store changes section, such as
+  one approved before this release, is not checked.
+
+## 0.95.0
+
+- **The record stage designs against the epic's reading list.** `/nxs.decision-record` runs
+  `nexus reading-list --check` on the resolved epic and gives the architect the full text of every
+  listed page that exists and is active: summary, behaviour, invariants and decision log, whole.
+  A listed page that is missing or inactive is named in the run's output and in the record, and the
+  run continues without it. An epic with no list reads as an empty one. Concept-store changes is now
+  present in every new-format record at every size, and opens with one plain sentence naming the
+  pages the architect read, or saying that none were read. A guarantee that keeps an invariant on a
+  listed page names that page and the invariant's number inside its sentence, before its closing
+  decision citation. The tier rule that exempted Concept-store changes is gone; seeded template
+  copies keep working without reseeding because the presence rule lives in the stage.
+
+## 0.94.0
+
+- **The epic stage proposes a reading list of concept pages.** After drafting, `/nxs.epic` runs
+  `nexus reading-list`, which matches the lead's input, the drafted title and the Description
+  against the titles and aliases of active concept pages as whole phrases, then adds the pages
+  those matches name, one step away and no further. The list holds at most seven pages: pages the
+  input names come first, then neighbours named by more matches. No model picks the pages, so the
+  same input over the same store gives the same list, and a promoted backlog stub gets one too.
+  The approval digest shows the list as the last group of its numbered checklist, each proposed
+  page ticked with the reason it was proposed and each page beyond the cap unticked. The same typed
+  selection flips pages and stories; a selection that leaves more than seven pages ticked is
+  refused. The approved list is filed in the epic issue's existing hidden metadata and comes back
+  unchanged when a later stage rebuilds the epic. Only page names travel on the issue.
 
 ## 0.93.1
 
