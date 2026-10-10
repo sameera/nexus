@@ -2195,6 +2195,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["#159"], "nexus close --epic 159"],
         [["--epic", "#159"], "nexus close --epic 159"],
         [["--epic", "geo-nexus/docs#159"], "nexus close --epic 159"],
+        [["--epic", "https://github.com/geo-nexus/docs/issues/159"], "nexus close --epic 159"],
         [["geo-nexus/docs#159"], "nexus close --epic 159"],
         [["159", "--epic", "geo-nexus/docs#159"], "nexus close --epic 159"],
         [["--pr", "#5"], "nexus close --pr 5"],

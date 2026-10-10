@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoHost, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -423,17 +423,17 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // A pull request only finds the epic. It is read first: one that has not merged is the cheap
         // early answer for a lead who ran close too soon, before anything about the issues repository.
         const ref = input.target.pr;
-        // Close reads the epic's issues through gh on the checkout's forge (gh's own default when the
-        // checkout names none), as it reads a bare or an owner/repo#N pull request; only a URL can
-        // name another forge, and mixing the two in one run would read a pull request on one and the
-        // issues on the other.
-        const issuesForge = deps.checkoutForge(repoRoot) ?? "github.com";
+        // Close reads the epic's issues on the forge the issues repository names, else the checkout's
+        // (where an unqualified issues repository comes from), else gh's default. A pull-request URL
+        // on another forge would read the pull request on one and the issues on the other.
+        const configured = deps.issuesRepo(repoRoot);
+        const issuesForge = (configured.ok ? issuesRepoHost(configured.repos.issuesRepo) : null) ?? deps.checkoutForge(repoRoot) ?? "github.com";
         if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge) {
             const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
             return stopped({
-                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge}, this checkout's forge`,
+                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge}`,
                 item: asked,
-                remedy: "run close from a checkout on the pull request's forge, or name the epic: nexus close --epic <N>",
+                remedy: "name the epic instead: nexus close --epic <N>",
             });
         }
         const read = deps.readPr(repoRoot, ref);
@@ -1138,7 +1138,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kinds = resolveKindClassification(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
             const slug = issuesRepoSlug(issuesRepo);
-            return resolveStories(run, root, slug, kinds.classification, {
+            return resolveStories(onIssuesHost(run, issuesRepo), root, slug, kinds.classification, {
                 prRepo,
                 closingIssues: pr.closingIssues,
                 commitMessages: pr.commitMessages,
@@ -1150,26 +1150,26 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kinds = resolveKindClassification(root);
             if (!kinds.ok) return { ok: false, message: kinds.error.message };
             const slug = issuesRepoSlug(issuesRepo);
-            const facts = fetchIssueFacts(run, root, slug, issue);
+            const facts = fetchIssueFacts(onIssuesHost(run, issuesRepo), root, slug, issue);
             if (!facts.ok) return { ok: false, message: facts.error.message };
             if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null };
             const kind = classifyIssueKind(kinds.classification, { number: issue, labels: facts.facts.labels, issueType: facts.facts.issueType });
             return kind.ok ? { ok: true, exists: true, kind: kind.kind, parent: facts.facts.parent } : { ok: false, message: kind.error.message };
         },
-        resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
+        resolveEpic: (root, issuesRepo, epic) => resolveEpic(onIssuesHost(run, issuesRepo), root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {
             const slug = issuesRepoSlug(issuesRepo);
-            const r = fetchSubIssueFacts(run, root, slug, epic);
+            const r = fetchSubIssueFacts(onIssuesHost(run, issuesRepo), root, slug, epic);
             return r.ok ? { ok: true, facts: r.facts } : { ok: false, message: r.error.message };
         },
         excludedStories: (root, issuesRepo, stories) => {
             const label = resolvePublishingKey(root, "no-pr-label");
-            return label.length > 0 ? stories.filter((s) => storyCarriesLabel(run, root, issuesRepo, s, label)) : [];
+            return label.length > 0 ? stories.filter((s) => storyCarriesLabel(onIssuesHost(run, issuesRepo), root, issuesRepo, s, label)) : [];
         },
         ranges: (root, issuesRepo, epic, input) => {
-            const collected = fetchShippedRecords(run, root, issuesRepo, epic);
+            const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepo, epic);
             if (!collected.ok) return { ok: false, problem: "records-unreadable", message: collected.error.message };
-            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepo, input.record), {
+            const derived = deriveCloseRanges(closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepo, input.record), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),
@@ -1205,7 +1205,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         findDistillBranch: (repoRoot, epic) => findEpicDistillBranch(run, repoRoot, epic),
         openWorktree: (repoRoot, epic, date) => openEpicDistillWorktree(run, repoRoot, epic, date),
         recordBody: (root, issuesRepo, record) => {
-            const r = fetchRecord(run, root, record, issuesRepo);
+            const r = fetchRecord(onIssuesHost(run, issuesRepo), root, record, issuesRepo);
             return r.ok ? { ok: true, body: r.record.body, digest: r.record.digest } : { ok: false, message: r.error.message };
         },
         commitEntry: (wtPath, files, message) => {
@@ -1234,16 +1234,16 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         postComment: (root, issuesRepo, issue, body) => {
             const { owner, repo } = issuesRepoSlug(issuesRepo);
-            const r = run("gh", ["api", "--method", "POST", `repos/${owner}/${repo}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
+            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--method", "POST", `repos/${owner}/${repo}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
             return r.status === 0 ? { ok: true } : { ok: false, message: r.stderr.trim() || "gh api failed" };
         },
         storyWaivers: (root, issuesRepo, story) => {
-            const r = readStoryWaivers(run, root, issuesRepo, story);
+            const r = readStoryWaivers(onIssuesHost(run, issuesRepo), root, issuesRepo, story);
             return r.ok ? { ok: true, comments: r.value } : { ok: false, message: r.error.message };
         },
         epicMentions: (root, issuesRepo, epic) => {
             const { owner, repo } = issuesRepoSlug(issuesRepo);
-            const r = run("gh", ["api", "--paginate", `repos/${owner}/${repo}/issues/${epic}/timeline`, "--jq", MENTIONS_JQ], { cwd: root });
+            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--paginate", `repos/${owner}/${repo}/issues/${epic}/timeline`, "--jq", MENTIONS_JQ], { cwd: root });
             if (r.status !== 0) return { ok: false, message: r.stderr.trim() || "gh api failed" };
             const issues: MentioningIssue[] = [];
             for (const line of r.stdout.split("\n")) {
@@ -1265,7 +1265,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         fileStubs: (root, issuesRepo, epic, stubs) => fileDeferredStubs(root, issuesRepo, `epic-${epic}`, stubs, opts.filerEnv),
         writeMarker: (root, issuesRepo, story) => {
-            const r = waiveStory(run, root, story, resolvePublishingKey(root, "no-pr-label"), issuesRepo);
+            const r = waiveStory(onIssuesHost(run, issuesRepo), root, story, resolvePublishingKey(root, "no-pr-label"), issuesRepo);
             return r.ok ? { ok: true } : { ok: false, message: r.error.message };
         },
         push: (wtPath, branch) => pushEpicDistillBranch(run, wtPath, branch),

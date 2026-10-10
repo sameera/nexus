@@ -524,7 +524,7 @@ describe("nexus close — keyed by the epic (#906)", () => {
             const out = runCloseCommand(h.deps, input(h));
             expect(out.ok && out.resumed, configured).toBe(true);
             // Every read names the issues repository in its one canonical form.
-            expect(new Set(readIn), configured).toEqual(new Set([ISSUES]));
+            expect(new Set(readIn), configured).toEqual(new Set([`github.com/${ISSUES}`]));
         }
     });
 
@@ -1813,7 +1813,7 @@ describe("nexus close — the record fetch, the commit and the record-issue comm
     it("posts one comment on the record issue, and only there, naming a failed post", () => {
         const ok = recorder(() => ({ status: 0, stdout: "{}", stderr: "" }));
         expect(closeCommandDeps(ok.run, { singleRepo: () => true }).postComment("/repo", `github.com/${ISSUES}`, RECORD, "## Amended")).toEqual({ ok: true });
-        expect(ok.calls).toEqual([["gh", "api", "--method", "POST", `repos/${ISSUES}/issues/${RECORD}/comments`, "-f", "body=## Amended"]]);
+        expect(ok.calls).toEqual([["gh", "api", "--hostname", "github.com", "--method", "POST", `repos/${ISSUES}/issues/${RECORD}/comments`, "-f", "body=## Amended"]]);
         const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 403" }));
         expect(closeCommandDeps(failing.run, { singleRepo: () => true }).postComment("/repo", ISSUES, RECORD, "x")).toEqual({ ok: false, message: "HTTP 403" });
 

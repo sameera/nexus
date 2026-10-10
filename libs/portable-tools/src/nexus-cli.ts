@@ -59,7 +59,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parsePrReference, prRepoName, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoName, resolveAnalyzeTarget, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -3089,6 +3089,11 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return ref !== null && ref.repo === null ? ref.number : null;
     };
     const given: { form: string; target: CloseTarget }[] = [];
+    // An issue's URL as the browser shows it: https://host/owner/repo/issues/N.
+    const issueUrl = (value: string): { repo: string; number: number } | null => {
+        const m = /^https?:\/\/[^/\s]+\/([^/\s]+)\/([^/\s]+)\/issues\/(\d+)\/?$/i.exec(value.trim());
+        return m === null || Number(m[3]) <= 0 ? null : { repo: `${m[1]}/${m[2]}`.toLowerCase(), number: Number(m[3]) };
+    };
     let recover: number | undefined;
     let handoff: string | null = null;
     const paths: string[] = [];
@@ -3096,8 +3101,9 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         const a = argv[i];
         if (a === "--epic") {
             const value = argv[++i];
-            // `N`, `#N`, or `owner/repo#N` as close's reports print an epic; close checks the repository.
-            const ref = value === undefined ? null : parseIssueRef(value);
+            // `N`, `#N`, `owner/repo#N` as close's reports print an epic, or the epic issue's URL; close
+            // checks the repository.
+            const ref = value === undefined ? null : (parseIssueRef(value) ?? issueUrl(value));
             if (ref === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
             given.push({ form: `--epic ${value}`, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
         } else if (a === "--pr") {
@@ -3142,31 +3148,24 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         for (const line of rendered.stderr) io.stderr(line);
         return rendered.exitCode;
     }
-    // Keyed by what each names, so the same epic or pull request given twice is one target. A pull
-    // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
-    // checkout's own repository, read only when two pull requests are there to compare.
-    const targets = new Map<string, { form: string; target: CloseTarget }>();
-    const own = given.filter((g) => "pr" in g.target).length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
-    for (const g of given) {
-        const t = g.target;
-        const key = "epic" in t ? `epic #${t.epic}` : `pr ${prRepoName(t.pr, own) ?? ""}#${t.pr.number}`;
-        const known = targets.get(key);
-        // One epic number given bare and qualified is one target; the qualified form is kept so
-        // close checks its repository. Two different repositories for one number are two targets.
-        if (known !== undefined && "epic" in known.target && "epic" in t) {
-            const [a, b] = [known.target.repo?.toLowerCase(), t.repo?.toLowerCase()];
-            if (a !== undefined && b !== undefined && a !== b) targets.set(`${key} ${b}`, g);
-            else if (a === undefined && b !== undefined) targets.set(key, g);
-        } else if (known === undefined) targets.set(key, g);
+    // The same epic or pull request named twice is one target. Epics compare by number, with at most
+    // one repository among them (the qualified form is kept, so close checks it). Pull requests
+    // compare as host/owner/repo#N, a bare number filled in from the checkout's own repository, read
+    // only when two of them need comparing.
+    const epics = given.filter((g): g is { form: string; target: { epic: number; repo?: string } } => "epic" in g.target);
+    const prs = given.filter((g): g is { form: string; target: { pr: ParsedPrReference } } => "pr" in g.target);
+    const own = prs.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
+    const numbers = new Set(epics.map((g) => g.target.epic));
+    const repos = new Set(epics.flatMap((g) => (g.target.repo === undefined ? [] : [g.target.repo.toLowerCase()])));
+    const pulls = new Set(prs.map((g) => `${prRepoName(g.target.pr, own) ?? ""}#${g.target.pr.number}`));
+    if (numbers.size + pulls.size > 1 || repos.size > 1) {
+        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.`);
     }
-    if (targets.size > 1) {
-        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${[...targets.values()].map((t) => t.form).join(" and ")}.`);
-    }
+    const only = epics.find((g) => g.target.repo !== undefined) ?? epics[0] ?? prs[0];
     if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
-    if (targets.size === 0 && paths.length > 0) {
+    if (only === undefined && paths.length > 0) {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
     }
-    const [only] = targets.values();
     if (only === undefined && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
     if (only === undefined) {
         io.stderr(usage);
