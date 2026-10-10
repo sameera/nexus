@@ -2,7 +2,7 @@
 title: "Close Over Several Pull Requests"
 aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
 touches: ["pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization", "shipped-ledger"]
-last_updated_by: "#829"
+last_updated_by: "#907"
 status: active
 verification: verified
 ---
@@ -82,3 +82,7 @@ writes the fact and which side spends it.
 ### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
 
 Mechanical reciprocity fan-out: the epic-wide receipt is retired, so the edge is removed. This close already reads its pull-request set from the epic's records. It still derives a receipt from those records once, writing no file, to notice a story that shipped inside a sibling's pull request, and the storyless-story waiver this page states is unchanged.
+
+### 2026-10-10 — #907 — The close command takes the epic's number, and a pull request is only a way to find it
+
+The close was already addressed at the epic, but the command still asked for one pull request and used it only to find that epic. When an epic is made up of several pull requests, forcing the lead to pick one of them is confusing, because whichever one they pick, the close covers them all. The command now takes the epic's issue number directly. A pull request may still be given as a shortcut, in any of the forms the conformance stage accepts, and the command finds its epic and then runs exactly as it does for the number. Refuted alternative: keep the pull request as the only argument and teach it to read a pull request named in another repository. That repairs the failure for a member repository's pull request, but it still makes the lead choose one pull request to stand for the whole epic.
