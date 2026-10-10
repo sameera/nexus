@@ -146,7 +146,7 @@ export function resolvePr(
             error: {
                 problem: "pr-not-merged",
                 message:
-                    `PR #${prNumber} is ${pr.state}, not merged; /nxs.close --pr requires a merged PR. ` +
+                    `PR #${prNumber} is ${pr.state}, not merged; close over a pull request requires a merged PR. ` +
                     `Merge the PR first (analyze may run pre-merge; close may not).`,
             },
         };

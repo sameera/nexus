@@ -400,7 +400,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const source = "epic" in input.target ? "typed" : link !== null ? "link" : "pr";
         const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
         const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
-        const prHint = source === "typed" && !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}` : "";
+        const prHint = source === "typed" && !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";
         const unmarked = kind.exists && kind.kind === "other" ? `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}` : "";
         return stopped({
             reason: `${epicRef}${source === "link" ? ", which the entry path's link names," : ""} ${is}${parent}; close closes only an issue filed as an epic`,
@@ -1059,9 +1059,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
             if (ref.repo === null) return resolvePr(run, repoRoot, ref.number, { requireMerged: false });
-            // A qualified reference names no host; the checkout's own forge is the one it lives on.
-            const host = canonicalRepoRef(run, repoRoot)?.split("/")[0] ?? "github.com";
-            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host.toLowerCase() === "github.com" ? ref.repo : `${host}/${ref.repo}` });
+            // `owner/repo` names no host: it lives on the checkout's own forge. `host/owner/repo` (from a URL) names its own.
+            const host = ref.repo.split("/").length === 3 ? null : canonicalRepoRef(run, repoRoot)?.split("/")[0];
+            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host ? `${host}/${ref.repo}` : ref.repo });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {

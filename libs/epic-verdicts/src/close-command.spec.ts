@@ -2112,16 +2112,18 @@ describe("nexus close — the back-references, the epic close, the marker and th
     const deps = (run: Runner) => closeCommandDeps(run, { singleRepo: () => true });
 
     it("reads a repository-qualified pull request on the checkout's own forge (#906)", () => {
-        const viaGh = (remote: string) => {
+        const viaGh = (remote: string, repo = "acme/member") => {
             const rec = recorder((args) =>
                 args.includes("get-url") ? { status: 0, stdout: `${remote}\n`, stderr: "" } : args.includes("remote") ? { status: 0, stdout: "origin\n", stderr: "" } : { status: 1, stdout: "", stderr: "stop" },
             );
-            deps(rec.run).readPr("/repo", { repo: "acme/member", number: 7 });
+            deps(rec.run).readPr("/repo", { repo, number: 7 });
             const gh = rec.calls.find((c) => c[0] === "gh" && c[1] === "pr") ?? [];
             return gh[gh.indexOf("--repo") + 1];
         };
-        expect(viaGh("git@github.com:acme/hub.git")).toBe("acme/member");
+        expect(viaGh("git@github.com:acme/hub.git")).toBe("github.com/acme/member");
         expect(viaGh("https://ghe.corp/acme/hub.git")).toBe("ghe.corp/acme/member");
+        // A URL on another forge already carries its host.
+        expect(viaGh("git@github.com:acme/hub.git", "ghe.other/acme/member")).toBe("ghe.other/acme/member");
     });
 
     it("reads what an issue is filed as, and its parent, in the issues repository (#906)", () => {
