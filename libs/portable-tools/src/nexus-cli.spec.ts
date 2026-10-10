@@ -2215,6 +2215,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--epic"], ["--epic", "issue number", "nothing"]],
         [["--recover", "abc"], ["--recover", "issue number", "abc"]],
         [["--recover", "10", "--recover", "12"], ["--recover", "one closed epic", "10", "12"]],
+        [["--pr", "https://ghe.corp:8443/acme/app/pull/7"], ["--pr", "port", "ghe.corp:8443"]],
     ])("refuses the malformed value in %j, naming what it expected and what it got", async (args, named) => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", ...args], io)).toBe(2);
@@ -2247,6 +2248,16 @@ describe("nexus close — the argument forms (#906)", () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", ".nexus/queue/epic-90/epic.md"], io)).toBe(2);
         expect(io.err.join("\n")).toMatch(/entry path does not name the epic/);
+    });
+
+    it("takes a bare --pr and the same pull request qualified with the checkout's repository as one", async () => {
+        const repo = memberCheckout();
+        execFileSync("git", ["remote", "add", "origin", "git@github.com:acme/app.git"], { cwd: repo });
+        const io: CapturedIo = makeIo(repo);
+        expect(await runNexusCli(["close", "--pr", "5", "--pr", "acme/app#5"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/reason: .*member/);
+        const other: CapturedIo = makeIo(repo);
+        expect(await runNexusCli(["close", "--pr", "5", "--pr", "acme/other#5"], other)).toBe(2);
     });
 
     it("names what is missing when it is given arguments but no epic", async () => {

@@ -66,7 +66,7 @@ import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
 import { deriveRangeList, type RangeListItem } from "@nexus/pr-worktree/range-list";
 import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
-import { canonicalRemote } from "@nexus/workspace/canonical-remote";
+import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -3033,10 +3033,20 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         const m = value === undefined ? null : /^#?(\d+)$/.exec(value);
         return m !== null && Number(m[1]) > 0 ? Number(m[1]) : null;
     };
-    // Keyed by what each names, so the same epic or pull request given twice is one target.
+    // Keyed by what each names, so the same epic or pull request given twice is one target. A pull
+    // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
+    // checkout's own repository, so `--pr 5` and `--pr owner/repo#5` there are one pull request.
     const targets = new Map<string, { form: string; target: CloseTarget }>();
+    let own: string[] | null | undefined;
+    const ownRepo = (): string[] | null => (own ??= canonicalRepoRef(closeMigrationRunner, io.cwd)?.split("/") ?? null);
     const add = (form: string, target: CloseTarget): void => {
-        const key = "epic" in target ? `epic ${target.epic}` : `pr ${target.pr.host === "github.com" ? "" : (target.pr.host ?? "")}/${target.pr.repo ?? ""}#${target.pr.number}`;
+        let key: string;
+        if ("epic" in target) key = `epic ${target.epic}`;
+        else {
+            const [host, owner, name] = ownRepo() ?? [];
+            const repo = target.pr.repo ?? (owner === undefined ? "" : `${owner}/${name}`);
+            key = `pr ${target.pr.host ?? host ?? "github.com"}/${repo}#${target.pr.number}`.toLowerCase();
+        }
         if (!targets.has(key)) targets.set(key, { form, target });
     };
     let recover: number | undefined;
@@ -3053,6 +3063,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             const value = argv[++i];
             const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
+            // gh addresses a forge by host alone, so a URL that needs a port cannot be read through it.
+            if (/^https?:\/\/[^/\s]*:\d+\//i.test(value ?? "")) {
+                return refuse(`--pr cannot read a pull-request URL with a port through gh; run close from a checkout on that forge with --pr owner/repo#N; got ${got(value)}.`);
+            }
             add(`--pr ${value}`, { pr: ref });
         } else if (a === "--recover") {
             const value = argv[++i];
