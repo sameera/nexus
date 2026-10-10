@@ -869,6 +869,19 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(ladderRepo).toEqual(["acme/code"]);
     });
 
+    it("stops, reading nothing, on a pull request on another forge than the issues repository", () => {
+        let read = false;
+        const h = harness({
+            readPr: () => {
+                read = true;
+                return { ok: true, pr: prInfo() };
+            },
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: "acme/app", number: 7, host: "ghe.corp" } } })));
+        expect(err).toMatch(/reason: .*ghe\.corp.*github\.com/);
+        expect(read).toBe(false);
+    });
+
     it("names what the lead ran in a stop before the epic is known, and the epic in every stop after", () => {
         const unreadable = harness({ readPr: () => ({ ok: false, error: { problem: "pr-not-found", message: "no such pull request" } }) });
         expect(expectStop(unreadable, runCloseCommand(unreadable.deps, input(unreadable, viaPr(704, "acme/member"))))).toContain("nexus close --pr 'acme/member#704'");

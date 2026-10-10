@@ -26,6 +26,7 @@ import { resolveWorkspace, type ResolvedWorkspace } from "@nexus/workspace/resol
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
 import { sameRepo } from "@nexus/workspace/issue-ref";
+import { OWN_MARKER_RE } from "@nexus/epic-verdicts/close-record";
 import { excludePathspecs } from "./pipeline-stores.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
@@ -90,7 +91,7 @@ type StampSource =
  */
 function findStampYaml(text: string, entry: string): StampSource {
     // The marker that opens a line, as close's own readers find it; a quoted or indented copy is not it.
-    const marker = text.search(/^<!-- nexus:close-record -->/m);
+    const marker = text.search(OWN_MARKER_RE);
     if (marker >= 0) {
         const fence = MARKER_FENCE.exec(text.slice(marker + CLOSE_RECORD_MARKER.length));
         if (fence === null) {

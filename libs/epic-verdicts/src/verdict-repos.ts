@@ -83,7 +83,18 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
     return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }
 
-/** Whether two written forms name the same issues repository: their canonical forms compared with sameRepo. */
+/**
+ * Whether two written forms name the same issues repository. A form with no host is on github.com,
+ * the host canonicalIssuesRepo leaves out, so github.com/acme/app and ghe.corp/acme/app differ.
+ */
 export function sameIssuesRepo(a: string, b: string): boolean {
-    return sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
+    const x = parseRepoIdentity(canonicalIssuesRepo(a));
+    const y = parseRepoIdentity(canonicalIssuesRepo(b));
+    if (x === null || y === null) return sameRepo(a, b);
+    return (x.host ?? "github.com") === (y.host ?? "github.com") && x.owner === y.owner && x.name === y.name;
+}
+
+/** The forge the issues repository is on: its host, or github.com when its form names none. */
+export function issuesRepoForge(issuesRepo: string): string {
+    return parseRepoIdentity(canonicalIssuesRepo(issuesRepo))?.host ?? "github.com";
 }

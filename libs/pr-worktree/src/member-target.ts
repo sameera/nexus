@@ -73,7 +73,8 @@ export function forgeHost(host: string): string {
 export function prRepoOnForge(ref: ParsedPrReference, own: string | null): string | null {
     const [ownHost, ...ownPath] = own === null ? [] : own.split("/");
     if (ref.repo === null) return own === null ? null : [forgeHost(ownHost), ...ownPath].join("/");
-    const host = ref.host ?? (ownHost === undefined ? undefined : forgeHost(ownHost));
+    const given = ref.host ?? ownHost;
+    const host = given === undefined ? undefined : forgeHost(given);
     return host === undefined ? ref.repo : `${host}/${ref.repo}`;
 }
 

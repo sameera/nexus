@@ -59,7 +59,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { forgeHost, parsePrReference, prRepoName, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoName, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -3160,14 +3160,6 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
     }
     const [only] = targets.values();
-    // Close reads the epic's issues on the forge this checkout is on; a pull request on another
-    // forge cannot be closed from here without mixing the two. github.com's SSH aliases are github.com.
-    if (only !== undefined && "pr" in only.target && only.target.pr.host !== undefined) {
-        const ownHost = (own ?? canonicalRepoRef(closeMigrationRunner, io.cwd))?.split("/")[0]?.toLowerCase();
-        if (ownHost !== undefined && forgeHost(ownHost) !== forgeHost(only.target.pr.host)) {
-            return refuse(`--pr names a pull request on ${only.target.pr.host}, but this checkout is on ${ownHost}; run close from a checkout on that forge; got ${got(only.form.slice("--pr ".length))}.`);
-        }
-    }
     if (only === undefined && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
     if (only === undefined) {
         io.stderr(usage);

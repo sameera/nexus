@@ -41,6 +41,9 @@ import { sameIssuesRepo } from "./verdict-repos.js";
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
 
+/** The close-record marker opening a line, as close writes it; a quoted or indented copy does not. */
+export const OWN_MARKER_RE = new RegExp(`^${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
+
 /** What opens the hidden key a record amendment carries. */
 export const AMENDMENT_KEY_PREFIX = "<!-- nexus:close-amendment ";
 
@@ -624,8 +627,6 @@ export function findEpicCloseComment(comments: readonly { body: string; authorAs
     return { found: "none" };
 }
 
-/** The close-record marker opening a line, as close writes it; a quoted copy starts with `>`. */
-const OWN_MARKER_RE = /^<!-- nexus:close-record -->/m;
 
 /** The merged pull requests a close stamped, in merge order: the range, then any with no range of its own. */
 export function stampedPrs(block: Record<string, unknown>): { prs: { repo: string; pr: number }[]; unnamed: number } {

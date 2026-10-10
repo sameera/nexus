@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
+import { canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
@@ -128,5 +128,14 @@ describe("canonicalIssuesRepo — the one written form close uses (#906)", () =>
         expect(canonicalIssuesRepo("ssh://git@ghe.corp:22/acme/issues.git")).toBe("ghe.corp/acme/issues");
         expect(canonicalIssuesRepo("not a repo")).toBe("not a repo");
         expect(canonicalIssuesRepo("git@github.com-work:acme/issues.git")).toBe("acme/issues");
+    });
+});
+
+describe("sameIssuesRepo — one issues repository in any form, never across forges (#906)", () => {
+    it("matches a form with no host to github.com and not to another forge", () => {
+        expect(sameIssuesRepo("acme/app", "https://github.com/acme/app")).toBe(true);
+        expect(sameIssuesRepo("git@github.com-work:acme/app.git", "acme/app")).toBe(true);
+        expect(sameIssuesRepo("acme/app", "ghe.corp/acme/app")).toBe(false);
+        expect(sameIssuesRepo("github.com/acme/app", "ghe.corp/acme/app")).toBe(false);
     });
 });

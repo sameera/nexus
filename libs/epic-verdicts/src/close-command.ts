@@ -56,7 +56,7 @@ import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve
 import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
-import { parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { forgeHost, parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoForge, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -420,6 +420,16 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // A pull request only finds the epic. One that has not merged is the cheap early answer for
         // a lead who ran close too soon.
         const ref = input.target.pr;
+        // Close reads the epic's issues on the issues repository's forge; a pull request on another
+        // forge cannot be closed against them without mixing the two in one run.
+        if (ref.host !== undefined && forgeHost(ref.host) !== issuesRepoForge(issuesRepo)) {
+            const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
+            return stopped({
+                reason: `${asked} is on ${forgeHost(ref.host)}, but the issues repository ${issuesRepo} is on ${issuesRepoForge(issuesRepo)}`,
+                item: asked,
+                remedy: "run close where the issues repository is on the pull request's forge, or name the epic: nexus close --epic <N>",
+            });
+        }
         const read = deps.readPr(repoRoot, ref);
         if (!read.ok) {
             const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${prRepoName(ref, null)}#${ref.number}`;
@@ -1096,9 +1106,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
     return {
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
-            // A bare number is read where resolvePr reads one, the checkout's own repository; a
-            // qualified one on the forge prRepoOnForge names, gh's own when the checkout names none.
-            const repo = ref.repo === null ? null : prRepoOnForge(ref, canonicalRepoRef(run, repoRoot));
+            // Every form is read on the forge prRepoOnForge names, github.com's SSH aliases folded; gh's
+            // own resolution only when the checkout names no forge and the reference names none either.
+            const repo = prRepoOnForge(ref, canonicalRepoRef(run, repoRoot));
             return resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(repo === null ? {} : { repo }) });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
