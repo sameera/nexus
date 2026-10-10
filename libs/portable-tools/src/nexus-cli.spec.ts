@@ -2205,6 +2205,8 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--pr", "5", "--pr", "5"], "nexus close --pr 5"],
         [["--pr", "acme/app#5", "--pr", "https://github.com/acme/app/pull/5"], "nexus close --pr 'acme/app#5'"],
         [["--pr", "https://ghe.corp/acme/app/pull/7"], "nexus close --pr https://ghe.corp/acme/app/pull/7"],
+        // A path with `#` whose first segment is no host stays a path.
+        [["--pr", "5", "notes/epics/e#3"], "nexus close --pr 5"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
         expect(await runNexusCli(["close", ...args], io)).toBe(1);

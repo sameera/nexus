@@ -186,7 +186,7 @@ function harness(over: Partial<CloseRecoveryDeps> = {}, earlierClose: { record: 
         record: () => ({ ok: true, body: NEW_BODY, digest: NEW_DIGEST, approved: true, state: "closed", stateReason: "completed" }),
         verdict: (_root, _repo, pr) =>
             present(judgments(OLD_DIGEST, [departure("DV1", pr.pr === PR_A ? "kept reason A" : "kept reason B")]), OLD_DIGEST, pr.pr === PR_A ? "1".repeat(40) : "2".repeat(40)),
-        prWaivers: (_root, pr) => ({ ok: true, waivers: waiverOn(pr.pr, NEW_DIGEST) }),
+        prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: waiverOn(pr.pr, NEW_DIGEST) }),
         findEntry: () => ({ ok: true, at: "branch", branch: BRANCH }),
         openWorktree: () => {
             h.worktreeCalls += 1;
@@ -334,7 +334,7 @@ describe("nexus close --recover — every merged pull request carries a trusted 
     });
 
     it("ignores a waiver from someone who cannot speak for the repository", () => {
-        const h = harness({ prWaivers: (_root, pr) => ({ ok: true, waivers: waiverOn(pr.pr, NEW_DIGEST, pr.pr !== PR_B) }) });
+        const h = harness({ prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: waiverOn(pr.pr, NEW_DIGEST, pr.pr !== PR_B) }) });
         const rendered = renderCloseOutcome(recover(h));
         expect(rendered.exitCode).toBe(1);
         expect(text(rendered.stderr)).toContain(`pull request ${ISSUES}#${PR_B}`);
@@ -344,7 +344,7 @@ describe("nexus close --recover — every merged pull request carries a trusted 
 
 describe("nexus close --recover — a merged pull request with neither a fresh verdict nor a waiver (AC2, G31, G3, G4)", () => {
     it("stops before any write and names both remedies for that pull request, with the exact waiver to post", () => {
-        const h = harness({ prWaivers: (_root, pr) => ({ ok: true, waivers: pr.pr === PR_A ? waiverOn(PR_A, NEW_DIGEST) : { pr, comments: [], answers: [] } }) });
+        const h = harness({ prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: pr.pr === PR_A ? waiverOn(PR_A, NEW_DIGEST) : { pr, comments: [], answers: [] } }) });
         const out = recover(h);
         const rendered = renderCloseOutcome(out);
         expect(rendered.exitCode).toBe(1);
@@ -362,7 +362,7 @@ describe("nexus close --recover — a merged pull request with neither a fresh v
     });
 
     it("names a waiver for an older revision as clearing nothing", () => {
-        const h = harness({ prWaivers: (_root, pr) => ({ ok: true, waivers: waiverOn(pr.pr, pr.pr === PR_B ? OLD_DIGEST : NEW_DIGEST) }) });
+        const h = harness({ prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: waiverOn(pr.pr, pr.pr === PR_B ? OLD_DIGEST : NEW_DIGEST) }) });
         const err = text(renderCloseOutcome(recover(h)).stderr);
         expect(err).toMatch(/cleared nothing.*not the current revision/);
     });
@@ -375,7 +375,7 @@ describe("nexus close --recover — a merged pull request with neither a fresh v
                     NEW_DIGEST,
                     pr.pr === PR_A ? "3".repeat(40) : "4".repeat(40),
                 ),
-            prWaivers: (_root, pr) => ({ ok: true, waivers: { pr: pr.pr, comments: [], answers: [] } }),
+            prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: { pr: pr.pr, comments: [], answers: [] } }),
         });
         const rendered = renderCloseOutcome(recover(h));
         expect(rendered.stderr).toEqual([]);
@@ -398,7 +398,7 @@ describe("nexus close --recover — a merged pull request with neither a fresh v
                 pr.pr === PR_B
                     ? present(judgments(NEW_DIGEST, [departure("DV2", "fresh reason B")]), NEW_DIGEST, "4".repeat(40))
                     : present(judgments(OLD_DIGEST, [departure("DV1", "kept reason A")]), OLD_DIGEST, "1".repeat(40)),
-            prWaivers: (_root, pr) => ({ ok: true, waivers: pr.pr === PR_A ? waiverOn(PR_A, NEW_DIGEST) : { pr: pr.pr, comments: [], answers: [] } }),
+            prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: pr.pr === PR_A ? waiverOn(PR_A, NEW_DIGEST) : { pr: pr.pr, comments: [], answers: [] } }),
         });
         recover(h);
         const dr = section(entryText(h), "## Deviation Rationale").split("\n");
@@ -440,7 +440,7 @@ describe("nexus close --recover — a merged pull request with neither a fresh v
 describe("nexus close --recover — the sections a re-judged verdict changes", () => {
     const rejudgedWith = (items: Departure[]): Partial<CloseRecoveryDeps> => ({
         verdict: (_root, _repo, pr) => present(judgments(NEW_DIGEST, items), NEW_DIGEST, pr.pr === PR_A ? "3".repeat(40) : "4".repeat(40)),
-        prWaivers: (_root, pr) => ({ ok: true, waivers: { pr: pr.pr, comments: [], answers: [] } }),
+        prWaivers: (_root, _issuesRepo, pr) => ({ ok: true, waivers: { pr: pr.pr, comments: [], answers: [] } }),
     });
 
     it("adds a Deviation Rationale to a comment that had none, before the pointers", () => {
@@ -657,14 +657,26 @@ describe("nexus close --recover — the platform-backed reads", () => {
         expect(closeRecoveryDeps(failing).record("/repo", ISSUES, RECORD).ok).toBe(false);
     });
 
+    it("reads a pull request's waivers on the host the issues repository states, as its verdict is", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        closeRecoveryDeps(run).prWaivers("/repo", `ghe.corp/${ISSUES}`, { repo: "acme/code", pr: PR_A });
+        const gh = calls.filter((c) => c[0] === "gh");
+        expect(gh.length).toBeGreaterThan(0);
+        expect(gh.every((c) => (c.includes("--hostname") ? c.includes("ghe.corp") : c.some((a) => a.startsWith("ghe.corp/"))))).toBe(true);
+    });
+
     it("reads a pull request's waivers through #849's reader, a failed read failing", () => {
         const body = ["<!-- nexus:close-waiver -->", "```yaml", "waive: record-revised", `record: "#${RECORD}"`, `digest: ${NEW_DIGEST}`, "```"].join("\n");
         const run: Runner = (cmd, args) =>
             cmd === "gh" && args[0] === "pr"
                 ? { status: 0, stdout: JSON.stringify({ comments: [{ body, author: { login: "lead" }, authorAssociation: "OWNER", url: "u", createdAt: "2026-10-03T00:00:00Z" }] }), stderr: "" }
                 : { status: 1, stdout: "", stderr: "unexpected" };
-        const read = closeRecoveryDeps(run).prWaivers("/repo", { repo: ISSUES, pr: PR_A });
+        const read = closeRecoveryDeps(run).prWaivers("/repo", ISSUES, { repo: ISSUES, pr: PR_A });
         expect(read.ok && read.waivers.comments[0]).toMatchObject({ author: "lead", trusted: true, waiver: { ok: true, terms: { cause: "record-revised", digest: NEW_DIGEST } } });
-        expect(closeRecoveryDeps(() => ({ status: 1, stdout: "", stderr: "x" })).prWaivers("/repo", { repo: ISSUES, pr: PR_A }).ok).toBe(false);
+        expect(closeRecoveryDeps(() => ({ status: 1, stdout: "", stderr: "x" })).prWaivers("/repo", ISSUES, { repo: ISSUES, pr: PR_A }).ok).toBe(false);
     });
 });

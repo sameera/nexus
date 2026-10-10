@@ -1771,7 +1771,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
         const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
 
-        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, configured), { stories, excluded, issuesRepo });
+        const evidence = collectEvidence(evidenceDeps(issuesRun, root, configured), { stories, excluded, issuesRepo });
         if (!evidence.ok) {
             io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(evidence.failures, issuesRepo)} Close stops here.`);
             return 1;
@@ -1811,7 +1811,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         }
 
         // The record's current digest is compared with each receipt's stamped one (story #842, D5).
-        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, configured, resolved.record?.number ?? null), {
+        const derived = deriveCloseRanges(closeRangesDeps(issuesRun, root, configured, resolved.record?.number ?? null), {
             stories,
             excluded,
             records: collected.collected.records.map((f) => f.record),
@@ -3099,7 +3099,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     // An epic as close's own reports print it: N, #N, owner/repo#N, or host/owner/repo#N when the
     // issues repository names a host.
     const epicRef = (value: string): { repo: string | null; number: number } | null => {
-        const hosted = /^([^/\s#]+)\/([^/\s#]+)\/([^/\s#]+)#(\d+)$/.exec(value.trim());
+        // The first of three segments is a host only when it reads as one (`github.com`, `ghe.corp`).
+        const hosted = /^([^/\s#]+\.[^/\s#]+)\/([^/\s#]+)\/([^/\s#]+)#(\d+)$/.exec(value.trim());
         if (hosted !== null) return Number(hosted[4]) > 0 ? { repo: `${forgeHost(hosted[1])}/${hosted[2]}/${hosted[3]}`, number: Number(hosted[4]) } : null;
         return parseIssueRef(value);
     };

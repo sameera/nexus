@@ -48,6 +48,26 @@ export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
  */
 export const OWN_MARKER_RE = new RegExp(`^ {0,3}${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
 
+/**
+ * The lines that hold the comment's own marker: OWN_MARKER_RE's, outside any fenced code block
+ * (``` or ~~~), where Markdown shows a marker as an example rather than the comment's own.
+ */
+export function ownMarkerLines(lines: readonly string[]): number[] {
+    const out: number[] = [];
+    let fence: { char: string; len: number } | null = null;
+    lines.forEach((line, i) => {
+        const f = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+        if (fence !== null) {
+            if (f !== null && f[1][0] === fence.char && f[1].length >= fence.len && f[2].trim() === "") fence = null;
+            return;
+        }
+        // A backtick fence's info string cannot hold a backtick; such a line is inline code, not a fence.
+        if (f !== null && !(f[1][0] === "`" && f[2].includes("`"))) fence = { char: f[1][0], len: f[1].length };
+        else if (OWN_MARKER_RE.test(line)) out.push(i);
+    });
+    return out;
+}
+
 /** What opens the hidden key a record amendment carries. */
 export const AMENDMENT_KEY_PREFIX = "<!-- nexus:close-amendment ";
 
@@ -583,17 +603,16 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 
 /** The machine block of a close comment, parsed: null when it carries none that reads. */
 export function machineBlock(comment: string): Record<string, unknown> | null {
-    // The marker on a line of its own is the comment's own; a quoted copy is not. The first such
-    // marker with a block under it is the block, so a bare mention of the marker above it is passed over.
-    const own = new RegExp(OWN_MARKER_RE.source, "gm");
-    let fence: RegExpExecArray | null = null;
-    for (let found = own.exec(comment); found !== null && fence === null; found = own.exec(comment)) {
-        // `\r\n` too: a comment edited in the platform's web editor is saved with it.
-        fence = /^[ \t]*\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(found.index + found[0].length));
-    }
-    if (fence === null) return null;
+    // `\r\n` too: a comment edited in the platform's web editor is saved with it.
+    const lines = comment.split(/\r?\n/);
+    // The first own marker line with a yaml fence right below it holds the block, so a bare mention
+    // of the marker above it, or a copy in a quote or a code block, is passed over.
+    const at = ownMarkerLines(lines).find((i) => lines[i].trim() === CLOSE_RECORD_MARKER && /^```ya?ml$/.test(lines[i + 1] ?? ""));
+    if (at === undefined) return null;
+    const end = lines.findIndex((l, j) => j > at + 1 && l.startsWith("```"));
+    if (end < 0) return null;
     try {
-        const doc: unknown = parseYaml(fence[1]);
+        const doc: unknown = parseYaml(lines.slice(at + 2, end).join("\n"));
         return doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
     } catch {
         return null;
@@ -625,7 +644,7 @@ export type EpicCloseComment = { found: "own"; body: string; block: Record<strin
  */
 export function findEpicCloseComment(comments: readonly { body: string; authorAssociation: string }[], epic: number, issuesRepo: string): EpicCloseComment {
     for (const c of [...comments].reverse()) {
-        if (!trustedComment(c) || !OWN_MARKER_RE.test(c.body)) continue;
+        if (!trustedComment(c) || ownMarkerLines(c.body.split(/\r?\n/)).length === 0) continue;
         const block = machineBlock(c.body);
         if (block === null) return { found: "unreadable", why: "its machine block does not read" };
         // A block that stamps no epic number (a template left unfilled, or a hand edit that left

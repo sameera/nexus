@@ -615,6 +615,21 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(out.ok && out.resumed).toBe(true);
     });
 
+    it.each([
+        ["```", "```"],
+        ["~~~md", "~~~"],
+    ])("passes over a marker in a %s fenced code block, which Markdown shows as code", (open, close) => {
+        const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        // The example's block does not read, so taking the example as the close comment would stop close.
+        const example = { body: `The marker looks like this:\n\n${open}\n<!-- nexus:close-record -->\n\`\`\`yaml\nepic: [\n${close}`, authorAssociation: "OWNER" };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [own, example] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
     it("names an unread comment list, not a missing epic marking, when the comments cannot be read", () => {
         const h = harness({
             issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null }),
@@ -808,6 +823,19 @@ describe("nexus close — keyed by the epic (#906)", () => {
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
         expect(err).toMatch(/reason: .*does not read/);
         expect(err).not.toMatch(/not filed as an epic/);
+    });
+
+    it("reads the stories' claims on the host the issues repository states", () => {
+        const rec: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            rec.push([cmd, ...args]);
+            if (cmd === "gh" && args[0] === "issue" && args[1] === "view") return { status: 0, stdout: JSON.stringify({ comments: [] }), stderr: "" };
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        closeCommandDeps(run, { singleRepo: () => true }).ranges("/repo", "ghe.corp/acme/plan", 5, { stories: [10], excluded: [], record: null });
+        const claims = rec.filter((c) => c[0] === "gh" && !(c[1] === "issue" && c[2] === "view"));
+        expect(claims.length).toBeGreaterThan(0);
+        expect(claims.every((c) => (c.includes("--hostname") ? c.includes("ghe.corp") : c.some((a) => a.startsWith("ghe.corp/"))))).toBe(true);
     });
 
     it("reads the verdict of a pull request on the host the issues repository states", () => {

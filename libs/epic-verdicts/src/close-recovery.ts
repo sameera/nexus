@@ -38,7 +38,7 @@ import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, OWN_MARKER_RE, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, ownMarkerLines, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
@@ -70,7 +70,8 @@ export interface CloseRecoveryDeps {
     /** The newest verdict on a merged pull request, read as close reads it. */
     verdict(root: string, issuesRepo: string, pr: { repo: string; pr: number }): CloseVerdictRead;
     /** The waiver comments on a pull request, through #849's one waiver reader. */
-    prWaivers(root: string, pr: { repo: string; pr: number }): { ok: true; waivers: PrWaivers } | { ok: false; message: string };
+    /** Read on the host the issues repository states, as the verdict is. */
+    prWaivers(root: string, issuesRepo: string, pr: { repo: string; pr: number }): { ok: true; waivers: PrWaivers } | { ok: false; message: string };
     /** Read-only: the distill branch an earlier close left, else a committed entry on the trunk, else none. */
     findEntry(repoRoot: string, epic: number): EntryLocation;
     openWorktree(repoRoot: string, epic: number, date: string): EpicDistillWorktreeResult;
@@ -162,7 +163,7 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
             if (verdictProblems.length === 0) cleared.push({ pr, by: "verdict", verdict: { ...pr, date: read.date, head: read.head, recordHash: read.recordHash, judgments: read.read } });
             continue;
         }
-        const waivers = deps.prWaivers(repoRoot, pr);
+        const waivers = deps.prWaivers(repoRoot, issuesRepo, pr);
         if (!waivers.ok) {
             stops.push({ reason: `the waiver comments on ${ref} could not be read: ${waivers.message}. A failed read is not the same as no waiver`, item, remedy: `re-run ${rerun} once the read succeeds` });
             continue;
@@ -435,7 +436,7 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
 
     // The machine block: the block machineBlock reads, under the first own marker line with a fence
     // right below it. A bare marker line above it, or copied text, is passed over.
-    const marker = lines.findIndex((l, i) => OWN_MARKER_RE.test(l) && l.trim() === CLOSE_RECORD_MARKER && /^```ya?ml$/.test(lines[i + 1] ?? ""));
+    const marker = ownMarkerLines(lines).find((i) => lines[i].trim() === CLOSE_RECORD_MARKER && /^```ya?ml$/.test(lines[i + 1] ?? "")) ?? -1;
     const open = marker + 1;
     const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
     if (marker >= 0 && end > open) {
@@ -473,8 +474,8 @@ export function closeRecoveryDeps(run: Runner): CloseRecoveryDeps {
                 : { ok: false, message: r.error.message };
         },
         verdict: close.verdict,
-        prWaivers: (root, pr) => {
-            const r = readPrWaivers(run, root, pr.pr, { ghRepo: pr.repo });
+        prWaivers: (root, issuesRepo, pr) => {
+            const r = readPrWaivers(onIssuesHost(run, issuesRepo), root, pr.pr, { ghRepo: pr.repo });
             return r.ok ? { ok: true, waivers: r.value } : { ok: false, message: r.error.message };
         },
         findEntry: (repoRoot, epic) => {

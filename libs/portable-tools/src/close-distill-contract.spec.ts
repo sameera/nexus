@@ -247,7 +247,7 @@ describe("distill accepts what nexus close --recover re-stamps (G33)", () => {
             issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: CODE } }),
             issueComments: () => ({ ok: true, comments }),
             verdict: () => ({ ok: true, found: true, critical: 0, high: 0, judgments: "present", read: judgments("plain"), date: "2026-10-03", head: HEAD, recordHash: null }),
-            prWaivers: (_root, pr) => ({
+            prWaivers: (_root, _issuesRepo, pr) => ({
                 ok: true,
                 waivers: {
                     pr: pr.pr,

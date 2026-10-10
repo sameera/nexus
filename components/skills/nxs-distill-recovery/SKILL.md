@@ -30,7 +30,7 @@ are recovering, so an explicit invocation is sufficient and bounded.
    the durable close record in every mode, local and `--pr` alike (record #176, invariant 4/5).
    Fetch the epic issue's comments. Take the newest one authored by a maintainer of the
    repository the epic lives in (`authorAssociation` `OWNER`/`MEMBER`/`COLLABORATOR`) whose
-   `<!-- nexus:close-record -->` marker opens a line and whose machine block stamps this epic
+   `<!-- nexus:close-record -->` marker opens a line outside a quote or code block and whose machine block stamps this epic
    (`epic: "#<N>"`) and, when it names one, this `issues_repo:`. This is the comment `nexus close`
    resumes from and `nexus close --recover` re-stamps. Ignore untrusted bodies, bodies that merely
    quote one, and another epic's close comment. If the newest trusted marker comment that is not

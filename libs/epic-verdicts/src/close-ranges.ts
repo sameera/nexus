@@ -69,7 +69,7 @@ import { readPrVerdict } from "./pr-verdict.js";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { type Runner } from "./run.js";
 import { mergedClaims, readStoryClaims, type StoryClaimingPr, type StoryClaimsRead, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
-import { issuesRepoPath, issuesRepoSlug, onIssuesHost } from "./verdict-repos.js";
+import { issuesRepoPath, issuesRepoSlug } from "./verdict-repos.js";
 
 /** What the merge-anchored derivation produced for one pull request. */
 export type DeriveOutcome = { ok: true; base: string; head: string } | { ok: false; problem: string; message: string };
@@ -773,10 +773,9 @@ function renderLines(
  * The claiming read is passed through in every state: close is the one caller that classifies an
  * open or closed-unmerged pull request, and the derivation narrows to merged ones itself (D7).
  */
-export function closeRangesDeps(runner: Runner, root: string, issuesRepo: string, record: number | null = null): CloseRangesDeps {
-    // Every gh read here, of the issues repository and of a pull request alike, goes to the host the
-    // issues repository states, so one run reads one forge. With no stated host gh resolves its own.
-    const run = onIssuesHost(runner, issuesRepo);
+export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, record: number | null = null): CloseRangesDeps {
+    // The caller picks the forge: close passes a runner aimed at the host the issues repository
+    // states (onIssuesHost), so one run reads one forge. The record is read by its owner/repo path.
     const slug: RepoSlug = issuesRepoSlug(issuesRepo);
     return {
         readClaims: (story) => readStoryClaims(run, root, slug, story),

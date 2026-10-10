@@ -34,7 +34,8 @@ behaviour says so.
   no longer answers a typing mistake with "close runs only against a merged pull request".
   Two different epics or pull requests given at once are refused; the same one named twice is one.
 - **A re-run resumes only from the epic's own close comment.** Close and `--recover` resume from the
-  newest trusted close comment whose machine block stamps this epic. A newer one that does not read,
+  newest trusted close comment whose machine block stamps this epic. A marker in a quote or a code
+  block is an example, not a close comment, and is passed over. A newer one that does not read,
   names no epic, or names this epic in another issues repository stops them and says how to fix it,
   instead of being resumed from or closed over again. `/nxs.close` relays all three forms
   unchanged, and its refusal without arguments names `nexus close --epic <N>`.
