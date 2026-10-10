@@ -17,6 +17,7 @@ Run conformance, closure, and distillation against a merged pull request instead
 - **Analyze owns every judgment, and the engineer answers on the pull request** — [#829](https://github.com/sameera/nexus/issues/829)
 - **Close becomes a deterministic subcommand** — [#830](https://github.com/sameera/nexus/issues/830)
 - **Close the two low gaps analyze 0.91.0 left in its answer and registry reads** — [#875](https://github.com/sameera/nexus/issues/875)
+- **Distill a Closed Epic with One Nexus Command** — [#909](https://github.com/sameera/nexus/issues/909)
 
 ## Live acceptance
 
