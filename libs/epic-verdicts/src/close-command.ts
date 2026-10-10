@@ -154,6 +154,8 @@ export interface CloseCommandDeps {
     readPr(repoRoot: string, ref: ParsedPrReference): ResolvePrResult;
     /** The issues repository every issue read and write targets. */
     issuesRepo(root: string): ResolveVerdictReposResult;
+    /** The checkout's own repository as host/owner/repo (github.com's SSH aliases folded), or null when its remote names no forge. */
+    checkoutRepo(root: string): string | null;
     /** The epic and the stories the pull request implements, through the validated candidate ladder; `prRepo` is the repository it lives in. */
     storiesOfPr(root: string, issuesRepo: string, pr: PrInfo, prRepo: string): ResolveStoriesResult;
     /** What an issue is filed as, and its parent: the check on an epic number the lead typed. */
@@ -423,9 +425,14 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
         const r = deps.issuesRepo(repoRoot);
         if (!r.ok) return { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
-        // A host the configured form states is kept and every read of it goes there; a form that names
-        // none is left to gh's own host, as on main, never guessed from the checkout.
-        return { ok: true, issuesRepo: canonicalIssuesRepo(r.repos.issuesRepo), codeRepo: r.repos.repo };
+        // A host the configured form states is kept and every read of it goes there. A form that names
+        // none, when it is the checkout's own repository on an Enterprise host, is on that host: the
+        // checkout's remote says so. Any other form that names none is left to gh's own host, as on main.
+        const issuesRepo = canonicalIssuesRepo(r.repos.issuesRepo);
+        const own = issuesRepoHost(issuesRepo) === null ? deps.checkoutRepo(repoRoot) : null;
+        const ownHost = own === null ? null : issuesRepoHost(own);
+        const onOwnHost = ownHost !== null && ownHost !== "github.com" && sameIssuesRepo(issuesRepoPath(own ?? ""), issuesRepo);
+        return { ok: true, issuesRepo: onOwnHost ? `${ownHost}/${issuesRepo}` : issuesRepo, codeRepo: r.repos.repo };
     };
 
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
@@ -445,7 +452,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
                 item: `issue ${named}#${epic}`,
-                remedy: `pass an epic of ${issuesRepo}: nexus close --epic <N>`,
+                remedy: `pass an epic of ${issuesRepo}: nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}`,
             });
         }
         // The same repository on a host the issues repository leaves unstated cannot be confirmed.
@@ -474,12 +481,14 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         ({ issuesRepo, codeRepo } = repos);
         const unstated = ref.host === undefined ? null : unstatedHost(asLabel, ref.host, issuesRepo, rerun);
         if (unstated !== null) return stopped(unstated);
-        // A typed URL on another forge than the one the issues repository states would look the pull
-        // request's story numbers up on the wrong forge, as an --epic URL on it would be refused.
+        // A pull request on another forge than the one the issues repository states would have its
+        // story numbers looked up on the wrong forge, as an --epic URL on it would be refused. The
+        // forge is the typed URL's, else the one the pull request was read on (its URL as read).
         const stated = issuesRepoHost(issuesRepo);
-        if (ref.host !== undefined && stated !== null && forgeHost(ref.host) !== stated) {
+        const prHost = ref.host ?? fromUrl?.host;
+        if (prHost !== undefined && stated !== null && forgeHost(prHost) !== stated) {
             return stopped({
-                reason: `${asLabel} is on ${forgeHost(ref.host)}, but the issues repository ${issuesRepo} is on ${stated}`,
+                reason: `${asLabel} is on ${forgeHost(prHost)}, but the issues repository ${issuesRepo} is on ${stated}`,
                 item: asLabel,
                 remedy: `name the epic instead: nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}`,
             });
@@ -1159,6 +1168,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             return resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(repo === null ? {} : { repo }) });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
+        checkoutRepo: (root) => canonicalRepoRef(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {
             const kinds = resolveKindClassification(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };

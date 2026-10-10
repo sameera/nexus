@@ -159,6 +159,7 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot, repo: { identity: ISSUES, source: "origin" } as never } }),
         readPr: () => ({ ok: true, pr: prInfo() }),
         issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: ISSUES } }),
+        checkoutRepo: () => null,
         storiesOfPr: () => ({ ok: true, epic: EPIC, stories: [864] }),
         issueKind: (_root, _repo, issue) => ({ ok: true, exists: true, kind: issue === EPIC ? "epic" : "story", parent: issue === EPIC ? null : EPIC }),
         resolveEpic: () => ({
@@ -491,6 +492,28 @@ describe("nexus close — keyed by the epic (#906)", () => {
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: "ghe.corp/other/thing" } })));
         expect(err).toMatch(/is not in the issues repository/);
         expect(err).not.toMatch(/states no host/);
+    });
+
+    it("stops on a bare --pr whose pull request, as read, is on another forge than the issues repository states", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
+        expect(err).toMatch(/on github\.com, but the issues repository .* is on ghe\.corp/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("keeps the entry path and --handoff in the remedy for an epic named in another repository", () => {
+        const h = harness();
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: "acme/other" }, handoff: "note.txt" })));
+        expect(err).toMatch(/remedy: .*nexus close --epic <N> --handoff note\.txt/);
+    });
+
+    it("takes the Enterprise host of a checkout whose own repository is the issues repository", () => {
+        const onGhe = harness({ checkoutRepo: () => `ghe.corp/${ISSUES}` });
+        expect(renderCloseOutcome(runCloseCommand(onGhe.deps, input(onGhe, { target: { epic: EPIC, repo: `ghe.corp/${ISSUES}` } }))).exitCode).toBe(0);
+        expect(renderCloseOutcome(runCloseCommand(onGhe.deps, input(onGhe, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } }))).exitCode).toBe(0);
+        const elsewhere = harness({ checkoutRepo: () => `ghe.corp/${ISSUES}` });
+        const err = expectStop(elsewhere, runCloseCommand(elsewhere.deps, input(elsewhere, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } })));
+        expect(err).toMatch(/is not in the issues repository ghe\.corp\/acme\/app/);
     });
 
     it("takes a github.com URL when the issues repository states no host", () => {
