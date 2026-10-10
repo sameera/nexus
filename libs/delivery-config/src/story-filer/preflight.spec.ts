@@ -10,6 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { type ToolkitIo } from "../io";
+import { fakePlatform } from "./fixtures";
 import { runCreateStory } from "./run";
 
 function recordingIo(cwd: string): ToolkitIo & { out: string[]; err: string[] } {
@@ -100,14 +101,15 @@ describe("the target folder must resolve inside the target root", () => {
     });
 });
 
-describe("a work item carrying the unplanned label never asks for a parent", () => {
+describe("a work item carrying the unplanned label asks only an initiative to be its parent", () => {
     it("refuses the whole batch, naming the work item and the parent it asked for", () => {
         const root: string = checkout();
         writeItem(root, "STORY-1.md", STORY);
         writeItem(root, "STUB-first.md", STUB); // not a work item: only STORY-*.md is
         writeItem(root, "STORY-stub.md", STUB);
         const io = recordingIo(root);
-        expect(runCreateStory([path.join(root, "scratch")], io)).not.toBe(0);
+        // #353 answers no initiative marker here, so it is refused like any parent that is not one.
+        expect(runCreateStory([path.join(root, "scratch")], io, fakePlatform().env)).not.toBe(0);
         const errors: string = io.err.join("\n");
         expect(errors).toContain("STORY-stub.md");
         expect(errors).toContain("#353");
@@ -118,7 +120,7 @@ describe("a work item carrying the unplanned label never asks for a parent", () 
         const root: string = checkout("github:\n  classification: labels\n  unplanned-label: not-yet-planned\n");
         writeItem(root, "STORY-stub.md", STUB.replace("[needs-refinement]", "[not-yet-planned]"));
         const io = recordingIo(root);
-        expect(runCreateStory([path.join(root, "scratch")], io)).not.toBe(0);
+        expect(runCreateStory([path.join(root, "scratch")], io, fakePlatform().env)).not.toBe(0);
         expect(io.err.join("\n")).toContain("not-yet-planned");
     });
 

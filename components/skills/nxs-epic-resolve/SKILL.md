@@ -66,6 +66,21 @@ So the resolver refuses it by name: `epic-not-planned`, naming the label it foun
 (`unplanned-label`), never hard-coded, and the check applies on every path — `--require-epic` or
 not, because every stage that reconstructs an epic can meet one.
 
+## Initiatives
+
+An **initiative** is the parent issue a coherent decomposition's stubs are filed under (epic #705).
+It is a planning container: no code is delivered against it, and it is never the target of a
+decision record or a conformance check. Left alone it would resolve as an epic whose child epics
+read as its stories.
+
+So the resolver refuses it by name: `is-an-initiative`, on every path, `--require-epic` or not. The
+marker is read through the shared publishing resolver (`initiative-label`, or `initiative-type`
+under `classification: types`), never hard-coded. The check reads only that marker. It adds no
+failure for an issue that is not an initiative, and none in a repository that declares no
+initiative marker. An issue that also carries the epic marker is an epic. An epic that has an
+initiative above it resolves exactly as before: the resolver never reads an epic's parent to decide
+this.
+
 ## Withdrawn stories
 
 Re-scoping an epic leaves its cancelled stories behind as closed sub-issues — that is where the

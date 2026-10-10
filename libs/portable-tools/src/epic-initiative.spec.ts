@@ -163,3 +163,63 @@ describe("the initiative states the objective, the order, and what each epic rea
         expect(UNDER_FLAT).toMatch(/Step 6 runs only after/);
     });
 });
+
+const ENTRY: string = section(EPIC, "## Phase 0 — Resolve entry mode", "## Interaction convention").replace(/\s+/g, " ");
+const OVERSIZED: string = ENTRY.match(/\*\*When a promoted stub proves oversized\.\*\*.*$/)?.[0] ?? "";
+const STUBS_FLAT: string = STUBS.replace(/\s+/g, " ");
+
+describe("every stub in a coherent decomposition hangs under its initiative (story #708)", () => {
+    it("names the initiative as each stub's parent, through the guarded filer and no other path (D6, G12)", () => {
+        expect(UNDER).toContain('parent: "#<INITIATIVE>"');
+        expect(UNDER_FLAT).toMatch(/the filer reads what that parent is filed as before it creates anything/i);
+        expect(UNDER_FLAT).toMatch(/Never attach a stub by hand/);
+    });
+
+    it("no longer says a stub is never a sub-issue of anything (D8)", () => {
+        expect(EPIC).not.toMatch(/never a sub-issue of\s+anything/);
+        expect(STUBS_FLAT).toMatch(/A stub is a sub-issue only of an initiative, and never of an epic/);
+        expect(STUBS_FLAT).toMatch(/No `parent:` key on a flat filing/);
+    });
+
+    it("reads the initiative's children back and compares them with the set (D9)", () => {
+        expect(UNDER).toMatch(/gh api "repos\/<owner>\/<repo>\/issues\/\$\{INITIATIVE\}\/sub_issues"/);
+        expect(UNDER_FLAT).toMatch(/every stub's number must be in that list/i);
+    });
+
+    it("reports the run incomplete and keeps the run folder when a stub is missing, then retries by re-running (G15)", () => {
+        expect(UNDER_FLAT).toMatch(/If any stub is missing, the run is \*\*incomplete\*\*/);
+        expect(UNDER_FLAT).toMatch(/keep the run folder/i);
+        expect(UNDER_FLAT).toMatch(/re-run the same step 4 command\. The filer[^.]*retries the parent link/i);
+        expect(UNDER_FLAT).toMatch(/Step 6 runs only after[^.]*every stub is one of its children/);
+    });
+
+    it("files the successors of a split stub under the same initiative, proposing no objective (D10, G20)", () => {
+        expect(OVERSIZED).toMatch(/sits under an initiative/);
+        expect(OVERSIZED).toMatch(/each successor names that same initiative as its `parent:`/);
+        expect(OVERSIZED).toMatch(/Propose no objective/);
+        expect(OVERSIZED).toMatch(/file no second initiative/i);
+        expect(OVERSIZED).toMatch(/Do not edit the initiative's body/);
+    });
+
+    it("decides whether the stub's parent is an initiative from the declared marker", () => {
+        expect(OVERSIZED).toMatch(/nexus config resolve initiative-label/);
+        expect(OVERSIZED).toMatch(/Any other parent, or none, files the successors flat/);
+    });
+
+    it("promotes a stub under an initiative by the same steps, leaving it where it is (G21, G22)", () => {
+        expect(ENTRY).toMatch(/\*\*Promotion is unchanged by an initiative\.\*\*/);
+        expect(ENTRY).toMatch(/never detaches the stub, moves it, or edits the initiative/);
+        expect(ENTRY).toMatch(/stories and its decision record are filed under the epic/);
+    });
+
+    it("names the resolver's refusal of an initiative among the diagnostics it reports verbatim (D11)", () => {
+        expect(ENTRY).toMatch(/`is-an-initiative` \(the number is an initiative/);
+    });
+
+    it("documents the refusal where the resolver's contract is stated", () => {
+        const skill: string = read("skills/nxs-epic-resolve/SKILL.md").replace(/\s+/g, " ");
+        expect(skill).toMatch(/## Initiatives/);
+        expect(skill).toMatch(/`is-an-initiative`/);
+        expect(skill).toMatch(/adds no failure for an issue that is not an initiative/);
+    });
+});

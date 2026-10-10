@@ -49,7 +49,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/epic-resolve/classify";
+import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/delivery-config/issue-kind";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
@@ -378,6 +378,9 @@ function epicReadStop(
         return notEpic("does not exist", `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository`);
     }
     if (kind !== null && kind.ok && (kind.kind === "story" || kind.kind === "record")) return notEpic(`is filed as a ${kind.kind}, not an epic${parentOf(kind.parent)}`, "");
+    // An initiative is a planning container above the epics; nothing is delivered against it, so
+    // there is nothing for close to close (decision record #786, D11).
+    if (kind !== null && kind.ok && kind.kind === "initiative") return notEpic("is filed as an initiative, not an epic", "; pass one of the epics under it");
     if (!comments.ok) {
         const why = kind !== null && !kind.ok ? `${comments.message}; what it is filed as could not be determined either: ${kind.message}` : comments.message;
         return { reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` };
@@ -392,7 +395,7 @@ function epicReadStop(
             remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
         };
     }
-    if (kind !== null && kind.ok && (kind.kind === "other" || kind.kind === "initiative") && !own) {
+    if (kind !== null && kind.ok && kind.kind === "other" && !own) {
         return notEpic(
             `is not filed as an epic${parentOf(kind.parent)}`,
             `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}; if ${epic} is a pull request, run nexus close --pr ${epic}`,

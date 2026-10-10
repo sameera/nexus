@@ -206,7 +206,7 @@ deferred-scope stubs.
 
 2. **Write one transient work-item per kept follow-up** to a session scratch folder — never
    committed — named `STORY-STUB-<NN>.md`. There is no `parent:` key: a stub is never a sub-issue of
-   anything.
+   an epic, and only a decomposition in `/nxs.epic` files one under an initiative.
 
     ```markdown
     ---

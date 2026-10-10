@@ -34,7 +34,7 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
 - **Nothing is committed at planning. GitHub issues are the source of truth (#114).** The epic is drafted only into the run's own folder under the gitignored `.nexus/tmp/planning/` (decision record #646), readable inside the checkout the lead already has open; the epic gate runs on that draft; at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer created here. It is created at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage rebuilds the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
 - **Underspecified scope is referred to discovery, not answered with stubs.** The right-size phase tests sharpness before it measures size. An intent whose functional goals cannot be stated stops there and recommends `/nxs.discover`, with an explicit override. Big-but-clear is a different problem and keeps the decomposition path below.
-- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal. A stub is an epic identified but not yet planned; it carries the epic classification plus the unplanned label. The full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
+- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal. A stub is an epic identified but not yet planned; it carries the epic classification plus the unplanned label. The full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion. When the lead accepts that the goals serve one objective, the run also files one **initiative** issue that states it, and each stub is filed as its child.
 - **A finished discovery is promoted here.** `/nxs.discover` resolves decisions and writes nothing to GitHub; `--discovery <folder>` turns those resolved decisions into issues through the same emission path everything else uses. That is what makes "a discovery-produced stub is accepted unchanged by promotion" true by construction rather than by a third copy of the stub contract.
 - **A stub is an epic issue, so every epic query filters it out.** The whole cross-feature backlog is one query (open issues carrying the unplanned label) and its exclusion is one negated filter. Any query here or downstream that enumerates epics for **planned** work carries that negation; ask for it (`nexus config backlog-query --form exclude`) rather than writing the label by hand. This is the accepted price of a stub keeping its issue number through promotion.
 
@@ -75,7 +75,7 @@ Run the phases in order.
     nexus epic-resolve --epic <n> --require-epic
     ```
 
-2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>: <message>`). Report it verbatim and stop. In particular, `not-an-epic` (the number is a story sub-issue), `epic-not-found` (no such issue), and `epic-not-planned` (the number is a backlog stub, which has nothing to load; offer `/nxs.epic <n>` to plan it) each name why. **No `epic.md` is produced** on failure.
+2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>: <message>`). Report it verbatim and stop. In particular, `not-an-epic` (the number is a story sub-issue), `epic-not-found` (no such issue), `is-an-initiative` (the number is an initiative, which is a planning container and never an epic; name one of the epics under it), and `epic-not-planned` (the number is a backlog stub, which has nothing to load; offer `/nxs.epic <n>` to plan it) each name why. **No `epic.md` is produced** on failure.
 3. **On success** it printed `{ epic, targetRoot, outPath }`: a materialized `epic.md` at `outPath` under the gitignored `.nexus/tmp/`. Report that path, and report that `/nxs.decision-record <n>` / `/nxs.analyze` can now run against this epic. **Commit nothing** (the same no-commit contract as planning; the output is gitignored). Then **stop**. The phases below do not run for `--from`.
 
 Otherwise (no `--from`), continue with normal planning.
@@ -125,6 +125,8 @@ The check reads; it writes nothing to the store. Nothing is published before the
 
       The issue must exist, be **open**, and carry the resolved unplanned label. If it does not (closed, no such issue, or already planned), report **why** it is not promotable, name `--from #<n>` as the way to load an already-planned epic instead, and **file nothing**. Otherwise seed Phase 3 from the stub's body: the functional goal, the estimate, and the candidate story-group titles. Read `feature`/`feature_path` from the body's meta block. Skip the right-sizing gate, because the stub was already sized ≤ M when it was decomposed. Record `PROMOTE = <n>`.
 
+      **Promotion is unchanged by an initiative.** A stub that sits under an initiative is promoted by exactly these steps. Promotion never detaches the stub, moves it, or edits the initiative. The planned epic stays a child of the same initiative, and its stories and its decision record are filed under the epic, as for any epic.
+
       **Promotion is unchanged by discovery.** A stub filed from a discovery is promoted with no manual edit: its body carries the decision gists in a `## Decisions this goal hangs on` section, which seeds Phase 3 like the rest of the body and is then rewritten with it. Promotion **neither reads nor moves** the marked gist comment. That comment is the copy that survives the rewrite, and `/nxs.decision-record` consumes it later.
     - `$ARGUMENTS` contains **`--discovery <folder>`** (string-matched, like `--from`) → **discovery mode**. Record `DISCOVERY = <folder>` and resolve it as follows:
 
@@ -136,6 +138,14 @@ The check reads; it writes nothing to the store. Nothing is published before the
     - **Anything else** → **intent mode**. The text is the capability description. A word that looks like a slug is intent, not a lookup key.
 
 **When a promoted stub proves oversized.** If Phase 3's rollup shows the stub cannot become a single epic, run the Phase 2 gate after all and emit fresh stub issues (Phase 2b). Then close the original **as not planned** with a comment naming its successors. Never close it as completed: nothing was delivered.
+
+**When that stub sits under an initiative**, its successors join the same initiative. Read the stub's parent and what the parent carries, and resolve the initiative marker (`nexus config resolve classification`, `nexus config resolve initiative-label`, `nexus config resolve initiative-type`):
+
+```bash
+gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){parent{number issueType{name} labels(first:100){nodes{name}}}}}}' -f o=<owner> -f r=<repo> -F n=<n>
+```
+
+The parent is an initiative when it carries the resolved marker: the issue type under `types`, the label otherwise. Then each successor names that same initiative as its `parent:` in its work item, and step 4's filer attaches it and checks the parent as it does for any stub. Propose no objective: the Phase 2 gate offers the single `stubs` option, as for a one-goal split. File no second initiative. Do not edit the initiative's body: its order keeps naming the closed original, whose closing comment names the successors. After step 4, read the initiative's children back as "Under an initiative" describes, and re-run step 4 if a successor is missing. Any other parent, or none, files the successors flat, exactly as before.
 
 ```bash
 gh issue comment <n> $REPO_ARG --body "Larger than one epic on planning. Re-decomposed into #<a>, #<b>, #<c>."
@@ -349,7 +359,7 @@ The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for 
     nexus config resolve unplanned-label
     ```
 
-2. **Write one transient work-item per stub** into `RUN_DIR` (never committed, never under `<feature-path>`), named `STORY-STUB-<NN>.md`. No `parent:` key, because a stub is never a sub-issue of anything:
+2. **Write one transient work-item per stub** into `RUN_DIR` (never committed, never under `<feature-path>`), named `STORY-STUB-<NN>.md`. No `parent:` key on a flat filing. A stub is a sub-issue only of an initiative, and never of an epic: `nexus close` blocks on an epic's open sub-issues, so a stub under an epic would block that epic's close. Only the initiative choice adds the key (see "Under an initiative" below):
 
     ```markdown
     ---
@@ -468,6 +478,14 @@ INITIATIVE_URL=$(jq -r '.initiative.url' "${RUN_DIR}/initiative/.nxs-created.jso
 
 If the filing is `⚠️ INCOMPLETE`, or the filer warned that the initiative's issue type was not found, stop and report the run incomplete. File no stub until the initiative exists and carries its marker.
 
+**Then name the initiative as each stub's parent.** Add one line to the frontmatter of every `STORY-STUB-<NN>.md` from step 2, with the number just recorded:
+
+```markdown
+parent: "#<INITIATIVE>"
+```
+
+The link is made by step 4's filer and by nothing else. The filer reads what that parent is filed as before it creates anything, and refuses the whole batch unless it is declared an initiative. Never attach a stub by hand, with `gh` or in the browser: a link made outside the filer skips that check. A refused batch means the initiative does not carry its marker; report that and stop.
+
 **In step 4, add `--keep-manifest`** to the stubs' `nexus create-story` command, so the ledger at `${RUN_DIR}/.nxs-created.json` still maps each stub's `ref` to its issue number once the batch is complete.
 
 **After step 4, write the stub numbers into the initiative.** The filer rewrites names only within one batch, and the initiative's batch finished before any stub existed, so this is the run's own single edit to the initiative's body. Read the body back from GitHub, replace each `STUB-<NN>` with the `#<issue>` the stubs' ledger records for that `ref` (`jq -r '."stub-<NN>".number' "${RUN_DIR}/.nxs-created.json"`), and write it back:
@@ -480,7 +498,15 @@ gh issue edit "${INITIATIVE_URL}" --body-file "${RUN_DIR}/initiative/body.md"
 
 The edit changes nothing else: not the objective, not a goal title, not a reach statement, not the order. A body that already names every stub by number needs no edit, so repeating this step is safe. If any stub has no number yet (step 4 was `⚠️ INCOMPLETE`), skip the edit, report the run incomplete, and re-run the same commands.
 
-**Step 6 runs only after** the initiative is filed, the stubs are filed and the initiative names every stub by issue number. Short of that, keep the run folder: it holds both ledgers, and a repeat that cannot read them would file everything a second time.
+**Then confirm every stub is attached.** A parent link that fails only prints a warning in the filer's output, and the batch still reports `✅ Complete`. So read the initiative's children back and compare them with the set. `<owner>/<repo>` is the repository in `INITIATIVE_URL`:
+
+```bash
+gh api "repos/<owner>/<repo>/issues/${INITIATIVE}/sub_issues" --paginate --jq '.[].number'
+```
+
+Every stub's number must be in that list. If any stub is missing, the run is **incomplete**: say so, name the missing stubs, and keep the run folder. Then re-run the same step 4 command. The filer skips the issues its ledger already shows created and retries the parent link for each of them, and an existing link counts as success, so nothing is filed twice. Read the children back again afterwards.
+
+**Step 6 runs only after** the initiative is filed, the stubs are filed, the initiative names every stub by issue number, and every stub is one of its children. Short of that, keep the run folder: it holds both ledgers, and a repeat that cannot read them would file everything a second time.
 
 Report the initiative's number first, then the stubs in the initiative's order.
 

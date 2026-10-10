@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type KindClassification } from "@nexus/epic-resolve/classify";
+import { type KindClassification } from "@nexus/delivery-config/issue-kind";
 import { resolveStories } from "./story-candidates.js";
 import { type RunResult, type Runner } from "./run.js";
 

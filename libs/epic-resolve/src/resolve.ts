@@ -24,14 +24,14 @@
 
 import {
     classifyIssueKind,
-    classifySubIssue,
-    isUnplannedEpic,
-    isWithdrawnStory,
+    initiativeNeedsIssueType,
+    isDeclaredInitiative,
+    readKindMarkers,
     resolveKindClassification,
     resolveRecordClassification,
-    resolveUnplannedLabel,
     type RecordClassification,
-} from "./classify.js";
+} from "@nexus/delivery-config/issue-kind";
+import { classifySubIssue, isUnplannedEpic, isWithdrawnStory, resolveUnplannedLabel } from "./classify.js";
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
 import {
     fetchBlockedBy,
@@ -130,6 +130,34 @@ export function resolveEpic(
 
     const epic = fetchIssue(run, targetRoot, epicNumber, "epic-not-found", on);
     if (!epic.ok) return epic;
+
+    // An initiative is a planning container: no decision record is written against it and no
+    // conformance check runs on it (decision record #786, D11). Left alone it resolves as an epic
+    // whose stubs read as stories, and close and analyze can reach one by walking up from a branch
+    // whose linked issue is an epic. So every path refuses it here, by name. The check reads only
+    // the initiative marker, through the reading that cannot fail, so it adds no failure for any
+    // other issue; where the label answers, it adds no read either.
+    const kindMarkers = readKindMarkers(targetRoot);
+    let epicType: string | null = null;
+    if (initiativeNeedsIssueType(kindMarkers)) {
+        const typed = fetchIssueFacts(run, targetRoot, slug.slug, epicNumber);
+        // Under `types` the issue type is the only marker, so an unreadable one is fatal. Under
+        // `legacy-auto` the label is the primary marker and the type only adds to it.
+        if (!typed.ok && kindMarkers.mode === "types") return typed;
+        if (typed.ok) epicType = typed.facts.issueType;
+    }
+    if (isDeclaredInitiative(kindMarkers, { labels: epic.issue.labels, issueType: epicType })) {
+        return {
+            ok: false,
+            error: {
+                problem: "is-an-initiative",
+                message:
+                    `#${epicNumber} is filed as an initiative, not an epic. An initiative is a planning ` +
+                    `container for the epics under it: it has no stories, no decision record and nothing ` +
+                    `to check or close. Pass the issue number of one of its epics instead.`,
+            },
+        };
+    }
 
     if (opts.requireEpic) {
         // What the target is filed as, read from the declared classification — not inferred from
