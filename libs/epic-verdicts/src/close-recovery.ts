@@ -337,7 +337,7 @@ function sectionAt(lines: string[], heading: string): { start: number; end: numb
     const level = (/^#+/.exec(heading) ?? [""])[0].length;
     const next = new RegExp(`^#{1,${level}} `);
     let end = start + 1;
-    while (end < lines.length && !next.test(lines[end]) && !lines[end].startsWith(CLOSE_RECORD_MARKER)) end++;
+    while (end < lines.length && !next.test(lines[end]) && lines[end].trim() !== CLOSE_RECORD_MARKER) end++;
     return { start, end };
 }
 

@@ -908,14 +908,13 @@ describe("nexus close — keyed by the epic (#906)", () => {
     it("reads a pull-request URL on an Enterprise checkout whose issues repository names no host", () => {
         const h = harness({ checkoutForge: () => "ghe.corp" });
         const { stdout } = closed(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } });
-        // The issues repository, named with no host, is the checkout's own forge's.
-        expect(stdout).toContain(`epic ghe.corp/${ISSUES}#${EPIC} passed every gate`);
+        expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
     });
 
     it("checks a bare pull request, read on the checkout's forge, against a stated issues forge", () => {
         const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
-        expect(err).toMatch(/reason: .*on github\.com, but close reads the epic's issues on ghe\.corp/);
+        expect(err).toMatch(/reason: .*on github\.com, but the issues repository .* is on ghe\.corp/);
     });
 
     it("stops, creating nothing, on a pull request on another forge than the issues repository", () => {

@@ -415,17 +415,12 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const configured = (): ReturnType<CloseCommandDeps["issuesRepo"]> => (configuredRead ??= deps.issuesRepo(repoRoot));
     // The forge close reads the epic's issues on: the one the issues repository names, else the
     // checkout's (where an unqualified issues repository comes from), else gh's default.
-    const issuesForge = (repo: string): string => issuesRepoHost(repo) ?? "github.com";
     const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
         const r = configured();
         if (!r.ok) return { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
-        // An issues repository that names no host lives on the checkout's forge (it is the checkout's
-        // own, or configured as owner/repo there), so it is qualified with that forge when it is not
-        // github.com: every read and write of it, and the forge check, then aim at the same place.
-        const stated = canonicalIssuesRepo(r.repos.issuesRepo);
-        const forge = deps.checkoutForge(repoRoot);
-        const issuesRepo = issuesRepoHost(stated) === null && forge !== null && forge !== "github.com" ? `${forge}/${stated}` : stated;
-        return { ok: true, issuesRepo, codeRepo: r.repos.repo };
+        // A host the configured form states is kept and every read of it goes there; a form that names
+        // none is left to gh's own host, as on main, never guessed from the checkout.
+        return { ok: true, issuesRepo: canonicalIssuesRepo(r.repos.issuesRepo), codeRepo: r.repos.repo };
     };
 
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
@@ -442,7 +437,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // issues repository, on the forge close reads it on.
         const named = input.target.repo;
         const namedHost = named === undefined ? null : issuesRepoHost(named);
-        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || (namedHost !== null && namedHost !== issuesForge(issuesRepo)))) {
+        const statedForge = issuesRepoHost(issuesRepo) ?? deps.checkoutForge(repoRoot) ?? "github.com";
+        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || (namedHost !== null && namedHost !== statedForge))) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
                 item: `issue ${named}#${epic}`,
@@ -469,13 +465,14 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const repos = resolveRepos();
         if (!repos.ok) return stopped(repos.stop);
         ({ issuesRepo, codeRepo } = repos);
-        // A pull request on another forge than the one close reads the epic's issues on would read the
-        // pull request on one and the issues on the other: a URL names its forge, any other form is
-        // read on the checkout's.
+        // A pull request on another forge than the issues repository's would read the pull request on
+        // one and the issues on the other. A URL names its forge, any other form is read on the
+        // checkout's; the issues forge is the host the issues repository states, else the checkout's.
         const prForge = forgeHost(ref.host ?? deps.checkoutForge(repoRoot) ?? "github.com");
-        if (prForge !== issuesForge(issuesRepo)) {
+        const statedForge = issuesRepoHost(issuesRepo) ?? deps.checkoutForge(repoRoot) ?? "github.com";
+        if (prForge !== statedForge) {
             return stopped({
-                reason: `${asLabel} is on ${prForge}, but close reads the epic's issues on ${issuesForge(issuesRepo)}`,
+                reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,
                 item: asLabel,
                 remedy: "name the epic instead: nexus close --epic <N>",
             });
