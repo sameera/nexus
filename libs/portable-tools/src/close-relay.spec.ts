@@ -79,7 +79,7 @@ describe("/nxs.close relays every form that names the epic (#906)", () => {
         const usage: string = BODY.slice(BODY.indexOf("# Usage"));
         expect(usage).toMatch(/\/nxs\.close --epic 159 +# runs: nexus close --epic 159/);
         expect(usage).toMatch(/\/nxs\.close 159 +# runs: nexus close 159/);
-        expect(usage).toMatch(/\/nxs\.close --pr owner\/repo#704 +# runs: nexus close --pr owner\/repo#704/);
+        expect(usage).toMatch(/\/nxs\.close --pr 'owner\/repo#704' +# runs: nexus close --pr 'owner\/repo#704'/);
     });
 
     it("refuses only when the arguments name neither an epic nor a pull request", () => {

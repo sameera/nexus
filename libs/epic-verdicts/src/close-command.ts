@@ -274,7 +274,7 @@ export function linkedEpic(markdown: string): number | null {
 
 /** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff` when given. */
 function closeArgs(target: CloseTarget, input: Pick<CloseInput, "entryPath" | "handoff">): string {
-    const named = "epic" in target ? `--epic ${target.epic}` : `--pr ${prReference(target.pr)}`;
+    const named = "epic" in target ? `--epic ${target.epic}` : `--pr ${shellWord(prReference(target.pr))}`;
     return [named, ...(input.entryPath === null ? [] : [shellWord(input.entryPath)]), ...(input.handoff === null ? [] : ["--handoff", shellWord(input.handoff)])].join(" ");
 }
 
@@ -283,9 +283,16 @@ function shellWord(value: string): string {
     return /^[\w./@%+=:,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-/** A parsed pull-request reference as `--pr` takes it back: `N`, or `owner/repo#N` when qualified. */
+/** A parsed pull-request reference as `--pr` takes it back: `N`, `owner/repo#N`, or the URL it came from. */
 function prReference(ref: ParsedPrReference): string {
-    return ref.repo === null ? `${ref.number}` : `${ref.repo}#${ref.number}`;
+    if (ref.repo === null) return `${ref.number}`;
+    return ref.host === undefined ? `${ref.repo}#${ref.number}` : `https://${ref.host}/${ref.repo}/pull/${ref.number}`;
+}
+
+/** A parsed reference's repository with its host when it names one other than github.com, for display and matching. */
+function hostedRepo(ref: ParsedPrReference | null): string | null {
+    if (ref === null || ref.repo === null) return null;
+    return ref.host === undefined || ref.host === "github.com" ? ref.repo : `${ref.host}/${ref.repo}`;
 }
 
 /** The merged pull requests an earlier close comment stamped, as a re-run reports them. */
@@ -359,12 +366,12 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const ref = input.target.pr;
         const read = deps.readPr(repoRoot, ref);
         if (!read.ok) {
-            const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${ref.repo}#${ref.number}`;
+            const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${hostedRepo(ref)}#${ref.number}`;
             return stopped({ reason: `${asked} could not be read: ${read.error.message}`, item: asked, remedy: `check the reference, then re-run ${rerun}` });
         }
         // The repository it was read in, which in a fork checkout can differ from the checkout's
         // default: the platform's URL for it says which.
-        const pr = { repo: parsePrReference(read.pr.url)?.repo ?? ref.repo ?? codeRepo, pr: ref.number };
+        const pr = { repo: hostedRepo(parsePrReference(read.pr.url)) ?? hostedRepo(ref) ?? codeRepo, pr: ref.number };
         const label = `pull request ${pr.repo}#${pr.pr}`;
         if (!read.pr.merged) {
             return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
@@ -394,7 +401,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // repository that declares nothing has no other way to mark an epic, and keeps that fallback.
     const kind = deps.issueKind(repoRoot, issuesRepo, epic);
     if (!kind.ok) {
-        return stopped({ reason: `what ${epicRef} is filed as could not be read, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above (a failed read clears on its own), then re-run ${rerun}` });
+        return stopped({ reason: `what ${epicRef} is filed as could not be read, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
     }
     if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared))) {
         const source = "epic" in input.target ? "typed" : link !== null ? "link" : "pr";
@@ -1059,9 +1066,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
             if (ref.repo === null) return resolvePr(run, repoRoot, ref.number, { requireMerged: false });
-            // `owner/repo` names no host: it lives on the checkout's own forge. `host/owner/repo` (from a URL) names its own.
-            const host = ref.repo.split("/").length === 3 ? null : canonicalRepoRef(run, repoRoot)?.split("/")[0];
-            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host ? `${host}/${ref.repo}` : ref.repo });
+            // A URL names its forge; `owner/repo#N` names none, so it lives on the checkout's own.
+            const host = ref.host ?? canonicalRepoRef(run, repoRoot)?.split("/")[0];
+            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host === undefined ? ref.repo : `${host}/${ref.repo}` });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {

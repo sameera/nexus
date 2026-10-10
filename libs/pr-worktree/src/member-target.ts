@@ -22,10 +22,12 @@ export interface ParsedPrReference {
     /** Lowercased "owner/repo", or null for a bare PR number (today's meaning). */
     repo: string | null;
     number: number;
+    /** The lowercased forge host a pull-request URL names; absent for the other forms, which name none. */
+    host?: string;
 }
 
 const BARE_RE = /^(\d+)$/;
-const URL_RE = /^https?:\/\/[^/\s]+\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)\/?$/i;
+const URL_RE = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)\/?$/i;
 
 /** Parse a `--pr` argument into its optional repository qualifier and PR number. */
 export function parsePrReference(ref: string): ParsedPrReference | null {
@@ -38,7 +40,7 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     if (qualified) return { repo: `${qualified[1]}/${qualified[2]}`.toLowerCase(), number: Number(qualified[3]) };
 
     const url = URL_RE.exec(trimmed);
-    if (url) return { repo: `${url[1]}/${url[2]}`.toLowerCase(), number: Number(url[3]) };
+    if (url) return { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: url[1].toLowerCase() };
 
     return null;
 }

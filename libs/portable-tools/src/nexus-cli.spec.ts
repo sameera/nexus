@@ -2188,14 +2188,14 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--epic", "159"], "nexus close --epic 159"],
         [["159"], "nexus close --epic 159"],
         [["--pr", "5"], "nexus close --pr 5"],
-        [["--pr", "geo-nexus/giccp#704"], "nexus close --pr geo-nexus/giccp#704"],
-        [["--pr", "https://github.com/geo-nexus/giccp/pull/704"], "nexus close --pr geo-nexus/giccp#704"],
+        [["--pr", "geo-nexus/giccp#704"], "nexus close --pr 'geo-nexus/giccp#704'"],
+        [["--pr", "https://github.com/geo-nexus/giccp/pull/704"], "nexus close --pr https://github.com/geo-nexus/giccp/pull/704"],
         [["--epic", "159", "epic.md", "--handoff", "note.txt"], "nexus close --epic 159"],
         [["159", "epic.md"], "nexus close --epic 159"],
         [["#159"], "nexus close --epic 159"],
         [["--epic", "#159"], "nexus close --epic 159"],
         [["--pr", "#5"], "nexus close --pr 5"],
-        [["--pr", "https://ghe.corp/acme/app/pull/7"], "nexus close --pr ghe.corp/acme/app#7"],
+        [["--pr", "https://ghe.corp/acme/app/pull/7"], "nexus close --pr https://ghe.corp/acme/app/pull/7"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
         expect(await runNexusCli(["close", ...args], io)).toBe(1);

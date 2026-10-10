@@ -39,7 +39,11 @@ describe("parsePrReference", () => {
     });
 
     it("parses a pull-request URL", () => {
-        expect(parsePrReference("https://github.com/acme/widget/pull/492")).toEqual({ repo: "acme/widget", number: 492 });
+        expect(parsePrReference("https://github.com/acme/widget/pull/492")).toEqual({ repo: "acme/widget", number: 492, host: "github.com" });
+    });
+
+    it("keeps the forge host a pull-request URL names", () => {
+        expect(parsePrReference("https://GHE.corp/acme/widget/pull/7")?.host).toBe("ghe.corp");
     });
 
     it("rejects an unrecognized string", () => {

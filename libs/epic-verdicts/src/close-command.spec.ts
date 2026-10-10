@@ -634,7 +634,7 @@ describe("nexus close — keyed by the epic (#906)", () => {
 
     it("names what the lead ran in a stop before the epic is known, and the epic in every stop after", () => {
         const unreadable = harness({ readPr: () => ({ ok: false, error: { problem: "pr-not-found", message: "no such pull request" } }) });
-        expect(expectStop(unreadable, runCloseCommand(unreadable.deps, input(unreadable, viaPr(704, "acme/member"))))).toContain("nexus close --pr acme/member#704");
+        expect(expectStop(unreadable, runCloseCommand(unreadable.deps, input(unreadable, viaPr(704, "acme/member"))))).toContain("nexus close --pr 'acme/member#704'");
 
         const openStory = harness({ subIssues: () => ({ ok: true, facts: new Map([[864, facts("OPEN")], [865, facts("CLOSED")], [RECORD, facts("CLOSED")]]) }) });
         const err = expectStop(openStory, runCloseCommand(openStory.deps, input(openStory, viaPr(704, "acme/member"))));
@@ -2112,18 +2112,20 @@ describe("nexus close — the back-references, the epic close, the marker and th
     const deps = (run: Runner) => closeCommandDeps(run, { singleRepo: () => true });
 
     it("reads a repository-qualified pull request on the checkout's own forge (#906)", () => {
-        const viaGh = (remote: string, repo = "acme/member") => {
+        const viaGh = (remote: string, host?: string) => {
             const rec = recorder((args) =>
                 args.includes("get-url") ? { status: 0, stdout: `${remote}\n`, stderr: "" } : args.includes("remote") ? { status: 0, stdout: "origin\n", stderr: "" } : { status: 1, stdout: "", stderr: "stop" },
             );
-            deps(rec.run).readPr("/repo", { repo, number: 7 });
+            deps(rec.run).readPr("/repo", { repo: "acme/member", number: 7, ...(host === undefined ? {} : { host }) });
             const gh = rec.calls.find((c) => c[0] === "gh" && c[1] === "pr") ?? [];
             return gh[gh.indexOf("--repo") + 1];
         };
         expect(viaGh("git@github.com:acme/hub.git")).toBe("github.com/acme/member");
         expect(viaGh("https://ghe.corp/acme/hub.git")).toBe("ghe.corp/acme/member");
         // A URL on another forge already carries its host.
-        expect(viaGh("git@github.com:acme/hub.git", "ghe.other/acme/member")).toBe("ghe.other/acme/member");
+        expect(viaGh("git@github.com:acme/hub.git", "ghe.other")).toBe("ghe.other/acme/member");
+        // A github.com URL read from a checkout on another forge is still read on github.com.
+        expect(viaGh("https://ghe.corp/acme/hub.git", "github.com")).toBe("github.com/acme/member");
     });
 
     it("reads what an issue is filed as, and its parent, in the issues repository (#906)", () => {

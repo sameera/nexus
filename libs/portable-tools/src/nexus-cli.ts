@@ -3045,11 +3045,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             targets.push({ form: `--epic ${value}`, target: { epic } });
         } else if (a === "--pr") {
             const value = argv[++i];
-            const parsed = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
-            if (parsed === null || parsed.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
-            // A URL on another forge keeps its host, so the pull request is read where it lives.
-            const host = /^https?:\/\/([^/\s]+)\//i.exec(value ?? "")?.[1]?.toLowerCase();
-            const ref = host !== undefined && host !== "github.com" && parsed.repo !== null ? { ...parsed, repo: `${host}/${parsed.repo}` } : parsed;
+            const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
+            if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
             targets.push({ form: `--pr ${value}`, target: { pr: ref } });
         } else if (a === "--recover") {
             const value = argv[++i];

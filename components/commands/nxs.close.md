@@ -83,6 +83,6 @@ the recovery mode of the close command, run by the lead directly:
 /nxs.close --epic 159               # runs: nexus close --epic 159
 /nxs.close 159                      # runs: nexus close 159
 /nxs.close --pr 123                 # runs: nexus close --pr 123
-/nxs.close --pr owner/repo#704      # runs: nexus close --pr owner/repo#704
+/nxs.close --pr 'owner/repo#704'    # runs: nexus close --pr 'owner/repo#704'
 /nxs.close --pr 123 path/to/epic.md # runs: nexus close --pr 123 path/to/epic.md
 ```
