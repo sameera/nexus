@@ -70,9 +70,13 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
  * given, so the read that uses it fails and says so.
  */
 export function canonicalIssuesRepo(issuesRepo: string): string {
-    const id = parseRepoIdentity(normalizeRemote(issuesRepo));
-    if (id === null) return issuesRepo;
-    return id.host === null ? `${id.owner}/${id.name}` : `${forgeHost(id.host)}/${id.owner}/${id.name}`;
+    const normalized = normalizeRemote(issuesRepo);
+    if (parseRepoIdentity(normalized) === null) return issuesRepo;
+    // The owner and name keep the casing they were written in; only a host is lowercased (and folded).
+    const parts = normalized.split("/");
+    if (parts.length === 3) return `${forgeHost(parts[0])}/${parts[1]}/${parts[2]}`;
+    const written = issuesRepo.trim().replace(/\/+$/, "").replace(/\.git$/i, "").split("/");
+    return `${written[written.length - 2]}/${written[written.length - 1]}`;
 }
 
 /** The issues repository as the slug the epic-resolve reads take, from its canonical form. */

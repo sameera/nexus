@@ -9,7 +9,8 @@ import { type LandedChangeResult } from "@nexus/pr-worktree/landed-change";
 import { type RepoCheckoutResult } from "@nexus/pr-worktree/repo-checkout";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, parseWaiverBlock, type WaiverComment } from "@nexus/pr-acceptance/waiver";
-import { deriveCloseRanges, type CloseRangesDeps, type DeriveOutcome } from "./close-ranges.js";
+import { closeRangesDeps, deriveCloseRanges, type CloseRangesDeps, type DeriveOutcome } from "./close-ranges.js";
+import { type Runner } from "./run.js";
 import { type ShippedRecord } from "./ledger.js";
 import { type StoryClaimingPr } from "./story-prs.js";
 
@@ -995,5 +996,24 @@ describe("deriveCloseRanges — a waiver posted on the pull request (story #856;
         );
         expect(out.ok && out.ranges.closable).toBe(true);
         expect(out.ok && out.ranges.waivers.map((w) => [w.pr, w.cause, w.stories])).toEqual([[40, "record-revised", [1, 2]]]);
+    });
+});
+
+describe("closeRangesDeps — issues reads and pull-request reads on their own runners (#906)", () => {
+    it("reads the claims and the record through the issues runner, and the verdicts through the plain one", () => {
+        const plain: string[][] = [];
+        const issues: string[][] = [];
+        const fail = (into: string[][]): Runner => (cmd, args) => {
+            into.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        const deps = closeRangesDeps(fail(plain), "/repo", "ghe.corp/acme/plan", 5, fail(issues));
+        deps.readClaims(10);
+        deps.readRecord();
+        deps.readReceipt({ repo: "acme/code", pr: 7 });
+        expect(issues.length).toBeGreaterThan(0);
+        expect(issues.every((c) => !c.join(" ").includes("repos/ghe.corp"))).toBe(true);
+        expect(plain.some((c) => c.join(" ").includes("7"))).toBe(true);
+        expect(plain.some((c) => c.join(" ").includes("acme/plan/issues/5"))).toBe(false);
     });
 });

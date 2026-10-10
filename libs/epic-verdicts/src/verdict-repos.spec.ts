@@ -122,7 +122,9 @@ describe("issuesRepoSlug — the one parse of the issues repository (#906)", () 
 describe("canonicalIssuesRepo — the one written form close uses (#906)", () => {
     it("keeps the host a configured form names, folding github.com's aliases, and owner/repo alone when it names none", () => {
         expect(canonicalIssuesRepo("acme/issues")).toBe("acme/issues");
-        for (const configured of ["https://github.com/Acme/Issues", "https://github.com/acme/issues/", "git@github.com:acme/issues.git", "git@github.com-work:acme/issues.git", "github.com/acme/issues"]) {
+        expect(canonicalIssuesRepo("Acme/Plan")).toBe("Acme/Plan");
+        expect(canonicalIssuesRepo("https://GitHub.com/Acme/Issues")).toBe("github.com/Acme/Issues");
+        for (const configured of ["https://github.com/acme/issues/", "git@github.com:acme/issues.git", "git@github.com-work:acme/issues.git", "github.com/acme/issues"]) {
             expect(canonicalIssuesRepo(configured), configured).toBe("github.com/acme/issues");
         }
         expect(canonicalIssuesRepo("ssh://git@ghe.corp:22/acme/issues.git")).toBe("ghe.corp/acme/issues");

@@ -1193,11 +1193,10 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         ranges: (root, issuesRepo, epic, input) => {
             const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), epic);
             if (!collected.ok) return { ok: false, problem: "records-unreadable", message: collected.error.message };
-            // The story claims are reads of the issues repository, on its host; the pull-request reads
-            // (ranges, verdicts, waivers) stay on each code repository's, as deps.verdict reads them.
-            const rangeDeps = closeRangesDeps(run, root, issuesRepoPath(issuesRepo), input.record);
-            const claimsOnHost = closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), input.record).readClaims;
-            const derived = deriveCloseRanges({ ...rangeDeps, readClaims: claimsOnHost }, {
+            // Reads of the issues repository (claims, the record) on its host; the pull-request reads
+            // (ranges, verdicts, waivers) on each code repository's, given the issues repository in the
+            // one form deps.verdict also gives it.
+            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepo, input.record, onIssuesHost(run, issuesRepo)), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),

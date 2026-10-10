@@ -69,7 +69,7 @@ import { readPrVerdict } from "./pr-verdict.js";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { type Runner } from "./run.js";
 import { mergedClaims, readStoryClaims, type StoryClaimingPr, type StoryClaimsRead, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
-import { issuesRepoSlug } from "./verdict-repos.js";
+import { issuesRepoPath, issuesRepoSlug } from "./verdict-repos.js";
 
 /** What the merge-anchored derivation produced for one pull request. */
 export type DeriveOutcome = { ok: true; base: string; head: string } | { ok: false; problem: string; message: string };
@@ -773,10 +773,12 @@ function renderLines(
  * The claiming read is passed through in every state: close is the one caller that classifies an
  * open or closed-unmerged pull request, and the derivation narrows to merged ones itself (D7).
  */
-export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, record: number | null = null): CloseRangesDeps {
+export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, record: number | null = null, issuesRun: Runner = run): CloseRangesDeps {
+    // Reads of the issues repository (the story claims, the record) go through `issuesRun`, which may
+    // aim them at its host; the pull-request and checkout reads go through `run`.
     const slug: RepoSlug = issuesRepoSlug(issuesRepo);
     return {
-        readClaims: (story) => readStoryClaims(run, root, slug, story),
+        readClaims: (story) => readStoryClaims(issuesRun, root, slug, story),
         checkoutFor: (repo) => resolveRepoCheckout(root, run, repo),
         hasCommit: (checkout, sha) => run("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: checkout }).status === 0,
         fetchCommand: (checkout) => `git -C ${checkout} fetch ${canonicalRemote(run, checkout)}`,
@@ -808,7 +810,7 @@ export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, r
         readRecord: () => {
             if (record === null) return { ok: true, record: null };
             // The one digest implementation, over the record body as fetched back (nxs-record-digest).
-            const fetched = fetchRecord(run, root, record, issuesRepo);
+            const fetched = fetchRecord(issuesRun, root, record, issuesRepoPath(issuesRepo));
             return fetched.ok ? { ok: true, record: { issue: record, digest: fetched.record.digest } } : { ok: false, cause: fetched.error.message };
         },
         readWaivers: (pr) => {
