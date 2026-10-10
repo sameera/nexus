@@ -1,8 +1,8 @@
 ---
 title: "Resumable Batch Filing"
-aliases: ["resume ledger", "batch filing", "re-runnable batch", "half-filed batch", "duplicate-issue guard", "filing preflight", "keep manifest"]
-touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention", "report-free-shared-layer"]
-last_updated_by: "#352"
+aliases: ["resume ledger", "batch filing", "re-runnable batch", "half-filed batch", "duplicate-issue guard", "keep manifest"]
+touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention", "report-free-shared-layer", "filing-preflight", "initiative"]
+last_updated_by: "#705"
 status: active
 verification: verified
 ---
@@ -13,30 +13,31 @@ Filing a folder of work items into issues is a batch that is always safe to re-r
 
 ## How It Works
 
-A run first proves the batch legal: the target folder must resolve inside the run's root, and no item may ask for a parent while marked unplanned — a refusal names the offender and files none of the batch. Only then is publishing configuration resolved and every label established, so a repository that has never carried one is prepared before anything exists.
+A run first passes the filing preflight, which proves the batch legal and establishes every label before any issue exists.
 
-Three passes follow. The first files each item, classifies it, links its parent, and writes its ledger entry the moment the issue's identity resolves. The second wires the declared dependency edges. The third rewrites surviving authoring refs in the filed bodies, reading each back from the platform so a human edit made since is never reverted.
+Three passes follow. The first files each item, classifies it, links its parent, and writes its ledger entry the moment the issue's identity resolves. On a repeat it retries the parent link of every issue the ledger already records. The second wires the declared dependency edges. The third rewrites surviving authoring refs in the filed bodies, reading each back from the platform so a human edit made since is never reverted.
 
 The run then reports what it created, reused, wired and rewrote, and — where anything failed or went unresolved — the ledger's location and the command that resumes it.
 
 ## Key Invariants
 
-1. No issue exists until the batch is proved legal: the folder resolves inside the run's root, and no item is both unplanned and parented.
-2. Every label the run will apply exists before the first issue; one that can neither be found nor created ends the run having created nothing.
-3. A created issue is recorded in the ledger, by atomic replace, before it is typed, parented or added to a project.
-4. A ref the ledger already records never yields a second issue: the recorded one is reused, and a missing identity is backfilled from the platform.
-5. An unreadable or malformed ledger is treated as empty with a warning, never as a failure.
-6. Every pass is re-runnable: an edge or body already in the wanted state counts as present, not re-applied, and a body is read back from the platform rather than re-pushed locally.
-7. Decoration after creation — type, parent link, project membership — warns on failure and never fails the run; an issue that exists is never abandoned over it.
+1. A created issue is recorded in the ledger, by atomic replace, before it is typed, parented or added to a project.
+2. A ref the ledger already records never yields a second issue: the recorded one is reused, and a missing identity is backfilled from the platform.
+3. An unreadable or malformed ledger is treated as empty with a warning, never as a failure.
+4. Every pass is re-runnable: an edge or body already in the wanted state counts as present, not re-applied, and a body is read back from the platform rather than re-pushed locally.
+5. Decoration after creation — type, parent link, project membership — warns on failure and never fails the run; an issue that exists is never abandoned over it.
+6. A repeat retries the parent link of every issue the ledger records, and a link that already exists counts as success.
 
 ## Integration Points
 
 - [delegating-port](delegating-port.md) — the port that moved this contract onto the toolkit's own runtime, where preserving every flag, line and exit code was the bar.
-- [backlog-stub](backlog-stub.md) — the one batch path both stub writers file through; its preflight is where the never-a-sub-issue rule stops a deadlocking stub.
+- [backlog-stub](backlog-stub.md) — the one batch path both stub writers file through, whose preflight limits a stub's parent to an initiative.
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the classification, labels and project target the run establishes before the first issue, none of them hard-coded here.
 - [story-identity](story-identity.md) — resolves the pre-filing ref, in dependency graph and prose alike, into the issue number that becomes a story's only name.
 - [target-root-convention](target-root-convention.md) — the root the folder must resolve inside, and the root every platform call is bound to rather than the ambient directory.
 - [report-free-shared-layer](report-free-shared-layer.md) — this contract's own platform calls and lookups, generalised into a shared layer once a second capability needed them.
+- [filing-preflight](filing-preflight.md) — the legality check and label establishment every batch passes before its first issue, split from this page.
+- [initiative](initiative.md) — filed as its own one-item batch before the stubs that name it, whose parent links a repeat retries.
 
 ## Decision Log
 
@@ -47,3 +48,7 @@ Two orderings carry this contract, and both were preserved deliberately rather t
 ### 2026-08-30 — #352 — Reciprocal link from report-free-shared-layer
 
 Mechanical reciprocity fan-out: the report-free-shared-layer page names this contract's platform calls and project lookups as the mechanism it generalised — this page's calls stopped printing for themselves so a second capability could reuse them in its own vocabulary, with no change to this contract's own outcomes or ordering.
+
+### 2026-10-10 — #705 — A repeat retries a failed parent link, and the preflight moves to its own page
+
+A parent link that failed used to print a warning only. The batch still reported complete, and a repeat never retried the link. So a stub could silently drop out of its initiative. A repeat now retries the link for every issue the ledger already records, and a link that already exists counts as success, so the retry is safe to repeat. The approved narrowing of the parent rule pushed this page past the word cap, so the page was split. The legality check and label establishment moved to filing-preflight, with the two invariants that state them. This page keeps the ledger and the three passes. Refuted alternative: report a failed parent link in the run's summary and exit non-zero. It lost because that summary is a frozen surface and the change would alter every story batch. The stage that files under an initiative reads the children back instead.
