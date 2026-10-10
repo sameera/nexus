@@ -32,7 +32,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { matchRecordWaiver, readPrWaivers, type PrWaivers } from "@nexus/pr-acceptance/waiver";
 import { findEpicDistillBranch, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
-import { fetchRecord } from "@nexus/record-digest/fetch";
 import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
@@ -42,7 +41,7 @@ import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, machin
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoPath, onIssuesHost } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, fetchRecordIn, issuesRepoPath, onIssuesHost } from "./verdict-repos.js";
 
 /** What the lead passed: the closed epic, plus today's date for a distill branch cut from the trunk. */
 export interface RecoverInput {
@@ -468,7 +467,7 @@ export function closeRecoveryDeps(run: Runner): CloseRecoveryDeps {
         issuesRepo: close.issuesRepo,
         issueComments: close.issueComments,
         record: (root, issuesRepo, record) => {
-            const r = fetchRecord(onIssuesHost(run, issuesRepo), root, record, issuesRepoPath(issuesRepo));
+            const r = fetchRecordIn(run, root, record, issuesRepo);
             return r.ok
                 ? { ok: true, body: r.record.body, digest: r.record.digest, approved: r.record.approved, state: r.record.state, stateReason: r.record.stateReason }
                 : { ok: false, message: r.error.message };

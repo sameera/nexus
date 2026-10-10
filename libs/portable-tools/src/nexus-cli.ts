@@ -29,7 +29,7 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
-import { canonicalIssuesRepo, issuesRepoHost, issuesRepoPath, onIssuesHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
+import { canonicalIssuesRepo, fetchRecordIn, issuesRepoHost, issuesRepoPath, onIssuesHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -80,7 +80,6 @@ import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
 import { storyCount } from "@nexus/scope-razor/ordering";
 import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
-import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
@@ -2404,7 +2403,8 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
         return 2;
     }
 
-    const result = fetchRecord(closeMigrationRunner, flags.dir ?? io.cwd, flags.issue, flags.repo ?? null);
+    // `--repo` in any form a close stamps or epic-repo is written in: a host it states is read on that host.
+    const result = fetchRecordIn(closeMigrationRunner, flags.dir ?? io.cwd, flags.issue, flags.repo ?? null);
     if (!result.ok) {
         io.stderr(`record-digest ${result.error.problem}: ${result.error.message}`);
         return 1;

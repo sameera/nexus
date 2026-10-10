@@ -39,6 +39,10 @@ behaviour says so.
   names no epic, or names this epic in another issues repository stops them and says how to fix it,
   instead of being resumed from or closed over again. `/nxs.close` relays all three forms
   unchanged, and its refusal without arguments names `nexus close --epic <N>`.
+- **`nexus record-digest --repo` takes the issues repository in any written form.** A
+  host-qualified `host/owner/repo`, a URL or an SSH remote is read on its host by its owner/repo
+  path, so distill's hash check works on the `issues_repo:` a close stamps from such an `epic-repo`.
+  Analyze's receipts match that repository in whichever of those forms either side names it.
 
 ## 0.97.0
 

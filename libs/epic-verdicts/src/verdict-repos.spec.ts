@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { canonicalIssuesRepo, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { canonicalIssuesRepo, fetchRecordIn, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
@@ -158,5 +158,36 @@ describe("sameIssuesRepo — one issues repository in any written form (#906)", 
         expect(sameIssuesRepo("git@github.com-work:acme/app.git", "github.com/acme/app")).toBe(true);
         expect(sameIssuesRepo("acme/app", "ghe.corp/acme/app")).toBe(true);
         expect(sameIssuesRepo("github.com/acme/app", "ghe.corp/acme/app")).toBe(false);
+    });
+});
+
+describe("fetchRecordIn — a record read in any written form of the issues repository (#906)", () => {
+    it.each([
+        ["github.com/acme/plan", "github.com"],
+        ["https://github.com/acme/plan", "github.com"],
+        ["ghe.corp/acme/plan", "ghe.corp"],
+        ["git@ghe.corp:acme/plan.git", "ghe.corp"],
+    ])("reads %s on its host by its owner/repo path", (repo, host) => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        fetchRecordIn(run, "/", 9, repo);
+        expect(calls).toEqual([["gh", "api", "--hostname", host, "repos/acme/plan/issues/9"]]);
+    });
+
+    it("reads acme/plan, or the checkout's own repository, on gh's own host", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        fetchRecordIn(run, "/", 9, "acme/plan");
+        fetchRecordIn(run, "/", 9, null);
+        expect(calls).toEqual([
+            ["gh", "api", "repos/acme/plan/issues/9"],
+            ["gh", "api", "repos/{owner}/{repo}/issues/9"],
+        ]);
     });
 });

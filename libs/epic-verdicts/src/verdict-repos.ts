@@ -17,6 +17,7 @@
 
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
+import { fetchRecord, type FetchRecordResult } from "@nexus/record-digest/fetch";
 import { parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
 import { forgeHost } from "@nexus/pr-worktree/member-target";
 import { normalizeRemote } from "@nexus/workspace/remote";
@@ -131,4 +132,13 @@ export function onIssuesHost<R extends WorkspaceRunner>(run: R, issuesRepo: stri
 export function issuesRepoPath(issuesRepo: string): string {
     const { owner, repo } = issuesRepoSlug(issuesRepo);
     return `${owner}/${repo}`;
+}
+
+/**
+ * A decision record read in the issues repository, whatever form names it: by its owner/repo path, on
+ * the host the form states. Null reads the checkout's own repository on gh's own host.
+ */
+export function fetchRecordIn(run: Runner, cwd: string, issue: number, issuesRepo: string | null): FetchRecordResult {
+    if (issuesRepo === null) return fetchRecord(run, cwd, issue, null);
+    return fetchRecord(onIssuesHost(run, issuesRepo), cwd, issue, issuesRepoPath(issuesRepo));
 }

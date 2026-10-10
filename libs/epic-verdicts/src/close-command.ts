@@ -67,7 +67,6 @@ import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-re
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
 import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
-import { fetchRecord } from "@nexus/record-digest/fetch";
 import {
     carriesAmendmentKey,
     carriesStubKey,
@@ -91,7 +90,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoHost, issuesRepoPath, issuesRepoSlug, onHost, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, fetchRecordIn, issuesRepoHost, issuesRepoPath, issuesRepoSlug, onHost, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -1220,7 +1219,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         findDistillBranch: (repoRoot, epic) => findEpicDistillBranch(run, repoRoot, epic),
         openWorktree: (repoRoot, epic, date) => openEpicDistillWorktree(run, repoRoot, epic, date),
         recordBody: (root, issuesRepo, record) => {
-            const r = fetchRecord(onIssuesHost(run, issuesRepo), root, record, issuesRepoPath(issuesRepo));
+            const r = fetchRecordIn(run, root, record, issuesRepo);
             return r.ok ? { ok: true, body: r.record.body, digest: r.record.digest } : { ok: false, message: r.error.message };
         },
         commitEntry: (wtPath, files, message) => {
