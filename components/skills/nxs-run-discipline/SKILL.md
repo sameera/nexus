@@ -1,6 +1,6 @@
 ---
 name: nxs-run-discipline
-description: The one normative statement of the continue rule every Nexus stage command runs under between its gates — when the stage keeps going, the only four places it may stop, and what it names when it stops. Every stage command except /nxs.close loads it at its start.
+description: The one normative statement of the continue rule every Nexus stage command runs under between its gates — when the stage keeps going, the only four places it may stop, and what it names when it stops — and of the completion report layout every stage command ends with. Every stage command except /nxs.close loads it at its start.
 ---
 
 # nxs-run-discipline
@@ -9,11 +9,12 @@ This file is the **one normative home** of how a Nexus stage runs between its ga
 command except `/nxs.close` loads it at its start: `/nxs.setup`, `/nxs.discover`, `/nxs.epic`,
 `/nxs.decision-record`, `/nxs.analyze`, `/nxs.distill`, `/nxs.fix`, `/nxs.intake` and
 `/nxs.council`. No command restates it. Each command's opening names its own finish line and its
-own gates, because those differ per stage. This file says what happens between them.
+own gates, because those differ per stage. This file says what happens between them, and how the
+run's completion report is laid out.
 
 `/nxs.close` does not load it. It runs one command and shows that command's output unchanged, so it
-has no pause to govern. The advisory agents (`nxs-pm`, `nxs-architect`, `nxs-epic-gate`) do not
-load it either. They report to a stage, and that stage governs the stops.
+has no pause to govern and no report of its own. The advisory agents (`nxs-pm`, `nxs-architect`, `nxs-epic-gate`) do not
+load it either. They report to a stage, and that stage governs the stops and the report.
 
 ## 1. The continue rule
 
@@ -53,3 +54,28 @@ Three things are not stops. Do none of them between gates:
 - **Unattended runs.** In a run started unattended, such as `/nxs.distill --unattended`, the
   stage's own unattended rules decide what each gate does. The continue rule adds no stop and
   removes none.
+
+## 3. The completion report
+
+A completion report is what a stage command prints when its run ends after it has written
+something: at its finish line, or at a stop after a write. It has three headings, in this order:
+
+1. **Blocked on me** — what waits on the lead before the work can move: a decision, an answer, a
+   check by hand, a pull request to review. Each item says what it needs.
+2. **Changed** — what the run wrote: files, commits, issues, comments, labels, pull requests. Say
+   also what it deliberately left unwritten, where the stage promises that.
+3. **Found** — what the run learned and the lead should know: results, counts, notes.
+
+Blocked on me is never left out. When nothing waits on the lead, it says so in one line, and that
+line names the next stage to run, for example: `Nothing. Next: /nxs.analyze --pr <N>.`
+
+Each stage's own report template says what goes under each heading. Its existing content keeps its
+place under the heading it belongs to; nothing is dropped to fit the layout. A line a script reads
+back stays where the script looks for it, such as analyze's result line, which stays the last line.
+
+Two things are not completion reports and keep their own form:
+
+- **A stop that wrote nothing,** such as a refusal or a declined gate. It names what it needs, as
+  §1 says.
+- **A deliverable,** such as the council's recommendation or an advisory agent's output. It is the
+  thing the lead asked for, not a report on a run.

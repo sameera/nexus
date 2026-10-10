@@ -74,7 +74,7 @@ describe("the counts cover only open items, and the review follows them (D4; G14
 
 describe("the verdict's own listing never reads as an answer (G12)", () => {
     it("writes no line of the report template in the answer form, whatever the IDs", () => {
-        const template = between(ANALYZE, "Return a concise summary:", "A broken guarantee appears on the");
+        const template = between(ANALYZE, "Return a concise summary", "A broken guarantee appears on the");
         const concrete = template.replace(/DV<n>/g, "DV1").replace(/F<n>/g, "F1").replace(/<ID>/g, "DV1");
         expect(concrete).toMatch(/DV1 \(/);
         expect(parseAnswerLines(concrete)).toEqual([]);

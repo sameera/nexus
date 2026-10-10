@@ -302,30 +302,36 @@ After the docs exist:
 
 ## Phase 7: Summary
 
-Output a completion summary:
+Output a completion summary in the run-discipline skill's layout:
 
 ```markdown
 ## Project setup complete ✓
 
-### Created
+### Blocked on me
+
+- Review `.nexus/config/settings.yml` (the seeded `github:` publishing block) and commit it. If the gh-unavailable fallback ran, re-check its safe defaults when online.
+- Review the generated docs for accuracy, add project-specific details as needed, and commit the changes.
+- Then start your first epic with `/nxs.epic`.
+
+### Changed
+
+#### Created
 
 - `<docs-root>/system/stack.md` — technology stack
 - `<docs-root>/system/standards/[file].md` — [brief description]
 - `<docs-root>/product/context.md` — product context (interactive)
 - `.nexus/config/issue-labels.yaml` — task label set
-- `.nexus/config/settings.yml` — seeded the `github:` publishing block (`classification: <mode>`, `project: <target>`) — **review and commit** (if the gh-unavailable fallback ran, note the safe defaults and re-check when online)
+- `.nexus/config/settings.yml` — seeded the `github:` publishing block (`classification: <mode>`, `project: <target>`)
 - `.gitignore` — `.nexus/tmp/` added if it was missing; any pre-existing `.nexus/plans/` line kept as retired (decision scratch stays committed under `.nexus/queue/`)
 
-### Updated
+#### Updated
 
 - `CLAUDE.md` — refactored to link to system docs
 
-### Next steps
+### Found
 
-1. Review generated docs for accuracy.
-2. Add project-specific details as needed.
-3. Commit changes to version control.
-4. Start your first epic with `/nxs.epic`.
+- Stack: <project type, languages, frameworks, database, testing, build tools, in one line>
+- Unresolved: <any stack attribute Phase 2 could not pin down, so `stack.md` leaves it out — or "none">
 ```
 
 ## Quality requirements

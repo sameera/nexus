@@ -160,13 +160,21 @@ one gate and persisting is another; this command writes nothing durable and noth
 second gate over a scratch directory would be ceremony that forces no decision. Write no
 conformance result: a fix entry has none.
 
-Report and stop:
+Report in the run-discipline skill's layout, and stop:
 
 ```
+## Blocked on me
+Nothing. Run /nxs.distill to drain it into the concept store.
+
+## Changed
 Fix entry written for <reference>:
   .nexus/tmp/fix-<n>/epic.md
   .nexus/tmp/fix-<n>/close-record.md
-Run /nxs.distill to drain it into the concept store.
+Nothing else was written: no issue, no comment, no branch, no pull request, no commit.
+
+## Found
+What changed: <the behaviour that moved, as Phase 5 read it from the diff, in one line>
+Razor check: <the Phase 5 warning, naming how many behaviours fit no existing page | none>
 ```
 
-Confirm to yourself before you finish: no issue, no comment, no branch, no pull request, no commit.
+Write the `Nothing else was written` line only when it is true.

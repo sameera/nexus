@@ -200,8 +200,8 @@ That is what makes an epic filed by hand outside Nexus, with no label and no rec
     - **Neither present** (an S epic, or a hand-filed epic) → the epic claims no design is needed.
       Confirm with the lead via `AskUserQuestion`: **"Proceed without a record (Recommended)"** vs
       **"Design it anyway"**. On the first, stop and report that the epic proceeds without a decision
-      record (file nothing, change no label). On the second, continue to Phase 1 and let Phase 4
-      apply the labels as usual.
+      record (file nothing, change no label), in step 4's layout with Changed reading "nothing". On
+      the second, continue to Phase 1 and let Phase 4 apply the labels as usual.
 
 4. **The no-design-needed outcome is available at every checkpoint below.** Whenever the analysis
    (or the lead's judgement at the Phase 2 / Phase 3.5 gates) concludes that no record is warranted:
@@ -213,7 +213,11 @@ That is what makes an epic filed by hand outside Nexus, with no label and no rec
         gh issue edit <epic-issue> $REPO_ARG --remove-label "$NEEDS_DESIGN"
         ```
 
-    - report plainly that **the epic proceeds without a decision record**, and stop.
+    - report in the run-discipline skill's layout, and stop:
+        - **Blocked on me:** nothing. Next: implement the stories, then `/nxs.analyze`, which runs
+          in its degraded no-invariant mode.
+        - **Changed:** the needs-design label removed from the epic issue; no record filed.
+        - **Found:** plainly, that **the epic proceeds without a decision record**.
 
     This is the only deliberate way to reach "this epic legitimately has no record". That is also
     the only state in which `/nxs.analyze` may run in its degraded no-invariant mode.
@@ -1061,34 +1065,46 @@ Run these four acts **in order**, and do not skip one:
    pin from; slices already pinned against the superseded body keep their sources, because a lesson
    may already have been written from them.
 
-Report the revision: the record reference, the superseded hash, the new hash, and the record's
-state.
+Report the revision in the run-discipline skill's layout:
 
-**If the epic was already closed**, say so in the report and name the consequence: its committed
-`close-record.md` stamped the superseded hash, so `/nxs.distill` will hard-error that entry. There
-is deliberately no drain-side waiver. Recovery is the named procedure `/nxs.close` §
+- **Blocked on me:** nothing, naming the next step: implement against the revised record, then
+  `/nxs.analyze`. **If the epic was already closed**, the recovery below instead.
+- **Changed:** the record reference, the superseded hash, the new hash, and the record's state.
+- **Found:** that the record was re-closed, for a lead teaching this epic (step 6).
+
+**If the epic was already closed**, say so under Blocked on me and name the consequence: its
+committed `close-record.md` stamped the superseded hash, so `/nxs.distill` will hard-error that
+entry. There is deliberately no drain-side waiver. Recovery is the named procedure `/nxs.close` §
 **"Recovery — re-stamp a closed entry whose record was revised after close"**: re-approve (done
 above), re-stamp `record_hash`, rewrite the close record's Key Decisions / Deviation Rationale if
 the design and not just the wording moved, then re-run the drain.
 
 ## Phase 5 — Report
 
-Report concisely:
+Report concisely, in the run-discipline skill's layout:
 
-- The record: **issue reference** (`#<record>`) and its state, approved (closed) or open awaiting
-  approval, plus the canonical digest from step 7. On the old-contract path, the file path instead.
-- The epic it covers (title + issue ref), its `complexity` rating, and its labels now
-  (`needs-design` removed, `in-progress` applied).
-- The record's format (approval-first, or old format for a revision of an old-format record) and
-  its sections **filled** vs. **tiered out** (e.g. "S epic → How it works, Guarantees, Decisions and
-  reasons; Approval brief with two choices; other sections omitted").
-- Open clarifications: **none**, or **N resolved** at the Phase 2 gate (none reaches the filed
-  record).
-- Story coverage: confirm every user story is addressed by a decision or a guarantee.
-- Workbook sources (when a workbook teaches this epic): that the record is closed and available to
-  pin from, or that it is left open and nothing can be pinned from it yet.
-- Next step: implement the stories, then `/nxs.analyze`. That stage **will not run** while the
-  record is unapproved, so an open record must be closed before conformance can be checked.
+- **Blocked on me:**
+    - An open record: its approval. Close the record sub-issue to approve it. `/nxs.analyze`
+      **will not run** while the record is unapproved, so it must be closed before conformance can
+      be checked.
+    - The next step, after any approval: implement the stories, then `/nxs.analyze`. When the
+      record is already approved, this is the one line: "Nothing. Next: implement the stories,
+      then `/nxs.analyze`."
+- **Changed:**
+    - The record: **issue reference** (`#<record>`) and its state, approved (closed) or open
+      awaiting approval, plus the canonical digest from step 7. On the old-contract path, the file
+      path instead.
+    - The epic it covers (title + issue ref), its `complexity` rating, and its labels now
+      (`needs-design` removed, `in-progress` applied).
+- **Found:**
+    - The record's format (approval-first, or old format for a revision of an old-format record)
+      and its sections **filled** vs. **tiered out** (e.g. "S epic → How it works, Guarantees,
+      Decisions and reasons; Approval brief with two choices; other sections omitted").
+    - Open clarifications: **none**, or **N resolved** at the Phase 2 gate (none reaches the filed
+      record).
+    - Story coverage: confirm every user story is addressed by a decision or a guarantee.
+    - Workbook sources (when a workbook teaches this epic): that the record is closed and available
+      to pin from, or that it is left open and nothing can be pinned from it yet.
 
 # Usage
 

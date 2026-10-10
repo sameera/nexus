@@ -288,11 +288,22 @@ lesson from.
 
 # Phase 8 — Report, and stop
 
+Report in the run-discipline skill's layout, and stop:
+
 ```
+## Blocked on me
+Nothing. Run /nxs.distill to drain it into the concept store.
+
+## Changed
 Intake entry written for <qualified reference>:
   .nexus/tmp/intake-<n>/epic.md
   .nexus/tmp/intake-<n>/close-record.md
-Run /nxs.distill to drain it into the concept store.
+Follow-ups filed: <#<issue> — <one-line goal>, one per line | none>
+Nothing else was written: no issue, no comment, no branch, no pull request, no commit.
+
+## Found
+Close record: <n> key decisions, <n> refuted alternatives, <n> deferred-scope items
 ```
 
-Confirm to yourself before you finish: no issue, no comment, no branch, no pull request, no commit.
+The kept follow-ups Phase 6.5 filed are the only issues this command writes, so they are listed
+above that line. Write the `Nothing else was written` line only when it is true.

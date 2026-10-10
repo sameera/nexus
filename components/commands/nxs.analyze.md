@@ -732,13 +732,29 @@ block existed reads as having no judgments, never as an error, for close and the
 
 # Phase 3 — Report, and on a pull request publish the verdict
 
-Return a concise summary:
+Return a concise summary, in the run-discipline skill's layout. It is the terminal report and,
+in `--pr` mode, the review body too: one layout for both.
 
 ```
 Conformance: <epic title> (<queue-entry-or-path>)  ·  epic <epic-ref>
 Mode: full (record <record-ref> @ <RECORD_HASH>) | downgraded (epic has no decision record)
 Surface: <N> files changed, <N> stories (<M> closed / <O> open)
 
+### Blocked on me
+<one line per open critical or high item, by ID; its detail is under Found>:
+  DV<n> (<critical|high>) · <what it departs from>
+  F<n> (<critical|high>) · <about>
+  Fix the code and run analyze again, or (--pr) answer each on the pull request, then /nxs.analyze --pr <N> --resolve.
+<when no critical or high item is open, one line instead>:
+  Nothing. Next: /nxs.analyze --pr <N> on the story's pull request          (local)
+  Nothing. Next: merge; once every story has merged, nexus close --epic <epic-ref>   (--pr)
+
+### Changed
+Published:               this verdict, on pull request <N>                                              (--pr mode)
+                         nothing — a run without a pull request writes no file                            (local)
+Recorded:                <the scope's lines>   (--resolve only)
+
+### Found
 Per-story AC conformance:
   STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted
 
@@ -751,7 +767,6 @@ Departures:              <none> | one line per departure (§2.5):
 Findings:                <none> | one line per finding (--pr: with the ID the ID step printed):
   F<n> (<critical|high|medium|low>) <about> · <what is wrong>
   F<n> (<critical|high>) waived by @<who> (<link>): <reason>      (answered — counts nothing)
-Recorded:                <the scope's lines>   (--resolve only)
 Answers not applied:     <none> | one line per entry of answers.unapplied (--pr mode):
   @<author> on <ID> (<link>): <untrusted | unknown-id | wrong-verb | no-reason | not-waivable>
 Key decisions:           <record decisions, by ID or title, @ <RECORD_HASH>> (--pr mode, §2.7):
@@ -770,8 +785,12 @@ Notes:                   <stories still open → close before /nxs.close, ...>  
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
 
+Under Blocked on me, each open critical or high item appears once, by its ID; its full line stays
+under Found. Medium and low items never block, so they appear only under Found. Locally, where
+items have no IDs, name each blocking item by what it departs from or what it is about.
+
 A broken guarantee appears on the `Departures:` line with its `G<n>` ID (an invariant by its text),
-and nowhere else. Write the `DV<n>` and `F<n>` IDs `nexus verdict-items` printed, in `--pr` mode;
+and nowhere else among the results; Blocked on me names it by its `DV<n>` ID only. Write the `DV<n>` and `F<n>` IDs `nexus verdict-items` printed, in `--pr` mode;
 locally, list the departures and findings without IDs. In `--pr` mode the `Severity:` line is the
 step's `open` counts (§2.6); an answered item is listed, never counted. Never write a listed item
 as `<ID> — <verb>:` — that is the answer form, and a verdict never holds an answer.
@@ -805,7 +824,7 @@ record body Phase 0.5 hands the section reader through `<scratch>` is the run's 
 not a result; nothing reads it after the run.
 
 The report's **last line** is one fixed result line, so a script can read the result back without
-parsing the summary:
+parsing the summary. It comes after Found:
 
 ```
 Analyze result: critical=<C> high=<H> medium=<M> low=<L> head=<full 40-hex HEAD>
@@ -958,7 +977,7 @@ file is written here either, and the worktree is removed after this phase. A **b
     write on the same pull request and needs the same repository named explicitly.
 
     **Fallback:** GitHub forbids reviewing your own PR. If the review call fails because the lead
-    authored the PR, post the same body as a comment and say so in your summary:
+    authored the PR, post the same body as a comment and say so in the terminal, after the report:
 
     ```bash
     gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"
