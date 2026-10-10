@@ -42,7 +42,7 @@ import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, record
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo } from "./verdict-repos.js";
 
 /** What the lead passed: the closed epic, plus today's date for a distill branch cut from the trunk. */
 export interface RecoverInput {
@@ -103,7 +103,8 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
     }
     const repos = deps.issuesRepo(repoRoot);
     if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
-    const { issuesRepo, repo: codeRepo } = repos.repos;
+    const issuesRepo = canonicalIssuesRepo(repos.repos.issuesRepo);
+    const codeRepo = repos.repos.repo;
     const epicRef = `${issuesRepo}#${input.epic}`;
 
     // The earlier close: the epic's own close comment, the one close resumes from, through the same finder.

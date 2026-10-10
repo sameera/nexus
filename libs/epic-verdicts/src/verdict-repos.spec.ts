@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
@@ -119,11 +119,12 @@ describe("issuesRepoSlug — the one parse of the issues repository (#906)", () 
     });
 });
 
-describe("sameIssuesRepo — one issues repository in any written form (#906)", () => {
-    it("matches owner/repo against a URL, the SSH form and a host-qualified form, without case", () => {
-        for (const other of ["https://github.com/Acme/Issues", "git@github.com:acme/issues.git", "github.com/acme/issues"]) {
-            expect(sameIssuesRepo("acme/issues", other), other).toBe(true);
+describe("canonicalIssuesRepo — the one written form close uses (#906)", () => {
+    it("writes owner/repo for github.com, host/owner/repo for another host, from any configured form", () => {
+        for (const configured of ["acme/issues", "https://github.com/Acme/Issues", "https://github.com/acme/issues/", "git@github.com:acme/issues.git", "github.com/acme/issues"]) {
+            expect(canonicalIssuesRepo(configured), configured).toBe("acme/issues");
         }
-        expect(sameIssuesRepo("acme/issues", "acme/other")).toBe(false);
+        expect(canonicalIssuesRepo("https://ghe.corp/acme/issues")).toBe("ghe.corp/acme/issues");
+        expect(canonicalIssuesRepo("not a repo")).toBe("not a repo");
     });
 });

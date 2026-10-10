@@ -60,26 +60,27 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
 }
 
 /**
- * The issues repository as the slug the epic-resolve reads take: `owner/repo` or `host/owner/repo`,
- * else its last two path segments, so a configured epic-repo written as a URL or in SSH form (with
- * a trailing slash or `.git`) still reads. The one parse every close read of the issues repository uses.
+ * The issues repository in the one form close reads, writes and compares: `owner/repo`, or
+ * `host/owner/repo` on a host other than github.com. A configured epic-repo may be written as a
+ * URL, in SSH form (`git@host:owner/repo`), or with a trailing slash or `.git`. A value that does
+ * not read is returned as given, so the read that uses it fails and says so.
  */
-export function issuesRepoSlug(issuesRepo: string): RepoSlug {
-    // `git@host:owner/repo` is the SSH form of `host/owner/repo`.
-    const bare = issuesRepo.trim().replace(/\.git\/?$/, "").replace(/^[^@/\s]+@([^:/\s]+):/, "$1/");
+export function canonicalIssuesRepo(issuesRepo: string): string {
+    const bare = issuesRepo
+        .trim()
+        .replace(/\/+$/, "")
+        .replace(/\.git$/, "")
+        .replace(/^[^@/\s]+@([^:/\s]+):/, "$1/")
+        .replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?/i, "");
     const id = parseRepoIdentity(bare);
-    if (id !== null) return { owner: id.owner, repo: id.name };
-    const segments = bare.split("/").filter((p) => p.length > 0);
-    return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
+    if (id === null) return issuesRepo;
+    return id.host === null || id.host === "github.com" ? `${id.owner}/${id.name}` : `${id.host}/${id.owner}/${id.name}`;
 }
 
-/**
- * Whether two written forms name the same issues repository, whichever form each is in
- * (`owner/repo`, `host/owner/repo`, a URL or the SSH form), compared by owner and name as GitHub
- * compares them, without case.
- */
-export function sameIssuesRepo(a: string, b: string): boolean {
-    const x = issuesRepoSlug(a);
-    const y = issuesRepoSlug(b);
-    return x.owner.toLowerCase() === y.owner.toLowerCase() && x.repo.toLowerCase() === y.repo.toLowerCase();
+/** The issues repository as the slug the epic-resolve reads take, from its canonical form. */
+export function issuesRepoSlug(issuesRepo: string): RepoSlug {
+    const id = parseRepoIdentity(canonicalIssuesRepo(issuesRepo));
+    if (id !== null) return { owner: id.owner, repo: id.name };
+    const segments = issuesRepo.split("/").filter((p) => p.length > 0);
+    return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }

@@ -54,7 +54,6 @@ import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epi
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
 import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
-import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
 import { parsePrReference, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
@@ -72,6 +71,7 @@ import { fetchRecord } from "@nexus/record-digest/fetch";
 import {
     amendmentKey,
     findEpicCloseComment,
+    trustedComment,
     assembleCloseContent,
     recordNumber,
     stampedPrs,
@@ -90,7 +90,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -243,8 +243,6 @@ const stopped = (...stops: CloseStop[]): CloseOutcome => ({ ok: false, stops });
 /** A stop after some writes: `done` names each, so the lead sees what a re-run will not repeat. */
 const stoppedAfter = (done: string[], ...stops: CloseStop[]): CloseOutcome => ({ ok: false, stops, done: [...done] });
 
-const trusted = (c: { authorAssociation: string }): boolean => MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase());
-
 /** A story waived by a storyless waiver comment on its own issue (D10). */
 interface WaivedStory {
     story: number;
@@ -351,7 +349,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 
     const repos = deps.issuesRepo(repoRoot);
     if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
-    const { issuesRepo, repo: codeRepo } = repos.repos;
+    // One written form for every read, write, key and report that names the issues repository.
+    const issuesRepo = canonicalIssuesRepo(repos.repos.issuesRepo);
+    const codeRepo = repos.repos.repo;
 
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
 
@@ -390,7 +390,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // After the target, so a pull request that has not merged is still the first answer.
     const link = input.entryPath === null ? null : entryLink(input.entryPath);
     if (link !== null && !link.ok) return stopped(link.stop);
-    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameIssuesRepo(link.repo, issuesRepo)))) {
+    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameRepo(link.repo, issuesRepo)))) {
         return stopped({
             reason: `the entry path's link names epic ${link.repo ?? issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close ${"epic" in input.target ? "was given" : "found from the pull request"}`,
             item: input.entryPath ?? "",
@@ -432,7 +432,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && earlier.found === "own"))) {
             const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
             const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
-            const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";
+            const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository` : "";
             const unmarked = kind.exists && kind.kind === "other" ? `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}` : "";
             return stopped({
                 reason: `${epicRef} ${is}${parent}; close closes only an issue filed as an epic`,
@@ -581,7 +581,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         for (const p of content.approved) {
             const key = stubKey(content, p);
             const found = mentions.issues
-                .filter((i) => !i.pullRequest && i.trusted && sameIssuesRepo(i.repo, issuesRepo) && i.body.includes(key))
+                .filter((i) => !i.pullRequest && i.trusted && sameRepo(i.repo, issuesRepo) && i.body.includes(key))
                 .map((i) => i.number)
                 .sort((a, b) => a - b)[0];
             if (found !== undefined) stubs.set(proposalKey(p), found);
@@ -783,7 +783,7 @@ function amendOnRerun(
     const existing = deps.issueComments(at.repoRoot, at.issuesRepo, record);
     if (!existing.ok) return notChecked(`the comments on ${recordRef} could not be read: ${existing.message}; re-run ${at.rerun} to check again`);
     const key = amendmentKey(at.issuesRepo, at.epic);
-    if (existing.comments.some((c) => trusted(c) && c.body.includes(key))) return { record: recordRef, line: "already posted by an earlier run", byHand: [] };
+    if (existing.comments.some((c) => trustedComment(c) && c.body.includes(key))) return { record: recordRef, line: "already posted by an earlier run", byHand: [] };
 
     const body = deps.recordBody(at.repoRoot, at.issuesRepo, record);
     if (!body.ok) return notChecked(`${recordRef} could not be read: ${body.message}; re-run ${at.rerun} to check again`);
@@ -870,7 +870,7 @@ function postAmendment(deps: CloseCommandDeps, root: string, content: CloseConte
     const key = amendmentKey(content.issuesRepo, content.epic);
     const existing = deps.issueComments(root, content.issuesRepo, content.record.number);
     if (!existing.ok) return notPosted(`could not check for an earlier amendment: ${existing.message}`, ", unless a comment there already carries its last line");
-    if (existing.comments.some((c) => c.body.includes(key) && MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase()))) {
+    if (existing.comments.some((c) => c.body.includes(key) && trustedComment(c))) {
         return { line: `${n} superseding decision(s), already posted by an earlier run`, byHand: [] };
     }
     const posted = deps.postComment(root, content.issuesRepo, content.record.number, body);
@@ -1214,7 +1214,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
                         repo: typeof doc["repo"] === "string" ? doc["repo"] : "",
                         body: typeof doc["body"] === "string" ? doc["body"] : "",
                         pullRequest: doc["pullRequest"] === true,
-                        trusted: trusted({ authorAssociation: typeof doc["association"] === "string" ? doc["association"] : "" }),
+                        trusted: trustedComment({ authorAssociation: typeof doc["association"] === "string" ? doc["association"] : "" }),
                     });
                 } catch (e) {
                     return { ok: false, message: `a back-reference could not be read as JSON: ${e instanceof Error ? e.message : String(e)}` };

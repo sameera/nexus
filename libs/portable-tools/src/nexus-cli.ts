@@ -3051,7 +3051,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
             // gh addresses a forge by host alone, so a URL that needs a port cannot be read through it.
             if (ref.port !== undefined) {
-                return refuse(`--pr cannot read a pull-request URL with a port through gh; run close from a checkout on that forge with --pr owner/repo#N; got ${got(value)}.`);
+                return refuse(`--pr cannot read a pull-request URL with a port through gh; run close from a checkout on that forge with --pr 'owner/repo#N'; got ${got(value)}.`);
             }
             given.push({ form: `--pr ${value}`, target: { pr: ref } });
         } else if (a === "--recover") {

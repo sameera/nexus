@@ -502,13 +502,19 @@ describe("nexus close — keyed by the epic (#906)", () => {
     it("finishes its own close comment when epic-repo is configured as a URL or in SSH form", () => {
         const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: ${ISSUES}\n\`\`\``;
         for (const configured of [`https://github.com/${ISSUES}`, `git@github.com:${ISSUES}.git`]) {
+            const readIn: string[] = [];
             const h = harness({
                 issuesRepo: () => ({ ok: true, repos: { issuesRepo: configured, repo: ISSUES } }),
-                issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+                issueComments: (_r, repo, issue) => {
+                    readIn.push(repo);
+                    return { ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] };
+                },
                 findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
             });
             const out = runCloseCommand(h.deps, input(h));
             expect(out.ok && out.resumed, configured).toBe(true);
+            // Every read names the issues repository in its one canonical form.
+            expect(new Set(readIn), configured).toEqual(new Set([ISSUES]));
         }
     });
 

@@ -35,7 +35,7 @@ import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type AppliedWaiver, type CloseRanges, type PrLandedCheck } from "./close-ranges.js";
 import { inertLines, inertText } from "./close-text.js";
-import { sameIssuesRepo } from "./verdict-repos.js";
+import { canonicalIssuesRepo } from "./verdict-repos.js";
 
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
@@ -565,7 +565,7 @@ export function machineBlock(comment: string): Record<string, unknown> | null {
     const at = own >= 0 ? own : comment.indexOf(CLOSE_RECORD_MARKER);
     if (at < 0) return null;
     // `\r\n` too: a comment edited in the platform's web editor is saved with it.
-    const fence = /^\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
+    const fence = /^[ \t]*\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
     if (fence === null) return null;
     try {
         const doc: unknown = parseYaml(fence[1]);
@@ -578,6 +578,11 @@ export function machineBlock(comment: string): Record<string, unknown> | null {
 export function recordNumber(v: unknown): number | null {
     const m = /^#?(\d+)$/.exec(String(v ?? "").trim());
     return m === null ? null : Number(m[1]);
+}
+
+/** Whether a comment's author can speak for the repository: the one trust rule close's readers apply. */
+export function trustedComment(c: { authorAssociation: string }): boolean {
+    return MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase());
 }
 
 /** What an epic's comments say about its own close: the close to resume from, or that one cannot be read. */
@@ -594,13 +599,13 @@ export type EpicCloseComment = { found: "own"; body: string; block: Record<strin
  */
 export function findEpicCloseComment(comments: readonly { body: string; authorAssociation: string }[], epic: number, issuesRepo: string): EpicCloseComment {
     for (const c of [...comments].reverse()) {
-        if (!MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase()) || !OWN_MARKER_RE.test(c.body)) continue;
+        if (!trustedComment(c) || !OWN_MARKER_RE.test(c.body)) continue;
         const block = machineBlock(c.body);
         const stamped = block === null ? null : recordNumber(block["epic"]);
         if (block === null || stamped === null) return { found: "unreadable", why: "its machine block does not read" };
         if (stamped !== epic) continue;
         const repo = block["issues_repo"];
-        if (typeof repo === "string" && !sameIssuesRepo(repo, issuesRepo)) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
+        if (typeof repo === "string" && !sameRepo(canonicalIssuesRepo(repo), canonicalIssuesRepo(issuesRepo))) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
         return { found: "own", body: c.body, block };
     }
     return { found: "none" };
