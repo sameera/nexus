@@ -486,6 +486,13 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
+    it("names a URL's other repository before the host the issues repository leaves unstated", () => {
+        const h = harness();
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: "ghe.corp/other/thing" } })));
+        expect(err).toMatch(/is not in the issues repository/);
+        expect(err).not.toMatch(/states no host/);
+    });
+
     it("takes a github.com URL when the issues repository states no host", () => {
         const epicUrl = harness();
         expect(renderCloseOutcome(runCloseCommand(epicUrl.deps, input(epicUrl, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } }))).exitCode).toBe(0);
@@ -873,6 +880,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         const entry = path.join(h.repoRoot, "epic.md");
         fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\nissues_repo:\n---\n`);
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { entryPath: entry }))).exitCode).toBe(0);
+    });
+
+    it("reads a machine block indented with its marker, as inside a list or <details>", () => {
+        const body = `<details>\n\n  <!-- nexus:close-record -->\n  \`\`\`yaml\n  epic: "#${EPIC}"\n  \`\`\`\n</details>`;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
     });
 
     it("reads a machine block whose opening fence carries trailing spaces", () => {

@@ -69,12 +69,20 @@ export function ownMarkerLines(lines: readonly string[]): number[] {
 }
 
 /**
- * The line of the comment's machine block marker: the first own marker line with a yaml fence right
- * below it, so a bare marker above it, or a copy in a quote or a code block, is passed over. Close
- * reads this block and recovery re-stamps it.
+ * Where the comment's machine block is: the first own marker line with a yaml fence right below it,
+ * so a bare marker above it, or a copy in a quote or a code block, is passed over. The fence may be
+ * indented as the marker may (up to three spaces, inside a list or `<details>`); `indent` is its
+ * indent and `end` its closing fence's line, or -1 when the block is never closed. Close reads this
+ * block and recovery re-stamps it.
  */
-export function machineBlockLine(lines: readonly string[]): number | undefined {
-    return ownMarkerLines(lines).find((i) => /^```ya?ml[ \t]*$/.test(lines[i + 1] ?? ""));
+export function machineBlockAt(lines: readonly string[]): { marker: number; indent: string; end: number } | undefined {
+    for (const marker of ownMarkerLines(lines)) {
+        const open = /^( {0,3})```ya?ml[ \t]*$/.exec(lines[marker + 1] ?? "");
+        if (open === null) continue;
+        const end = lines.findIndex((l, j) => j > marker + 1 && /^ {0,3}```/.test(l));
+        return { marker, indent: open[1], end };
+    }
+    return undefined;
 }
 
 /** What opens the hidden key a record amendment carries. */
@@ -614,12 +622,12 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 export function machineBlock(comment: string): Record<string, unknown> | null {
     // `\r\n` too: a comment edited in the platform's web editor is saved with it.
     const lines = comment.split(/\r?\n/);
-    const at = machineBlockLine(lines);
-    if (at === undefined) return null;
-    const end = lines.findIndex((l, j) => j > at + 1 && l.startsWith("```"));
-    if (end < 0) return null;
+    const at = machineBlockAt(lines);
+    if (at === undefined || at.end < 0) return null;
+    // An indented block's lines carry the fence's indent, which is not part of the YAML.
+    const body = lines.slice(at.marker + 2, at.end).map((l) => (l.startsWith(at.indent) ? l.slice(at.indent.length) : l));
     try {
-        const doc: unknown = parseYaml(lines.slice(at + 2, end).join("\n"));
+        const doc: unknown = parseYaml(body.join("\n"));
         return doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
     } catch {
         return null;

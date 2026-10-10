@@ -274,6 +274,17 @@ describe("nexus close --recover — every merged pull request carries a trusted 
         expect(h.posted[0].body).not.toContain("\r");
     });
 
+    it("re-stamps an indented machine block in place, keeping its indent", () => {
+        const h = harness();
+        const lines = h.earlier.comment.split("\n");
+        const at = lines.findIndex((l) => l === CLOSE_RECORD_MARKER);
+        const body = [...lines.slice(0, at), ...lines.slice(at).map((l) => (l === "" ? l : `  ${l}`))].join("\n");
+        h.deps.issueComments = () => ({ ok: true, comments: [{ body, authorAssociation: "OWNER" }, ...h.posted.filter((p) => p.issue === EPIC).map((p) => ({ body: p.body, authorAssociation: "OWNER" }))] });
+        expect(renderCloseOutcome(recover(h)).exitCode).toBe(0);
+        expect(h.posted[0].body).toContain(`\n  record_hash: ${NEW_DIGEST}`);
+        expect(h.posted[0].body).not.toContain(`record_hash: ${OLD_DIGEST}`);
+    });
+
     it("re-stamps the machine block under a bare marker line above it, the block close reads", () => {
         const h = harness();
         const body = `${CLOSE_RECORD_MARKER}\nnotes first\n\n${h.earlier.comment}`;

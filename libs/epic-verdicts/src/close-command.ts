@@ -441,9 +441,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // `owner/repo#N`, as close's own reports print an epic, or the issue's URL, must name the
         // issues repository; two hosts that are both stated must agree.
         const named = input.target.repo;
-        const namedHost = named === undefined ? null : issuesRepoHost(named);
-        const unstated = namedHost === null ? null : unstatedHost(`epic ${named}#${epic}`, namedHost, issuesRepo, rerun);
-        if (unstated !== null) return stopped(unstated);
         if (named !== undefined && !sameIssuesRepo(named, issuesRepo)) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
@@ -451,6 +448,10 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
                 remedy: `pass an epic of ${issuesRepo}: nexus close --epic <N>`,
             });
         }
+        // The same repository on a host the issues repository leaves unstated cannot be confirmed.
+        const namedHost = named === undefined ? null : issuesRepoHost(named);
+        const unstated = namedHost === null ? null : unstatedHost(`epic ${named}#${epic}`, namedHost, issuesRepo, rerun);
+        if (unstated !== null) return stopped(unstated);
     } else {
         // A pull request only finds the epic. It is read first: one that has not merged is the cheap
         // early answer for a lead who ran close too soon, before anything about the issues repository.

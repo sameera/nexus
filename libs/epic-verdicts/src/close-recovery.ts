@@ -37,7 +37,7 @@ import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, machineBlockLine, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, machineBlockAt, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
@@ -324,11 +324,11 @@ function entryHash(text: string): string | null {
 }
 
 /** Replace a top-level `key:` line in `lines[from, to)`; when absent, insert it after the `after` key, else at `to`. */
-function setKey(lines: string[], from: number, to: number, key: string, value: string, after: string): void {
-    const find = (k: string): number => lines.slice(from, to).findIndex((l) => l.startsWith(`${k}:`));
+function setKey(lines: string[], from: number, to: number, indent: string, key: string, value: string, after: string): void {
+    const find = (k: string): number => lines.slice(from, to).findIndex((l) => l.startsWith(`${indent}${k}:`));
     const at = find(key);
-    if (at >= 0) lines[from + at] = `${key}: ${value}`;
-    else lines.splice(find(after) >= 0 ? from + find(after) + 1 : to, 0, `${key}: ${value}`);
+    if (at >= 0) lines[from + at] = `${indent}${key}: ${value}`;
+    else lines.splice(find(after) >= 0 ? from + find(after) + 1 : to, 0, `${indent}${key}: ${value}`);
 }
 
 /** Where a section's heading is and where its body ends: the next heading at its level or above, or the machine block. */
@@ -405,8 +405,8 @@ function restampRecord(text: string, content: CloseContent, prs: readonly Pr[], 
     if (lines[0] !== "---") return null;
     const close = lines.indexOf("---", 1);
     if (close < 0 || !lines.slice(1, close).some((l) => l.startsWith("record_hash:"))) return null;
-    setKey(lines, 1, close, "record_hash", content.record?.digest ?? "", "record");
-    setKey(lines, 1, lines.indexOf("---", 1), "analyze", scalar(content.analyze), "date");
+    setKey(lines, 1, close, "", "record_hash", content.record?.digest ?? "", "record");
+    setKey(lines, 1, lines.indexOf("---", 1), "", "analyze", scalar(content.analyze), "date");
     lines = setSection(lines, "## Key Decisions", renderKeyDecisions(content), ["## Deviation Rationale", "## Waived Stories", "## Deferred Scope"]);
     const dr = deviationBody(lines, "## Deviation Rationale", content, prs, rejudged);
     if (dr !== "unchanged") lines = setSection(lines, "## Deviation Rationale", dr.length === 0 ? ["none"] : dr, ["## Waived Stories", "## Deferred Scope"]);
@@ -433,15 +433,15 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
     const dr = deviationBody(lines, "### Deviation Rationale", content, prs, rejudged);
     if (dr !== "unchanged") lines = setSection(lines, "### Deviation Rationale", dr.length === 0 ? null : dr, ["### Pointers (durable)"]);
 
-    // The machine block: the block machineBlock reads, under the first own marker line with a fence
-    // right below it. A bare marker line above it, or copied text, is passed over.
-    const marker = machineBlockLine(lines) ?? -1;
-    const open = marker + 1;
-    const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
-    if (marker >= 0 && end > open) {
-        setKey(lines, open + 1, end, "record_hash", digest, "record");
-        const end2 = lines.findIndex((l, i) => i > open && l.startsWith("```"));
-        setKey(lines, open + 1, end2, "analyze", scalar(content.analyze), "record_hash");
+    // The machine block: the block machineBlock reads, its keys rewritten at its own indent. A bare
+    // marker line above it, or copied text, is passed over.
+    const block = machineBlockAt(lines);
+    if (block !== undefined && block.end > block.marker + 1) {
+        const open = block.marker + 1;
+        setKey(lines, open + 1, block.end, block.indent, "record_hash", digest, "record");
+        // setKey may add a line, so the closing fence is found again.
+        const end = lines.findIndex((l, i) => i > open && /^ {0,3}```/.test(l));
+        setKey(lines, open + 1, end, block.indent, "analyze", scalar(content.analyze), "record_hash");
     }
     return lines.join("\n");
 }
