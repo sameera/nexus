@@ -2192,6 +2192,8 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--pr", "https://github.com/geo-nexus/giccp/pull/704"], "nexus close --pr geo-nexus/giccp#704"],
         [["--epic", "159", "epic.md", "--handoff", "note.txt"], "nexus close --epic 159"],
         [["159", "epic.md"], "nexus close --epic 159"],
+        [["#159"], "nexus close --epic 159"],
+        [["--epic", "#159"], "nexus close --epic 159"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
         expect(await runNexusCli(["close", ...args], io)).toBe(1);
@@ -2206,6 +2208,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--epic", "abc"], ["--epic", "issue number", "abc"]],
         [["--epic", "0"], ["--epic", "issue number", "0"]],
         [["--epic"], ["--epic", "issue number", "nothing"]],
+        [["--recover", "abc"], ["--recover", "issue number", "abc"]],
     ])("refuses the malformed value in %j, naming what it expected and what it got", async (args, named) => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", ...args], io)).toBe(2);

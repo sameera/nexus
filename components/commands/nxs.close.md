@@ -44,6 +44,9 @@ Run this once, from the current checkout, passing `$ARGUMENTS` through exactly a
 nexus close $ARGUMENTS
 ```
 
+Pass the arguments as the lead gave them. Quote a value that holds `#` or `?`, such as
+`--pr 'owner/repo#704'` or a pull-request URL, so the shell does not read it as a pattern.
+
 Show its complete output to the lead **unchanged**, whatever its exit status.
 
 - Do not interpret a stop. Its reason, the item concerned and its remedy are already in the output.

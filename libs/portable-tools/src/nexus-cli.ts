@@ -3027,7 +3027,11 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return 2;
     };
     const got = (value: string | undefined): string => (value === undefined ? "nothing" : `'${value}'`);
-    const issueNumber = (value: string | undefined): number | null => (value !== undefined && /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : null);
+    // An issue number, bare or as `#N`, the way every report prints one.
+    const issueNumber = (value: string | undefined): number | null => {
+        const m = value === undefined ? null : /^#?(\d+)$/.exec(value);
+        return m !== null && Number(m[1]) > 0 ? Number(m[1]) : null;
+    };
     const targets: { form: string; target: CloseTarget }[] = [];
     let recover: number | undefined;
     let handoff: string | null = null;
@@ -3044,10 +3048,15 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             const ref = value === undefined ? null : parsePrReference(value);
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
             targets.push({ form: `--pr ${value}`, target: { pr: ref } });
-        } else if (a === "--recover") recover = Number(argv[++i]);
+        } else if (a === "--recover") {
+            const value = argv[++i];
+            const epic = issueNumber(value);
+            if (epic === null) return refuse(`--recover takes the closed epic's issue number; got ${got(value)}.`);
+            recover = epic;
+        }
         else if (a === "--handoff") handoff = argv[++i] ?? "";
         else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
-        else if (/^\d+$/.test(a)) {
+        else if (/^#?\d+$/.test(a)) {
             const epic = issueNumber(a);
             if (epic === null) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
             targets.push({ form: a, target: { epic } });
@@ -3055,7 +3064,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         else paths.push(a);
     }
     if (recover !== undefined) {
-        if (!Number.isInteger(recover) || recover <= 0 || targets.length > 0 || handoff !== null || paths.length > 0) {
+        if (targets.length > 0 || handoff !== null || paths.length > 0) {
             io.stderr(`close --recover takes only the closed epic's issue number: nexus close --recover <epic>.\n${usage}`);
             return 2;
         }

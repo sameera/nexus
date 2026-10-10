@@ -508,8 +508,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             }
         }
 
-        // The pull request close was given only found the epic. If it claims none of the epic's
-        // stories, it found the wrong one: a stray number in a commit or a branch name can do that.
         if (stops.length === 0) {
             const heads = gate.range.filter((r) => sameRepo(r.repo, codeRepo)).map((r) => ({ pr: r.pr, head: r.head }));
             const trunk = deps.trunkCheck(repoRoot, heads);
