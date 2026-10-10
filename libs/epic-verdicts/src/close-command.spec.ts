@@ -862,6 +862,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { entryPath: entry }))).exitCode).toBe(0);
     });
 
+    it("reads a machine block whose opening fence carries trailing spaces", () => {
+        const body = `<!-- nexus:close-record -->\n\`\`\`yaml  \nepic: "#${EPIC}"\n\`\`\``;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
     it("passes over a maintainer's note that mentions the marker in prose on the same line", () => {
         const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const note = { body: `<!-- nexus:close-record --> is what close looks for`, authorAssociation: "OWNER" };

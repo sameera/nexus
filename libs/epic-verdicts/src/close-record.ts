@@ -74,7 +74,7 @@ export function ownMarkerLines(lines: readonly string[]): number[] {
  * reads this block and recovery re-stamps it.
  */
 export function machineBlockLine(lines: readonly string[]): number | undefined {
-    return ownMarkerLines(lines).find((i) => /^```ya?ml$/.test(lines[i + 1] ?? ""));
+    return ownMarkerLines(lines).find((i) => /^```ya?ml[ \t]*$/.test(lines[i + 1] ?? ""));
 }
 
 /** What opens the hidden key a record amendment carries. */

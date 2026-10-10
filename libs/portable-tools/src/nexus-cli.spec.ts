@@ -2207,6 +2207,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--pr", "https://ghe.corp/acme/app/pull/7"], "nexus close --pr https://ghe.corp/acme/app/pull/7"],
         // A path with `#` whose first segment is no host stays a path.
         [["--pr", "5", "notes/epics/e#3"], "nexus close --pr 5"],
+        [["--pr", "12", "./queue/epic#7"], "nexus close --pr 12"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
         expect(await runNexusCli(["close", ...args], io)).toBe(1);
@@ -2225,6 +2226,8 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--handoff", "--epic", "5"], ["--handoff", "path", "--epic"]],
         [["--recover", "10", "--recover", "12"], ["--recover", "one closed epic", "10", "12"]],
         [["--pr", "https://ghe.corp:8443/acme/app/pull/7"], ["--pr", "port", "ghe.corp:8443"]],
+        // A positional shaped like owner/repo#N is the epic; the refusal says how to pass it as a path.
+        [["--pr", "12", "queue/epic#7"], ["one way", "./queue/epic#7"]],
     ])("refuses the malformed value in %j, naming what it expected and what it got", async (args, named) => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", ...args], io)).toBe(2);

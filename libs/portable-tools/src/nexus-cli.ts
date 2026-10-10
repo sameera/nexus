@@ -3111,6 +3111,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         if (url === null || url.number <= 0) return null;
         return url.port !== undefined ? "port" : { repo: `${forgeHost(url.host ?? "")}/${url.repo}`, number: url.number };
     };
+    // Positionals read as owner/repo#N: an entry path of that shape is written ./<path>, which a refusal says.
+    const qualifiedPositionals: string[] = [];
     let recover: number | undefined;
     let handoff: string | null = null;
     const paths: string[] = [];
@@ -3150,7 +3152,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             // An issue reference names the epic, bare or `owner/repo#N` as close's reports print one;
             // anything else is the entry path (an entry path of that shape is written ./<path>).
             const ref = epicRef(a);
-            if (ref !== null) given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
+            if (ref !== null) {
+                given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
+                if (ref.repo !== null) qualifiedPositionals.push(a);
+            }
             else if (/^#?\d+$/.test(a)) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
             else paths.push(a);
         }
@@ -3180,7 +3185,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const oneRepo = named.every((a) => named.every((b) => sameIssuesRepo(a, b)));
     const pulls = new Set(prs.map((g) => `${prRepoName(g.target.pr, own) ?? ""}#${g.target.pr.number}`));
     if (numbers.size + pulls.size > 1 || !oneRepo) {
-        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.`);
+        const asPath = qualifiedPositionals.map((p) => ` If '${p}' is the entry path, write it as './${p}'.`).join("");
+        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.${asPath}`);
     }
     // The most qualified form of the epic is kept, so close checks the repository and forge it names.
     const only = epics.find((g) => g.target.repo !== undefined && issuesRepoHost(g.target.repo) !== null) ?? epics.find((g) => g.target.repo !== undefined) ?? epics[0] ?? prs[0];

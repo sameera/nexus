@@ -17,6 +17,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { sameRepo } from "@nexus/workspace/issue-ref";
+import { normalizeRemote } from "@nexus/workspace/remote";
 import { type Result, fail, ok } from "./diagnostic.js";
 import { RECEIPT_MARKER, type ReceiptBlock, collectReceiptBlocks, maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
 import { type Runner, git } from "./run.js";
@@ -374,7 +375,8 @@ export function effectiveIssuesRepo(receipt: AnalyzeReceipt): string | null {
 export function issuesRepoMatches(receipt: AnalyzeReceipt, expected: string | null | undefined): boolean {
     const effective = effectiveIssuesRepo(receipt);
     if (effective === null || expected === null || expected === undefined || expected === "") return true;
-    return sameRepo(effective, expected);
+    // Either side may be written as a URL, in SSH form, or with a host: compare the repositories.
+    return sameRepo(normalizeRemote(effective), normalizeRemote(expected));
 }
 
 export interface ReceiptVerdict {
