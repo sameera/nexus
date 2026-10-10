@@ -3045,7 +3045,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             targets.push({ form: `--epic ${value}`, target: { epic } });
         } else if (a === "--pr") {
             const value = argv[++i];
-            const ref = value === undefined ? null : parsePrReference(value);
+            const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
             targets.push({ form: `--pr ${value}`, target: { pr: ref } });
         } else if (a === "--recover") {

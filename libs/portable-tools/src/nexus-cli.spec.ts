@@ -2194,6 +2194,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["159", "epic.md"], "nexus close --epic 159"],
         [["#159"], "nexus close --epic 159"],
         [["--epic", "#159"], "nexus close --epic 159"],
+        [["--pr", "#5"], "nexus close --pr 5"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
         expect(await runNexusCli(["close", ...args], io)).toBe(1);

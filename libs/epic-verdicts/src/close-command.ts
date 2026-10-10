@@ -64,7 +64,7 @@ import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult }
 import { findEpicDistillBranch, openEpicDistillWorktree, pushEpicDistillBranch, type EpicDistillBranchResult, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
 import { type FilerEnvironment } from "@nexus/delivery-config/story-filer/environment";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
-import { canonicalRemote } from "@nexus/workspace/canonical-remote";
+import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
 import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
@@ -394,7 +394,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // repository that declares nothing has no other way to mark an epic, and keeps that fallback.
     const kind = deps.issueKind(repoRoot, issuesRepo, epic);
     if (!kind.ok) {
-        return stopped({ reason: `what ${epicRef} is filed as could not be read, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+        return stopped({ reason: `what ${epicRef} is filed as could not be read, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above (a failed read clears on its own), then re-run ${rerun}` });
     }
     if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared))) {
         const source = "epic" in input.target ? "typed" : link !== null ? "link" : "pr";
@@ -1057,7 +1057,12 @@ function issuesSlug(issuesRepo: string): { owner: string; repo: string } {
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
     return {
         role: (cwd) => closePreflight(cwd, run),
-        readPr: (repoRoot, ref) => resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(ref.repo === null ? {} : { repo: ref.repo }) }),
+        readPr: (repoRoot, ref) => {
+            if (ref.repo === null) return resolvePr(run, repoRoot, ref.number, { requireMerged: false });
+            // A qualified reference names no host; the checkout's own forge is the one it lives on.
+            const host = canonicalRepoRef(run, repoRoot)?.split("/")[0] ?? "github.com";
+            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host.toLowerCase() === "github.com" ? ref.repo : `${host}/${ref.repo}` });
+        },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {
             const kinds = resolveKindClassification(root);
