@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
     classifyIssueKind,
     classifySubIssue,
+    countsAsEpic,
     isWithdrawnStory,
     resolveKindClassification,
     resolveRecordClassification,
@@ -185,6 +186,23 @@ describe("resolveKindClassification — the epic/story markers, from the same re
         if (!r.ok) return;
         expect(r.classification.epicType).toBe("Epic");
         expect(r.classification.storyType).toBe("Story");
+    });
+});
+
+describe("countsAsEpic — the one rule for what counts as an epic", () => {
+    it("counts an issue filed as an epic, whatever its parent", () => {
+        expect(countsAsEpic("epic", null, { unmarkedTopLevel: false })).toBe(true);
+        expect(countsAsEpic("epic", 7, { unmarkedTopLevel: false })).toBe(true);
+    });
+
+    it("never counts a story or a record", () => {
+        for (const kind of ["story", "record"] as const) expect(countsAsEpic(kind, null, { unmarkedTopLevel: true })).toBe(false);
+    });
+
+    it("counts an unmarked top-level issue only when the caller allows it, and never an unmarked sub-issue", () => {
+        expect(countsAsEpic("other", null, { unmarkedTopLevel: true })).toBe(true);
+        expect(countsAsEpic("other", null, { unmarkedTopLevel: false })).toBe(false);
+        expect(countsAsEpic("other", 7, { unmarkedTopLevel: true })).toBe(false);
     });
 });
 

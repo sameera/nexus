@@ -25,6 +25,7 @@
 import {
     classifyIssueKind,
     classifySubIssue,
+    countsAsEpic,
     isUnplannedEpic,
     isWithdrawnStory,
     resolveKindClassification,
@@ -151,7 +152,7 @@ export function resolveEpic(
         // rule, kept so a repository that labels no issue at all still resolves its epics.
         const filedAs: string | null =
             kind.kind === "story" ? "a story" : kind.kind === "record" ? "a decision record" : null;
-        if (kind.kind !== "epic" && (filedAs !== null || facts.facts.parent !== null)) {
+        if (!countsAsEpic(kind.kind, facts.facts.parent, { unmarkedTopLevel: true })) {
             const parentNote: string = facts.facts.parent !== null ? ` (sub-issue of #${facts.facts.parent})` : "";
             return {
                 ok: false,

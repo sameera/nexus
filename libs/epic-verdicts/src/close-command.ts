@@ -49,7 +49,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/epic-resolve/classify";
+import { classifyIssueKind, countsAsEpic, resolveKindClassification, type IssueKind } from "@nexus/epic-resolve/classify";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
@@ -66,7 +66,7 @@ import { type FilerEnvironment } from "@nexus/delivery-config/story-filer/enviro
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
-import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
+import { parseIssueRef, parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import {
@@ -412,11 +412,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
     const earlierClose = epicComments.ok ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER)) : undefined;
 
-    // Whatever named it — the lead, an entry path's link or a story's parent — the epic must be filed
-    // as one, checked before anything (even the re-run shortcut) can close it. This is stricter
-    // than resolveEpic's fallback on purpose: close closes the issue, so in a repository that declares
-    // how it files issues an unmarked top-level issue (a bug, an initiative) is refused. Only a
-    // repository that declares nothing has no other way to mark an epic, and keeps that fallback.
+    // Whatever named it — the lead, an entry path's link or a story's parent — the epic must count as
+    // one under the shared rule (countsAsEpic), checked before anything, even the re-run shortcut,
+    // can close it.
     // A close comment that stamps this very epic is proof enough: the re-run that finishes it never
     // depends on how the issue is labelled today.
     const earlierBlock = earlierClose === undefined ? null : machineBlock(earlierClose.body);
@@ -424,7 +422,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     if (kind !== null && !kind.ok) {
         return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
     }
-    if (kind !== null && (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared)))) {
+    if (kind !== null && (!kind.exists || !countsAsEpic(kind.kind, kind.parent, { unmarkedTopLevel: !kind.declared }))) {
         const source = "epic" in input.target ? "typed" : linkOnly ? "link" : "pr";
         const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
         const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
@@ -1073,25 +1071,38 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
     return { stdout: [], stderr: err, exitCode: 1 };
 }
 
-/** The issues repository, `owner/repo` (or `host/owner/repo`), as the slug the epic-resolve reads take. */
+/**
+ * The issues repository, `owner/repo` or `host/owner/repo`, as the slug the epic-resolve reads take.
+ * One that does not parse keeps no owner, so the read that uses it fails and says so.
+ */
 function issuesSlug(issuesRepo: string): { owner: string; repo: string } {
-    const slash = issuesRepo.lastIndexOf("/");
-    return { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };
+    const id = parseRepoIdentity(issuesRepo);
+    return id === null ? { owner: "", repo: issuesRepo } : { owner: id.owner, repo: id.name };
 }
 
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
+    // How the repository files issues, read once per checkout however many reads need it.
+    const classifications = new Map<string, ReturnType<typeof resolveKindClassification>>();
+    const classificationOf = (root: string): ReturnType<typeof resolveKindClassification> => {
+        const known = classifications.get(root);
+        if (known !== undefined) return known;
+        const read = resolveKindClassification(root);
+        classifications.set(root, read);
+        return read;
+    };
     return {
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
             if (ref.repo === null) return resolvePr(run, repoRoot, ref.number, { requireMerged: false });
-            // A URL names its forge; `owner/repo#N` names none, so it lives on the checkout's own.
+            // A URL names its forge; `owner/repo#N` names none, so it lives on the checkout's own. A
+            // checkout with no forge remote leaves the host to gh, as a bare number does.
             const host = ref.host ?? canonicalRepoRef(run, repoRoot)?.split("/")[0];
             return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host === undefined ? ref.repo : `${host}/${ref.repo}` });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {
-            const kinds = resolveKindClassification(root);
+            const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
             const slug = issuesSlug(issuesRepo);
             return resolveStories(run, root, slug, kinds.classification, {
@@ -1103,7 +1114,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             });
         },
         issueKind: (root, issuesRepo, issue) => {
-            const kinds = resolveKindClassification(root);
+            const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, message: kinds.error.message };
             const slug = issuesSlug(issuesRepo);
             const facts = fetchIssueFacts(run, root, slug, issue);

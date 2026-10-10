@@ -95,7 +95,7 @@ diagnostic on stderr; exit codes: `0` success · `1` a named diagnostic · `2` u
 | `seed --kind <k>` | Seed a fresh scenario. `k` = `chain`, `multi-commit`, `single-commit`, `unmerged`. Re-runnable. |
 | `merge --pr <N> --strategy squash\|merge\|rebase --branch <b>` | Merge by one strategy, delete the branch, prune it locally. |
 | `range --pr <N> [--branch <distill/…>]` | Derive the range through `pr_worktree.ts open --mode close` and verify it. Records evidence. |
-| `receipt --pr <N>` | Read the analyze receipt back the way `/nxs.close --pr` does; check exact currency. Records evidence. |
+| `receipt --pr <N>` | Read the analyze receipt back the way `nexus close` does; check exact currency. Records evidence. |
 | `residue` | Enumerate worktrees and branches left in the Nexus checkout. Records evidence. |
 | `note --stage <s> --verdict pass\|fail\|not-exercised [--detail k=v] [--diagnostic <t>]` | Record an operator-judged outcome. |
 | `evidence` | Render everything recorded as markdown, for pasting into the acceptance record. |
@@ -182,7 +182,7 @@ From `$CLONE`, run the real stage against the real open PR:
 /nxs.analyze --pr $CHAIN_PR
 ```
 
-Then read the receipt back the way `/nxs.close --pr` does:
+Then read the receipt back the way `nexus close` does:
 
 ```bash
 $HARNESS receipt --pr $CHAIN_PR
@@ -282,7 +282,7 @@ the committed queue entry:
 git -C "$CLONE" ls-remote --heads origin 'distill/*'
 ```
 
-Then, **in the close worktree that `/nxs.close --pr` printed**:
+Then, **in the close worktree that `nexus close` printed**:
 
 ```
 /nxs.distill

@@ -259,7 +259,7 @@ export function verifyRange(run: Runner, cwd: string, input: RangeVerifyInput): 
 }
 
 // ---------------------------------------------------------------------------
-// The analyze receipt, read back the way /nxs.close --pr reads it
+// The analyze receipt, read back the way nexus close reads it
 // ---------------------------------------------------------------------------
 
 export interface AnalyzeReceipt {
@@ -387,7 +387,7 @@ export interface ReceiptVerdict {
     prHead: string;
     /** The platform timestamp of the review or comment carrying the selected block; "" when none. */
     at: string;
-    /** Exact full-identifier equality — the currency test /nxs.close --pr applies. */
+    /** Exact full-identifier equality — the currency test nexus close applies. */
     current: boolean;
     /** Commits that landed after analysis, when that can be counted. */
     staleNote: string | null;
