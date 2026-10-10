@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.101.1
+
+- **Re-splitting a stub under an initiative keeps what a repeat needs.** When a promoted stub
+  proves larger than one epic and its successors are filed under the stub's initiative,
+  `/nxs.epic` now keeps the filer's ledger and the run folder until every successor is confirmed
+  as one of the initiative's children. Before, both were deleted as soon as the batch reported
+  complete, so repeating the filing to attach a missing successor filed every successor again.
+
 ## 0.101.0
 
 - **Stubs of an accepted objective are filed under its initiative.** On the initiative choice in

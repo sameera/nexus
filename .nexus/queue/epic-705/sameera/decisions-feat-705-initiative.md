@@ -38,3 +38,8 @@
 - **Why:** The kind rule calls the record resolution, so leaving it behind would keep the circular dependency the move exists to remove.
 - **Refuted alternative:** Move only `classifyIssueKind` and pass the record markers in from each caller.
 
+
+## 2026-10-10 — Successor path keeps its ledger and run folder until children are confirmed
+- **Choice:** the successor paragraph in /nxs.epic adds `--keep-manifest` to step 4 and holds step 6 until every successor is one of the initiative's children; step 6's skip condition names the case; released as 0.101.1
+- **Why:** without the ledger, the instructed repeat of step 4 files every successor a second time (analyze DV1 on #914)
+- **Refuted alternative:** fold the fix into the unreleased 0.101.0 entry instead of a new patch release
