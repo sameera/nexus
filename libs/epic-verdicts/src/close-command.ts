@@ -270,15 +270,10 @@ export function linkedEpic(markdown: string): number | null {
  * the frontmatter's `issues_repo:`, else null when the file names none.
  */
 function linkedEpicRef(markdown: string): { repo: string | null; number: number } | null {
-    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
-    if (fm === null) return null;
-    const field = (key: string): string | null => {
-        const m = new RegExp(`^${key}:[ \\t]*(.+?)\\r?$`, "m").exec(fm[1]);
-        return m === null ? null : m[1].trim().replace(/^["']|["']$/g, "");
-    };
-    const link = field("link");
-    const ref = link === null ? null : parseIssueRef(link);
-    return ref === null ? null : { repo: ref.repo ?? field("issues_repo"), number: ref.number };
+    const fm = frontmatter(markdown);
+    const link = fm.get("link");
+    const ref = link === undefined || link === "" ? null : parseIssueRef(link);
+    return ref === null ? null : { repo: ref.repo ?? fm.get("issues_repo") ?? null, number: ref.number };
 }
 
 /** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff`. */
@@ -880,9 +875,10 @@ function nextLines(handoff: string | null, wtPath: string): string[] {
 /** The frontmatter keys of a materialized `epic.md`, unquoted. */
 function frontmatter(markdown: string): Map<string, string> {
     const out = new Map<string, string>();
-    const fm = /^---\n([\s\S]*?)\n---/.exec(markdown);
+    // CRLF too: an epic.md saved on Windows reads the same as one saved with LF.
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
     if (fm === null) return out;
-    for (const line of fm[1].split("\n")) {
+    for (const line of fm[1].split(/\r?\n/)) {
         const m = /^([A-Za-z_][\w-]*):\s*(.*?)\s*$/.exec(line);
         if (m !== null) out.set(m[1], m[2].replace(/^["']|["']$/g, ""));
     }
@@ -1119,19 +1115,12 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
 
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
-    // The checkout's canonical remote, read once per checkout: the forge check and the pull-request
-    // read both need it.
-    const own = new Map<string, string | null>();
-    const ownRepo = (root: string): string | null => {
-        if (!own.has(root)) own.set(root, canonicalRepoRef(run, root));
-        return own.get(root) ?? null;
-    };
     return {
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
             // Every form is read on the forge prRepoOnForge names, github.com's SSH aliases folded; gh's
             // own resolution only when the checkout names no forge and the reference names none either.
-            const repo = prRepoOnForge(ref, ownRepo(repoRoot));
+            const repo = prRepoOnForge(ref, canonicalRepoRef(run, repoRoot));
             return resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(repo === null ? {} : { repo }) });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
@@ -1170,10 +1159,10 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         ranges: (root, issuesRepo, epic, input) => {
             const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), epic);
             if (!collected.ok) return { ok: false, problem: "records-unreadable", message: collected.error.message };
-            // Reads of the issues repository (claims, the record) on its host; the pull-request reads
-            // (ranges, verdicts, waivers) on each code repository's, given the issues repository in the
-            // one form deps.verdict also gives it.
-            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepo, input.record), {
+            // A host the issues repository states is the forge for the run: its issue reads and the
+            // pull-request reads (ranges, verdicts, waivers) both go there, as deps.verdict's do. With no
+            // stated host every read follows gh's own.
+            const derived = deriveCloseRanges(closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepo, input.record), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),
@@ -1183,7 +1172,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             return derived.ok ? { ok: true, ranges: derived.ranges, untrusted: collected.collected.untrusted } : derived;
         },
         verdict: (root, issuesRepo, pr) => {
-            const r = verifyReceipt(run, root, pr.pr, pr.repo, issuesRepo, { ghRepo: pr.repo });
+            const r = verifyReceipt(onIssuesHost(run, issuesRepo), root, pr.pr, pr.repo, issuesRepo, { ghRepo: pr.repo });
             if (!r.ok) return { ok: false, cause: r.error.message };
             if (!r.value.found || r.value.receipt === null) {
                 if (r.value.issuesRepoRejected.length > 0) {

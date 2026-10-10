@@ -768,6 +768,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).not.toMatch(/not filed as an epic/);
     });
 
+    it("reads the verdict of a pull request on the host the issues repository states", () => {
+        const rec: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            rec.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        closeCommandDeps(run, { singleRepo: () => true }).verdict("/repo", "ghe.corp/acme/plan", { repo: "acme/code", pr: 7 });
+        expect(rec.some((c) => c[0] === "gh" && (c.includes("--hostname") ? c.includes("ghe.corp") : c.some((a) => a.startsWith("ghe.corp/"))))).toBe(true);
+    });
+
     it("reads an entry path saved with CRLF line endings", () => {
         const h = harness();
         const entry = path.join(h.repoRoot, "epic.md");
