@@ -29,7 +29,7 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
-import { sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
+import { issuesRepoHost, issuesRepoPath } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -60,7 +60,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parsePrReference, prRepoName, resolveAnalyzeTarget, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { parseIssueUrl, parsePrReference, prRepoName, resolveAnalyzeTarget, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -3090,11 +3090,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return ref !== null && ref.repo === null ? ref.number : null;
     };
     const given: { form: string; target: CloseTarget }[] = [];
-    // An issue's URL as the browser shows it: https://host/owner/repo/issues/N.
-    const issueUrl = (value: string): { repo: string; number: number } | null => {
-        // The host is kept, so close can tell an issue on another forge from one in the issues repository.
-        const m = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/issues\/(\d+)\/?$/i.exec(value.trim());
-        return m === null || Number(m[4]) <= 0 ? null : { repo: `${m[1]}/${m[2]}/${m[3]}`.toLowerCase(), number: Number(m[4]) };
+    // An issue's URL as the browser shows it, host kept so close can tell an issue on another forge
+    // from one in the issues repository; a port is refused as for a pull-request URL.
+    const issueUrl = (value: string): { repo: string; number: number } | "port" | null => {
+        const url = parseIssueUrl(value);
+        if (url === null || url.number <= 0) return null;
+        return url.port !== undefined ? "port" : { repo: `${url.host}/${url.repo}`, number: url.number };
     };
     let recover: number | undefined;
     let handoff: string | null = null;
@@ -3106,7 +3107,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             // `N`, `#N`, `owner/repo#N` as close's reports print an epic, or the epic issue's URL; close
             // checks the repository.
             const ref = value === undefined ? null : (parseIssueRef(value) ?? issueUrl(value));
-            if (ref === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
+            if (ref === "port") return refuse(`--epic cannot read an issue URL with a port through gh; got ${got(value)}.`);
+            if (ref === null) return refuse(`--epic takes an issue number, owner/repo#N or an issue URL; got ${got(value)}.`);
             given.push({ form: `--epic ${value}`, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
         } else if (a === "--pr") {
             const value = argv[++i];
@@ -3158,11 +3160,14 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const prs = given.filter((g): g is { form: string; target: { pr: ParsedPrReference } } => "pr" in g.target);
     const own = prs.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     const numbers = new Set(epics.map((g) => g.target.epic));
-    // Repositories compared as close compares the issues repository, so two forms of one are one.
+    // Repositories compared as owner/name and, among those that state one, by host, so two forms of
+    // one repository are one and two forges are two.
     const named = epics.flatMap((g) => (g.target.repo === undefined ? [] : [g.target.repo]));
-    const repos = new Set(named.map((r) => named.findIndex((other) => sameIssuesRepo(other, r))));
+    const names = new Set(named.map((r) => issuesRepoPath(r).toLowerCase()));
+    const hosts = new Set(named.flatMap((r) => { const h = issuesRepoHost(r); return h === null ? [] : [h]; }));
+    const repoCount = Math.max(names.size, hosts.size);
     const pulls = new Set(prs.map((g) => `${prRepoName(g.target.pr, own) ?? ""}#${g.target.pr.number}`));
-    if (numbers.size + pulls.size > 1 || repos.size > 1) {
+    if (numbers.size + pulls.size > 1 || repoCount > 1) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.`);
     }
     const only = epics.find((g) => g.target.repo !== undefined) ?? epics[0] ?? prs[0];

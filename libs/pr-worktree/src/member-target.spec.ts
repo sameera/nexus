@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { forgeHost, parsePrReference, prRepoName, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
+import { forgeHost, parseIssueUrl, parsePrReference, prRepoName, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
 import { defaultRunner } from "./run.js";
 import { initRepo, makeParent, writeCommit } from "./git-fixtures.js";
 
@@ -78,6 +78,12 @@ describe("parsePrReference", () => {
         expect(forgeHost(parsePrReference("https://www.git.corp/acme/widget/pull/7")?.host ?? "")).toBe("www.git.corp");
         expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "8443" });
         expect(parsePrReference("https://github.com:443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "github.com" });
+    });
+
+    it("parses an issue URL by the same rule, and never takes one for a pull request", () => {
+        expect(parseIssueUrl("https://ghe.corp:8443/acme/widget/issues/5")).toEqual({ repo: "acme/widget", number: 5, host: "ghe.corp", port: "8443" });
+        expect(parsePrReference("https://github.com/acme/widget/issues/5")).toBeNull();
+        expect(parseIssueUrl("https://github.com/acme/widget/pull/5")).toBeNull();
     });
 
     it("rejects a URL whose authority does not read", () => {

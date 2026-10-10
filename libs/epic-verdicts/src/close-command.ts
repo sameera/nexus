@@ -374,7 +374,10 @@ function epicReadStop(
         };
     }
     if (kind !== null && kind.ok && kind.kind === "other" && !own) {
-        return notEpic(`is not filed as an epic${parentOf(kind.parent)}`, `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}`);
+        return notEpic(
+            `is not filed as an epic${parentOf(kind.parent)}`,
+            `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}; if ${epic} is a pull request, run nexus close --pr ${epic}`,
+        );
     }
     return null;
 }
@@ -1183,7 +1186,11 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         ranges: (root, issuesRepo, epic, input) => {
             const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), epic);
             if (!collected.ok) return { ok: false, problem: "records-unreadable", message: collected.error.message };
-            const derived = deriveCloseRanges(closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), input.record), {
+            // The story claims are reads of the issues repository, on its host; the pull-request reads
+            // (ranges, verdicts, waivers) stay on each code repository's, as deps.verdict reads them.
+            const rangeDeps = closeRangesDeps(run, root, issuesRepoPath(issuesRepo), input.record);
+            const claimsOnHost = closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), input.record).readClaims;
+            const derived = deriveCloseRanges({ ...rangeDeps, readClaims: claimsOnHost }, {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),

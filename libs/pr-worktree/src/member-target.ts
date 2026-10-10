@@ -29,7 +29,20 @@ export interface ParsedPrReference {
 }
 
 const BARE_RE = /^(\d+)$/;
-const URL_RE = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)\/?$/i;
+const URL_RE = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(pull|issues)\/(\d+)\/?$/i;
+
+/** A forge URL naming a pull request or an issue: its repository, number, host and any port. */
+function parseForgeUrl(text: string, kind: "pull" | "issues"): ParsedPrReference | null {
+    const url = URL_RE.exec(text);
+    if (url === null || url[4].toLowerCase() !== kind) return null;
+    const authority = /^(?:[^@]*@)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
+    if (authority === null) return null;
+    // The host as written; forgeHost decides which forge it names.
+    const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[5]), host: authority[1] };
+    // A scheme's default port names nothing the bare host does not.
+    const port = authority[2];
+    return port === undefined || port === "443" || port === "80" ? parsed : { ...parsed, port };
+}
 
 /** Parse a `--pr` argument into its optional repository qualifier and PR number. */
 export function parsePrReference(ref: string): ParsedPrReference | null {
@@ -41,18 +54,12 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     const qualified = QUALIFIED_ISSUE_REF_RE.exec(trimmed);
     if (qualified) return { repo: `${qualified[1]}/${qualified[2]}`.toLowerCase(), number: Number(qualified[3]) };
 
-    const url = URL_RE.exec(trimmed);
-    if (url) {
-        const authority = /^(?:[^@]*@)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
-        if (authority === null) return null;
-        // The host as written; forgeHost decides which forge it names.
-        const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: authority[1] };
-        // A scheme's default port names nothing the bare host does not.
-        const port = authority[2];
-        return port === undefined || port === "443" || port === "80" ? parsed : { ...parsed, port };
-    }
+    return parseForgeUrl(trimmed, "pull");
+}
 
-    return null;
+/** Parse an issue's URL, as the browser shows it, by the same rule a pull-request URL is parsed. */
+export function parseIssueUrl(ref: string): ParsedPrReference | null {
+    return parseForgeUrl(ref.trim(), "issues");
 }
 
 /**

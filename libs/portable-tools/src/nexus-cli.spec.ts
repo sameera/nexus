@@ -2232,6 +2232,7 @@ describe("nexus close — the argument forms (#906)", () => {
 
     it.each([
         [["--epic", "acme/app#159", "--epic", "acme/other#159"]],
+        [["--epic", "acme/app#5", "--epic", "https://h1.corp/acme/app/issues/5", "--epic", "https://h2.corp/acme/app/issues/5"]],
         [["--epic", "159", "--pr", "5"]],
         [["159", "--epic", "160"]],
         [["159", "--pr", "5"]],

@@ -102,7 +102,11 @@ export function issuesRepoHost(issuesRepo: string): string | null {
  */
 export function onHost(args: readonly string[], host: string): string[] {
     if (args[0] === "api") return args.includes("--hostname") ? [...args] : ["api", "--hostname", host, ...args.slice(1)];
-    return args.map((a, i) => (i > 0 && (args[i - 1] === "--repo" || args[i - 1] === "-R") && a.split("/").length === 2 ? `${host}/${a}` : a));
+    return args.map((a, i) => {
+        if (i > 0 && (args[i - 1] === "--repo" || args[i - 1] === "-R") && a.split("/").length === 2) return `${host}/${a}`;
+        const joined = /^(--repo|-R)=([^/]+\/[^/]+)$/.exec(a);
+        return joined === null ? a : `${joined[1]}=${host}/${joined[2]}`;
+    });
 }
 
 /**

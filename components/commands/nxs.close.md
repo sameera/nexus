@@ -21,9 +21,9 @@ $ARGUMENTS
 
 # Step 1 — Refuse without an epic
 
-**Close needs the epic it closes.** `$ARGUMENTS` names it in one of three ways: `--epic <N>`, a
-bare issue number `<N>`, or `--pr <ref>` (a number, `owner/repo#N` or a pull-request URL), which
-close resolves to its epic. If `$ARGUMENTS` contains none of them, refuse now — before running any
+**Close needs the epic it closes.** `$ARGUMENTS` names it in one of three ways: `--epic <N>` (also
+`owner/repo#N` or the epic issue's URL), a bare issue number `<N>` or `owner/repo#N`, or
+`--pr <ref>` (a number, `owner/repo#N` or a pull-request URL), which close resolves to its epic. If `$ARGUMENTS` contains none of them, refuse now — before running any
 command, reading any file or touching any issue — with exactly this, and stop:
 
 ```
