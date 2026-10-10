@@ -41,8 +41,11 @@ import { sameIssuesRepo } from "./verdict-repos.js";
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
 
-/** The close-record marker opening a line, as close writes it; a quoted or indented copy does not. */
-export const OWN_MARKER_RE = new RegExp(`^${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
+/**
+ * The close-record marker on a line of its own, indented or not, as close and the older model-written
+ * close wrote it; a quoted copy (a line starting with `>`) is not it.
+ */
+export const OWN_MARKER_RE = new RegExp(`^[ \\t]*${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
 
 /** What opens the hidden key a record amendment carries. */
 export const AMENDMENT_KEY_PREFIX = "<!-- nexus:close-amendment ";
@@ -578,9 +581,10 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 
 /** The machine block of a close comment, parsed: null when it carries none that reads. */
 export function machineBlock(comment: string): Record<string, unknown> | null {
-    // The marker that opens a line is the comment's own; a quoted or indented copy is not.
-    const at = comment.search(OWN_MARKER_RE);
-    if (at < 0) return null;
+    // The marker on a line of its own is the comment's own; a quoted copy is not.
+    const found = OWN_MARKER_RE.exec(comment);
+    if (found === null) return null;
+    const at = found.index + found[0].length - CLOSE_RECORD_MARKER.length;
     // `\r\n` too: a comment edited in the platform's web editor is saved with it.
     const fence = /^[ \t]*\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
     if (fence === null) return null;

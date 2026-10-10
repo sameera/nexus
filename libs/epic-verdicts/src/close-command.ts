@@ -481,13 +481,14 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // on one and the issues on the other. A URL names its forge, any other form is read on the
         // checkout's. An issues repository that states no host is left to gh's own host, which close
         // cannot see, so there is nothing to compare against.
-        // A URL on a host other than github.com, beside an issues repository that states none, cannot
-        // be confirmed as the forge gh reads the issues on, as for an --epic URL.
+        // A pull request on a forge other than github.com (a URL's, or the checkout's for another form),
+        // beside an issues repository that states no host, cannot be confirmed as the forge gh reads
+        // the issues on, as for an --epic URL.
         const statedForge = issuesRepoHost(issuesRepo);
         const knownPr = ref.host ?? deps.checkoutForge(repoRoot);
         const prForge = knownPr === null ? null : forgeHost(knownPr);
-        const unconfirmed = statedForge === null && ref.host !== undefined && forgeHost(ref.host) !== "github.com";
-        if (unconfirmed) return stopped(unconfirmedForge(asLabel, forgeHost(ref.host ?? ""), issuesRepo, null));
+        const unconfirmed = statedForge === null && prForge !== null && prForge !== "github.com";
+        if (unconfirmed) return stopped(unconfirmedForge(asLabel, prForge, issuesRepo, null));
         if (statedForge !== null && prForge !== null && prForge !== statedForge) {
             return stopped({
                 reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,

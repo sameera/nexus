@@ -508,6 +508,21 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
+    it("resumes from an earlier close comment whose marker is indented, as an older close wrote it", () => {
+        const body = `<details>\n\n  <!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\`\n</details>`;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
+    it("refuses a bare pull request read on an Enterprise checkout when the issues repository states no host", () => {
+        const h = harness({ checkoutForge: () => "ghe.corp" });
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/states no host/);
+    });
+
     it("never takes a quoted close comment as this epic's close", () => {
         const body = `> <!-- nexus:close-record -->\n> \`\`\`yaml\n> epic: "#${EPIC}"\n> \`\`\``;
         const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
