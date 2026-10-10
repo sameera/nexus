@@ -656,11 +656,20 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
     });
 
-    it("passes over a close-comment template whose epic is left unfilled", () => {
-        const template = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#<epic-issue>"\n\`\`\``, authorAssociation: "OWNER" };
-        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [template] : [] }) });
-        const { out } = closed(h);
-        expect(out.resumed).toBe(false);
+    it("stops on a close comment whose block names no epic, neither resuming from it nor closing again", () => {
+        for (const block of [`epic: "#<epic-issue>"`, `epic: #${EPIC}`]) {
+            const body = `<!-- nexus:close-record -->\n\`\`\`yaml\n${block}\n\`\`\``;
+            const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
+            const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+            expect(err, block).toMatch(/names no epic/);
+        }
+    });
+
+    it("refuses an epic URL on an Enterprise host when the issues repository states none", () => {
+        const h = harness();
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: `ghe.corp/${ISSUES}` } })))).toMatch(/is not in the issues repository/);
+        const gh = harness();
+        expect(renderCloseOutcome(runCloseCommand(gh.deps, input(gh, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } }))).exitCode).toBe(0);
     });
 
     it("checks the number it is given is an epic before it finishes a close comment that stamps another epic", () => {
@@ -890,6 +899,11 @@ describe("nexus close — keyed by the epic (#906)", () => {
             issuesRepo: () => ({ ok: false, error: { problem: "repo-unresolved", message: "no remote" } }) as never,
         });
         expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/not merged/);
+    });
+
+    it("does not guess a pull request's forge when the checkout names none", () => {
+        const h = harness({ checkoutForge: () => null, issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, viaPr()))).exitCode).toBe(0);
     });
 
     it("does not guess a forge for an issues repository that states no host", () => {

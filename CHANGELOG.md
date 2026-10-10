@@ -29,7 +29,11 @@ behaviour says so.
 - **Close names what was wrong with its arguments.** A value that does not parse gets its own
   message saying what close expected and what it got, and missing arguments print the usage. Close
   no longer answers a typing mistake with "close runs only against a merged pull request".
-  Two different epics or pull requests given at once are refused; the same one named twice is one. `/nxs.close` relays all three forms
+  Two different epics or pull requests given at once are refused; the same one named twice is one.
+- **A re-run resumes only from the epic's own close comment.** Close and `--recover` resume from the
+  newest trusted close comment whose machine block stamps this epic. A newer one that does not read,
+  names no epic, or names this epic in another issues repository stops them and says how to fix it,
+  instead of being resumed from or closed over again. `/nxs.close` relays all three forms
   unchanged, and its refusal without arguments names `nexus close --epic <N>`.
 
 ## 0.97.0

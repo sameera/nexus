@@ -433,9 +433,11 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // `owner/repo#N`, as close's own reports print an epic, or the issue's URL, must name the
         // issues repository, on the forge close reads it on.
         const named = input.target.repo;
+        // A named host the issues repository does not state, other than gh's usual github.com, cannot
+        // be confirmed as the forge gh reads the issues on.
         const namedHost = named === undefined ? null : issuesRepoHost(named);
-        const statedForge = issuesRepoHost(issuesRepo);
-        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || (namedHost !== null && statedForge !== null && namedHost !== statedForge))) {
+        const unconfirmed = namedHost !== null && namedHost !== "github.com" && issuesRepoHost(issuesRepo) === null;
+        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || unconfirmed)) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
                 item: `issue ${named}#${epic}`,
@@ -467,8 +469,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // checkout's. An issues repository that states no host is left to gh's own host, which close
         // cannot see, so there is nothing to compare against.
         const statedForge = issuesRepoHost(issuesRepo);
-        const prForge = forgeHost(ref.host ?? deps.checkoutForge(repoRoot) ?? "github.com");
-        if (statedForge !== null && prForge !== statedForge) {
+        const knownPr = ref.host ?? deps.checkoutForge(repoRoot);
+        const prForge = knownPr === null ? null : forgeHost(knownPr);
+        if (statedForge !== null && prForge !== null && prForge !== statedForge) {
             return stopped({
                 reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,
                 item: asLabel,
@@ -1195,7 +1198,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             // Reads of the issues repository (claims, the record) on its host; the pull-request reads
             // (ranges, verdicts, waivers) on each code repository's, given the issues repository in the
             // one form deps.verdict also gives it.
-            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepo, input.record, onIssuesHost(run, issuesRepo)), {
+            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepo, input.record), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),
