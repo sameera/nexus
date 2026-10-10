@@ -271,7 +271,7 @@ export function linkedEpic(markdown: string): number | null {
 function linkedEpicRef(markdown: string): { repo: string | null; number: number } | null {
     const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
     if (fm === null) return null;
-    const line = /^link:\s*(.+?)\r?$/m.exec(fm[1]);
+    const line = /^link:[ \t]*(.+?)\r?$/m.exec(fm[1]);
     if (line === null) return null;
     return parseIssueRef(line[1].trim().replace(/^["']|["']$/g, ""));
 }
@@ -391,17 +391,24 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         });
     }
 
-    const repos = deps.issuesRepo(repoRoot);
-    if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
     // One written form for every read, write, key and report that names the issues repository. An
     // earlier run's stub and amendment keys are matched by the repository they name, in any form.
-    const issuesRepo = canonicalIssuesRepo(repos.repos.issuesRepo);
-    const codeRepo = repos.repos.repo;
+    const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
+        const r = deps.issuesRepo(repoRoot);
+        return r.ok
+            ? { ok: true, issuesRepo: canonicalIssuesRepo(r.repos.issuesRepo), codeRepo: r.repos.repo }
+            : { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
+    };
 
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
 
     let epic: number;
+    let issuesRepo: string;
+    let codeRepo: string;
     if ("epic" in input.target) {
+        const repos = resolveRepos();
+        if (!repos.ok) return stopped(repos.stop);
+        ({ issuesRepo, codeRepo } = repos);
         epic = input.target.epic;
         // `owner/repo#N`, as close's own reports print an epic, must name the issues repository.
         const named = input.target.repo;
@@ -413,17 +420,18 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             });
         }
     } else {
-        // A pull request only finds the epic. One that has not merged is the cheap early answer for
-        // a lead who ran close too soon.
+        // A pull request only finds the epic. It is read first: one that has not merged is the cheap
+        // early answer for a lead who ran close too soon, before anything about the issues repository.
         const ref = input.target.pr;
-        // Close reads the epic's issues through gh on the checkout's forge, as it reads a bare or an
-        // owner/repo#N pull request; only a URL can name another forge, and mixing the two in one run
-        // would read a pull request on one and the issues on the other.
-        const issuesForge = deps.checkoutForge(repoRoot);
-        if (ref.host !== undefined && issuesForge !== null && forgeHost(ref.host) !== issuesForge) {
+        // Close reads the epic's issues through gh on the checkout's forge (gh's own default when the
+        // checkout names none), as it reads a bare or an owner/repo#N pull request; only a URL can
+        // name another forge, and mixing the two in one run would read a pull request on one and the
+        // issues on the other.
+        const issuesForge = deps.checkoutForge(repoRoot) ?? "github.com";
+        if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge) {
             const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
             return stopped({
-                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the issues of ${issuesRepo} on ${issuesForge}, this checkout's forge`,
+                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge}, this checkout's forge`,
                 item: asked,
                 remedy: "run close from a checkout on the pull request's forge, or name the epic: nexus close --epic <N>",
             });
@@ -436,11 +444,16 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // The repository it was read in, which in a fork checkout can differ from the checkout's
         // default: the platform's URL for it says which.
         const fromUrl = parsePrReference(read.pr.url);
-        const pr = { repo: (fromUrl === null ? null : prRepoName(fromUrl, null)) ?? prRepoName(ref, null) ?? codeRepo, pr: ref.number };
-        const label = `pull request ${pr.repo}#${pr.pr}`;
+        const readIn = (fromUrl === null ? null : prRepoName(fromUrl, null)) ?? prRepoName(ref, null);
+        const asLabel = readIn === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${readIn}#${ref.number}`;
         if (!read.pr.merged) {
-            return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
+            return stopped({ reason: `${asLabel} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: asLabel, remedy: `merge it, then re-run ${rerun}` });
         }
+        const repos = resolveRepos();
+        if (!repos.ok) return stopped(repos.stop);
+        ({ issuesRepo, codeRepo } = repos);
+        const pr = { repo: readIn ?? codeRepo, pr: ref.number };
+        const label = `pull request ${pr.repo}#${pr.pr}`;
         // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
         // place is named by its epic instead: --epic replaces the old entry-path way through.
         const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);

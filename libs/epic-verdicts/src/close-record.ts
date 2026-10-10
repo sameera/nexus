@@ -549,7 +549,9 @@ export function carriesAmendmentKey(body: string, issuesRepo: string, epic: numb
 /** Whether `body` carries the stub key for a proposal, naming the issues repository in any written form. */
 export function carriesStubKey(body: string, c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): boolean {
     const re = new RegExp(`${escapeRegExp(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic} pr: (\\S+)#${p.pr} proposal: ${escapeRegExp(p.id)} -->`, "g");
-    return [...body.matchAll(re)].some((m) => sameIssuesRepo(m[1], c.issuesRepo) && sameIssuesRepo(m[2], p.repo));
+    // The issues repository by owner and name; the pull request's code repository by sameRepo, which
+    // keeps two stated hosts apart (two members can share an owner/name on different forges).
+    return [...body.matchAll(re)].some((m) => sameIssuesRepo(m[1], c.issuesRepo) && sameRepo(m[2], p.repo));
 }
 
 /**

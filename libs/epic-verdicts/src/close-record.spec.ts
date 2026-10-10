@@ -101,5 +101,8 @@ describe("carriesStubKey — an earlier run's stub key in any written form (#906
         expect(carriesStubKey(body, { issuesRepo: "acme/app", epic: 830 }, { repo: "acme/code", pr: 901, id: "DS1" })).toBe(true);
         expect(carriesStubKey(body, { issuesRepo: "acme/app", epic: 830 }, { repo: "acme/other", pr: 901, id: "DS1" })).toBe(false);
         expect(carriesStubKey(body, { issuesRepo: "acme/app", epic: 830 }, { repo: "acme/code", pr: 901, id: "DS2" })).toBe(false);
+        // Two code repositories with one owner/name on two stated forges are not the same.
+        const ghe = `<!-- nexus:close-stub epic: acme/app#830 pr: ghe.corp/acme/code#901 proposal: DS1 -->`;
+        expect(carriesStubKey(ghe, { issuesRepo: "acme/app", epic: 830 }, { repo: "github.com/acme/code", pr: 901, id: "DS1" })).toBe(false);
     });
 });

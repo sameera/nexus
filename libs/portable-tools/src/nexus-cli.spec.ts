@@ -2195,6 +2195,8 @@ describe("nexus close — the argument forms (#906)", () => {
         [["#159"], "nexus close --epic 159"],
         [["--epic", "#159"], "nexus close --epic 159"],
         [["--epic", "geo-nexus/docs#159"], "nexus close --epic 159"],
+        [["geo-nexus/docs#159"], "nexus close --epic 159"],
+        [["159", "--epic", "geo-nexus/docs#159"], "nexus close --epic 159"],
         [["--pr", "#5"], "nexus close --pr 5"],
         [["159", "--epic", "159"], "nexus close --epic 159"],
         [["--pr", "5", "--pr", "5"], "nexus close --pr 5"],
@@ -2227,7 +2229,7 @@ describe("nexus close — the argument forms (#906)", () => {
     });
 
     it.each([
-        [["159", "--epic", "acme/other#159"]],
+        [["--epic", "acme/app#159", "--epic", "acme/other#159"]],
         [["--epic", "159", "--pr", "5"]],
         [["159", "--epic", "160"]],
         [["159", "--pr", "5"]],
@@ -2275,11 +2277,7 @@ describe("nexus close — the argument forms (#906)", () => {
         expect(zero.err.join("\n")).toMatch(/epic's issue number; got '0'/);
     });
 
-    it("refuses a qualified reference given without --pr, naming --pr", async () => {
-        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
-        expect(await runNexusCli(["close", "acme/app#5"], io)).toBe(2);
-        expect(io.err.join("\n")).toMatch(/pass it with --pr/);
-    });
+
 
     it("refuses --handoff with no path, naming the flag", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));

@@ -3123,12 +3123,11 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         }
         else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
         else {
-            // A bare issue number names the epic; a qualified reference is a pull request, given with
-            // --pr; anything else is the entry path.
-            const epic = issueNumber(a);
-            if (epic !== null) given.push({ form: a, target: { epic } });
+            // An issue reference names the epic, bare or `owner/repo#N` as close's reports print one;
+            // anything else is the entry path (an entry path of that shape is written ./<path>).
+            const ref = parseIssueRef(a);
+            if (ref !== null) given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
             else if (/^#?\d+$/.test(a)) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
-            else if (parseIssueRef(a) !== null) return refuse(`a qualified reference names a pull request; pass it with --pr, or write an entry path of that shape as ./<path>; got ${got(a)}.`);
             else paths.push(a);
         }
     }
@@ -3150,8 +3149,15 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const own = given.filter((g) => "pr" in g.target).length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     for (const g of given) {
         const t = g.target;
-        const key = "epic" in t ? `epic ${(t.repo ?? "").toLowerCase()}#${t.epic}` : `pr ${prRepoName(t.pr, own) ?? ""}#${t.pr.number}`;
-        if (!targets.has(key)) targets.set(key, g);
+        const key = "epic" in t ? `epic #${t.epic}` : `pr ${prRepoName(t.pr, own) ?? ""}#${t.pr.number}`;
+        const known = targets.get(key);
+        // One epic number given bare and qualified is one target; the qualified form is kept so
+        // close checks its repository. Two different repositories for one number are two targets.
+        if (known !== undefined && "epic" in known.target && "epic" in t) {
+            const [a, b] = [known.target.repo?.toLowerCase(), t.repo?.toLowerCase()];
+            if (a !== undefined && b !== undefined && a !== b) targets.set(`${key} ${b}`, g);
+            else if (a === undefined && b !== undefined) targets.set(key, g);
+        } else if (known === undefined) targets.set(key, g);
     }
     if (targets.size > 1) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${[...targets.values()].map((t) => t.form).join(" and ")}.`);

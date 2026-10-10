@@ -878,6 +878,27 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(ladderRepo).toEqual(["acme/code"]);
     });
 
+    it("answers that a pull request has not merged before it resolves the issues repository", () => {
+        const h = harness({
+            readPr: () => ({ ok: true, pr: prInfo({ state: "OPEN", merged: false, mergeCommitOid: null }) }),
+            issuesRepo: () => ({ ok: false, error: { problem: "repo-unresolved", message: "no remote" } }) as never,
+        });
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/not merged/);
+    });
+
+    it("compares a pull-request URL with gh's default forge when the checkout names none", () => {
+        const h = harness({ checkoutForge: () => null });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } })));
+        expect(err).toMatch(/reason: .*ghe\.corp.*github\.com/);
+    });
+
+    it("reads an entry path whose link is empty as linking nothing, never the next line", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink:\n"#${EPIC}"\n---\n`);
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })))).toMatch(/no link naming the epic/);
+    });
+
     it("reads a pull-request URL on an Enterprise checkout whose issues repository names no host", () => {
         const h = harness({ checkoutForge: () => "ghe.corp" });
         const { stdout } = closed(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } });
