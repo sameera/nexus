@@ -3150,7 +3150,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const own = given.filter((g) => "pr" in g.target).length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     for (const g of given) {
         const t = g.target;
-        const key = "epic" in t ? `epic ${t.epic}` : `pr ${prRepoName(t.pr, own) ?? ""}#${t.pr.number}`;
+        const key = "epic" in t ? `epic ${(t.repo ?? "").toLowerCase()}#${t.epic}` : `pr ${prRepoName(t.pr, own) ?? ""}#${t.pr.number}`;
         if (!targets.has(key)) targets.set(key, g);
     }
     if (targets.size > 1) {

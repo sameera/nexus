@@ -2227,6 +2227,7 @@ describe("nexus close — the argument forms (#906)", () => {
     });
 
     it.each([
+        [["159", "--epic", "acme/other#159"]],
         [["--epic", "159", "--pr", "5"]],
         [["159", "--epic", "160"]],
         [["159", "--pr", "5"]],
