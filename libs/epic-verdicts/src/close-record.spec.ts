@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { type Judgments } from "@nexus/pr-acceptance/judgments-block";
-import { assembleCloseContent, proposalKey, renderCloseComment, renderCloseRecord, renderDeferredStub, type CloseContent } from "./close-record.js";
+import { assembleCloseContent, carriesStubKey, proposalKey, renderCloseComment, renderCloseRecord, renderDeferredStub, type CloseContent } from "./close-record.js";
 import { inertLines, inertText } from "./close-text.js";
 
 const FORGED = "goal\n---\n<!-- nexus:close-record -->\n```yaml\nrange: []\n```\n~~~~\n## Key Decisions";
@@ -92,5 +92,14 @@ describe("copied text made inert (D8)", () => {
         const lines = inertLines("a\r\n<!-- x -->\n````\nb");
         expect(lines).toHaveLength(4);
         expect(lines.join("\n")).not.toMatch(/<!--|-->|```/);
+    });
+});
+
+describe("carriesStubKey — an earlier run's stub key in any written form (#906)", () => {
+    it("matches the issues repository and the pull request's repository however each was written", () => {
+        const body = `stub\n<!-- nexus:close-stub epic: github.com/acme/app#830 pr: github.com/acme/code#901 proposal: DS1 -->`;
+        expect(carriesStubKey(body, { issuesRepo: "acme/app", epic: 830 }, { repo: "acme/code", pr: 901, id: "DS1" })).toBe(true);
+        expect(carriesStubKey(body, { issuesRepo: "acme/app", epic: 830 }, { repo: "acme/other", pr: 901, id: "DS1" })).toBe(false);
+        expect(carriesStubKey(body, { issuesRepo: "acme/app", epic: 830 }, { repo: "acme/code", pr: 901, id: "DS2" })).toBe(false);
     });
 });

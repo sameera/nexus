@@ -73,6 +73,7 @@ import {
     carriesStubKey,
     findEpicCloseComment,
     trustedComment,
+    type EpicCloseComment,
     assembleCloseContent,
     recordNumber,
     stampedPrs,
@@ -323,6 +324,67 @@ function entryLink(entryPath: string): { ok: true; epic: number; repo: string | 
     return { ok: true, epic: linked.number, repo: linked.repo };
 }
 
+/** What the epic's own reads stop on, if anything. */
+type EpicReadStop =
+    | { stop: "missing" }
+    | { stop: "comments-unread"; why: string }
+    | { stop: "kind-unread"; why: string }
+    | { stop: "filed-as"; kind: "story" | "record"; parent: number | null }
+    | { stop: "close-comment-unreadable"; why: string }
+    | { stop: "unmarked"; parent: number | null };
+
+/**
+ * The stop the epic's own reads call for, decided from them alone, in the order a lead can act on:
+ * a number that names no issue; comments that cannot be read; what a typed number is filed as,
+ * when that cannot be read; an issue filed as a story or a record; a close comment that does not
+ * read; and an issue that only lacks its epic marking. `kind` is read only for a number the lead
+ * typed. This epic's own close comment excuses an unreadable kind and a lost marking, never a story
+ * or a record.
+ */
+function epicReadStop(
+    kind: ReturnType<CloseCommandDeps["issueKind"]> | null,
+    comments: ReturnType<CloseCommandDeps["issueComments"]>,
+    earlier: EpicCloseComment,
+): EpicReadStop | null {
+    if (kind !== null && kind.ok && !kind.exists) return { stop: "missing" };
+    if (!comments.ok) return { stop: "comments-unread", why: kind !== null && !kind.ok ? `${comments.message}; what it is filed as could not be determined either: ${kind.message}` : comments.message };
+    const own = earlier.found === "own";
+    if (kind !== null && !kind.ok && !own) return { stop: "kind-unread", why: kind.message };
+    if (kind !== null && kind.ok && (kind.kind === "story" || kind.kind === "record")) return { stop: "filed-as", kind: kind.kind, parent: kind.parent };
+    if (earlier.found === "unreadable") return { stop: "close-comment-unreadable", why: earlier.why };
+    if (kind !== null && kind.ok && kind.kind === "other" && !own) return { stop: "unmarked", parent: kind.parent };
+    return null;
+}
+
+/** The stop block for an {@link EpicReadStop}. */
+function renderEpicReadStop(s: EpicReadStop, at: { epic: number; epicRef: string; issuesRepo: string; rerun: string }): CloseStop {
+    const { epic, epicRef, issuesRepo, rerun } = at;
+    const parentOf = (parent: number | null): string => (parent === null ? "" : ` (its parent is ${issuesRepo}#${parent})`);
+    const notEpic = (is: string, extra: string): CloseStop => ({
+        reason: `${epicRef} ${is}; close closes only an issue filed as an epic`,
+        item: `issue ${epicRef}`,
+        remedy: `pass the epic's own issue number: nexus close --epic <N>${extra}`,
+    });
+    switch (s.stop) {
+        case "missing":
+            return notEpic("does not exist", `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository`);
+        case "comments-unread":
+            return { reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${s.why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` };
+        case "kind-unread":
+            return { reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${s.why}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` };
+        case "filed-as":
+            return notEpic(`is filed as a ${s.kind}, not an epic${parentOf(s.parent)}`, "");
+        case "close-comment-unreadable":
+            return {
+                reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${s.why}, so close can neither finish that close nor tell that none happened`,
+                item: `epic ${epicRef}`,
+                remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
+            };
+        case "unmarked":
+            return notEpic(`is not filed as an epic${parentOf(s.parent)}`, `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}`);
+    }
+}
+
 /** Run close through the close record and the amendment. Asks nothing; every outcome is returned. */
 export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): CloseOutcome {
     // Until the epic is known a re-run repeats what the lead ran; from then on it names the epic.
@@ -384,7 +446,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         }
         epic = stories.epic;
     }
-    // After the target, so a pull request that has not merged is still the first answer.
+    // Read after the target, so a pull request that has not merged is answered before a bad entry path.
     const link = input.entryPath === null ? null : entryLink(input.entryPath);
     if (link !== null && !link.ok) return stopped(link.stop);
     if (link !== null && (link.epic !== epic || (link.repo !== null && !sameRepo(link.repo, issuesRepo)))) {
@@ -400,54 +462,12 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    const commentsUnread = (why: string): CloseOutcome =>
-        stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
     const earlier = epicComments.ok ? findEpicCloseComment(epicComments.comments, epic, issuesRepo) : ({ found: "none" } as const);
-    const unreadableClose = (why: string): CloseOutcome =>
-        stopped({
-            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${why}, so close can neither finish that close nor tell that none happened`,
-            item: `epic ${epicRef}`,
-            remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
-        });
-
     // A number the lead typed must be an epic, checked before anything, even the re-run shortcut,
     // can close it; the story ladder already checked the epic it found from a pull request.
-    if ("epic" in input.target) {
-        const kind = deps.issueKind(repoRoot, issuesRepo, epic);
-        // With the comments unread, close cannot know of an earlier close that would excuse a lost
-        // marking; that read failing is the stop, unless the number names no issue at all.
-        if (!epicComments.ok && !(kind.ok && !kind.exists)) {
-            return commentsUnread(kind.ok ? epicComments.message : `${epicComments.message}; what it is filed as could not be determined either: ${kind.message}`);
-        }
-        // This epic's own close comment is proof enough when what it is filed as cannot be read.
-        if (!kind.ok && earlier.found !== "own") {
-            return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
-        }
-        // Only an issue filed as an epic. This epic's own close comment excuses a marking lost since
-        // (an epic relabelled after close), never an issue filed as a story or a record. An issue
-        // that only lacks a marking, beside a close comment that does not read, is told about the
-        // comment first: relabelling would not get it past that.
-        const filedAsOther = kind.ok && kind.exists && (kind.kind === "story" || kind.kind === "record");
-        if (!filedAsOther && earlier.found === "unreadable") return unreadableClose(earlier.why);
-        if (kind.ok && (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && earlier.found === "own")))) {
-            const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
-            const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
-            const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository` : "";
-            const unmarked = kind.exists && kind.kind === "other" ? `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}` : "";
-            return stopped({
-                reason: `${epicRef} ${is}${parent}; close closes only an issue filed as an epic`,
-                item: `issue ${epicRef}`,
-                remedy: `pass the epic's own issue number: nexus close --epic <N>${prHint}${unmarked}`,
-            });
-        }
-    }
-
-    // After the kind check, so a number that names no issue (whose comments cannot be read either)
-    // is told so, not told to retry a read.
-    if (!epicComments.ok) {
-        return commentsUnread(epicComments.message);
-    }
-    if (earlier.found === "unreadable") return unreadableClose(earlier.why);
+    const kind = "epic" in input.target ? deps.issueKind(repoRoot, issuesRepo, epic) : null;
+    const stop = epicReadStop(kind, epicComments, earlier);
+    if (stop !== null) return stopped(renderEpicReadStop(stop, { epic, epicRef, issuesRepo, rerun }));
     if (earlier.found === "own") {
         return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlier.block);
     }
@@ -533,6 +553,16 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             if (read.ok && read.found && read.judgments === "present") {
                 verdicts.push({ repo: entry.repo, pr: entry.pr, date: read.date, head: read.head, recordHash: read.recordHash, judgments: read.read });
             }
+        }
+
+        // Close records merged work: an epic no merged pull request claims a story of has nothing
+        // for the close record's range or for distill's diff.
+        if (gate.merged.length === 0 && gate.blocking.length === 0) {
+            stops.push({
+                reason: `no merged pull request claims a story of epic ${epicRef}, so there is no shipped work to close over`,
+                item: `epic ${epicRef}`,
+                remedy: `ship its stories through pull requests that claim them, then re-run ${rerun}`,
+            });
         }
 
         if (stops.length === 0) {

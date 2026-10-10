@@ -619,16 +619,18 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(asked).toBe(0);
     });
 
-    it("closes an epic filed as one that has no sub-issues", () => {
+    it("stops on an epic no merged pull request claims a story of, as there is nothing shipped to close over", () => {
         const h = harness({ subIssues: () => ({ ok: true, facts: new Map() }) });
-        const resolve = h.deps.resolveEpic;
-        h.deps.resolveEpic = (root, repo, epic) => {
-            const r = resolve(root, repo, epic);
-            return r.ok ? { ...r, record: null, resolved: { ...r.resolved, stories: [] } } : r;
-        };
         h.deps.ranges = () => ({ ok: true, untrusted: [], ranges: ranges({ stories: [], states: [], range: [], merged: [] }) });
-        const { stdout } = closed(h);
-        expect(stdout).toContain("no sub-issues");
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toMatch(/reason: .*no merged pull request/);
+    });
+
+    it("passes over a close-comment template whose epic is left unfilled", () => {
+        const template = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#<epic-issue>"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [template] : [] }) });
+        const { out } = closed(h);
+        expect(out.resumed).toBe(false);
     });
 
     it("checks the number it is given is an epic before it finishes a close comment that stamps another epic", () => {

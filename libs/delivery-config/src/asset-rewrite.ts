@@ -62,7 +62,7 @@ export function checkAssetList(declared: string[], cwd: string): AssetListCheck 
     return { ok: true, assets };
 }
 
-function escapeRegExp(text: string): string {
+export function escapeRegExp(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -89,7 +89,7 @@ export function bodyReferences(body: string, asset: DeclaredAsset): boolean {
  * reader still gets an inline image or a link rather than a dead address.
  */
 export function rewriteAssetPath(body: string, asset: DeclaredAsset, reference: AssetReference): string {
-    const target: RegExp = new RegExp(`(!?\\[[^\\]\\n]*\\])\\(${escapeRegExp(asset.declared)}\\)`, "g");
+    const target = new RegExp(`(!?\\[[^\\]\\n]*\\])\\(${escapeRegExp(asset.declared)}\\)`, "g");
     const inTargets: string = body.replace(target, `$1(${reference.url})`);
     return inTargets.replace(declaredPathPattern(asset.declared), reference.markdown);
 }

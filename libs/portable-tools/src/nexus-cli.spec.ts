@@ -2267,6 +2267,17 @@ describe("nexus close — the argument forms (#906)", () => {
         expect(io.err.join("\n")).toMatch(/close: .*needs the epic/);
     });
 
+    it("refuses a pull request on another forge than the checkout's, and a bare 0", async () => {
+        const repo = memberCheckout();
+        execFileSync("git", ["remote", "add", "origin", "git@github.com:acme/app.git"], { cwd: repo });
+        const io: CapturedIo = makeIo(repo);
+        expect(await runNexusCli(["close", "--pr", "https://ghe.corp/acme/app/pull/7"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/on ghe\.corp, but this checkout is on github\.com/);
+        const zero: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", "0"], zero)).toBe(2);
+        expect(zero.err.join("\n")).toMatch(/epic's issue number; got '0'/);
+    });
+
     it("refuses a qualified reference given without --pr, naming --pr", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", "acme/app#5"], io)).toBe(2);

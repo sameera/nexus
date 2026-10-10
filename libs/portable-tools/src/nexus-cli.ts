@@ -3072,6 +3072,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             // --pr; anything else is the entry path.
             const epic = issueNumber(a);
             if (epic !== null) given.push({ form: a, target: { epic } });
+            else if (/^#?\d+$/.test(a)) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
             else if (parseIssueRef(a) !== null) return refuse(`a qualified reference names a pull request; pass it with --pr; got ${got(a)}.`);
             else paths.push(a);
         }
@@ -3105,6 +3106,14 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
     }
     const [only] = targets.values();
+    // Close reads the epic's issues on the forge this checkout is on; a pull request on another
+    // forge cannot be closed from here without mixing the two in one run.
+    if (only !== undefined && "pr" in only.target && only.target.pr.host !== undefined) {
+        const ownHost = (own ?? canonicalRepoRef(closeMigrationRunner, io.cwd))?.split("/")[0]?.toLowerCase();
+        if (ownHost !== undefined && ownHost !== only.target.pr.host) {
+            return refuse(`--pr names a pull request on ${only.target.pr.host}, but this checkout is on ${ownHost}; run close from a checkout on that forge; got ${got(only.form.slice("--pr ".length))}.`);
+        }
+    }
     if (only === undefined && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
     if (only === undefined) {
         io.stderr(usage);

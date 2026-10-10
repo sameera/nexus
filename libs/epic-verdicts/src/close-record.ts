@@ -28,6 +28,7 @@
  */
 
 import { parse as parseYaml } from "yaml";
+import { escapeRegExp } from "@nexus/delivery-config/asset-rewrite";
 import { CLOSE_STUB_KEY_PREFIX } from "@nexus/delivery-config/stub-key";
 import { deferredScopeStatus, type Departure, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordSections, type SectionDecision } from "@nexus/scope-razor/record";
@@ -536,19 +537,17 @@ export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<Ap
     return `${CLOSE_STUB_KEY_PREFIX}epic: ${c.issuesRepo.toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
 }
 
-const escapeRe = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 /** Whether `body` carries the amendment key for `epic`, naming the issues repository in any written form. */
 export function carriesAmendmentKey(body: string, issuesRepo: string, epic: number): boolean {
-    const re = new RegExp(`${escapeRe(AMENDMENT_KEY_PREFIX)}epic: (\\S+)#${epic} -->`, "g");
+    const re = new RegExp(`${escapeRegExp(AMENDMENT_KEY_PREFIX)}epic: (\\S+)#${epic} -->`, "g");
     return [...body.matchAll(re)].some((m) => canonicalIssuesRepo(m[1]).toLowerCase() === canonicalIssuesRepo(issuesRepo).toLowerCase());
 }
 
 /** Whether `body` carries the stub key for a proposal, naming the issues repository in any written form. */
 export function carriesStubKey(body: string, c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): boolean {
-    const rest = escapeRe(` pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`);
-    const re = new RegExp(`${escapeRe(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic}${rest}`, "g");
-    return [...body.matchAll(re)].some((m) => canonicalIssuesRepo(m[1]).toLowerCase() === canonicalIssuesRepo(c.issuesRepo).toLowerCase());
+    const re = new RegExp(`${escapeRegExp(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic} pr: (\\S+)#${p.pr} proposal: ${escapeRegExp(p.id)} -->`, "g");
+    const same = (a: string, b: string): boolean => canonicalIssuesRepo(a).toLowerCase() === canonicalIssuesRepo(b).toLowerCase();
+    return [...body.matchAll(re)].some((m) => same(m[1], c.issuesRepo) && same(m[2], p.repo));
 }
 
 /**
@@ -606,18 +605,19 @@ export type EpicCloseComment = { found: "own"; body: string; block: Record<strin
  * The epic's own close comment, the one close resumes from and recovery re-stamps: the newest from
  * an author who can speak for the repository, with the marker opening a line (a quoted copy's does
  * not), whose machine block stamps this epic and, where it names one, this issues repository.
- * Another epic's close comment is passed over. `unreadable` is the newest trusted, unquoted marker
- * whose block does not read, stamps no epic, or stamps this epic in another issues repository (a
- * renamed repository, or a copy), when it is newer than any own one: neither a close to resume from
- * nor proof that none happened, so the caller stops and names why rather than act on an older one.
+ * Another epic's close comment, or one whose block stamps no epic number, is passed over.
+ * `unreadable` is the newest trusted, unquoted marker whose block does not parse, or that stamps
+ * this epic in another issues repository (a renamed repository, or a copy), when it is newer than
+ * any own one: neither a close to resume from nor proof that none happened, so the caller stops and
+ * names why rather than act on an older one.
  */
 export function findEpicCloseComment(comments: readonly { body: string; authorAssociation: string }[], epic: number, issuesRepo: string): EpicCloseComment {
     for (const c of [...comments].reverse()) {
         if (!trustedComment(c) || !OWN_MARKER_RE.test(c.body)) continue;
         const block = machineBlock(c.body);
-        const stamped = block === null ? null : recordNumber(block["epic"]);
-        if (block === null || stamped === null) return { found: "unreadable", why: "its machine block does not read" };
-        if (stamped !== epic) continue;
+        if (block === null) return { found: "unreadable", why: "its machine block does not read" };
+        // A block that stamps no epic number (a template left unfilled) or another epic is not this epic's.
+        if (recordNumber(block["epic"]) !== epic) continue;
         const repo = block["issues_repo"];
         if (typeof repo === "string" && !sameRepo(canonicalIssuesRepo(repo), canonicalIssuesRepo(issuesRepo))) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
         return { found: "own", body: c.body, block };
