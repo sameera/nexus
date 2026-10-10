@@ -151,10 +151,12 @@ function renderLines(stories: readonly StoryEvidence[], coversNone: ReadonlyArra
  * The claiming read returns every state since story #847; the report is about what shipped, so it
  * keeps only the merged pull requests, here, where it asks (decision record #849, D7, R3).
  */
-export function evidenceDeps(run: Runner, cwd: string, issuesRepo: string): EvidenceDeps {
+export function evidenceDeps(runner: Runner, cwd: string, issuesRepo: string): EvidenceDeps {
+    // Every gh read goes to the host the issues repository states, as close's are (closeRangesDeps).
+    const run = onIssuesHost(runner, issuesRepo);
     const slug: RepoSlug = issuesRepoSlug(issuesRepo);
     return {
-        readClaims: (story) => mergedOnly(readStoryClaims(onIssuesHost(run, issuesRepo), cwd, slug, story)),
+        readClaims: (story) => mergedOnly(readStoryClaims(run, cwd, slug, story)),
         readReceipt: (pr) => {
             const v = readPrVerdict(run, cwd, pr.pr, pr.repo, issuesRepo, { ghRepo: pr.repo });
             if (!v.ok) return { ok: false, cause: v.error.message };

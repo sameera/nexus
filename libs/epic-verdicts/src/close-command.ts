@@ -1162,7 +1162,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             // A host the issues repository states is the forge for the run: its issue reads and the
             // pull-request reads (ranges, verdicts, waivers) both go there, as deps.verdict's do. With no
             // stated host every read follows gh's own.
-            const derived = deriveCloseRanges(closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepo, input.record), {
+            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepo, input.record), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),

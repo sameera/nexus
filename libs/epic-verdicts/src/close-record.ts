@@ -627,9 +627,9 @@ export function findEpicCloseComment(comments: readonly { body: string; authorAs
         if (!trustedComment(c) || !OWN_MARKER_RE.test(c.body)) continue;
         const block = machineBlock(c.body);
         if (block === null) return { found: "unreadable", why: "its machine block does not read" };
-        // A block that stamps no epic number (a template left unfilled, or an older close comment
-        // with an unquoted epic) can be neither resumed from nor passed over safely; another epic's
-        // is passed over.
+        // A block that stamps no epic number (a template left unfilled, or a hand edit that left
+        // `#` unquoted, which YAML reads as a comment; every close template quoted it) can be
+        // neither resumed from nor passed over safely; another epic's is passed over.
         const stamped = recordNumber(block["epic"]);
         if (stamped === null) return { found: "unreadable", why: 'its machine block names no epic (it needs epic: "#<N>")' };
         if (stamped !== epic) continue;

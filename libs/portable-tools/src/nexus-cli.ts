@@ -1762,7 +1762,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
         const issuesRun = onIssuesHost(closeMigrationRunner, configured);
         const issuesRepo = issuesRepoPath(configured);
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
             return 1;
@@ -1796,7 +1796,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
         const issuesRun = onIssuesHost(closeMigrationRunner, configured);
         const issuesRepo = issuesRepoPath(configured);
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
             return 1;

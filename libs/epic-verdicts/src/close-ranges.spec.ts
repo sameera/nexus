@@ -12,7 +12,7 @@ import { WAIVER_MARKER, parseWaiverBlock, type WaiverComment } from "@nexus/pr-a
 import { closeRangesDeps, deriveCloseRanges, type CloseRangesDeps, type DeriveOutcome } from "./close-ranges.js";
 import { type Runner } from "./run.js";
 import { type ShippedRecord } from "./ledger.js";
-import { type StoryClaimingPr } from "./story-prs.js";
+import { type StoryClaimingPr, type StoryMergedPr } from "./story-prs.js";
 
 const SHA = (c: string) => c.repeat(40).slice(0, 40);
 
@@ -999,21 +999,33 @@ describe("deriveCloseRanges — a waiver posted on the pull request (story #856;
     });
 });
 
-describe("closeRangesDeps — issues reads and pull-request reads on their own runners (#906)", () => {
-    it("reads the claims and the record through the issues runner, and the verdicts through the plain one", () => {
-        const plain: string[][] = [];
-        const issues: string[][] = [];
-        const fail = (into: string[][]): Runner => (cmd, args) => {
-            into.push([cmd, ...args]);
+describe("closeRangesDeps — every read on the host the issues repository states (#906)", () => {
+    it("aims the claims, the record and the verdicts at that host, never pasting it into a path", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
             return { status: 1, stdout: "", stderr: "stop" };
         };
-        const deps = closeRangesDeps(fail(plain), "/repo", "ghe.corp/acme/plan", 5, fail(issues));
+        const deps = closeRangesDeps(run, "/repo", "ghe.corp/acme/plan", 5);
         deps.readClaims(10);
         deps.readRecord();
-        deps.readReceipt({ repo: "acme/code", pr: 7 });
-        expect(issues.length).toBeGreaterThan(0);
-        expect(issues.every((c) => !c.join(" ").includes("repos/ghe.corp"))).toBe(true);
-        expect(plain.some((c) => c.join(" ").includes("7"))).toBe(true);
-        expect(plain.some((c) => c.join(" ").includes("acme/plan/issues/5"))).toBe(false);
+        deps.readReceipt({ repo: "acme/code", pr: 7 } as StoryMergedPr);
+        const gh = calls.filter((c) => c[0] === "gh");
+        const onHost = (c: string[]): boolean => (c.includes("--hostname") ? c.includes("ghe.corp") : c.some((a) => a.startsWith("ghe.corp/") || a.includes("=ghe.corp/")));
+        expect(gh.some((c) => c.join(" ").includes("7"))).toBe(true);
+        expect(gh.every(onHost)).toBe(true);
+        expect(gh.every((c) => !c.join(" ").includes("repos/ghe.corp"))).toBe(true);
+    });
+
+    it("leaves every read to gh's own host when the issues repository states none", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        const deps = closeRangesDeps(run, "/repo", "acme/plan", 5);
+        deps.readClaims(10);
+        deps.readReceipt({ repo: "acme/code", pr: 7 } as StoryMergedPr);
+        expect(calls.some((c) => c.includes("--hostname"))).toBe(false);
     });
 });

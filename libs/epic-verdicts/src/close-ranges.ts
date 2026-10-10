@@ -773,12 +773,13 @@ function renderLines(
  * The claiming read is passed through in every state: close is the one caller that classifies an
  * open or closed-unmerged pull request, and the derivation narrows to merged ones itself (D7).
  */
-export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, record: number | null = null, issuesRun: Runner = onIssuesHost(run, issuesRepo)): CloseRangesDeps {
-    // Reads of the issues repository (the story claims, the record) go through `issuesRun`, which may
-    // aim them at its host; the pull-request and checkout reads go through `run`.
+export function closeRangesDeps(runner: Runner, root: string, issuesRepo: string, record: number | null = null): CloseRangesDeps {
+    // Every gh read here, of the issues repository and of a pull request alike, goes to the host the
+    // issues repository states, so one run reads one forge. With no stated host gh resolves its own.
+    const run = onIssuesHost(runner, issuesRepo);
     const slug: RepoSlug = issuesRepoSlug(issuesRepo);
     return {
-        readClaims: (story) => readStoryClaims(issuesRun, root, slug, story),
+        readClaims: (story) => readStoryClaims(run, root, slug, story),
         checkoutFor: (repo) => resolveRepoCheckout(root, run, repo),
         hasCommit: (checkout, sha) => run("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: checkout }).status === 0,
         fetchCommand: (checkout) => `git -C ${checkout} fetch ${canonicalRemote(run, checkout)}`,
@@ -810,7 +811,7 @@ export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, r
         readRecord: () => {
             if (record === null) return { ok: true, record: null };
             // The one digest implementation, over the record body as fetched back (nxs-record-digest).
-            const fetched = fetchRecord(issuesRun, root, record, issuesRepoPath(issuesRepo));
+            const fetched = fetchRecord(run, root, record, issuesRepoPath(issuesRepo));
             return fetched.ok ? { ok: true, record: { issue: record, digest: fetched.record.digest } } : { ok: false, cause: fetched.error.message };
         },
         readWaivers: (pr) => {

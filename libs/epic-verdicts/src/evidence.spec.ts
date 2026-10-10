@@ -246,3 +246,17 @@ describe("collectEvidence — a story's text decides nothing (epic #828, story #
         expect(out.report.lines).toEqual([]);
     });
 });
+
+describe("evidenceDeps — on the host the issues repository states (#906)", () => {
+    it("reads a pull request's verdict on that host, as close does", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        evidenceDeps(run, "/hub", "ghe.corp/acme/hub").readReceipt({ repo: "acme/code", pr: 7 } as StoryMergedPr);
+        const gh = calls.filter((c) => c[0] === "gh");
+        expect(gh.length).toBeGreaterThan(0);
+        expect(gh.every((c) => (c.includes("--hostname") ? c.includes("ghe.corp") : c.some((a) => a.startsWith("ghe.corp/"))))).toBe(true);
+    });
+});
