@@ -5,6 +5,54 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.98.0
+
+- **Close takes the epic.** `nexus close --epic <N>`, or a bare `nexus close <N>`, closes epic
+  `<N>` in the issues repository the checkout resolves to. Close reads no single pull request: its
+  gate and its close record come from the epic's stories and the pull requests that claim them, in
+  whichever repository each merged. From the hub, an epic whose pull requests merged in a member
+  repository no longer needs one of them named. A typed number that is not filed as an epic, by
+  its label or issue type, stops close before it writes anything; a re-run that finishes a close
+  whose comment stamps that epic skips the check. Stops and re-run hints name
+  `nexus close --epic <N>`, and the report lists every merged pull request the close covers.
+- **Close's `--pr` is a shortcut that accepts any pull-request reference.** `nexus close --pr`
+  takes a number, `owner/repo#N` or a pull-request URL, finds the epic from that pull request, then
+  runs as `--epic` does. A qualified reference is read in the repository it names, on the
+  checkout's forge for `owner/repo#N` and on the URL's own host for a URL, so a member pull request
+  no longer fails to parse. A URL on a host other than github.com stops close, writing nothing,
+  when the configured `epic-repo` states no host: close cannot tell that gh reads the issues there,
+  so the remedy is to state the host in `epic-repo`. A pull-request URL on another host than the
+  one `epic-repo` states stops close too, naming `--epic` as the way through. An issues repository
+  that is the checkout's own, on an Enterprise host, is read on that host without configuring it. A pull request that has not merged still stops
+  close early. Scripts
+  that call `nexus close --pr <N>` keep working. Asked what an epic has shipped, analyze now points
+  at `nexus close --epic <epic>`.
+- **An entry path no longer stands in for the epic (breaking).** An `epic.md` path given to close
+  must link the same epic the `--epic` number or the pull request names. A pull request that names
+  no single epic now stops with `nexus close --epic <N>` as the remedy, where `--pr <N> <epic.md>`
+  used to close the epic the path linked. Name the epic with `--epic` instead.
+- **Close names what was wrong with its arguments.** A value that does not parse gets its own
+  message saying what close expected and what it got, and missing arguments print the usage. Close
+  no longer answers a typing mistake with "close runs only against a merged pull request".
+  Two different epics or pull requests given at once are refused; the same one named twice is one.
+- **A re-run resumes only from the epic's own close comment.** Close and `--recover` resume from the
+  newest trusted close comment whose machine block stamps this epic. A marker in a quote or a code
+  block, or with prose after it on its line, is an example, not a close comment, and is passed over. A newer one that does not read,
+  names no epic, or names this epic in another issues repository stops them and says how to fix it,
+  instead of being resumed from or closed over again. `/nxs.close` relays all three forms
+  unchanged, and its refusal without arguments names `nexus close --epic <N>`.
+- **`nexus record-digest --repo` takes the issues repository in any written form.** A
+  host-qualified `host/owner/repo`, a URL or an SSH remote is read on its host by its owner/repo
+  path, so distill's hash check works on the `issues_repo:` a close stamps from such an `epic-repo`.
+  Analyze's receipts match that repository in whichever of those forms either side names it, and a
+  github.com SSH alias such as `git@github.com-work:` reads as github.com on both sides, so close no
+  longer rejects every receipt when `epic-repo` is written that way.
+- **Analyze reads the epic where close reads it.** `nexus epic-verdicts pr-target` and `completion`
+  read the epic, its stories and their pull requests in the configured `epic-repo`, on the host its
+  written form states, instead of in the checkout's own repository. Analyze addressed by epic
+  number, and its check of whether a pull request completes its epic, now agree with close when the
+  epics are filed in another repository or on an Enterprise host.
+
 ## 0.97.0
 
 - **The conformance gate flags code that breaks an invariant on a listed concept page.** Analyze

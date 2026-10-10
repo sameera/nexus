@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveVerdictRepos } from "./verdict-repos.js";
+import { canonicalIssuesRepo, fetchRecordIn, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
@@ -108,5 +108,86 @@ describe("resolveVerdictRepos across a hub and a member checkout (#783)", () => 
         if (r.ok) return;
         expect(r.error.problem).toBe("repo-unresolved");
         expect(r.error.message).toContain(member);
+    });
+});
+
+describe("issuesRepoSlug — the one parse of the issues repository (#906)", () => {
+    it("reads owner/repo, host/owner/repo, and a URL with or without a trailing slash or .git", () => {
+        for (const configured of ["acme/issues", "github.com/acme/issues", "https://github.com/acme/issues", "https://github.com/acme/issues/", "https://github.com/acme/issues.git", "acme/issues.git", "git@github.com:acme/issues.git"]) {
+            expect(issuesRepoSlug(configured), configured).toEqual({ owner: "acme", repo: "issues" });
+        }
+    });
+});
+
+describe("canonicalIssuesRepo — the one written form close uses (#906)", () => {
+    it("keeps the host a configured form names, folding github.com's aliases, and owner/repo alone when it names none", () => {
+        expect(canonicalIssuesRepo("acme/issues")).toBe("acme/issues");
+        expect(canonicalIssuesRepo("Acme/Plan")).toBe("Acme/Plan");
+        expect(canonicalIssuesRepo("https://GitHub.com/Acme/Issues")).toBe("github.com/Acme/Issues");
+        for (const configured of ["https://github.com/acme/issues/", "git@github.com:acme/issues.git", "git@github.com-work:acme/issues.git", "github.com/acme/issues"]) {
+            expect(canonicalIssuesRepo(configured), configured).toBe("github.com/acme/issues");
+        }
+        expect(canonicalIssuesRepo("ssh://git@ghe.corp:22/acme/issues.git")).toBe("ghe.corp/acme/issues");
+        expect(canonicalIssuesRepo("not a repo")).toBe("not a repo");
+    });
+
+    it("sends gh api calls for an issues repository on a stated host to that host", () => {
+        const calls: string[][] = [];
+        const run = onIssuesHost((cmd: string, args: string[]) => {
+            calls.push([cmd, ...args]);
+            return { status: 0, stdout: "", stderr: "" };
+        }, "ghe.corp/acme/issues");
+        run("gh", ["api", "graphql"], { cwd: "/" });
+        run("gh", ["issue", "view", "5"], { cwd: "/" });
+        run("gh", ["issue", "view", "6", "--repo", "acme/issues"], { cwd: "/" });
+        run("gh", ["issue", "close", "7", "-R", "ghe.other/acme/issues"], { cwd: "/" });
+        run("gh", ["api", "--hostname=ghe.other", "graphql"], { cwd: "/" });
+        expect(calls).toEqual([
+            ["gh", "api", "--hostname", "ghe.corp", "graphql"],
+            ["gh", "issue", "view", "5"],
+            ["gh", "issue", "view", "6", "--repo", "ghe.corp/acme/issues"],
+            ["gh", "issue", "close", "7", "-R", "ghe.other/acme/issues"],
+            ["gh", "api", "--hostname=ghe.other", "graphql"],
+        ]);
+    });
+});
+
+describe("sameIssuesRepo — one issues repository in any written form (#906)", () => {
+    it("matches across forms and a form with no host either way, but not two stated hosts that differ", () => {
+        expect(sameIssuesRepo("acme/app", "https://github.com/Acme/App")).toBe(true);
+        expect(sameIssuesRepo("git@github.com-work:acme/app.git", "github.com/acme/app")).toBe(true);
+        expect(sameIssuesRepo("acme/app", "ghe.corp/acme/app")).toBe(true);
+        expect(sameIssuesRepo("github.com/acme/app", "ghe.corp/acme/app")).toBe(false);
+    });
+});
+
+describe("fetchRecordIn — a record read in any written form of the issues repository (#906)", () => {
+    it.each([
+        ["github.com/acme/plan", "github.com"],
+        ["https://github.com/acme/plan", "github.com"],
+        ["ghe.corp/acme/plan", "ghe.corp"],
+        ["git@ghe.corp:acme/plan.git", "ghe.corp"],
+    ])("reads %s on its host by its owner/repo path", (repo, host) => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        fetchRecordIn(run, "/", 9, repo);
+        expect(calls).toEqual([["gh", "api", "--hostname", host, "repos/acme/plan/issues/9"]]);
+    });
+
+    it("reads acme/plan, or the checkout's own repository, on gh's own host", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        fetchRecordIn(run, "/", 9, "acme/plan");
+        fetchRecordIn(run, "/", 9, null);
+        expect(calls).toEqual([
+            ["gh", "api", "repos/acme/plan/issues/9"],
+            ["gh", "api", "repos/{owner}/{repo}/issues/9"],
+        ]);
     });
 });

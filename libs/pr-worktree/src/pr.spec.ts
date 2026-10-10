@@ -170,4 +170,21 @@ describe("which repository gh is asked about", () => {
         expect(r.ok).toBe(true);
         expect(calls.find((c) => c[0] === "gh")).not.toContain("--repo");
     });
+
+    it("reads the pull request in the repository the caller names, whatever the checkout's remotes say (#906)", () => {
+        const calls: string[][] = [];
+        const runner: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            if (cmd === "gh" && args[0] === "pr" && args[1] === "view") {
+                return { status: 0, stdout: MERGED, stderr: "" };
+            }
+            return { status: 0, stdout: "git@github.com:acme/docs.git\n", stderr: "" };
+        };
+
+        const r = resolvePr(runner, "/repo", 704, { requireMerged: false, repo: "acme/member" });
+
+        expect(r.ok).toBe(true);
+        const ghCall = calls.find((c) => c[0] === "gh");
+        expect(ghCall?.[(ghCall.indexOf("--repo")) + 1]).toBe("acme/member");
+    });
 });

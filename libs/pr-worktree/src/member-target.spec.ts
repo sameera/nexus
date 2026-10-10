@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parsePrReference, resolveAnalyzeTarget } from "./member-target.js";
+import { forgeHost, parseIssueUrl, parsePrReference, prRepoName, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
 import { defaultRunner } from "./run.js";
 import { initRepo, makeParent, writeCommit } from "./git-fixtures.js";
 
@@ -29,6 +29,36 @@ function buildHubWithMember(parent: string, opts: { checkoutMember: boolean }): 
     return { hub, memberPath };
 }
 
+describe("prRepoOnForge — which forge a pull-request reference lives on", () => {
+    const own = "ghe.corp/acme/hub";
+    it("reads a URL on its own host, owner/repo#N on the checkout's, and a bare number in the checkout's repository", () => {
+        expect(prRepoOnForge({ repo: "acme/app", number: 1, host: "github.com" }, own)).toBe("github.com/acme/app");
+        expect(prRepoOnForge({ repo: "acme/app", number: 1 }, own)).toBe("ghe.corp/acme/app");
+        expect(prRepoOnForge({ repo: null, number: 1 }, own)).toBe(own);
+    });
+
+    it("reads owner/repo#N on github.com when the checkout's remote uses a github.com SSH alias", () => {
+        expect(prRepoOnForge({ repo: "acme/app", number: 1 }, "github.com-work/acme/hub")).toBe("github.com/acme/app");
+        expect(prRepoOnForge({ repo: null, number: 1 }, "github.com-work/acme/hub")).toBe("github.com/acme/hub");
+        expect(prRepoOnForge({ repo: "acme/app", number: 1, host: "ssh.github.com" }, null)).toBe("github.com/acme/app");
+        expect(forgeHost("ssh.github.com")).toBe("github.com");
+        expect(forgeHost("GHE.corp")).toBe("ghe.corp");
+    });
+
+    it("leaves the host to the caller when the checkout names no forge", () => {
+        expect(prRepoOnForge({ repo: "acme/app", number: 1 }, null)).toBe("acme/app");
+        expect(prRepoOnForge({ repo: null, number: 1 }, null)).toBeNull();
+    });
+});
+
+describe("prRepoName — a pull request's repository as close prints it", () => {
+    it("drops github.com and keeps another host", () => {
+        expect(prRepoName({ repo: "acme/app", number: 1, host: "github.com" }, null)).toBe("acme/app");
+        expect(prRepoName({ repo: "acme/app", number: 1, host: "ghe.corp" }, null)).toBe("ghe.corp/acme/app");
+        expect(prRepoName({ repo: null, number: 1 }, null)).toBeNull();
+    });
+});
+
 describe("parsePrReference", () => {
     it("parses a bare PR number", () => {
         expect(parsePrReference("492")).toEqual({ repo: null, number: 492 });
@@ -39,7 +69,31 @@ describe("parsePrReference", () => {
     });
 
     it("parses a pull-request URL", () => {
-        expect(parsePrReference("https://github.com/acme/widget/pull/492")).toEqual({ repo: "acme/widget", number: 492 });
+        expect(parsePrReference("https://github.com/acme/widget/pull/492")).toEqual({ repo: "acme/widget", number: 492, host: "github.com" });
+    });
+
+    it("keeps the forge host a pull-request URL names", () => {
+        expect(parsePrReference("https://GHE.corp/acme/widget/pull/7")?.host).toBe("ghe.corp");
+        expect(forgeHost(parsePrReference("https://www.github.com/acme/widget/pull/7")?.host ?? "")).toBe("github.com");
+        expect(forgeHost(parsePrReference("https://www.git.corp/acme/widget/pull/7")?.host ?? "")).toBe("www.git.corp");
+        expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "8443" });
+        expect(parsePrReference("https://github.com:443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "github.com" });
+        expect(parsePrReference("http://ghe.corp:80/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp" });
+        // Only a scheme's own default port is dropped: 80 under https, or 443 under http, is a port.
+        expect(parsePrReference("https://ghe.corp:80/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "80" });
+        expect(parsePrReference("http://ghe.corp:443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "443" });
+    });
+
+    it("parses an issue URL by the same rule, and never takes one for a pull request", () => {
+        expect(parseIssueUrl("https://ghe.corp:8443/acme/widget/issues/5")).toEqual({ repo: "acme/widget", number: 5, host: "ghe.corp", port: "8443" });
+        expect(parsePrReference("https://github.com/acme/widget/issues/5")).toBeNull();
+        expect(parseIssueUrl("https://github.com/acme/widget/pull/5")).toBeNull();
+        expect(parseIssueUrl("https://github.com/acme/widget/issues/5#issuecomment-1")?.number).toBe(5);
+        expect(parsePrReference("https://github.com/acme/widget/pull/704/files")?.number).toBe(704);
+    });
+
+    it("rejects a URL whose authority does not read", () => {
+        expect(parsePrReference("https://ghe.corp:abc/acme/widget/pull/5")).toBeNull();
     });
 
     it("rejects an unrecognized string", () => {

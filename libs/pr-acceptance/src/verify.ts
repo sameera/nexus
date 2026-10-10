@@ -16,7 +16,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { forgeHost } from "@nexus/pr-worktree/member-target";
 import { sameRepo } from "@nexus/workspace/issue-ref";
+import { normalizeRemote } from "@nexus/workspace/remote";
 import { type Result, fail, ok } from "./diagnostic.js";
 import { RECEIPT_MARKER, type ReceiptBlock, collectReceiptBlocks, maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
 import { type Runner, git } from "./run.js";
@@ -259,7 +261,7 @@ export function verifyRange(run: Runner, cwd: string, input: RangeVerifyInput): 
 }
 
 // ---------------------------------------------------------------------------
-// The analyze receipt, read back the way /nxs.close --pr reads it
+// The analyze receipt, read back the way nexus close reads it
 // ---------------------------------------------------------------------------
 
 export interface AnalyzeReceipt {
@@ -374,7 +376,15 @@ export function effectiveIssuesRepo(receipt: AnalyzeReceipt): string | null {
 export function issuesRepoMatches(receipt: AnalyzeReceipt, expected: string | null | undefined): boolean {
     const effective = effectiveIssuesRepo(receipt);
     if (effective === null || expected === null || expected === undefined || expected === "") return true;
-    return sameRepo(effective, expected);
+    // Either side may be written as a URL, in SSH form, or with a host: compare the repositories.
+    return sameRepo(issuesIdentity(effective), issuesIdentity(expected));
+}
+
+/** A written issues repository as host/owner/repo or owner/repo, github.com's SSH aliases folded as close folds them. */
+function issuesIdentity(written: string): string {
+    const normalized = normalizeRemote(written);
+    const parts = normalized.split("/");
+    return parts.length === 3 ? [forgeHost(parts[0]), parts[1], parts[2]].join("/") : normalized;
 }
 
 export interface ReceiptVerdict {
@@ -387,7 +397,7 @@ export interface ReceiptVerdict {
     prHead: string;
     /** The platform timestamp of the review or comment carrying the selected block; "" when none. */
     at: string;
-    /** Exact full-identifier equality — the currency test /nxs.close --pr applies. */
+    /** Exact full-identifier equality — the currency test nexus close applies. */
     current: boolean;
     /** Commits that landed after analysis, when that can be counted. */
     staleNote: string | null;

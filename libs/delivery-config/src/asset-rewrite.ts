@@ -13,6 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { escapeRegExp } from "@nexus/workspace/regexp";
 import { publishAsset, type PublishedAsset, type PublishResult } from "./asset-publish.js";
 import { type AssetKind, type AssetReference, assetKind, assetReference } from "./asset-reference.js";
 import { type AssetStore } from "./asset-store.js";
@@ -62,9 +63,6 @@ export function checkAssetList(declared: string[], cwd: string): AssetListCheck 
     return { ok: true, assets };
 }
 
-function escapeRegExp(text: string): string {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /**
  * The declared path as a whole token: not preceded or followed by another path character, so
@@ -89,7 +87,7 @@ export function bodyReferences(body: string, asset: DeclaredAsset): boolean {
  * reader still gets an inline image or a link rather than a dead address.
  */
 export function rewriteAssetPath(body: string, asset: DeclaredAsset, reference: AssetReference): string {
-    const target: RegExp = new RegExp(`(!?\\[[^\\]\\n]*\\])\\(${escapeRegExp(asset.declared)}\\)`, "g");
+    const target = new RegExp(`(!?\\[[^\\]\\n]*\\])\\(${escapeRegExp(asset.declared)}\\)`, "g");
     const inTargets: string = body.replace(target, `$1(${reference.url})`);
     return inTargets.replace(declaredPathPattern(asset.declared), reference.markdown);
 }

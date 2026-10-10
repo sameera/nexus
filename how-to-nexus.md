@@ -107,7 +107,7 @@ It reports findings inline and leaves a small **receipt** proving it ran — whi
 
 ## Step 5: `nexus close` — Close with a Trail
 
-Close is a plain command, `nexus close --pr <N>`. It runs no model and asks nothing. `/nxs.close --pr <N>` still works: it runs `nexus close` with the same arguments and shows its output.
+Close is a plain command, `nexus close --epic <N>` (or just `nexus close <N>`). It runs no model and asks nothing. It works from the epic: its stories and the pull requests that claim them, in whichever repository each merged. `nexus close --pr <ref>` is a shortcut that finds the epic from a merged pull request; it takes a number, `owner/repo#N` or a pull-request URL. `/nxs.close` relays any of these unchanged.
 
 Close requires every sub-issue of the epic closed and a current analyze verdict on each merged pull request. Anything it used to ask is now posted on the pull request before it runs: an answer to a departure or a blocking finding, recorded by `/nxs.analyze --pr <N> --resolve`, and a waiver for a revised record or a changed file. A story that shipped without a pull request of its own needs a waiver comment on its own issue. When something is missing, close stops before writing anything and names the remedy. Otherwise it:
 
@@ -131,7 +131,7 @@ For teams that deliver through pull requests, the tail of the pipeline runs agai
 
 1. The lead runs `/nxs.analyze --pr <N>` against the PR (which may still be open). The result is published as a PR review carrying a machine-readable receipt.
 2. The PR merges.
-3. Post-merge, the lead runs `nexus close --pr <N>` and then `/nxs.distill` in the worktree close prints. Close asks nothing; it commits its artifacts and hands off, or stops with a reason and a remedy. Distill opens the distillation-PR.
+3. Post-merge, the lead runs `nexus close --epic <N>` (or `nexus close --pr <N>`, which finds the epic from the pull request) and then `/nxs.distill` in the worktree close prints. Close asks nothing; it commits its artifacts and hands off, or stops with a reason and a remedy. Distill opens the distillation-PR.
 
 ## Learning from a Roadmap
 

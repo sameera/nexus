@@ -22,10 +22,30 @@ export interface ParsedPrReference {
     /** Lowercased "owner/repo", or null for a bare PR number (today's meaning). */
     repo: string | null;
     number: number;
+    /** The lowercased forge host a pull-request URL names; absent for the other forms, which name none. */
+    host?: string;
+    /** The port a pull-request URL names, kept apart from `host` so a caller decides what to do with it. */
+    port?: string;
 }
 
 const BARE_RE = /^(\d+)$/;
-const URL_RE = /^https?:\/\/[^/\s]+\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)\/?$/i;
+// A trailing path, query or fragment, as a URL copied from the browser carries (`/files`,
+// `#issuecomment-1`), names nothing more.
+const URL_RE = /^(https?):\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(pull|issues)\/(\d+)(?:[/?#]\S*)?$/i;
+
+/** A forge URL naming a pull request or an issue: its repository, number, host and any port. */
+function parseForgeUrl(text: string, kind: "pull" | "issues"): ParsedPrReference | null {
+    const url = URL_RE.exec(text);
+    if (url === null || url[5].toLowerCase() !== kind) return null;
+    const authority = /^(?:[^@]*@)?([^:@]+)(?::(\d+))?$/.exec(url[2].toLowerCase());
+    if (authority === null) return null;
+    // The host as written; forgeHost decides which forge it names.
+    const parsed: ParsedPrReference = { repo: `${url[3]}/${url[4]}`.toLowerCase(), number: Number(url[6]), host: authority[1] };
+    // The scheme's own default port names nothing the bare host does not; any other port is kept.
+    const port = authority[2];
+    const schemeDefault = url[1].toLowerCase() === "https" ? "443" : "80";
+    return port === undefined || port === schemeDefault ? parsed : { ...parsed, port };
+}
 
 /** Parse a `--pr` argument into its optional repository qualifier and PR number. */
 export function parsePrReference(ref: string): ParsedPrReference | null {
@@ -37,10 +57,40 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     const qualified = QUALIFIED_ISSUE_REF_RE.exec(trimmed);
     if (qualified) return { repo: `${qualified[1]}/${qualified[2]}`.toLowerCase(), number: Number(qualified[3]) };
 
-    const url = URL_RE.exec(trimmed);
-    if (url) return { repo: `${url[1]}/${url[2]}`.toLowerCase(), number: Number(url[3]) };
+    return parseForgeUrl(trimmed, "pull");
+}
 
-    return null;
+/** Parse an issue's URL, as the browser shows it, by the same rule a pull-request URL is parsed. */
+export function parseIssueUrl(ref: string): ParsedPrReference | null {
+    return parseForgeUrl(ref.trim(), "issues");
+}
+
+/**
+ * The forge a host names, as gh addresses it: github.com for github.com itself, `www.` and
+ * `ssh.github.com` and an SSH alias such as `github.com-work`; the host itself otherwise, lowercased.
+ */
+export function forgeHost(host: string): string {
+    const h = host.toLowerCase();
+    return h === "github.com" || h === "www.github.com" || h === "ssh.github.com" || h.startsWith("github.com-") ? "github.com" : h;
+}
+
+/**
+ * The `host/owner/repo` a pull-request reference lives in. A URL names its forge; `owner/repo#N`
+ * lives on the checkout's own, `own` as canonicalRepoRef gives it; a bare number is the checkout's
+ * own repository. `owner/repo` alone when no host is known; null for a bare number with no `own`.
+ */
+export function prRepoOnForge(ref: ParsedPrReference, own: string | null): string | null {
+    const [ownHost, ...ownPath] = own === null ? [] : own.split("/");
+    if (ref.repo === null) return own === null ? null : [forgeHost(ownHost), ...ownPath].join("/");
+    const given = ref.host ?? ownHost;
+    const host = given === undefined ? undefined : forgeHost(given);
+    return host === undefined ? ref.repo : `${host}/${ref.repo}`;
+}
+
+/** The repository a pull-request reference names, as close prints and compares it: `owner/repo`, host-qualified only off github.com. */
+export function prRepoName(ref: ParsedPrReference, own: string | null): string | null {
+    const repo = prRepoOnForge(ref, own);
+    return repo === null ? null : repo.toLowerCase().replace(/^github\.com\//, "");
 }
 
 export interface AnalyzeTarget {

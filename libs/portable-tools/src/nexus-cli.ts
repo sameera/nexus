@@ -14,7 +14,7 @@
  *   nexus uninstall                    remove the installed components from that directory
  *   nexus migrate-components           remove a repository's committed component set
  *   nexus deploy                       install the Nexus components into the invoking repo
- *   nexus close                        close an epic over its merged pull request (epic #830)
+ *   nexus close                        close an epic over its merged pull requests (epic #830, #906)
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
@@ -28,11 +28,12 @@ import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
-import { closeCommandDeps, renderCloseOutcome, runCloseCommand } from "@nexus/epic-verdicts/close-command";
+import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
+import { canonicalIssuesRepo, fetchRecordIn, issuesRepoHost, issuesRepoPath, onIssuesHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
-import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
+import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
@@ -59,14 +60,15 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parsePrReference, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { forgeHost, parseIssueUrl, parsePrReference, prRepoName, resolveAnalyzeTarget, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
 import { deriveRangeList, type RangeListItem } from "@nexus/pr-worktree/range-list";
 import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
-import { canonicalRemote } from "@nexus/workspace/canonical-remote";
+import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
+import { parseIssueRef } from "@nexus/workspace/issue-ref";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -78,7 +80,6 @@ import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
 import { storyCount } from "@nexus/scope-razor/ordering";
 import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
-import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
@@ -652,19 +653,26 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runCloseMigration,
     },
     close: {
-        summary: "Close an epic over its merged pull request, as a plain command that asks nothing.",
+        summary: "Close an epic over its merged pull requests, as a plain command that asks nothing.",
         usage: [
-            "  nexus close --pr <N> [<path to epic.md>] [--handoff <path>]",
-            "      Closes an EPIC (not a worktree or a pull request): the epic of merged pull request <N>.",
-            "      Runs no model and asks no question. Every gate runs before anything is created: the",
-            "      checkout is a single repository or a hub, the pull request merged, the epic is one",
-            "      epic, every sub-issue is closed, every story is current with waivers read only from",
-            "      trusted comments already on the pull request, and each merged pull request's verdict",
+            "  nexus close --epic <N> [<path to epic.md>] [--handoff <path>]",
+            "  nexus close <N> [<path to epic.md>] [--handoff <path>]",
+            "  nexus close --pr <ref> [<path to epic.md>] [--handoff <path>]",
+            "      Closes an EPIC (not a worktree or a pull request): epic <N>, or with --pr the epic of",
+            "      merged pull request <ref> (a number, owner/repo#N or a pull-request URL; owner/repo#N",
+            "      is read on the checkout's forge, a URL on its own host). The gate and the close record come",
+            "      from the epic's stories and the pull requests that claim them, in whatever repository",
+            "      each merged; --pr only finds the epic, and stops early when that pull request has not",
+            "      merged. Runs no model and asks no question. Every gate runs before anything is",
+            "      created: the checkout is a single repository or a hub, the number is an epic, every",
+            "      sub-issue is closed, every story is current with waivers read only from trusted",
+            "      comments already on its pull requests, and each merged pull request's verdict",
             "      has no open critical or high item and carries its judgments. A failing gate prints one",
             "      block per stop naming the reason, the item and the remedy (a waiver stop prints the",
             "      comment to post) and exits 1. Then it reuses the distill branch an earlier run cut for",
             "      the epic, or cuts one from the trunk, and finds or creates the epic's queue entry.",
-            "      The entry path names the epic when the pull request does not name exactly one.",
+            "      An entry path must link the same epic. A bare number is always the epic, so write",
+            "      an all-digit entry path as ./<path>.",
             "      A story no pull request claims passes on its marker, or on a trusted storyless waiver",
             "      comment on its own issue (a stop prints the exact form). Then, in this order, it files",
             "      each approved deferred-scope proposal as an unplanned epic stub, writes the marker on",
@@ -1561,9 +1569,18 @@ async function runPlanningDir(argv: string[], io: CliIo): Promise<number> {
 }
 
 
-/** Does a story issue carry `label` in the issues repository? Absent or unreadable is "no". */
-function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label: string): boolean {
-    return storyCarriesLabelIn(closeMigrationRunner, cwd, issuesRepo, story, label);
+/**
+ * The issues side of an `epic-verdicts` subverb, read as close reads it (#906): the configured
+ * epic-repo in its canonical form, the owner/repo path the shared readers take, and a runner whose
+ * gh calls reach the host that form states.
+ */
+type IssuesSide = { ok: true; configured: string; issuesRepo: string; issuesRun: typeof closeMigrationRunner } | { ok: false; message: string };
+
+function issuesSide(root: string): IssuesSide {
+    const repos = resolveVerdictRepos(closeMigrationRunner, root);
+    if (!repos.ok) return { ok: false, message: `epic-verdicts ${repos.error.problem}: ${repos.error.message}` };
+    const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
+    return { ok: true, configured, issuesRepo: issuesRepoPath(configured), issuesRun: onIssuesHost(closeMigrationRunner, configured) };
 }
 
 interface EpicVerdictsFlags {
@@ -1592,9 +1609,9 @@ const RETIRED_EPIC_VERDICTS_SUBVERBS: Record<string, string> = {
     // ledger, close no longer requires it, and analyze reports no coverage of its own. Records an
     // epic in flight already carries are still read, by `ranges` and by analyze's aggregate mode.
     record:
-        "Analyze no longer writes a shipped record to the epic issue (epic #828). `/nxs.close --pr <N>` derives each story's range itself; records already on an epic issue are still read.",
+        "Analyze no longer writes a shipped record to the epic issue (epic #828). `nexus close --epic <N>` derives each story's range itself; records already on an epic issue are still read.",
     coverage:
-        "Analyze no longer reports what an epic has shipped (epic #828). `/nxs.close --pr <N>` reports each story's state — current, stale, never-reviewed, unshipped, unknown or excluded — through `nexus epic-verdicts ranges --epic <N>`.",
+        "Analyze no longer reports what an epic has shipped (epic #828). `nexus close --epic <N>` reports each story's state — current, stale, never-reviewed, unshipped, unknown or excluded — through `nexus epic-verdicts ranges --epic <N>`.",
     "close-gate":
         "Close no longer requires a shipped record for every story (epic #828). Its gate is `nexus epic-verdicts ranges --epic <N>`, which still reads a record's stamped range and still blocks on a recorded merge commit that moved.",
     // Epic #829, story #859 (decision record #871, D11): aggregate mode is gone, and with it the
@@ -1697,23 +1714,23 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // addressed by epic number goes (epic #829, story #859, decision record #871, D9–D11). Both run
     // close's one claiming read, and a failed read stops the run: analyze publishes nothing (G34).
     if (argv[0] === "completion" || argv[0] === "pr-target") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        const side = issuesSide(root);
+        if (!side.ok) {
+            io.stderr(side.message);
             return 1;
         }
-        const issuesRepo = repos.repos.issuesRepo;
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        const { configured, issuesRepo, issuesRun } = side;
+        const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
             return 1;
         }
         const stories = resolved.resolved.stories.map((st) => st.number);
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
 
         if (argv[0] === "pr-target") {
-            const target = epicPrTarget(epicCompletionDeps(closeMigrationRunner, root, issuesRepo, root, excludePathspecs()), { stories, excluded, issuesRepo });
+            const target = epicPrTarget(epicCompletionDeps(issuesRun, root, configured, root, excludePathspecs()), { stories, excluded, issuesRepo });
             if (!target.ok) {
                 io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(target.failures, issuesRepo)} Analyze stops here.`);
                 return 1;
@@ -1724,7 +1741,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
 
         const worktree = path.resolve(io.cwd, flags.worktree as string);
         const pr = { repo: (flags.repo as string).trim(), pr: flags.pr as number };
-        const completion = epicCompletion(epicCompletionDeps(closeMigrationRunner, root, issuesRepo, worktree, excludePathspecs()), {
+        const completion = epicCompletion(epicCompletionDeps(issuesRun, root, configured, worktree, excludePathspecs()), {
             stories,
             excluded,
             pr,
@@ -1744,22 +1761,22 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // runs this and repeats `lines`; a failed read behind it stops close before it mines anything.
     // It decides nothing else: `ranges` below is close's gate.
     if (argv[0] === "evidence") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        const side = issuesSide(root);
+        if (!side.ok) {
+            io.stderr(side.message);
             return 1;
         }
-        const issuesRepo = repos.repos.issuesRepo;
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        const { configured, issuesRepo, issuesRun } = side;
+        const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
             return 1;
         }
         const stories = resolved.resolved.stories.map((st) => st.number);
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
 
-        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, issuesRepo), { stories, excluded, issuesRepo });
+        const evidence = collectEvidence(evidenceDeps(issuesRun, root, configured), { stories, excluded, issuesRepo });
         if (!evidence.ok) {
             io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(evidence.failures, issuesRepo)} Close stops here.`);
             return 1;
@@ -1775,28 +1792,28 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // Each pull request's landed check rides on the same output (story #846, D4).
     // Waivers posted on a pull request are read through the one waiver reader (story #856, D11).
     if (argv[0] === "ranges") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        const side = issuesSide(root);
+        if (!side.ok) {
+            io.stderr(side.message);
             return 1;
         }
-        const issuesRepo = repos.repos.issuesRepo;
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        const { configured, issuesRepo, issuesRun } = side;
+        const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
             return 1;
         }
         const stories = resolved.resolved.stories.map((st) => st.number);
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
-        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
+        const collected = fetchShippedRecords(issuesRun, root, issuesRepo, flags.epic);
         if (!collected.ok) {
             io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
             return 1;
         }
 
         // The record's current digest is compared with each receipt's stamped one (story #842, D5).
-        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, issuesRepo, resolved.record?.number ?? null), {
+        const derived = deriveCloseRanges(closeRangesDeps(issuesRun, root, configured, resolved.record?.number ?? null), {
             stories,
             excluded,
             records: collected.collected.records.map((f) => f.record),
@@ -1824,17 +1841,18 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // The shipped ledger answers the remaining subverb, the derivation close still calls. Nothing here reads a published review,
     // a head-branch name or a same-repository issue link to establish what the epic shipped
     // (epic #769, invariant 8).
-    const repos = resolveVerdictRepos(closeMigrationRunner, root);
-    if (!repos.ok) {
-        io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+    const side = issuesSide(root);
+    if (!side.ok) {
+        io.stderr(side.message);
         return 1;
     }
-    const resolvedEpic = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+    const { configured, issuesRepo, issuesRun } = side;
+    const resolvedEpic = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
     if (!resolvedEpic.ok) {
         io.stderr(renderEpicResolveDiagnostic(resolvedEpic.error));
         return 1;
     }
-    const ledger = fetchShippedRecords(closeMigrationRunner, root, repos.repos.issuesRepo, flags.epic);
+    const ledger = fetchShippedRecords(issuesRun, root, issuesRepo, flags.epic);
     if (!ledger.ok) {
         io.stderr(`epic-verdicts ${ledger.error.problem}: ${ledger.error.message}`);
         return 1;
@@ -1845,7 +1863,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         noPrLabelHere.length > 0
             ? resolvedEpic.resolved.stories
                   .map((st) => st.number)
-                  .filter((st) => storyCarriesLabel(root, repos.repos.issuesRepo, st, noPrLabelHere))
+                  .filter((st) => storyCarriesLabelIn(issuesRun, root, issuesRepo, st, noPrLabelHere))
             : [];
 
     // derive
@@ -1855,7 +1873,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
     // The receipt is printed, never written (epic #829, story #863, decision record #871, D12):
     // close reads it from this output, and no local analysis file exists for anything to read.
-    const receipt = buildEpicReceipt(flags.epic, ledgerRecords, excludedHere, { issuesRepo: repos.repos.issuesRepo });
+    const receipt = buildEpicReceipt(flags.epic, ledgerRecords, excludedHere, { issuesRepo: configured });
     io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", ledger.collected.untrusted, { receipt })));
     return 0;
 }
@@ -2389,7 +2407,8 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
         return 2;
     }
 
-    const result = fetchRecord(closeMigrationRunner, flags.dir ?? io.cwd, flags.issue, flags.repo ?? null);
+    // `--repo` in any form a close stamps or epic-repo is written in: a host it states is read on that host.
+    const result = fetchRecordIn(closeMigrationRunner, flags.dir ?? io.cwd, flags.issue, flags.repo ?? null);
     if (!result.ok) {
         io.stderr(`record-digest ${result.error.problem}: ${result.error.message}`);
         return 1;
@@ -3060,29 +3079,97 @@ function localDate(now: Date = new Date()): string {
 
 /**
  * `nexus close` — close as a plain command (epic #830, story #864, decision record #872, D1, D3).
- * It takes the arguments `/nxs.close` takes: `--pr <N>`, an optional entry path and `--handoff`.
- * `--recover <epic>` is its recovery mode, addressed at the closed epic (story #867, D13).
+ * It takes the epic (#906): `--epic <N>` or a bare `<N>`, or `--pr <ref>` as a shortcut that
+ * resolves a pull request to its epic. An optional entry path and `--handoff` follow, as
+ * `/nxs.close` passes them. `--recover <epic>` is its recovery mode, addressed at the closed epic
+ * (story #867, D13).
  */
 async function runClose(argv: string[], io: CliIo): Promise<number> {
     const usage =
-        "usage: nexus close --pr <N> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <N>)\n" +
+        "usage: nexus close --epic <N> [<path to epic.md>] [--handoff <path>]  (closes epic <N>; a bare <N> means the same)\n" +
+        "       nexus close --pr <ref> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <ref>: N, owner/repo#N or a URL)\n" +
         "       nexus close --recover <epic>  (re-stamps a closed epic whose decision record was revised)";
-    let pr: number | undefined;
+    const refuse = (message: string): number => {
+        io.stderr(`close: ${message}\n${usage}`);
+        return 2;
+    };
+    const got = (value: string | undefined): string => (value === undefined ? "nothing" : `'${value}'`);
+    // An issue number, bare or as `#N`, the way every report prints one.
+    const issueNumber = (value: string | undefined): number | null => {
+        const ref = value === undefined ? null : parseIssueRef(value);
+        return ref !== null && ref.repo === null ? ref.number : null;
+    };
+    const given: { form: string; target: CloseTarget }[] = [];
+    // An epic as close's own reports print it: N, #N, owner/repo#N, or host/owner/repo#N when the
+    // issues repository names a host.
+    const epicRef = (value: string): { repo: string | null; number: number } | null => {
+        // The first of three segments is a host only when it reads as one (`github.com`, `ghe.corp`).
+        const hosted = /^([^/\s#]+\.[^/\s#]+)\/([^/\s#]+)\/([^/\s#]+)#(\d+)$/.exec(value.trim());
+        if (hosted !== null) return Number(hosted[4]) > 0 ? { repo: `${forgeHost(hosted[1])}/${hosted[2]}/${hosted[3]}`, number: Number(hosted[4]) } : null;
+        return parseIssueRef(value);
+    };
+    // An issue's URL as the browser shows it, host kept so close can tell an issue on another forge
+    // from one in the issues repository; a port is refused as for a pull-request URL.
+    const issueUrl = (value: string): { repo: string; number: number } | "port" | null => {
+        const url = parseIssueUrl(value);
+        if (url === null || url.number <= 0) return null;
+        return url.port !== undefined ? "port" : { repo: `${forgeHost(url.host ?? "")}/${url.repo}`, number: url.number };
+    };
+    // Positionals read as owner/repo#N: an entry path of that shape is written ./<path>, which a refusal says.
+    const qualifiedPositionals: string[] = [];
     let recover: number | undefined;
     let handoff: string | null = null;
-    const positional: string[] = [];
+    const paths: string[] = [];
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === "--pr") pr = Number(argv[++i]);
-        else if (a === "--recover") recover = Number(argv[++i]);
-        else if (a === "--handoff") handoff = argv[++i] ?? "";
-        else if (a.startsWith("--")) {
-            io.stderr(`close: unknown option ${a}\n${usage}`);
-            return 2;
-        } else positional.push(a);
+        if (a === "--epic") {
+            const value = argv[++i];
+            // `N`, `#N`, `owner/repo#N` as close's reports print an epic, or the epic issue's URL; close
+            // checks the repository.
+            const ref = value === undefined ? null : (epicRef(value) ?? issueUrl(value));
+            if (ref === "port") return refuse(`--epic cannot read an issue URL with a port through gh; got ${got(value)}.`);
+            if (ref === null) return refuse(`--epic takes an issue number, owner/repo#N or an issue URL; got ${got(value)}.`);
+            given.push({ form: `--epic ${value}`, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
+        } else if (a === "--pr") {
+            const value = argv[++i];
+            const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
+            if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
+            // gh addresses a forge by host alone, so a URL that needs a port cannot be read through it.
+            if (ref.port !== undefined) {
+                return refuse(`--pr cannot read a pull-request URL with a port through gh; run close from a checkout on that forge with --pr 'owner/repo#N'; got ${got(value)}.`);
+            }
+            given.push({ form: `--pr ${value}`, target: { pr: ref } });
+        } else if (a === "--recover") {
+            const value = argv[++i];
+            const epic = issueNumber(value);
+            if (epic === null) return refuse(`--recover takes the closed epic's issue number; got ${got(value)}.`);
+            if (recover !== undefined && recover !== epic) return refuse(`--recover names one closed epic; got ${recover} and ${epic}.`);
+            recover = epic;
+        }
+        else if (a === "--handoff") {
+            const value = argv[++i];
+            if (value === undefined || value === "" || value.startsWith("--")) return refuse(`--handoff takes the path to write the hand-off note to; got ${got(value)}.`);
+            handoff = value;
+        }
+        else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
+        else {
+            // An issue reference names the epic, bare, `owner/repo#N` as close's reports print one, or
+            // the issue's URL; anything else is the entry path (an entry path of that shape is ./<path>).
+            const ref = epicRef(a) ?? issueUrl(a);
+            if (ref === "port") return refuse(`close cannot read an issue URL with a port through gh; got ${got(a)}.`);
+            if (ref === null && /^https?:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/pull\/\d+/i.test(a)) {
+                return refuse(`a pull request's URL goes with --pr; got ${got(a)}. Run nexus close --pr ${a}.`);
+            }
+            if (ref !== null) {
+                given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
+                if (ref.repo !== null && !/^https?:\/\//i.test(a)) qualifiedPositionals.push(a);
+            }
+            else if (/^#?\d+$/.test(a)) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
+            else paths.push(a);
+        }
     }
     if (recover !== undefined) {
-        if (!Number.isInteger(recover) || recover <= 0 || pr !== undefined || handoff !== null || positional.length > 0) {
+        if (given.length > 0 || handoff !== null || paths.length > 0) {
             io.stderr(`close --recover takes only the closed epic's issue number: nexus close --recover <epic>.\n${usage}`);
             return 2;
         }
@@ -3092,8 +3179,32 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         for (const line of rendered.stderr) io.stderr(line);
         return rendered.exitCode;
     }
-    if (pr === undefined || !Number.isInteger(pr) || pr <= 0 || positional.length > 1 || handoff === "") {
-        io.stderr(`close runs only against a merged pull request: nexus close --pr <N>.\n${usage}`);
+    // The same epic or pull request named twice is one target. Epics compare by number, with at most
+    // one repository among them (the qualified form is kept, so close checks it). Pull requests
+    // compare as host/owner/repo#N, a bare number filled in from the checkout's own repository, read
+    // only when two of them need comparing.
+    const epics = given.filter((g): g is { form: string; target: { epic: number; repo?: string } } => "epic" in g.target);
+    const prs = given.filter((g): g is { form: string; target: { pr: ParsedPrReference } } => "pr" in g.target);
+    const own = prs.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
+    const numbers = new Set(epics.map((g) => g.target.epic));
+    // Every pair of named repositories must be one repository by close's own rule, so two forms of
+    // one are one and two forges (h1 and h2 beside a form naming neither) are two.
+    const named = epics.flatMap((g) => (g.target.repo === undefined ? [] : [g.target.repo]));
+    const oneRepo = named.every((a) => named.every((b) => sameIssuesRepo(a, b)));
+    const pulls = new Set(prs.map((g) => `${prRepoName(g.target.pr, own) ?? ""}#${g.target.pr.number}`));
+    if (numbers.size + pulls.size > 1 || !oneRepo) {
+        const asPath = qualifiedPositionals.map((p) => ` If '${p}' is the entry path, write it as './${p}'.`).join("");
+        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.${asPath}`);
+    }
+    // The most qualified form of the epic is kept, so close checks the repository and forge it names.
+    const only = epics.find((g) => g.target.repo !== undefined && issuesRepoHost(g.target.repo) !== null) ?? epics.find((g) => g.target.repo !== undefined) ?? epics[0] ?? prs[0];
+    if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
+    if (only === undefined && paths.length > 0) {
+        return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
+    }
+    if (only === undefined && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
+    if (only === undefined) {
+        io.stderr(usage);
         return 2;
     }
     const deps = closeCommandDeps(closeMigrationRunner, {
@@ -3104,8 +3215,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     });
     const outcome = runCloseCommand(deps, {
         cwd: io.cwd,
-        pr,
-        entryPath: positional.length === 1 ? path.resolve(io.cwd, positional[0]) : null,
+        target: only.target,
+        entryPath: paths.length === 1 ? path.resolve(io.cwd, paths[0]) : null,
         handoff: handoff === null ? null : path.resolve(io.cwd, handoff),
         date: localDate(),
         nexusVersion: releaseVersion(),

@@ -817,7 +817,7 @@ In `--pr` mode the result line is not printed; the published verdict is the resu
 
 ## PR mode — publish a review, not a file
 
-In `--pr` mode the result is published on the PR, where `/nxs.close --pr` reads it; no result
+In `--pr` mode the result is published on the PR, where `nexus close` reads it; no result
 file is written here either, and the worktree is removed after this phase. A **blocked** run
 (Phase 0.5) publishes nothing here either — no review, no comment.
 
@@ -968,7 +968,7 @@ file is written here either, and the worktree is removed after this phase. A **b
 ## Asking an epic what it has shipped
 
 This gate reports **no coverage of its own** (epic #828, story #843; record #849, D8). Asked what an
-epic has shipped, name `/nxs.close --pr <N>` as the place that reports each story's state, and
+epic has shipped, name `nexus close --epic <epic>` as the place that reports each story's state, and
 report nothing more from here. Close's evidence gate runs
 
 ```bash
@@ -978,7 +978,7 @@ nexus epic-verdicts ranges --epic <epic>
 and sorts every story of the epic into one state: `current`, `stale`, `never-reviewed`,
 `unshipped`, `unknown` or `excluded`, each with the pull requests behind it and the remedy for
 each stop. The command writes nothing, so a lead can run it at any time to see where every story
-stands; `/nxs.close --pr <N>` runs it first and stops on any story that is not current or
+stands; `nexus close --epic <epic>` runs it first and stops on any story that is not current or
 excluded. Never derive a coverage answer from the epic issue's records: nothing writes them any
 more, so a merged pull request with no record is the ordinary case, not a gap.
 
@@ -1066,5 +1066,5 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
   the run and says so. Every read happens inside the target repository's worktree; the worktree is
   always removed at the end and on error. The conformance result is a PR review (comment fallback
   when the lead authored the PR) carrying the machine block — no file is written in this mode
-  either. The PR may be open (analyze precedes merge). `/nxs.close --pr` still
-  refuses a member outright until #215.
+  either. The PR may be open (analyze precedes merge). `nexus close` still
+  refuses to run inside a member checkout: it closes from the hub.

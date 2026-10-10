@@ -52,7 +52,7 @@ export function resolveRole(startDir: string, run: Runner = defaultRunner): Reso
                 message:
                     `the --pr post-merge flow is not supported in a member repo; /nxs.close does not run inside a ` +
                     `member repository. A member epic closes from the hub now, over its merged pull requests — run ` +
-                    `/nxs.close --pr <N> from the hub instead.`,
+                    `nexus close --epic <N> from the hub instead.`,
             },
         };
     }

@@ -191,7 +191,7 @@ if [[ "$ROLE" == "member" ]]; then
     exit 1
 fi
 if [[ "$ROLE" == "hub" ]]; then
-    echo "!!! close-epic.sh runs in a single-repo checkout only. In a hub, run /nxs.analyze --pr, nexus close --pr and /nxs.distill by hand." >&2
+    echo "!!! close-epic.sh runs in a single-repo checkout only. In a hub, run /nxs.analyze --pr, nexus close --epic <N> and /nxs.distill by hand." >&2
     exit 1
 fi
 

@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { escapeRegExp } from "@nexus/workspace/regexp";
 import type { CliIo } from "./nexus-cli.js";
 import { parseFrontmatter } from "./validate-concepts.js";
 
@@ -38,9 +39,6 @@ export interface ReadingList {
 
 export type Selection = { ok: true; pages: string[] } | { ok: false; error: string };
 
-function escapeRegExp(text: string): string {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /** Where `phrase` first appears in `text` as a whole phrase, ignoring case, or -1. */
 function phraseIndex(text: string, phrase: string): number {
@@ -149,7 +147,7 @@ export function loadStore(dir: string): StorePage[] {
     return pages;
 }
 
-const CONCEPTS_LINE: RegExp = /^concepts:.*$/m;
+const CONCEPTS_LINE = /^concepts:.*$/m;
 
 function draftParts(text: string): { front: string; rest: string } | undefined {
     const match: RegExpMatchArray | null = text.match(/^---\n([\s\S]*?)\n---(\n[\s\S]*)?$/);

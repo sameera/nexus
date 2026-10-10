@@ -5,7 +5,7 @@ description: Resolve a PR's merge state and SHAs and manage the git worktree for
 
 # nxs-pr-worktree
 
-Run the helper that gives `/nxs.analyze --pr` and `/nxs.close --pr` their deterministic git and
+Run the helper that gives `/nxs.analyze --pr` and `nexus close` their deterministic git and
 `gh` mechanics: the role gate, the PR lookup, the merge-strategy-safe range derivation, and the
 git-worktree lifecycle. All the risky, exactly-must-be-correct parts live here (tested), so the
 command specs stay declarative.
@@ -43,7 +43,7 @@ github:
     `nexus-pr-worktrees` directory, exactly as before the key existed.
 -   The base is resolved from the main checkout's settings, never from content carried by the pull
     request — a PR head from a fork must not get to choose where a checkout is written.
--   One resolved base serves the whole flow: `/nxs.analyze --pr`, `/nxs.close --pr`, and the
+-   One resolved base serves the whole flow: `/nxs.analyze --pr`, `nexus close`, and the
     `/nxs.distill` continuation of close's worktree.
 
 **Prefer a base outside the repository.** An in-repo base is allowed once git ignores it, but the

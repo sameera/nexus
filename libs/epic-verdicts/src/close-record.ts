@@ -31,12 +31,59 @@ import { parse as parseYaml } from "yaml";
 import { CLOSE_STUB_KEY_PREFIX } from "@nexus/delivery-config/stub-key";
 import { deferredScopeStatus, type Departure, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordSections, type SectionDecision } from "@nexus/scope-razor/record";
+import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { sameRepo } from "@nexus/workspace/issue-ref";
+import { escapeRegExp } from "@nexus/workspace/regexp";
 import { type AppliedWaiver, type CloseRanges, type PrLandedCheck } from "./close-ranges.js";
 import { inertLines, inertText } from "./close-text.js";
+import { issuesRepoPath, sameIssuesRepo } from "./verdict-repos.js";
 
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
+
+/**
+ * The close-record marker alone on its line, as close and the older model-written close wrote it,
+ * indented up to three spaces (inside `<details>`, say). A quoted copy (a line starting with `>`), one
+ * indented four spaces or a tab (a Markdown code block), and one with prose after it are not it.
+ */
+const OWN_MARKER_RE = new RegExp(`^ {0,3}${escapeRegExp(CLOSE_RECORD_MARKER)}[ \\t]*$`);
+
+/**
+ * The lines that hold the comment's own marker: OWN_MARKER_RE's, outside any fenced code block
+ * (``` or ~~~), where Markdown shows a marker as an example rather than the comment's own.
+ */
+export function ownMarkerLines(lines: readonly string[]): number[] {
+    const out: number[] = [];
+    let fence: { char: string; len: number } | null = null;
+    lines.forEach((line, i) => {
+        const f = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+        if (fence !== null) {
+            if (f !== null && f[1][0] === fence.char && f[1].length >= fence.len && f[2].trim() === "") fence = null;
+            return;
+        }
+        // A backtick fence's info string cannot hold a backtick; such a line is inline code, not a fence.
+        if (f !== null && !(f[1][0] === "`" && f[2].includes("`"))) fence = { char: f[1][0], len: f[1].length };
+        else if (OWN_MARKER_RE.test(line)) out.push(i);
+    });
+    return out;
+}
+
+/**
+ * Where the comment's machine block is: the first own marker line with a yaml fence right below it,
+ * so a bare marker above it, or a copy in a quote or a code block, is passed over. The fence may be
+ * indented as the marker may (up to three spaces, inside a list or `<details>`); `indent` is its
+ * indent and `end` its closing fence's line, or -1 when the block is never closed. Close reads this
+ * block and recovery re-stamps it.
+ */
+export function machineBlockAt(lines: readonly string[]): { marker: number; indent: string; end: number } | undefined {
+    for (const marker of ownMarkerLines(lines)) {
+        const open = /^( {0,3})```ya?ml[ \t]*$/.exec(lines[marker + 1] ?? "");
+        if (open === null) continue;
+        const end = lines.findIndex((l, j) => j > marker + 1 && /^ {0,3}```/.test(l));
+        return { marker, indent: open[1], end };
+    }
+    return undefined;
+}
 
 /** What opens the hidden key a record amendment carries. */
 export const AMENDMENT_KEY_PREFIX = "<!-- nexus:close-amendment ";
@@ -504,7 +551,8 @@ export function renderCloseComment(c: CloseContent, stubs: ReadonlyMap<string, n
 
 /** The hidden key a record amendment for this epic carries, which find-before-write looks for. */
 export function amendmentKey(issuesRepo: string, epic: number): string {
-    return `${AMENDMENT_KEY_PREFIX}epic: ${issuesRepo.toLowerCase()}#${epic} -->`;
+    // owner/repo, whatever host the issues repository states, so the key reads the same across forms.
+    return `${AMENDMENT_KEY_PREFIX}epic: ${issuesRepoPath(issuesRepo).toLowerCase()}#${epic} -->`;
 }
 
 /**
@@ -531,7 +579,21 @@ export function renderRecordAmendment(c: CloseContent): string | null {
 
 /** The hidden key a deferred-scope stub carries: its epic, pull request and proposal. */
 export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): string {
-    return `${CLOSE_STUB_KEY_PREFIX}epic: ${c.issuesRepo.toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
+    return `${CLOSE_STUB_KEY_PREFIX}epic: ${issuesRepoPath(c.issuesRepo).toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
+}
+
+/** Whether `body` carries the amendment key for `epic`, naming the issues repository in any written form. */
+export function carriesAmendmentKey(body: string, issuesRepo: string, epic: number): boolean {
+    const re = new RegExp(`${escapeRegExp(AMENDMENT_KEY_PREFIX)}epic: (\\S+)#${epic} -->`, "g");
+    return [...body.matchAll(re)].some((m) => sameIssuesRepo(m[1], issuesRepo));
+}
+
+/** Whether `body` carries the stub key for a proposal, naming the issues repository in any written form. */
+export function carriesStubKey(body: string, c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): boolean {
+    const re = new RegExp(`${escapeRegExp(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic} pr: (\\S+)#${p.pr} proposal: ${escapeRegExp(p.id)} -->`, "g");
+    // The issues repository by owner and name; the pull request's code repository by sameRepo, which
+    // keeps two stated hosts apart (two members can share an owner/name on different forges).
+    return [...body.matchAll(re)].some((m) => sameIssuesRepo(m[1], c.issuesRepo) && sameRepo(m[2], p.repo));
 }
 
 /**
@@ -558,12 +620,14 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 
 /** The machine block of a close comment, parsed: null when it carries none that reads. */
 export function machineBlock(comment: string): Record<string, unknown> | null {
-    const at = comment.indexOf(CLOSE_RECORD_MARKER);
-    if (at < 0) return null;
-    const fence = /^\n```ya?ml\n([\s\S]*?)\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
-    if (fence === null) return null;
+    // `\r\n` too: a comment edited in the platform's web editor is saved with it.
+    const lines = comment.split(/\r?\n/);
+    const at = machineBlockAt(lines);
+    if (at === undefined || at.end < 0) return null;
+    // An indented block's lines carry the fence's indent, which is not part of the YAML.
+    const body = lines.slice(at.marker + 2, at.end).map((l) => (l.startsWith(at.indent) ? l.slice(at.indent.length) : l));
     try {
-        const doc: unknown = parseYaml(fence[1]);
+        const doc: unknown = parseYaml(body.join("\n"));
         return doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
     } catch {
         return null;
@@ -574,6 +638,43 @@ export function recordNumber(v: unknown): number | null {
     const m = /^#?(\d+)$/.exec(String(v ?? "").trim());
     return m === null ? null : Number(m[1]);
 }
+
+/** Whether a comment's author can speak for the repository: the one trust rule close's readers apply. */
+export function trustedComment(c: { authorAssociation: string }): boolean {
+    return MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase());
+}
+
+/** What an epic's comments say about its own close: the close to resume from, or that one cannot be read. */
+export type EpicCloseComment = { found: "own"; body: string; block: Record<string, unknown> } | { found: "unreadable"; why: string } | { found: "none" };
+
+/**
+ * The epic's own close comment, the one close resumes from and recovery re-stamps: the newest from
+ * an author who can speak for the repository, with the marker opening a line (a quoted copy's does
+ * not), whose machine block stamps this epic and, where it names one, this issues repository.
+ * Another epic's close comment, or one whose block stamps no epic number, is passed over.
+ * `unreadable` is the newest trusted, unquoted marker whose block does not parse, or that stamps
+ * this epic in another issues repository (a renamed repository, or a copy), when it is newer than
+ * any own one: neither a close to resume from nor proof that none happened, so the caller stops and
+ * names why rather than act on an older one.
+ */
+export function findEpicCloseComment(comments: readonly { body: string; authorAssociation: string }[], epic: number, issuesRepo: string): EpicCloseComment {
+    for (const c of [...comments].reverse()) {
+        if (!trustedComment(c) || ownMarkerLines(c.body.split(/\r?\n/)).length === 0) continue;
+        const block = machineBlock(c.body);
+        if (block === null) return { found: "unreadable", why: "its machine block does not read" };
+        // A block that stamps no epic number (a template left unfilled, or a hand edit that left
+        // `#` unquoted, which YAML reads as a comment; every close template quoted it) can be
+        // neither resumed from nor passed over safely; another epic's is passed over.
+        const stamped = recordNumber(block["epic"]);
+        if (stamped === null) return { found: "unreadable", why: 'its machine block names no epic (it needs epic: "#<N>")' };
+        if (stamped !== epic) continue;
+        const repo = block["issues_repo"];
+        if (typeof repo === "string" && !sameIssuesRepo(repo, issuesRepo)) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
+        return { found: "own", body: c.body, block };
+    }
+    return { found: "none" };
+}
+
 
 /** The merged pull requests a close stamped, in merge order: the range, then any with no range of its own. */
 export function stampedPrs(block: Record<string, unknown>): { prs: { repo: string; pr: number }[]; unnamed: number } {

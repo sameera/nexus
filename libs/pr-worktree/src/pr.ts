@@ -11,7 +11,8 @@
  * finds, and in a fork checkout its pick and the fetch's can be two different repositories —
  * where one PR number means two different pull requests. A checkout whose remotes name no
  * forge repository (a local mirror, an acceptance fixture) passes no `--repo` and keeps gh's
- * own resolution.
+ * own resolution. A caller that already knows the repository, from a repository-qualified
+ * reference, names it through `opts.repo`, and the checkout's remotes are not read.
  */
 
 import { canonicalRepoRef } from "@nexus/workspace/canonical-remote";
@@ -70,9 +71,9 @@ export function resolvePr(
     run: Runner,
     cwd: string,
     prNumber: number,
-    opts: { requireMerged: boolean },
+    opts: { requireMerged: boolean; repo?: string },
 ): ResolvePrResult {
-    const repoRef: string | null = canonicalRepoRef(run, cwd);
+    const repoRef: string | null = opts.repo ?? canonicalRepoRef(run, cwd);
     const args: string[] = ["pr", "view", String(prNumber), "--json", GH_FIELDS];
     if (repoRef !== null) args.push("--repo", repoRef);
     const r = run("gh", args, { cwd });
@@ -145,7 +146,7 @@ export function resolvePr(
             error: {
                 problem: "pr-not-merged",
                 message:
-                    `PR #${prNumber} is ${pr.state}, not merged; /nxs.close --pr requires a merged PR. ` +
+                    `PR #${prNumber} is ${pr.state}, not merged; close over a pull request requires a merged PR. ` +
                     `Merge the PR first (analyze may run pre-merge; close may not).`,
             },
         };

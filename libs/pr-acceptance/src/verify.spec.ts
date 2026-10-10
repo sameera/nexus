@@ -930,4 +930,19 @@ describe("effectiveIssuesRepo / issuesRepoMatches — one rule, both readers (ep
         expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp", "issues_repo: github.com/geo-nexus/docs"]), "geo-nexus/docs")).toBe(true);
         expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp", "issues_repo: geo-nexus/giccp"]), "geo-nexus/docs")).toBe(false);
     });
+
+    it("matches one repository whichever written form each side uses: a URL, SSH, or host/owner/repo (#906)", () => {
+        expect(issuesRepoMatches(parse(["issues_repo: https://github.com/geo-nexus/docs"]), "github.com/geo-nexus/docs")).toBe(true);
+        expect(issuesRepoMatches(parse(["issues_repo: git@github.com:geo-nexus/docs.git"]), "geo-nexus/docs")).toBe(true);
+        expect(issuesRepoMatches(parse(["issues_repo: https://github.com/geo-nexus/docs/"]), "https://github.com/geo-nexus/docs.git")).toBe(true);
+        expect(issuesRepoMatches(parse(["issues_repo: https://github.com/geo-nexus/giccp"]), "github.com/geo-nexus/docs")).toBe(false);
+    });
+
+    it("reads a github.com SSH alias as github.com, as close's own issues repository does", () => {
+        // A multi-account remote (`git@github.com-work:...`) names github.com; close folds it, so the
+        // receipt that stamps it must too, or two stated hosts differ and every receipt is rejected.
+        expect(issuesRepoMatches(parse(["issues_repo: git@github.com-work:geo-nexus/docs.git"]), "github.com/geo-nexus/docs")).toBe(true);
+        expect(issuesRepoMatches(parse(["issues_repo: github.com/geo-nexus/docs"]), "git@github.com-work:geo-nexus/docs.git")).toBe(true);
+        expect(issuesRepoMatches(parse(["issues_repo: git@github.com-work:geo-nexus/docs.git"]), "ghe.corp/geo-nexus/docs")).toBe(false);
+    });
 });

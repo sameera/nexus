@@ -64,6 +64,11 @@
       "import": "./src/issue-ref.ts",
       "default": "./src/issue-ref.ts"
     },
+    "./regexp": {
+      "types": "./src/regexp.ts",
+      "import": "./src/regexp.ts",
+      "default": "./src/regexp.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

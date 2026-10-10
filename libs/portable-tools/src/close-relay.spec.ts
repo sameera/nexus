@@ -19,7 +19,7 @@ const CLOSE: string = read("commands", "nxs.close.md");
 const DISTILL: string = read("commands", "nxs.distill.md");
 
 const RECOVERY_TITLE = "Recovery — re-stamp a closed entry whose record was revised after close";
-const REFUSAL = "/nxs.close runs only against a pull request. Close a merged pull request with\n/nxs.close --pr <N>.";
+const REFUSAL = "/nxs.close needs the epic to close. Close it with\nnexus close --epic <N>.";
 
 const FRONTMATTER: string = CLOSE.slice(0, CLOSE.indexOf("\n---", 3));
 const BODY: string = CLOSE.slice(FRONTMATTER.length);
@@ -63,14 +63,30 @@ describe("/nxs.close relays to nexus close (story #869, G37)", () => {
     });
 });
 
-describe("/nxs.close without --pr refuses as today, before any other step (story #869, G38)", () => {
-    it("refuses with today's exact text", () => {
+describe("/nxs.close with no epic and no pull request refuses before any other step (story #869, G38; #906)", () => {
+    it("refuses naming nexus close --epic <N>", () => {
         expect(BODY).toContain(REFUSAL);
     });
 
     it("refuses before it runs anything", () => {
         expect(BODY.indexOf(REFUSAL)).toBeGreaterThan(-1);
         expect(BODY.indexOf(REFUSAL)).toBeLessThan(BODY.indexOf("```bash"));
+    });
+});
+
+describe("/nxs.close relays every form that names the epic (#906)", () => {
+    it("relays --epic, a bare epic number and --pr with a repository-qualified reference unchanged", () => {
+        const usage: string = BODY.slice(BODY.indexOf("# Usage"));
+        expect(usage).toMatch(/\/nxs\.close --epic 159 +# runs: nexus close --epic 159/);
+        expect(usage).toMatch(/\/nxs\.close 159 +# runs: nexus close 159/);
+        expect(usage).toMatch(/\/nxs\.close --pr 'owner\/repo#704' +# runs: nexus close --pr 'owner\/repo#704'/);
+    });
+
+    it("refuses only when the arguments name neither an epic nor a pull request", () => {
+        const step1: string = BODY.slice(BODY.indexOf("# Step 1"), BODY.indexOf("# Step 2"));
+        expect(step1).toContain("--epic <N>");
+        expect(step1).toContain("--pr <ref>");
+        expect(step1).toMatch(/bare/);
     });
 });
 

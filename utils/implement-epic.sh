@@ -40,7 +40,7 @@
 # own author, the near-certain self-review fallback comment) bought nothing
 # most of those rounds would use, at the cost of a worktree fetch/teardown and
 # a review or comment landing on the PR per round. Only the *terminal* state
-# has to be a PR review — that is what `/nxs.close --pr` reads afterward — so
+# has to be a PR review — that is what `nexus close` reads afterward — so
 # the moment local analyze goes clean, one `/nxs.analyze --pr <PR>` run
 # certifies that same commit to GitHub and the script reads that block back,
 # rather than trusting the local run to stand in for it.
@@ -483,7 +483,7 @@ done
 
 # --- stage 4: certify to the PR, then finalize it ---------------------------
 #
-# Local analyze just went clean, but a local run leaves nothing /nxs.close --pr
+# Local analyze just went clean, but a local run leaves nothing nexus close
 # reads — it reads a PR review. One `/nxs.analyze --pr` run, in its
 # own worktree and its own context, publishes that review (or, when this
 # identity is the PR's own author and GitHub refuses a self-review, the
@@ -527,7 +527,7 @@ fi
 # Pull the trusted analyze machine block off the PR that the certifying run
 # just published — a review body, or (self-authored-PR fallback) a comment
 # body, either way carrying `<!-- nexus:analyze-receipt -->` — the same read
-# /nxs.close --pr does (components/commands/nxs.close.md §1.2): newest first,
+# nexus close does: newest first,
 # restricted to OWNER/MEMBER/COLLABORATOR authorship, the marker anchored at
 # start-of-line so a quoted copy inside a reply can't be mistaken for a fresh
 # block, and the block's own `pr:` field checked against this PR.

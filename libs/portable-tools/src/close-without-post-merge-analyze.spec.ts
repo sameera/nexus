@@ -49,7 +49,7 @@ describe("/nxs.analyze reports no coverage of its own (story #843, G19)", () => 
 
     it("names close as the place that reports each story's state", () => {
         const text = section();
-        expect(text).toContain("/nxs.close --pr <N>");
+        expect(text).toContain("nexus close --epic <epic>");
         expect(text).toContain("nexus epic-verdicts ranges --epic <epic>");
         for (const state of ["current", "stale", "never-reviewed", "unshipped", "unknown", "excluded"]) {
             expect(text).toContain(`\`${state}\``);

@@ -30,20 +30,18 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { matchRecordWaiver, readPrWaivers, type PrWaivers } from "@nexus/pr-acceptance/waiver";
 import { findEpicDistillBranch, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
-import { fetchRecord } from "@nexus/record-digest/fetch";
 import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, machineBlock, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, machineBlockAt, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, fetchRecordIn, issuesRepoPath, onIssuesHost } from "./verdict-repos.js";
 
 /** What the lead passed: the closed epic, plus today's date for a distill branch cut from the trunk. */
 export interface RecoverInput {
@@ -71,7 +69,8 @@ export interface CloseRecoveryDeps {
     /** The newest verdict on a merged pull request, read as close reads it. */
     verdict(root: string, issuesRepo: string, pr: { repo: string; pr: number }): CloseVerdictRead;
     /** The waiver comments on a pull request, through #849's one waiver reader. */
-    prWaivers(root: string, pr: { repo: string; pr: number }): { ok: true; waivers: PrWaivers } | { ok: false; message: string };
+    /** Read on the host the issues repository states, as the verdict is. */
+    prWaivers(root: string, issuesRepo: string, pr: { repo: string; pr: number }): { ok: true; waivers: PrWaivers } | { ok: false; message: string };
     /** Read-only: the distill branch an earlier close left, else a committed entry on the trunk, else none. */
     findEntry(repoRoot: string, epic: number): EntryLocation;
     openWorktree(repoRoot: string, epic: number, date: string): EpicDistillWorktreeResult;
@@ -84,7 +83,6 @@ export type RecoveryOutcome = { ok: true; lines: string[]; recordPath: string | 
 
 const stopped = (...stops: CloseStop[]): RecoveryOutcome => ({ ok: false, stops });
 const stoppedAfter = (done: string[], ...stops: CloseStop[]): RecoveryOutcome => ({ ok: false, stops, done: [...done] });
-const trusted = (c: { authorAssociation: string }): boolean => MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase());
 
 /** A merged pull request, by its repository and number. */
 type Pr = { repo: string; pr: number };
@@ -105,24 +103,25 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
     }
     const repos = deps.issuesRepo(repoRoot);
     if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
-    const { issuesRepo, repo: codeRepo } = repos.repos;
+    const issuesRepo = canonicalIssuesRepo(repos.repos.issuesRepo);
+    const codeRepo = repos.repos.repo;
     const epicRef = `${issuesRepo}#${input.epic}`;
 
-    // The earlier close: the newest trusted close comment, the copy distill's recovery reads too.
+    // The earlier close: the epic's own close comment, the one close resumes from, through the same finder.
     const comments = deps.issueComments(repoRoot, issuesRepo, input.epic);
     if (!comments.ok) return stopped({ reason: `the comments on epic ${epicRef} could not be read: ${comments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
-    const closeComment = [...comments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER))?.body;
-    if (closeComment === undefined) {
+    const earlier = findEpicCloseComment(comments.comments, input.epic, issuesRepo);
+    if (earlier.found === "none") {
         return stopped({
             reason: `epic ${epicRef} carries no close comment from someone who can speak for ${issuesRepo}, so it was never closed; recovery re-stamps a closed epic`,
             item: `epic ${epicRef}`,
-            remedy: `close it with nexus close --pr <N> on its merged pull request`,
+            remedy: `close it with nexus close --epic ${input.epic}`,
         });
     }
-    const block = machineBlock(closeComment);
-    if (block === null) {
-        return stopped({ reason: `the close comment on epic ${epicRef} carries no machine block that reads`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --pr <N> on its merged pull request, which posts one` });
+    if (earlier.found === "unreadable") {
+        return stopped({ reason: `the close comment on epic ${epicRef} cannot be read as this epic's: ${earlier.why}`, item: `epic ${epicRef}`, remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}` });
     }
+    const { body: closeComment, block } = earlier;
     const record = recordNumber(block["record"]);
     if (record === null) {
         return stopped({ reason: `the close comment on epic ${epicRef} names no decision record, so there is no record hash to re-stamp`, item: `epic ${epicRef}`, remedy: "nothing to recover: distill reads an epic with no record from its close record alone" });
@@ -163,18 +162,19 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
             if (verdictProblems.length === 0) cleared.push({ pr, by: "verdict", verdict: { ...pr, date: read.date, head: read.head, recordHash: read.recordHash, judgments: read.read } });
             continue;
         }
-        const waivers = deps.prWaivers(repoRoot, pr);
+        const waivers = deps.prWaivers(repoRoot, issuesRepo, pr);
         if (!waivers.ok) {
             stops.push({ reason: `the waiver comments on ${ref} could not be read: ${waivers.message}. A failed read is not the same as no waiver`, item, remedy: `re-run ${rerun} once the read succeeds` });
             continue;
         }
-        const match = matchRecordWaiver(waivers.waivers, record, digest, issuesRepo);
+        // A waiver names the record as owner/repo#N, the one form the waiver reader parses.
+        const match = matchRecordWaiver(waivers.waivers, record, digest, issuesRepoPath(issuesRepo));
         if (match.applied === null) {
             stops.push({
                 reason: `${ref} has neither a verdict judged against the current revision of ${recordRef} (${digest}) nor a trusted waiver accepting it${match.rejected.map((w) => `; ${describeRejected(w)}`).join("")}`,
                 item,
                 remedy: `run /nxs.analyze --pr ${pr.pr} on ${ref}, or post this waiver comment on ${ref} as someone who can speak for the repository; then re-run ${rerun}`,
-                post: { on: ref, comment: waiverComment(["waive: record-revised", `record: "${recordRef}"`, `digest: ${digest}`]) },
+                post: { on: ref, comment: waiverComment(["waive: record-revised", `record: "${issuesRepoPath(issuesRepo)}#${record}"`, `digest: ${digest}`]) },
             });
             continue;
         }
@@ -324,11 +324,11 @@ function entryHash(text: string): string | null {
 }
 
 /** Replace a top-level `key:` line in `lines[from, to)`; when absent, insert it after the `after` key, else at `to`. */
-function setKey(lines: string[], from: number, to: number, key: string, value: string, after: string): void {
-    const find = (k: string): number => lines.slice(from, to).findIndex((l) => l.startsWith(`${k}:`));
+function setKey(lines: string[], from: number, to: number, indent: string, key: string, value: string, after: string): void {
+    const find = (k: string): number => lines.slice(from, to).findIndex((l) => l.startsWith(`${indent}${k}:`));
     const at = find(key);
-    if (at >= 0) lines[from + at] = `${key}: ${value}`;
-    else lines.splice(find(after) >= 0 ? from + find(after) + 1 : to, 0, `${key}: ${value}`);
+    if (at >= 0) lines[from + at] = `${indent}${key}: ${value}`;
+    else lines.splice(find(after) >= 0 ? from + find(after) + 1 : to, 0, `${indent}${key}: ${value}`);
 }
 
 /** Where a section's heading is and where its body ends: the next heading at its level or above, or the machine block. */
@@ -405,8 +405,8 @@ function restampRecord(text: string, content: CloseContent, prs: readonly Pr[], 
     if (lines[0] !== "---") return null;
     const close = lines.indexOf("---", 1);
     if (close < 0 || !lines.slice(1, close).some((l) => l.startsWith("record_hash:"))) return null;
-    setKey(lines, 1, close, "record_hash", content.record?.digest ?? "", "record");
-    setKey(lines, 1, lines.indexOf("---", 1), "analyze", scalar(content.analyze), "date");
+    setKey(lines, 1, close, "", "record_hash", content.record?.digest ?? "", "record");
+    setKey(lines, 1, lines.indexOf("---", 1), "", "analyze", scalar(content.analyze), "date");
     lines = setSection(lines, "## Key Decisions", renderKeyDecisions(content), ["## Deviation Rationale", "## Waived Stories", "## Deferred Scope"]);
     const dr = deviationBody(lines, "## Deviation Rationale", content, prs, rejudged);
     if (dr !== "unchanged") lines = setSection(lines, "## Deviation Rationale", dr.length === 0 ? ["none"] : dr, ["## Waived Stories", "## Deferred Scope"]);
@@ -415,7 +415,8 @@ function restampRecord(text: string, content: CloseContent, prs: readonly Pr[], 
 
 /** The earlier close comment with only the same four things replaced, and its prose lines that state them. */
 function restampComment(text: string, content: CloseContent, prs: readonly Pr[], rejudged: readonly Pr[]): string {
-    let lines = text.split("\n");
+    // A comment saved by the web editor has CRLF endings; rewrite it with one kind throughout.
+    let lines = text.replace(/\r\n/g, "\n").split("\n");
     const digest = content.record?.digest ?? "";
     const recordLine = `Decision record: #${content.record?.number ?? ""} @ \`${digest}\``;
     const d = lines.findIndex((l) => l.startsWith("Decision record: "));
@@ -432,15 +433,15 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
     const dr = deviationBody(lines, "### Deviation Rationale", content, prs, rejudged);
     if (dr !== "unchanged") lines = setSection(lines, "### Deviation Rationale", dr.length === 0 ? null : dr, ["### Pointers (durable)"]);
 
-    // The machine block: the first marker, then its fence. Copied text above it is inert, so the
-    // first marker is close's own.
-    const marker = lines.findIndex((l) => l.trim() === CLOSE_RECORD_MARKER);
-    const open = marker + 1;
-    const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
-    if (marker >= 0 && end > open) {
-        setKey(lines, open + 1, end, "record_hash", digest, "record");
-        const end2 = lines.findIndex((l, i) => i > open && l.startsWith("```"));
-        setKey(lines, open + 1, end2, "analyze", scalar(content.analyze), "record_hash");
+    // The machine block: the block machineBlock reads, its keys rewritten at its own indent. A bare
+    // marker line above it, or copied text, is passed over.
+    const block = machineBlockAt(lines);
+    if (block !== undefined && block.end > block.marker + 1) {
+        const open = block.marker + 1;
+        setKey(lines, open + 1, block.end, block.indent, "record_hash", digest, "record");
+        // setKey may add a line, so the closing fence is found again.
+        const end = lines.findIndex((l, i) => i > open && /^ {0,3}```/.test(l));
+        setKey(lines, open + 1, end, block.indent, "analyze", scalar(content.analyze), "record_hash");
     }
     return lines.join("\n");
 }
@@ -466,14 +467,14 @@ export function closeRecoveryDeps(run: Runner): CloseRecoveryDeps {
         issuesRepo: close.issuesRepo,
         issueComments: close.issueComments,
         record: (root, issuesRepo, record) => {
-            const r = fetchRecord(run, root, record, issuesRepo);
+            const r = fetchRecordIn(run, root, record, issuesRepo);
             return r.ok
                 ? { ok: true, body: r.record.body, digest: r.record.digest, approved: r.record.approved, state: r.record.state, stateReason: r.record.stateReason }
                 : { ok: false, message: r.error.message };
         },
         verdict: close.verdict,
-        prWaivers: (root, pr) => {
-            const r = readPrWaivers(run, root, pr.pr, { ghRepo: pr.repo });
+        prWaivers: (root, issuesRepo, pr) => {
+            const r = readPrWaivers(onIssuesHost(run, issuesRepo), root, pr.pr, { ghRepo: pr.repo });
             return r.ok ? { ok: true, waivers: r.value } : { ok: false, message: r.error.message };
         },
         findEntry: (repoRoot, epic) => {

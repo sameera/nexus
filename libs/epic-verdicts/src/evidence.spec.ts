@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
 import { collectEvidence, evidenceDeps, type EvidenceDeps, type ReceiptRead } from "./evidence.js";
 import { type Runner } from "./run.js";
+import { onIssuesHost } from "./verdict-repos.js";
 import { type StoryMergedPr, type StoryMergedPrsRead } from "./story-prs.js";
 
 function merged(story: number, pr: number, repo = "acme/hub"): StoryMergedPr {
@@ -244,5 +245,20 @@ describe("collectEvidence — a story's text decides nothing (epic #828, story #
         if (!out.ok) return;
         expect(out.report.stories[0].state).toBe("has-receipt");
         expect(out.report.lines).toEqual([]);
+    });
+});
+
+describe("evidenceDeps — on the forge its caller picks (#906)", () => {
+    it("reads a pull request's verdict on the issues host through a routed runner, as close does", () => {
+        const calls: string[][] = [];
+        const run: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            return { status: 1, stdout: "", stderr: "stop" };
+        };
+        evidenceDeps(onIssuesHost(run, "ghe.corp/acme/hub"), "/hub", "ghe.corp/acme/hub").readReceipt({ repo: "acme/code", pr: 7 } as StoryMergedPr);
+        const gh = calls.filter((c) => c[0] === "gh");
+        expect(gh.length).toBeGreaterThan(0);
+        expect(gh.every((c) => (c.includes("--hostname") ? c.includes("ghe.corp") : c.some((a) => a.startsWith("ghe.corp/"))))).toBe(true);
+        expect(gh.every((c) => !c.join(" ").includes("repos/ghe.corp"))).toBe(true);
     });
 });

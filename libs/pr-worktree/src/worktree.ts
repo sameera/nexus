@@ -132,7 +132,7 @@ function gitIgnores(run: Runner, repoRoot: string, candidate: string): boolean {
  *
  * Every worktree-opening path funnels through here, so the base is resolved identically within a run
  * (one declared base serves analyze, close, and distill's continuation alike) and the gate is
- * unbypassable. The checks run *before* anything is created: `/nxs.close --pr` commits and pushes
+ * unbypassable. The checks run *before* anything is created: `nexus close` commits and pushes
  * from inside its worktree, so a non-ignored in-repo base would sweep a full second checkout into
  * the repo's own index — and git will happily create such a worktree, so there is no later failure
  * to interpret. A rejected base leaves the checkout exactly as it was found.

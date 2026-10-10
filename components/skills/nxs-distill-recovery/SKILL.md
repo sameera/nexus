@@ -28,10 +28,14 @@ are recovering, so an explicit invocation is sufficient and bounded.
    reported verbatim; stop.
 2. **Take the *why* and the *what*-facts from the epic issue's close comment**. That comment is
    the durable close record in every mode, local and `--pr` alike (record #176, invariant 4/5).
-   Fetch the epic issue's comments. Take the newest one containing the
-   `<!-- nexus:close-record -->` marker that is authored by a maintainer of the repository the
-   epic lives in (`authorAssociation` `OWNER`/`MEMBER`/`COLLABORATOR`). Ignore untrusted bodies
-   and bodies that merely quote one. From it take:
+   Fetch the epic issue's comments. Take the newest one authored by a maintainer of the
+   repository the epic lives in (`authorAssociation` `OWNER`/`MEMBER`/`COLLABORATOR`) whose
+   `<!-- nexus:close-record -->` marker opens a line outside a quote or code block and whose machine block stamps this epic
+   (`epic: "#<N>"`) and, when it names one, this `issues_repo:`. This is the comment `nexus close`
+   resumes from and `nexus close --recover` re-stamps. Ignore untrusted bodies, bodies that merely
+   quote one, and another epic's close comment. If the newest trusted marker comment that is not
+   another epic's has a block that does not read, or stamps this epic under another `issues_repo:`,
+   stop on it as `no-close-comment` rather than take an older one. From it take:
     - the **rationale**: the Key Decisions + Deviation Rationale prose, verbatim;
     - the **record reference and full approved-body hash**, the **conformance verdict**, and
       the **full-SHA landed `range:`**, parsed from the marker-anchored machine block, never
@@ -62,7 +66,7 @@ are recovering, so an explicit invocation is sufficient and bounded.
    #750, invariant 8). `found: false` is a pull request carrying no verdict, which leaves the close
    comment's verdict standing. Otherwise the close comment's verdict and the returned `receipt`
    must agree, and the returned one is the tie-breaker, because it is the surface
-   `/nxs.close --pr` itself read.
+   `nexus close` itself read.
 4. **The genuinely unrecoverable cases are named per-entry hard blocks**. Report them precisely,
    naming the entry and why it cannot be processed. Never treat them silently as "not yet
    closed", and never process them with fabricated or empty rationale:
