@@ -619,11 +619,21 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(asked).toBe(0);
     });
 
-    it("stops on an epic no merged pull request claims a story of, as there is nothing shipped to close over", () => {
+    it("stops on an epic with no stories, as there is nothing for the gate to judge", () => {
         const h = harness({ subIssues: () => ({ ok: true, facts: new Map() }) });
         h.deps.ranges = () => ({ ok: true, untrusted: [], ranges: ranges({ stories: [], states: [], range: [], merged: [] }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
-        expect(err).toMatch(/reason: .*no merged pull request/);
+        expect(err).toMatch(/reason: .*has no stories/);
+    });
+
+    it("closes an epic whose every story passed on a marker, with no merged pull request", () => {
+        const h = harness({ excludedStories: () => [864, 865] });
+        h.deps.ranges = () => ({
+            ok: true,
+            untrusted: [],
+            ranges: ranges({ stories: [], range: [], merged: [], excluded: [864, 865], states: [{ story: 864, state: "excluded", findings: [] }, { story: 865, state: "excluded", findings: [] }] }),
+        });
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
     });
 
     it("passes over a close-comment template whose epic is left unfilled", () => {

@@ -335,8 +335,8 @@ type EpicReadStop =
 
 /**
  * The stop the epic's own reads call for, decided from them alone, in the order a lead can act on:
- * a number that names no issue; comments that cannot be read; what a typed number is filed as,
- * when that cannot be read; an issue filed as a story or a record; a close comment that does not
+ * a number that names no issue; an issue filed as a story or a record; comments that cannot be
+ * read; what a typed number is filed as, when that cannot be read; a close comment that does not
  * read; and an issue that only lacks its epic marking. `kind` is read only for a number the lead
  * typed. This epic's own close comment excuses an unreadable kind and a lost marking, never a story
  * or a record.
@@ -347,10 +347,10 @@ function epicReadStop(
     earlier: EpicCloseComment,
 ): EpicReadStop | null {
     if (kind !== null && kind.ok && !kind.exists) return { stop: "missing" };
+    if (kind !== null && kind.ok && (kind.kind === "story" || kind.kind === "record")) return { stop: "filed-as", kind: kind.kind, parent: kind.parent };
     if (!comments.ok) return { stop: "comments-unread", why: kind !== null && !kind.ok ? `${comments.message}; what it is filed as could not be determined either: ${kind.message}` : comments.message };
     const own = earlier.found === "own";
     if (kind !== null && !kind.ok && !own) return { stop: "kind-unread", why: kind.message };
-    if (kind !== null && kind.ok && (kind.kind === "story" || kind.kind === "record")) return { stop: "filed-as", kind: kind.kind, parent: kind.parent };
     if (earlier.found === "unreadable") return { stop: "close-comment-unreadable", why: earlier.why };
     if (kind !== null && kind.ok && kind.kind === "other" && !own) return { stop: "unmarked", parent: kind.parent };
     return null;
@@ -555,13 +555,13 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             }
         }
 
-        // Close records merged work: an epic no merged pull request claims a story of has nothing
-        // for the close record's range or for distill's diff.
-        if (gate.merged.length === 0 && gate.blocking.length === 0) {
+        // An epic with no story at all has nothing for the gate to judge, so nothing to close over. A
+        // story that passed on a waiver or a marker still counts: that is shipped work, recorded.
+        if (gate.states.length === 0) {
             stops.push({
-                reason: `no merged pull request claims a story of epic ${epicRef}, so there is no shipped work to close over`,
+                reason: `epic ${epicRef} has no stories, so there is no shipped work for close to gate`,
                 item: `epic ${epicRef}`,
-                remedy: `ship its stories through pull requests that claim them, then re-run ${rerun}`,
+                remedy: `plan its stories, or pass the epic's own issue number: nexus close --epic <N>`,
             });
         }
 

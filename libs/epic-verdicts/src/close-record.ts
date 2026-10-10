@@ -540,13 +540,13 @@ export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<Ap
 /** Whether `body` carries the amendment key for `epic`, naming the issues repository in any written form. */
 export function carriesAmendmentKey(body: string, issuesRepo: string, epic: number): boolean {
     const re = new RegExp(`${escapeRegExp(AMENDMENT_KEY_PREFIX)}epic: (\\S+)#${epic} -->`, "g");
-    return [...body.matchAll(re)].some((m) => canonicalIssuesRepo(m[1]).toLowerCase() === canonicalIssuesRepo(issuesRepo).toLowerCase());
+    return [...body.matchAll(re)].some((m) => sameRepo(canonicalIssuesRepo(m[1]), canonicalIssuesRepo(issuesRepo)));
 }
 
 /** Whether `body` carries the stub key for a proposal, naming the issues repository in any written form. */
 export function carriesStubKey(body: string, c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): boolean {
     const re = new RegExp(`${escapeRegExp(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic} pr: (\\S+)#${p.pr} proposal: ${escapeRegExp(p.id)} -->`, "g");
-    const same = (a: string, b: string): boolean => canonicalIssuesRepo(a).toLowerCase() === canonicalIssuesRepo(b).toLowerCase();
+    const same = (a: string, b: string): boolean => sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
     return [...body.matchAll(re)].some((m) => same(m[1], c.issuesRepo) && same(m[2], p.repo));
 }
 

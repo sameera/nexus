@@ -2273,6 +2273,9 @@ describe("nexus close — the argument forms (#906)", () => {
         const io: CapturedIo = makeIo(repo);
         expect(await runNexusCli(["close", "--pr", "https://ghe.corp/acme/app/pull/7"], io)).toBe(2);
         expect(io.err.join("\n")).toMatch(/on ghe\.corp, but this checkout is on github\.com/);
+        // A github.com pull request is not refused, whatever alias the checkout's remote uses.
+        const gh: CapturedIo = makeIo(repo);
+        expect(await runNexusCli(["close", "--pr", "https://github.com/acme/app/pull/7"], gh)).toBe(1);
         const zero: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", "0"], zero)).toBe(2);
         expect(zero.err.join("\n")).toMatch(/epic's issue number; got '0'/);
