@@ -1,8 +1,8 @@
 ---
 title: "Epic Stub"
-aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing", "deferral stub", "deferral floor", "deferred line"]
-touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane", "addition-gate"]
-last_updated_by: "#576"
+aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing", "deferral stub", "deferral floor", "deferred line"]
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane", "addition-gate", "initiative", "stub-promotion", "filing-preflight"]
+last_updated_by: "#705"
 status: active
 verification: verified
 ---
@@ -13,17 +13,15 @@ An epic stub is an epic identified but not yet planned — an epic issue carryin
 
 ## How It Works
 
-Three writers create stubs: the epic stage when scope exceeds one epic, the approval gate when the reviewer declines asked-for scope, and the close stage when it defers. Both author transient work-items and file them through the one batch filing path, which takes its canonical classification from the caller instead of stamping everything a story. That path upserts every label it will apply before creating anything, and a label it can neither create nor find stops the run with nothing created. A stub is never a sub-issue — its link to the epic that spawned it is a body mention — because the close gate that blocks on open sub-issues has no exemptions and would deadlock on a stub it just filed. Feature, estimate, candidate stories and provenance live in the body, never in labels. Planning a stub fills in that same issue, files its story children beneath it, and clears the label; nothing is created and nothing is closed. A stub too large to become one epic is closed as not planned, naming its successors.
+Three writers create stubs: the epic stage when scope exceeds one epic, the approval gate when the reviewer declines asked-for scope, and the close stage when it defers. Both author transient work-items and file them through the one batch filing path, which takes its canonical classification from the caller instead of stamping everything a story. That path upserts every label it will apply before creating anything, and a label it can neither create nor find stops the run with nothing created. A stub is never a sub-issue of an epic, because the close gate that blocks on open sub-issues has no exemptions and would deadlock on a stub it just filed. Its link to the epic that spawned it is a body mention. A stub of a decomposition the lead accepted as one objective is a sub-issue of that decomposition's initiative, which sits above the epic and is never read by close. Feature, estimate, candidate stories and provenance live in the body, never in labels. Planning a stub is stub promotion, which fills in this same issue.
 
 ## Key Invariants
 
 1. A stub is an epic issue carrying the declared epic classification; no third kind of issue exists.
 2. Exactly one label denotes the unplanned state; feature, estimate, candidate stories, provenance and a deferral's story count are body content. A run planning a one-story deferral defers nothing further.
 3. The issue number is a stub's only identifier; no second lookup key is recorded or accepted as input.
-4. Promotion populates that same issue and clears the label — never a second issue, never a close.
-5. A stub too large for one epic is closed as not planned naming its successors, never as completed.
-6. No stub is ever a sub-issue, and no stub enters an epic's sub-issue set.
-7. Because a stub is an epic, every query enumerating epics for planned work carries the one negated filter, and every stage reconstructing an epic refuses an unplanned one by name.
+4. A stub is a sub-issue only of an initiative, and no stub enters an epic's sub-issue set.
+5. Because a stub is an epic, every query enumerating epics for planned work carries the one negated filter, and every stage reconstructing an epic refuses an unplanned one by name.
 
 ## Integration Points
 
@@ -37,6 +35,9 @@ Three writers create stubs: the epic stage when scope exceeds one epic, the appr
 - [resumable-batch-filing](resumable-batch-filing.md) — the one batch path both stub writers file through, whose preflight refuses a parented stub before anything is created.
 - [epic-issue-filing](epic-issue-filing.md) — the single-issue path a promotion runs through, checking and clearing the unplanned marker this page names.
 - [intake-lane](intake-lane.md) — files a landed change's kept follow-ups here, through the same batch path a close already uses.
+- [initiative](initiative.md) — the one parent a stub may have, filed when the lead accepts that a decomposition's stubs serve one objective.
+- [stub-promotion](stub-promotion.md) — plans a stub in place on the issue it was filed under, split from this page.
+- [filing-preflight](filing-preflight.md) — refuses a batch in which a stub names any parent other than an initiative.
 
 ## Decision Log
 
@@ -71,3 +72,7 @@ Mechanical reciprocity fan-out: the intake lane files a landed change's kept fol
 ### 2026-09-13 — #576 — Declined asked-for scope defers here, and the chain has a floor
 
 The planning gate inverted its default, so a plain approval files the smallest usable version and leaves the rest offered. Asked-for scope the reviewer does not take is deferred rather than dropped, because dropping it would lose something the lead requested without telling anyone. The stub producer, its filer, its label resolution and its resumability already existed, and a stub planned later meets the same command and the same gate by construction, so the deferral reuses all of it rather than inventing a second carrier. The stub's number is recorded back onto the draft the way the epic's is, which is what stops a re-run of a partially completed filing from creating a second stub. It carries story titles only, because a deferred title is drafted again when it is planned, so criteria copied across would be criteria nobody approved for the epic that ships them. Deferral is recursive, so it needed a floor: a stub records how many stories it carries, and a run planning a one-story deferral files the remainder and defers nothing further. Requiring each deferral to be strictly smaller than the one before was considered and refused, because a deferred title is drafted again and the story count can legitimately grow, so the rule would either block a correct plan or be waived until it meant nothing.
+
+### 2026-10-10 — #705 — A stub may be a sub-issue of an initiative, and promotion moves to its own page
+
+The rule that a stub is never a sub-issue existed to prevent one deadlock. A stub inside an epic's own children blocks that epic's close. An initiative sits above the epic, and closing an epic never reads its parent, so a stub under an initiative cannot cause that deadlock. The rule therefore narrows to one exception, and every other parent is still refused by default: an epic, a story, a record, an unmarked issue, or a number that does not resolve. The filer checks the parent's declared kind itself instead of trusting each writer. The approved rewording pushed this page past the word cap, so the page was split. Promotion moved to stub-promotion: how planning fills in the same issue, the not-planned close of a stub too large for one epic, and the two invariants that state both. This page keeps what a stub is, who files it, and where it may sit. Refuted alternative: let the writing stage declare the parent's kind with a flag, and trust the flag. It needs no read from GitHub. It lost because the refusal exists so that writers are not trusted to get parentage right, and a flag brings that trust back.

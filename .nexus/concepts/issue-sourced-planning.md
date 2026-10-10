@@ -1,7 +1,7 @@
 ---
 title: "Issue-Sourced Planning"
 aliases: ["issues as source of truth", "epic resolver", "materialized epic", "resolve from issue number", "no-commit planning", "epic-meta round-trip"]
-touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder"]
+touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder", "initiative"]
 last_updated_by: "#638"
 status: active
 verification: verified
@@ -39,6 +39,7 @@ At approval the epic stage files the epic issue and its story sub-issues as chil
 - [target-root-convention](target-root-convention.md) — this resolver now takes its target root through that same convention rather than a bespoke argument of its own.
 - [issue-absence-fact](issue-absence-fact.md) — the lookup boundary this resolver reads an epic's facts through, which reports a number matching no issue as a fact rather than a platform failure.
 - [planning-run-folder](planning-run-folder.md) — where the epic materializes from before it is filed as the issues this resolver later reconstructs.
+- [initiative](initiative.md) — the planning container this resolver refuses by name, instead of reconstructing it as an epic whose stubs read as stories.
 
 ## Decision Log
 
@@ -74,3 +75,7 @@ Mechanical reciprocity fan-out: this resolver reads the target epic's kind and p
 ### 2026-09-17 — #638 — Reciprocal link from planning-run-folder
 
 Mechanical reciprocity fan-out: the epic this resolver reconstructs now materializes, before filing, from a run folder inside the checkout rather than the harness's session scratch. Nothing this resolver does changes; the epic still resolves from its issue number alone.
+
+### 2026-10-10 — #705 — Reciprocal link from initiative
+
+Mechanical reciprocity fan-out: the initiative page names this resolver's refusal of an issue filed as an initiative, which every stage that resolves an epic now meets.

@@ -1,7 +1,7 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store"]
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight"]
 last_updated_by: "#594"
 status: active
 verification: verified
@@ -45,6 +45,9 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [epic-issue-filing](epic-issue-filing.md) — the single-issue filing path resolving classification, project target and repository through this same resolver.
 - [issue-kind-classification](issue-kind-classification.md) — reads what an issue is from the mode and the marker names only this resolver supplies.
 - [issue-asset-store](issue-asset-store.md) — one more key on this chain, hub layer included, and the one target that deliberately has no built-in fallback.
+- [initiative](initiative.md) — the initiative label and issue type are two more keys this resolver supplies; the issue type has no built-in.
+- [filing-preflight](filing-preflight.md) — resolves the unplanned label and the initiative marker here before it checks a stub's parent.
+
 ## Decision Log
 
 ### 2026-07-24 — #121 — One shared resolver over declared config, not discovery-by-failure
@@ -90,3 +93,7 @@ Mechanical reciprocity fan-out: deciding what an issue is filed as became its ow
 ### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
 
 The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.
+
+### 2026-10-10 — #705 — Reciprocal links from initiative and filing-preflight
+
+Mechanical reciprocity fan-out: the initiative page names this resolver as the source of the initiative label and issue type, and the filing-preflight page names it as the source of the markers its parent check reads.
