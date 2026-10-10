@@ -40,7 +40,7 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     if (qualified) return { repo: `${qualified[1]}/${qualified[2]}`.toLowerCase(), number: Number(qualified[3]) };
 
     const url = URL_RE.exec(trimmed);
-    if (url) return { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: url[1].toLowerCase().replace(/^.*@/, "").replace(/^www\./, "") };
+    if (url) return { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: url[1].toLowerCase().replace(/^.*@/, "").replace(/:\d+$/, "").replace(/^www\./, "") };
 
     return null;
 }

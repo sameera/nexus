@@ -23,6 +23,9 @@ behaviour says so.
   pull request no longer fails to parse. A pull request that has not merged still stops close
   early. Scripts that call `nexus close --pr <N>` keep working. Asked what an epic has shipped,
   analyze now points at `nexus close --epic <epic>`.
+- **Analyze and close agree on what counts as an epic.** Both apply one rule. In a repository that
+  declares no classification, a pull request whose story sits under an unmarked top-level issue now
+  resolves to that issue as its epic in analyze and in `close --pr`, as `close --epic` already did.
 - **Close names what was wrong with its arguments.** A value that does not parse gets its own
   message saying what close expected and what it got, and missing arguments print the usage. Close
   no longer answers a typing mistake with "close runs only against a merged pull request".

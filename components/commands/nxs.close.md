@@ -36,15 +36,15 @@ with its own message.
 
 # Step 2 — Run `nexus close` with the same arguments
 
-Run this once, from the current checkout, passing `$ARGUMENTS` through exactly as given
-(`--epic <N>`, a bare `<N>` or `--pr <ref>`, an optional entry path, an optional
-`--handoff <path>`):
+Run this once, from the current checkout, passing the arguments in `$ARGUMENTS` through as the lead
+gave them (`--epic <N>`, a bare `<N>` or `--pr <ref>`, an optional entry path, an optional
+`--handoff <path>`). Change nothing but the quoting below:
 
 ```bash
 nexus close $ARGUMENTS
 ```
 
-Pass the arguments as the lead gave them. Quote a value that holds `#` or `?`, such as `'#159'`,
+Quote each value that holds `#` or `?`, such as `'#159'`,
 `--pr 'owner/repo#704'` or a pull-request URL: unquoted, the shell reads `#159` as a comment and
 drops it, and may read the others as a pattern.
 

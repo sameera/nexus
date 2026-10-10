@@ -29,6 +29,7 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
+import { recordNumber } from "@nexus/epic-verdicts/close-record";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -3028,10 +3029,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return 2;
     };
     const got = (value: string | undefined): string => (value === undefined ? "nothing" : `'${value}'`);
-    // An issue number, bare or as `#N`, the way every report prints one.
+    // An issue number, bare or as `#N`, the way every report prints one: the close comment's own parse.
     const issueNumber = (value: string | undefined): number | null => {
-        const m = value === undefined ? null : /^#?(\d+)$/.exec(value);
-        return m !== null && Number(m[1]) > 0 ? Number(m[1]) : null;
+        const n = value === undefined ? null : recordNumber(value);
+        return n !== null && n > 0 ? n : null;
     };
     // Keyed by what each names, so the same epic or pull request given twice is one target. A pull
     // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
@@ -3075,7 +3076,11 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             if (recover !== undefined && recover !== epic) return refuse(`--recover names one closed epic; got ${recover} and ${epic}.`);
             recover = epic;
         }
-        else if (a === "--handoff") handoff = argv[++i] ?? "";
+        else if (a === "--handoff") {
+            const value = argv[++i];
+            if (value === undefined || value === "" || value.startsWith("--")) return refuse(`--handoff takes the path to write the hand-off note to; got ${got(value)}.`);
+            handoff = value;
+        }
         else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
         else if (/^#?\d+$/.test(a)) {
             const epic = issueNumber(a);
@@ -3098,7 +3103,6 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     if (targets.size > 1) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${[...targets.values()].map((t) => t.form).join(" and ")}.`);
     }
-    if (handoff === "") return refuse("--handoff takes the path to write the hand-off note to; got nothing.");
     if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
     if (targets.size === 0 && paths.length > 0) {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);

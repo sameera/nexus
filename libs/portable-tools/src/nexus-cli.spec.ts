@@ -2214,6 +2214,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["--epic", "0"], ["--epic", "issue number", "0"]],
         [["--epic"], ["--epic", "issue number", "nothing"]],
         [["--recover", "abc"], ["--recover", "issue number", "abc"]],
+        [["--handoff", "--epic", "5"], ["--handoff", "path", "--epic"]],
         [["--recover", "10", "--recover", "12"], ["--recover", "one closed epic", "10", "12"]],
         [["--pr", "https://ghe.corp:8443/acme/app/pull/7"], ["--pr", "port", "ghe.corp:8443"]],
     ])("refuses the malformed value in %j, naming what it expected and what it got", async (args, named) => {

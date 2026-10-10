@@ -353,6 +353,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     let epic: number;
     // Whether the entry path's link alone named the epic, with no pull request to agree with it.
     let linkOnly = link !== null;
+    // Whether the story ladder found the epic, which already checked that it counts as one.
+    let fromLadder = false;
     if ("epic" in input.target) {
         epic = input.target.epic;
         if (link !== null && link.epic !== epic) {
@@ -402,6 +404,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
                 });
             }
             epic = stories.epic;
+            fromLadder = true;
         }
     }
     rerun = `nexus close ${closeArgs({ epic }, input)}`;
@@ -418,7 +421,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // A close comment that stamps this very epic is proof enough: the re-run that finishes it never
     // depends on how the issue is labelled today.
     const earlierBlock = earlierClose === undefined ? null : machineBlock(earlierClose.body);
-    const kind = earlierBlock !== null && recordNumber(earlierBlock["epic"]) === epic ? null : deps.issueKind(repoRoot, issuesRepo, epic);
+    const stampsThis = earlierBlock !== null && recordNumber(earlierBlock["epic"]) === epic;
+    const kind = stampsThis || fromLadder ? null : deps.issueKind(repoRoot, issuesRepo, epic);
     if (kind !== null && !kind.ok) {
         return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
     }
@@ -1078,8 +1082,8 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
 function issuesSlug(issuesRepo: string): { owner: string; repo: string } {
     const id = parseRepoIdentity(issuesRepo);
     if (id !== null) return { owner: id.owner, repo: id.name };
-    const slash = issuesRepo.lastIndexOf("/");
-    return { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };
+    const segments = issuesRepo.replace(/\.git$/, "").split("/").filter((p) => p.length > 0);
+    return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }
 
 /** The platform-backed reads, against the checkout at `root`. */

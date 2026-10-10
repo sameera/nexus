@@ -484,13 +484,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
     });
 
-    it("stops when the epic a pull request led to is not filed as an epic", () => {
-        const h = harness({ issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null, declared: true }) });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
-        expect(err).toMatch(new RegExp(`reason: .*${ISSUES}#${EPIC} .*not filed as an epic`));
-        expect(err).toMatch(/remedy: .*nexus close --epic <N>/);
-        // An older epic filed before its repository labelled epics has a way through.
-        expect(err).toMatch(/remedy: .*file it as one/);
+    it("takes the story ladder's check of the epic a pull request led to, with no second read", () => {
+        let asked = 0;
+        const h = harness({
+            issueKind: () => {
+                asked += 1;
+                return { ok: true, exists: true, kind: "epic", parent: null, declared: true };
+            },
+        });
+        closed(h, viaPr());
+        expect(asked).toBe(0);
     });
 
     it("closes an epic filed as one that has no sub-issues", () => {
@@ -2163,8 +2166,10 @@ describe("nexus close — the back-references, the epic close, the marker and th
 
     it("reads the epic in an issues repository configured as a URL", () => {
         const rec = recorder(() => ({ status: 0, stdout: JSON.stringify({ data: { repository: { issue: null } } }), stderr: "" }));
-        deps(rec.run).issueKind(makeDir(), "https://github.com/acme/issues", 50);
-        expect(rec.calls.find((c) => c[0] === "gh")).toEqual(expect.arrayContaining(["owner=acme", "repo=issues"]));
+        for (const configured of ["https://github.com/acme/issues", "https://github.com/acme/issues/", "https://github.com/acme/issues.git"]) {
+            deps(rec.run).issueKind(makeDir(), configured, 50);
+            expect(rec.calls.at(-1), configured).toEqual(expect.arrayContaining(["owner=acme", "repo=issues"]));
+        }
     });
 
     it("reads what an issue is filed as, and its parent, in the issues repository (#906)", () => {
