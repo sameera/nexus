@@ -1072,12 +1072,14 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
 }
 
 /**
- * The issues repository, `owner/repo` or `host/owner/repo`, as the slug the epic-resolve reads take.
- * One that does not parse keeps no owner, so the read that uses it fails and says so.
+ * The issues repository as the slug the epic-resolve reads take: `owner/repo` or `host/owner/repo`,
+ * else its last two path segments, so a configured epic-repo written as a URL still reads.
  */
 function issuesSlug(issuesRepo: string): { owner: string; repo: string } {
     const id = parseRepoIdentity(issuesRepo);
-    return id === null ? { owner: "", repo: issuesRepo } : { owner: id.owner, repo: id.name };
+    if (id !== null) return { owner: id.owner, repo: id.name };
+    const slash = issuesRepo.lastIndexOf("/");
+    return { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };
 }
 
 /** The platform-backed reads, against the checkout at `root`. */

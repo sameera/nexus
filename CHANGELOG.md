@@ -12,7 +12,9 @@ behaviour says so.
   gate and its close record come from the epic's stories and the pull requests that claim them, in
   whichever repository each merged. From the hub, an epic whose pull requests merged in a member
   repository no longer needs one of them named. Whichever form names the epic, an issue that is
-  not filed as an epic, by its label or issue type, stops close before it writes anything. Stops and
+  not filed as an epic, by its label or issue type, stops close before it writes anything. A
+  repository that declares no classification still accepts an unmarked top-level issue, and a
+  re-run that finishes a close whose comment stamps that epic skips the check. Stops and
   re-run hints name `nexus close --epic <N>`, and the report lists every merged pull request the
   close covers.
 - **Close's `--pr` is a shortcut that accepts any pull-request reference.** `nexus close --pr`

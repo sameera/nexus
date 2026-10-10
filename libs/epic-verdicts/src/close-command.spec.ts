@@ -2161,6 +2161,12 @@ describe("nexus close — the back-references, the epic close, the marker and th
         expect(viaGh("https://ghe.corp/acme/hub.git", "github.com")).toBe("github.com/acme/member");
     });
 
+    it("reads the epic in an issues repository configured as a URL", () => {
+        const rec = recorder(() => ({ status: 0, stdout: JSON.stringify({ data: { repository: { issue: null } } }), stderr: "" }));
+        deps(rec.run).issueKind(makeDir(), "https://github.com/acme/issues", 50);
+        expect(rec.calls.find((c) => c[0] === "gh")).toEqual(expect.arrayContaining(["owner=acme", "repo=issues"]));
+    });
+
     it("reads what an issue is filed as, and its parent, in the issues repository (#906)", () => {
         const root = makeDir();
         fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
