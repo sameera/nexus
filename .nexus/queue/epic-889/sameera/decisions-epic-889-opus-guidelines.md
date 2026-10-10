@@ -22,3 +22,18 @@
 - **Choice:** the G13 spec matches phrases such as "think carefully", "step by step" after think/reason/work, "show your work", "chain of thought", and explain/walk through/understand + your/its/their reasoning.
 - **Why:** many components legitimately carry recorded reasoning ("the decision plus its reasoning"), so a bare "reasoning" match would fail on them.
 - **Refuted alternative:** forbid the word "reasoning" anywhere in components, which would force rewording record and discovery stages that copy reasoning, not reproduce it.
+
+## 2026-10-10 — Refusals and declined gates keep their form; only reports after a write are reshaped
+- **Choice:** the run-discipline skill defines a completion report as what a stage prints when its run ends after it has written something; a stop that wrote nothing (a refusal, a resolver diagnostic, a declined gate) stays a §1 stop that names what it needs. The unattended distill stop report, which may have cut and unwound a branch, is reshaped.
+- **Why:** a refusal has nothing to put under Changed or Found, and forcing three headings onto a one-line diagnostic adds noise without moving the dependency first.
+- **Refuted alternative:** reshape every stop, refusals included, into the three headings.
+
+## 2026-10-10 — Analyze's open items listed by ID under Blocked on me, full lines kept under Found
+- **Choice:** the analyze summary gets `### Blocked on me` (one `DV<n>`/`F<n>` line per open critical or high item, or a one-line "Nothing. Next: …"), `### Changed` (a new `Published:` line plus the existing `Recorded:` line) and `### Found` (every existing result line, the Severity line last); the result line still follows Found as the report's last line. Locally, with no IDs, a blocking item is named by what it departs from or is about.
+- **Why:** D4 asks for the ID twice — once where the lead looks first, once in full — and every existing labelled line keeps its label, so specs and readers that key on them still hold.
+- **Refuted alternative:** move the whole Departures and Findings lines under Blocked on me, which would split medium and low findings from the rest and break the one-place listing of results.
+
+## 2026-10-10 — Report headings written as markdown headings or bold bullet labels, per stage
+- **Choice:** templates in a code block use `##`/`###` headings (analyze, distill, fix, intake, setup); bullet-list reports use `- **Blocked on me:**` labels (discover, epic, decision-record). The spec accepts either form and checks order only.
+- **Why:** each stage keeps the report form it already had, so the change is a regrouping, not a rewrite.
+- **Refuted alternative:** convert every bullet-list report into a code-block template, which would rewrite three stages' report prose for no gain to the lead.

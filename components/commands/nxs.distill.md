@@ -797,11 +797,17 @@ atomically with the page writes — **no manual post-merge step**:
 
 # Phase 8 — Report completion
 
-Lay the run summary out in the report's own shape:
+Lay the run summary out in the report's own shape, under the run-discipline skill's headings:
 
 ```
-DISTILLATION-PR OPENED: <url>
+## Blocked on me
+Review and merge the distillation-PR: <url>
 
+## Changed
+DISTILLATION-PR OPENED: <url>
+Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
+
+## Found
 Entries drained:   <n>  (<local-ids>) — <n> epic, <n> fix, <n> intake
 Pages created:     <n>  (<slugs>)
 Pages updated:     <n>  (<slugs>)
@@ -813,8 +819,6 @@ Validator:         PASS
 Entries skipped (not closed): <list with ages, drain-SLO flags>
 Entries blocked (diff underivable): <list with age, drain-SLO flag, the class token and the
                                range entry that failed>
-
-Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
 
 # Usage

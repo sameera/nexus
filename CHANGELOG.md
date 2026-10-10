@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.104.0
+
+- **Every stage's completion report opens with what waits on you.** The report a stage prints at
+  the end of its run now has three headings in this order: Blocked on me, Changed, Found. This
+  covers `setup`, `discover`, `epic`, `decision-record`, `analyze`, `distill`, `/nxs.fix` and
+  `/nxs.intake`. When nothing waits on you, Blocked on me still appears, as one line that names the
+  next stage to run. Each stage's existing report content keeps its place: the `epic`
+  implementation sequence is under Changed, and the `distill` counts are under Found. The layout is
+  stated once, in the shared `nxs-run-discipline` skill. `close` is unchanged and still shows the
+  close command's output as it is, and the council's recommendation keeps its format.
+- **`analyze` uses the same layout in the terminal and in its pull-request review.** Each open
+  critical or high item is listed by its ID under Blocked on me, with its full line under Found.
+  Medium and low findings are still listed under Found. The machine blocks, the open counts and the
+  fixed result line are unchanged, and a local run's result line is still its last line.
+- **`/nxs.fix` and `/nxs.intake` say what they did not write.** Their closing self-check is now a
+  line under Changed: nothing else was written, no issue, no comment, no branch, no pull request and
+  no commit.
+
 ## 0.103.0
 
 - **The PM agent gives a short justification instead of showing its reasoning.** This is the
