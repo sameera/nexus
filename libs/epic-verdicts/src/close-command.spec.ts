@@ -855,6 +855,24 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { entryPath: entry }))).exitCode).toBe(0);
     });
 
+    it("reads an entry path whose issues_repo line is empty as naming no repository", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\nissues_repo:\n---\n`);
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { entryPath: entry }))).exitCode).toBe(0);
+    });
+
+    it("passes over a maintainer's note that mentions the marker in prose on the same line", () => {
+        const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const note = { body: `<!-- nexus:close-record --> is what close looks for`, authorAssociation: "OWNER" };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [own, note] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
     it("finishes a close comment that stamps this epic though the issue has since lost its epic marking", () => {
         const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const h = harness({

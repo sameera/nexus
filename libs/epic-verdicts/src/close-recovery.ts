@@ -38,7 +38,7 @@ import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, ownMarkerLines, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, machineBlockLine, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
@@ -436,7 +436,7 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
 
     // The machine block: the block machineBlock reads, under the first own marker line with a fence
     // right below it. A bare marker line above it, or copied text, is passed over.
-    const marker = ownMarkerLines(lines).find((i) => lines[i].trim() === CLOSE_RECORD_MARKER && /^```ya?ml$/.test(lines[i + 1] ?? "")) ?? -1;
+    const marker = machineBlockLine(lines) ?? -1;
     const open = marker + 1;
     const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
     if (marker >= 0 && end > open) {

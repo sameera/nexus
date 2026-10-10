@@ -42,11 +42,11 @@ import { issuesRepoPath, sameIssuesRepo } from "./verdict-repos.js";
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
 
 /**
- * The close-record marker opening a line, as close and the older model-written close wrote it, indented
- * up to three spaces (inside `<details>`, say). A quoted copy (a line starting with `>`) is not it, and
- * neither is one indented four spaces or a tab, which Markdown renders as a code block.
+ * The close-record marker alone on its line, as close and the older model-written close wrote it,
+ * indented up to three spaces (inside `<details>`, say). A quoted copy (a line starting with `>`), one
+ * indented four spaces or a tab (a Markdown code block), and one with prose after it are not it.
  */
-export const OWN_MARKER_RE = new RegExp(`^ {0,3}${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
+const OWN_MARKER_RE = new RegExp(`^ {0,3}${escapeRegExp(CLOSE_RECORD_MARKER)}[ \\t]*$`);
 
 /**
  * The lines that hold the comment's own marker: OWN_MARKER_RE's, outside any fenced code block
@@ -66,6 +66,15 @@ export function ownMarkerLines(lines: readonly string[]): number[] {
         else if (OWN_MARKER_RE.test(line)) out.push(i);
     });
     return out;
+}
+
+/**
+ * The line of the comment's machine block marker: the first own marker line with a yaml fence right
+ * below it, so a bare marker above it, or a copy in a quote or a code block, is passed over. Close
+ * reads this block and recovery re-stamps it.
+ */
+export function machineBlockLine(lines: readonly string[]): number | undefined {
+    return ownMarkerLines(lines).find((i) => /^```ya?ml$/.test(lines[i + 1] ?? ""));
 }
 
 /** What opens the hidden key a record amendment carries. */
@@ -605,9 +614,7 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 export function machineBlock(comment: string): Record<string, unknown> | null {
     // `\r\n` too: a comment edited in the platform's web editor is saved with it.
     const lines = comment.split(/\r?\n/);
-    // The first own marker line with a yaml fence right below it holds the block, so a bare mention
-    // of the marker above it, or a copy in a quote or a code block, is passed over.
-    const at = ownMarkerLines(lines).find((i) => lines[i].trim() === CLOSE_RECORD_MARKER && /^```ya?ml$/.test(lines[i + 1] ?? ""));
+    const at = machineBlockLine(lines);
     if (at === undefined) return null;
     const end = lines.findIndex((l, j) => j > at + 1 && l.startsWith("```"));
     if (end < 0) return null;

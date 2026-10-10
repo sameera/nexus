@@ -273,7 +273,7 @@ function linkedEpicRef(markdown: string): { repo: string | null; number: number 
     const fm = frontmatter(markdown);
     const link = fm.get("link");
     const ref = link === undefined || link === "" ? null : parseIssueRef(link);
-    return ref === null ? null : { repo: ref.repo ?? fm.get("issues_repo") ?? null, number: ref.number };
+    return ref === null ? null : { repo: ref.repo ?? (fm.get("issues_repo") || null), number: ref.number };
 }
 
 /** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff`. */
