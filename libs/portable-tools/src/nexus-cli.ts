@@ -3067,12 +3067,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             handoff = value;
         }
         else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
-        else if (/^#?\d+$/.test(a)) {
+        else {
+            // A bare issue number names the epic; anything else is the entry path.
             const epic = issueNumber(a);
-            if (epic === null) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
-            given.push({ form: a, target: { epic } });
+            if (epic === null) paths.push(a);
+            else given.push({ form: a, target: { epic } });
         }
-        else paths.push(a);
     }
     if (recover !== undefined) {
         if (given.length > 0 || handoff !== null || paths.length > 0) {

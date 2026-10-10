@@ -265,6 +265,15 @@ describe("nexus close --recover — every merged pull request carries a trusted 
         expect(text(rendered.stdout)).toContain(NEW_DIGEST);
     });
 
+    it("re-stamps a close comment saved with CRLF endings in one kind of line ending", () => {
+        const h = harness();
+        const crlf = h.earlier.comment.replace(/\n/g, "\r\n");
+        h.deps.issueComments = () => ({ ok: true, comments: [{ body: crlf, authorAssociation: "OWNER" }, ...h.posted.filter((p) => p.issue === EPIC).map((p) => ({ body: p.body, authorAssociation: "OWNER" }))] });
+        expect(renderCloseOutcome(recover(h)).exitCode).toBe(0);
+        expect(h.posted[0].body).toContain(`record_hash: ${NEW_DIGEST}`);
+        expect(h.posted[0].body).not.toContain("\r");
+    });
+
     it("takes the record's decisions from the new body and keeps the deviation rationale, on the entry and the comment alike (G9)", () => {
         const h = harness();
         recover(h);

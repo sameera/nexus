@@ -352,7 +352,8 @@ function setSection(lines: string[], heading: string, body: string[] | null, bef
     if (body === null) return lines;
     let i = -1;
     for (const b of [...before, CLOSE_RECORD_MARKER]) {
-        i = lines.findIndex((l) => l.trim() === b);
+        // The machine block's marker counts only where it opens a line, as everywhere it is read.
+        i = lines.findIndex((l) => (b === CLOSE_RECORD_MARKER ? l.startsWith(b) : l.trim() === b));
         if (i >= 0) break;
     }
     if (i < 0) i = lines.length;
@@ -414,7 +415,8 @@ function restampRecord(text: string, content: CloseContent, prs: readonly Pr[], 
 
 /** The earlier close comment with only the same four things replaced, and its prose lines that state them. */
 function restampComment(text: string, content: CloseContent, prs: readonly Pr[], rejudged: readonly Pr[]): string {
-    let lines = text.split("\n");
+    // A comment saved by the web editor has CRLF endings; rewrite it with one kind throughout.
+    let lines = text.replace(/\r\n/g, "\n").split("\n");
     const digest = content.record?.digest ?? "";
     const recordLine = `Decision record: #${content.record?.number ?? ""} @ \`${digest}\``;
     const d = lines.findIndex((l) => l.startsWith("Decision record: "));

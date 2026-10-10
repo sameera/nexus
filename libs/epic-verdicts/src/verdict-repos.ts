@@ -71,7 +71,8 @@ export function canonicalIssuesRepo(issuesRepo: string): string {
         .replace(/\/+$/, "")
         .replace(/\.git$/i, "")
         .replace(/^[^@/\s]+@([^:/\s]+):/, "$1/")
-        .replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?/i, "");
+        .replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?/i, "")
+        .replace(/^([^/:]+):\d+\//, "$1/");
     const id = parseRepoIdentity(bare);
     if (id === null) return issuesRepo;
     return id.host === null || id.host === "github.com" ? `${id.owner}/${id.name}` : `${id.host}/${id.owner}/${id.name}`;
