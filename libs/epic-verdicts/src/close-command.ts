@@ -81,7 +81,6 @@ import {
     renderCloseRecord,
     renderDeferredStub,
     renderRecordAmendment,
-    stubKey,
     type ApprovedProposal,
     type CloseContent,
     type CloseVerdict,
