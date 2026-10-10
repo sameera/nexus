@@ -89,8 +89,3 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
 export function sameIssuesRepo(a: string, b: string): boolean {
     return sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
 }
-
-/** The forge the issues repository's written form names, or null when it names none. */
-export function issuesRepoForge(issuesRepo: string): string | null {
-    return parseRepoIdentity(canonicalIssuesRepo(issuesRepo))?.host ?? null;
-}

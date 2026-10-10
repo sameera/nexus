@@ -26,7 +26,7 @@ import { resolveWorkspace, type ResolvedWorkspace } from "@nexus/workspace/resol
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
 import { sameRepo } from "@nexus/workspace/issue-ref";
-import { OWN_MARKER_RE } from "@nexus/epic-verdicts/close-record";
+import { CLOSE_RECORD_MARKER, OWN_MARKER_RE } from "@nexus/epic-verdicts/close-record";
 import { excludePathspecs } from "./pipeline-stores.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
@@ -69,13 +69,6 @@ export type ParseRangeResult =
     | { ok: true; range: RangeItem[] }
     | { ok: false; error: DeriveDiagnostic };
 
-/**
- * The marker every close-record writer anchors its machine block to — `/nxs.close`, `/nxs.fix`
- * and `/nxs.intake` alike (record #176, invariant 5: the block is mandatory in every mode). The
- * `range:` stamp lives inside the fenced YAML that follows it, which is why that is the position
- * this reader reads first.
- */
-export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
 
 /** The fenced YAML that follows the marker: an opening ```/```yaml line, then content, then a closing fence. */
 const MARKER_FENCE = /(?:^|\n)```(?:yaml)?[^\n]*\n([\s\S]*?)\n```/;

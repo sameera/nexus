@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoForge, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -326,15 +326,6 @@ function entryLink(entryPath: string): { ok: true; epic: number; repo: string | 
     return { ok: true, epic: linked.number, repo: linked.repo };
 }
 
-/** What the epic's own reads stop on, if anything. */
-type EpicReadStop =
-    | { stop: "missing" }
-    | { stop: "comments-unread"; why: string }
-    | { stop: "kind-unread"; why: string }
-    | { stop: "filed-as"; kind: "story" | "record"; parent: number | null }
-    | { stop: "close-comment-unreadable"; why: string }
-    | { stop: "unmarked"; parent: number | null };
-
 /**
  * The stop the epic's own reads call for, decided from them alone, in the order a lead can act on:
  * a number that names no issue; an issue filed as a story or a record; comments that cannot be
@@ -347,19 +338,8 @@ function epicReadStop(
     kind: ReturnType<CloseCommandDeps["issueKind"]> | null,
     comments: ReturnType<CloseCommandDeps["issueComments"]>,
     earlier: EpicCloseComment,
-): EpicReadStop | null {
-    if (kind !== null && kind.ok && !kind.exists) return { stop: "missing" };
-    if (kind !== null && kind.ok && (kind.kind === "story" || kind.kind === "record")) return { stop: "filed-as", kind: kind.kind, parent: kind.parent };
-    if (!comments.ok) return { stop: "comments-unread", why: kind !== null && !kind.ok ? `${comments.message}; what it is filed as could not be determined either: ${kind.message}` : comments.message };
-    const own = earlier.found === "own";
-    if (kind !== null && !kind.ok && !own) return { stop: "kind-unread", why: kind.message };
-    if (earlier.found === "unreadable") return { stop: "close-comment-unreadable", why: earlier.why };
-    if (kind !== null && kind.ok && kind.kind === "other" && !own) return { stop: "unmarked", parent: kind.parent };
-    return null;
-}
-
-/** The stop block for an {@link EpicReadStop}. */
-function renderEpicReadStop(s: EpicReadStop, at: { epic: number; epicRef: string; issuesRepo: string; rerun: string }): CloseStop {
+    at: { epic: number; epicRef: string; issuesRepo: string; rerun: string },
+): CloseStop | null {
     const { epic, epicRef, issuesRepo, rerun } = at;
     const parentOf = (parent: number | null): string => (parent === null ? "" : ` (its parent is ${issuesRepo}#${parent})`);
     const notEpic = (is: string, extra: string): CloseStop => ({
@@ -367,24 +347,29 @@ function renderEpicReadStop(s: EpicReadStop, at: { epic: number; epicRef: string
         item: `issue ${epicRef}`,
         remedy: `pass the epic's own issue number: nexus close --epic <N>${extra}`,
     });
-    switch (s.stop) {
-        case "missing":
-            return notEpic("does not exist", `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository`);
-        case "comments-unread":
-            return { reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${s.why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` };
-        case "kind-unread":
-            return { reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${s.why}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` };
-        case "filed-as":
-            return notEpic(`is filed as a ${s.kind}, not an epic${parentOf(s.parent)}`, "");
-        case "close-comment-unreadable":
-            return {
-                reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${s.why}, so close can neither finish that close nor tell that none happened`,
-                item: `epic ${epicRef}`,
-                remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
-            };
-        case "unmarked":
-            return notEpic(`is not filed as an epic${parentOf(s.parent)}`, `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}`);
+    const own = earlier.found === "own";
+    if (kind !== null && kind.ok && !kind.exists) {
+        return notEpic("does not exist", `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository`);
     }
+    if (kind !== null && kind.ok && (kind.kind === "story" || kind.kind === "record")) return notEpic(`is filed as a ${kind.kind}, not an epic${parentOf(kind.parent)}`, "");
+    if (!comments.ok) {
+        const why = kind !== null && !kind.ok ? `${comments.message}; what it is filed as could not be determined either: ${kind.message}` : comments.message;
+        return { reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` };
+    }
+    if (kind !== null && !kind.ok && !own) {
+        return { reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` };
+    }
+    if (earlier.found === "unreadable") {
+        return {
+            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${earlier.why}, so close can neither finish that close nor tell that none happened`,
+            item: `epic ${epicRef}`,
+            remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
+        };
+    }
+    if (kind !== null && kind.ok && kind.kind === "other" && !own) {
+        return notEpic(`is not filed as an epic${parentOf(kind.parent)}`, `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}`);
+    }
+    return null;
 }
 
 /** Run close through the close record and the amendment. Asks nothing; every outcome is returned. */
@@ -422,16 +407,16 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // A pull request only finds the epic. One that has not merged is the cheap early answer for
         // a lead who ran close too soon.
         const ref = input.target.pr;
-        // Close reads the epic's issues on the issues repository's forge: the one its form names, else
-        // the checkout's, where an unqualified issues repository comes from. A pull request on another
-        // forge cannot be closed against them without mixing the two in one run.
-        const issuesForge = issuesRepoForge(issuesRepo) ?? deps.checkoutForge(repoRoot);
+        // Close reads the epic's issues through gh on the checkout's forge, as it reads a bare or an
+        // owner/repo#N pull request; only a URL can name another forge, and mixing the two in one run
+        // would read a pull request on one and the issues on the other.
+        const issuesForge = deps.checkoutForge(repoRoot);
         if (ref.host !== undefined && issuesForge !== null && forgeHost(ref.host) !== issuesForge) {
             const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
             return stopped({
-                reason: `${asked} is on ${forgeHost(ref.host)}, but the issues repository ${issuesRepo} is on ${issuesForge}`,
+                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the issues of ${issuesRepo} on ${issuesForge}, this checkout's forge`,
                 item: asked,
-                remedy: "run close where the issues repository is on the pull request's forge, or name the epic: nexus close --epic <N>",
+                remedy: "run close from a checkout on the pull request's forge, or name the epic: nexus close --epic <N>",
             });
         }
         const read = deps.readPr(repoRoot, ref);
@@ -480,8 +465,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // A number the lead typed must be an epic, checked before anything, even the re-run shortcut,
     // can close it; the story ladder already checked the epic it found from a pull request.
     const kind = "epic" in input.target ? deps.issueKind(repoRoot, issuesRepo, epic) : null;
-    const stop = epicReadStop(kind, epicComments, earlier);
-    if (stop !== null) return stopped(renderEpicReadStop(stop, { epic, epicRef, issuesRepo, rerun }));
+    const stop = epicReadStop(kind, epicComments, earlier, { epic, epicRef, issuesRepo, rerun });
+    if (stop !== null) return stopped(stop);
     if (earlier.found === "own") {
         return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlier.block);
     }
@@ -1107,16 +1092,23 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
 
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
+    // The checkout's canonical remote, read once per checkout: the forge check and the pull-request
+    // read both need it.
+    const own = new Map<string, string | null>();
+    const ownRepo = (root: string): string | null => {
+        if (!own.has(root)) own.set(root, canonicalRepoRef(run, root));
+        return own.get(root) ?? null;
+    };
     return {
         role: (cwd) => closePreflight(cwd, run),
         checkoutForge: (root) => {
-            const host = canonicalRepoRef(run, root)?.split("/")[0];
+            const host = ownRepo(root)?.split("/")[0];
             return host === undefined ? null : forgeHost(host);
         },
         readPr: (repoRoot, ref) => {
             // Every form is read on the forge prRepoOnForge names, github.com's SSH aliases folded; gh's
             // own resolution only when the checkout names no forge and the reference names none either.
-            const repo = prRepoOnForge(ref, canonicalRepoRef(run, repoRoot));
+            const repo = prRepoOnForge(ref, ownRepo(repoRoot));
             return resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(repo === null ? {} : { repo }) });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),

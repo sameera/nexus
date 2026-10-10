@@ -20,7 +20,8 @@ import { type CloseRanges } from "@nexus/epic-verdicts/close-ranges";
 import { type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { type Runner } from "@nexus/workspace/run";
-import { CLOSE_RECORD_MARKER, parseRange } from "./derive-entry-diff";
+import { CLOSE_RECORD_MARKER } from "@nexus/epic-verdicts/close-record";
+import { parseRange } from "./derive-entry-diff";
 import { authoredComponentRoot } from "./vendor-components";
 
 const tmp: string[] = [];
