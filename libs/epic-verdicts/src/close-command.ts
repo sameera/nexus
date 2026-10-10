@@ -351,6 +351,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
 
     let epic: number;
+    // Whether the entry path's link alone named the epic, with no pull request to agree with it.
+    let linkOnly = link !== null;
     if ("epic" in input.target) {
         epic = input.target.epic;
         if (link !== null && link.epic !== epic) {
@@ -377,9 +379,10 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
         }
         const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
-        if (link !== null) {
-            // The entry path names the epic when the pull request names none close can resolve: the
-            // way through an ambiguous one. When it does name one, the two must agree.
+        // The entry path is the way through a pull request that names no single epic; any other
+        // failure to resolve its stories stops, so a read error never skips the agreement check.
+        const unresolvable = !stories.ok && (stories.error.problem === "story-candidates-multiple-epics" || stories.error.problem === "no-story-candidates");
+        if (link !== null && (stories.ok || unresolvable)) {
             if (stories.ok && stories.epic !== link.epic) {
                 return stopped({
                     reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, but ${label} implements a story of epic ${issuesRepo}#${stories.epic}`,
@@ -388,6 +391,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
                 });
             }
             epic = link.epic;
+            linkOnly = !stories.ok;
         } else {
             if (!stories.ok) {
                 const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
@@ -421,7 +425,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
     }
     if (kind !== null && (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared)))) {
-        const source = "epic" in input.target ? "typed" : link !== null ? "link" : "pr";
+        const source = "epic" in input.target ? "typed" : linkOnly ? "link" : "pr";
         const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
         const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
         const prHint = source === "typed" && !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";

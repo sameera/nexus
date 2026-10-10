@@ -551,6 +551,22 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry }))).exitCode).toBe(0);
     });
 
+    it("with --pr, stops on a pull request whose stories cannot be read rather than trusting the entry path", () => {
+        const h = harness({ storiesOfPr: () => ({ ok: false, error: { problem: "gh-failed", message: "HTTP 502" } }) });
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\n---\n`);
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry })))).toContain("HTTP 502");
+    });
+
+    it("with --pr, does not blame an entry path that agrees with the pull request when their epic is not filed as one", () => {
+        const h = harness({ issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null, declared: true }) });
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\n---\n`);
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry })));
+        expect(err).not.toMatch(/entry path's link names/);
+        expect(err).toMatch(/remedy: .*file it as one/);
+    });
+
     it("names the entry path's link as what to fix when it names an issue that is not an epic", () => {
         const h = harness({ storiesOfPr: () => ({ ok: false, error: { problem: "story-candidates-multiple-epics", message: "more than one epic" } }) });
         const entry = path.join(h.repoRoot, "epic.md");

@@ -3035,7 +3035,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     // Keyed by what each names, so the same epic or pull request given twice is one target.
     const targets = new Map<string, { form: string; target: CloseTarget }>();
     const add = (form: string, target: CloseTarget): void => {
-        const key = "epic" in target ? `epic ${target.epic}` : `pr ${target.pr.host ?? ""}/${target.pr.repo ?? ""}#${target.pr.number}`;
+        const key = "epic" in target ? `epic ${target.epic}` : `pr ${target.pr.host === "github.com" ? "" : (target.pr.host ?? "")}/${target.pr.repo ?? ""}#${target.pr.number}`;
         if (!targets.has(key)) targets.set(key, { form, target });
     };
     let recover: number | undefined;
