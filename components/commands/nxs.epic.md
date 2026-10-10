@@ -293,6 +293,16 @@ epic.] Proposed split into right-sized goals:
 
 The filing option comes in two versions only when the split has **two or more** goals. With one goal there is no set to group: offer a single `split` (L) or `stubs` (XL/XXL) option that files the stub flat, and propose no objective.
 
+**Resolve the initiative marker first**, before drafting a proposal and before the gate, so the lead is never offered an option that fails after they agreed to it (never hard-code any of the three):
+
+```bash
+nexus config resolve classification
+nexus config resolve initiative-label
+nexus config resolve initiative-type
+```
+
+Under `types`, the marker is the issue type; under anything else it is the label. If the classification is `types` and `initiative-type` resolves to nothing, this repository cannot mark an initiative. Then offer only the flat filing: the single `split` (L) or `stubs` (XL/XXL) option, exactly as for a one-goal split. Propose no objective. Say why in one line above the options, naming the setting: no initiative is offered because `github.initiative-type` is not declared in `.nexus/config/settings.yml`. Never guess an issue-type name.
+
 With two or more goals, **always propose an objective**. You may not withhold it, even when you doubt the goals share one. The lead's decline is the only filter. Neither version of the filing option is marked as recommended, because this gate is the one place the lead can reject your reading of the set.
 
 - **Discovery mode:** the objective is the discovery's destination, copied in its own words. Do not draft a new sentence.
@@ -416,6 +426,63 @@ The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for 
     ```
 
     **Skip this step** on anything short of that: an `⚠️ INCOMPLETE` filing, or a discovery-mode gist post that failed. The folder stays exactly as it is, so the same run can be repeated against it (decision record #646) — a repeated `nexus create-story` skips what its ledger already shows created and files only the remainder.
+
+### Under an initiative (`split-initiative` / `stubs-initiative` only)
+
+The flat choices skip this section entirely. On the initiative choice the run takes its steps in a fixed order: the initiative is filed first, the stubs second, and the stub numbers are written into the initiative last. Each step can be repeated safely.
+
+**Before step 4, file the initiative**, as its own one-item batch in its own folder inside `RUN_DIR`. An initiative is a planning container, not an epic: it carries the initiative marker resolved at the gate and nothing else, so neither the epic classification nor the unplanned label. It has no parent.
+
+Write `${RUN_DIR}/initiative/STORY-INITIATIVE.md`:
+
+```markdown
+---
+ref: "INITIATIVE"
+title: "<the objective, without its closing full stop>"
+---
+
+<the objective, exactly as it was accepted at the gate>
+
+## Execution order
+
+1. STUB-<NN> <goal title> — <reach statement, exactly as shown at the gate>
+2. STUB-<NN> <goal title> — <reach statement, exactly as shown at the gate>
+3. STUB-<NN> <goal title> — <the objective is reached>
+```
+
+The body holds the objective and that one ordered list: no table and no other list of the stubs, because GitHub already shows the initiative's children. Write the objective, each goal title and each reach statement exactly as they were shown at the gate, in the lead's words where the lead reworded them. Add no sentence the lead did not see: nothing on the filed initiative can be edited afterwards. `STUB-<NN>` is each stub's own `ref` from step 2, standing in until the stub has an issue number. The list is in the execution order from the gate, which respects every `blocked_by` edge the stubs carry between themselves.
+
+```bash
+nexus create-story "${RUN_DIR}/initiative" \
+    --classification-label "<initiative-label>" \
+    --classification-type "<initiative-type>" \
+    --keep-manifest
+```
+
+`--keep-manifest` keeps the filer's ledger at `${RUN_DIR}/initiative/.nxs-created.json` after a `✅ Complete` run. That ledger is where the run folder records the initiative's number, and it is why repeating this command never files a second initiative: the ledger already shows the one it filed.
+
+```bash
+INITIATIVE=$(jq -r '.initiative.number' "${RUN_DIR}/initiative/.nxs-created.json")
+INITIATIVE_URL=$(jq -r '.initiative.url' "${RUN_DIR}/initiative/.nxs-created.json")
+```
+
+If the filing is `⚠️ INCOMPLETE`, or the filer warned that the initiative's issue type was not found, stop and report the run incomplete. File no stub until the initiative exists and carries its marker.
+
+**In step 4, add `--keep-manifest`** to the stubs' `nexus create-story` command, so the ledger at `${RUN_DIR}/.nxs-created.json` still maps each stub's `ref` to its issue number once the batch is complete.
+
+**After step 4, write the stub numbers into the initiative.** The filer rewrites names only within one batch, and the initiative's batch finished before any stub existed, so this is the run's own single edit to the initiative's body. Read the body back from GitHub, replace each `STUB-<NN>` with the `#<issue>` the stubs' ledger records for that `ref` (`jq -r '."stub-<NN>".number' "${RUN_DIR}/.nxs-created.json"`), and write it back:
+
+```bash
+gh issue view "${INITIATIVE_URL}" --json body --jq .body > "${RUN_DIR}/initiative/body.md"
+# replace each STUB-<NN> in body.md with its #<issue>
+gh issue edit "${INITIATIVE_URL}" --body-file "${RUN_DIR}/initiative/body.md"
+```
+
+The edit changes nothing else: not the objective, not a goal title, not a reach statement, not the order. A body that already names every stub by number needs no edit, so repeating this step is safe. If any stub has no number yet (step 4 was `⚠️ INCOMPLETE`), skip the edit, report the run incomplete, and re-run the same commands.
+
+**Step 6 runs only after** the initiative is filed, the stubs are filed and the initiative names every stub by issue number. Short of that, keep the run folder: it holds both ledgers, and a repeat that cannot read them would file everything a second time.
+
+Report the initiative's number first, then the stubs in the initiative's order.
 
 Then **stop**. Report the created issue numbers with their goals, and tell the user to promote one with `/nxs.epic <issue-number>`. Do **not** create a queue entry, a feature `README.md`, or a full epic issue this run.
 

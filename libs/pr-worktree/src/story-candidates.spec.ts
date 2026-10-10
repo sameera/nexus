@@ -12,6 +12,8 @@ const LABELS: KindClassification = {
     storyType: "Story",
     recordLabel: "decision-record",
     recordType: "Decision Record",
+    initiativeLabel: "initiative",
+    initiativeType: "",
 };
 
 interface IssueSpec {

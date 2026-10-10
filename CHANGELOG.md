@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.100.0
+
+- **An accepted objective in `/nxs.epic` files an initiative.** On the initiative choice the run
+  files one parent issue before the stubs. It carries the repository's initiative marker and
+  nothing else, and has no parent. Its body states the objective and one ordered list: each stub
+  in execution order, with how much of the objective is reached once it is implemented. It holds
+  no table. Once the stubs exist, the run writes their issue numbers into that list. Repeating an
+  interrupted run files no second initiative.
+- **The initiative is a declared issue kind.** Two settings name its marker: `initiative-label`,
+  which defaults to `initiative`, and `initiative-type`, which has no default. In a repository
+  that classifies by issue type and declares no `initiative-type`, the `/nxs.epic` gate offers
+  only the flat filing and names the missing setting. Attaching the stubs under the initiative
+  arrives in the next release.
+
 ## 0.99.0
 
 - **`/nxs.epic` asks whether a decomposition serves one objective.** When an oversized scope splits

@@ -177,6 +177,33 @@ describe("resolveKindClassification — the epic/story markers, from the same re
         expect(r.error.message).toContain("epic-type");
     });
 
+    it("carries the initiative marker: a built-in label, and no built-in issue type (record #786, D5)", () => {
+        const r = resolveKindClassification(repoWith("github:\n  project: none\n"));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.initiativeLabel).toBe("initiative");
+        expect(r.classification.initiativeType).toBe("");
+    });
+
+    it("resolves under issue types with no initiative type declared, so no epic fails for lack of one", () => {
+        const r = resolveKindClassification(
+            repoWith("github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n"),
+        );
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.initiativeType).toBe("");
+    });
+
+    it("takes a declared initiative label and issue type from the settings", () => {
+        const r = resolveKindClassification(
+            repoWith("github:\n  classification: labels\n  initiative-label: theme\n  initiative-type: Initiative\n"),
+        );
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.initiativeLabel).toBe("theme");
+        expect(r.classification.initiativeType).toBe("Initiative");
+    });
+
     it("resolves type-based classification when both types are declared", () => {
         const r = resolveKindClassification(
             repoWith("github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n"),
@@ -197,6 +224,8 @@ describe("classifyIssueKind — what an issue is filed as, under the declared mo
         storyType: "Story",
         recordLabel: "decision-record",
         recordType: "Decision Record",
+        initiativeLabel: "initiative",
+        initiativeType: "",
     };
     const types = { ...labels, mode: "types" as const };
     const legacy = { ...labels, mode: "legacy-auto" as const };
@@ -217,13 +246,52 @@ describe("classifyIssueKind — what an issue is filed as, under the declared mo
     });
 
     it("calls anything carrying no declared marker `other`, never a story by default", () => {
-        // The initiative one level above an epic is the case this exists for: it has a parent-of
-        // relationship to the epic, so a graph-shape check alone reads it as an epic's epic.
-        expect(classifyIssueKind(labels, { number: 491, labels: ["initiative"], issueType: null })).toEqual({
+        expect(classifyIssueKind(labels, { number: 491, labels: ["roadmap"], issueType: null })).toEqual({
             ok: true,
             kind: "other",
         });
         expect(classifyIssueKind(labels, { number: 491, labels: [], issueType: null })).toEqual({
+            ok: true,
+            kind: "other",
+        });
+    });
+
+    it("reads an issue carrying the declared initiative marker as an initiative (record #786, D5)", () => {
+        // The initiative one level above an epic has a parent-of relationship to the epic, so a
+        // graph-shape check alone reads it as an epic's epic. Its own marker is what names it.
+        expect(classifyIssueKind(labels, { number: 491, labels: ["Initiative"], issueType: null })).toEqual({
+            ok: true,
+            kind: "initiative",
+        });
+        const typed = { ...types, initiativeType: "Initiative" };
+        expect(classifyIssueKind(typed, { number: 491, labels: [], issueType: "initiative" })).toEqual({
+            ok: true,
+            kind: "initiative",
+        });
+    });
+
+    it("recognises no initiative by a marker the repository does not declare", () => {
+        expect(classifyIssueKind(types, { number: 491, labels: [], issueType: "Initiative" })).toEqual({
+            ok: true,
+            kind: "other",
+        });
+        expect(
+            classifyIssueKind({ ...labels, initiativeLabel: "" }, { number: 491, labels: ["initiative"], issueType: null }),
+        ).toEqual({ ok: true, kind: "other" });
+    });
+
+    it("keeps an issue marked as an epic an epic, in a repository whose epic label is `initiative`", () => {
+        const shared = { ...labels, epicLabel: "initiative" };
+        expect(classifyIssueKind(shared, { number: 211, labels: ["initiative"], issueType: null })).toEqual({
+            ok: true,
+            kind: "epic",
+        });
+    });
+
+    it("raises no mode mismatch for an initiative marked the other way, which nothing treated as a kind before", () => {
+        // A repository on issue types that labels its hand-filed initiatives resolved them as
+        // `other` before the initiative kind existed. It still does, rather than failing.
+        expect(classifyIssueKind(types, { number: 491, labels: ["initiative"], issueType: null })).toEqual({
             ok: true,
             kind: "other",
         });

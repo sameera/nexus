@@ -392,7 +392,7 @@ function epicReadStop(
             remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
         };
     }
-    if (kind !== null && kind.ok && kind.kind === "other" && !own) {
+    if (kind !== null && kind.ok && (kind.kind === "other" || kind.kind === "initiative") && !own) {
         return notEpic(
             `is not filed as an epic${parentOf(kind.parent)}`,
             `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}; if ${epic} is a pull request, run nexus close --pr ${epic}`,

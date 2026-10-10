@@ -103,3 +103,63 @@ describe("the lead decides whether a decomposition serves one objective (story #
         expect(GATE_FLAT).toMatch(/Declining needs no reason and is not an error/);
     });
 });
+
+const STUBS: string = section(EPIC, "## Phase 2b — Emit decomposition stubs", "## Phase 3");
+const UNDER: string = section(STUBS, "### Under an initiative", "## Phase 3");
+const UNDER_FLAT: string = UNDER.replace(/\s+/g, " ");
+
+describe("the initiative states the objective, the order, and what each epic reaches (story #707)", () => {
+    it("resolves the initiative marker before the gate, through the shared settings (D5)", () => {
+        expect(GATE).toContain("nexus config resolve initiative-label");
+        expect(GATE).toContain("nexus config resolve initiative-type");
+        expect(GATE).toContain("nexus config resolve classification");
+    });
+
+    it("offers only the flat filing, and names the missing setting, where no initiative type is declared (G17)", () => {
+        expect(GATE_FLAT).toMatch(/`types`[^.]*`initiative-type` resolves to nothing[^.]*cannot mark an initiative/);
+        expect(GATE_FLAT).toMatch(/offer only the flat filing/i);
+        expect(GATE_FLAT).toMatch(/`github\.initiative-type`/);
+        expect(GATE_FLAT).toMatch(/Propose no objective/);
+    });
+
+    it("files the initiative first, as its own one-item batch, with the initiative marker and no parent (D6, G7)", () => {
+        expect(UNDER_FLAT).toMatch(/before step 4/i);
+        expect(UNDER).toContain('nexus create-story "${RUN_DIR}/initiative"');
+        expect(UNDER).toContain('--classification-label "<initiative-label>"');
+        expect(UNDER).toContain('--classification-type "<initiative-type>"');
+        const item: string = UNDER.match(/```markdown\n---\nref: "INITIATIVE"[\s\S]*?```/)?.[0] ?? "";
+        expect(item).not.toBe("");
+        expect(item).not.toMatch(/^parent:/m);
+    });
+
+    it("gives the initiative neither the epic marker nor the unplanned label (G11)", () => {
+        const item: string = UNDER.match(/```markdown\n---\nref: "INITIATIVE"[\s\S]*?```/)?.[0] ?? "";
+        expect(item).not.toMatch(/^labels:/m);
+        expect(UNDER_FLAT).toMatch(/neither the epic classification nor the unplanned label/);
+    });
+
+    it("states the objective and one ordered list with a reach statement per stub, and no table (D7, G9, G10)", () => {
+        const item: string = UNDER.match(/```markdown\n---\nref: "INITIATIVE"[\s\S]*?```/)?.[0] ?? "";
+        expect(item).toContain("## Execution order");
+        expect(item).toMatch(/^1\. STUB-<NN> <goal title> — <reach statement/m);
+        expect(item).not.toMatch(/^\|/m);
+        expect(UNDER_FLAT).toMatch(/no table and no other list of the stubs/);
+        expect(UNDER_FLAT).toMatch(/exactly as (it was|they were) (accepted|shown) at the gate/);
+    });
+
+    it("keeps the initiative's number in the run folder, so a repeat files no second one (G16)", () => {
+        expect(UNDER).toContain("--keep-manifest");
+        expect(UNDER_FLAT).toMatch(/never files a second initiative/);
+    });
+
+    it("writes the stubs' issue numbers into the order once the stubs exist (D6, G8)", () => {
+        expect(UNDER_FLAT).toMatch(/after step 4/i);
+        expect(UNDER_FLAT).toMatch(/replace each `STUB-<NN>` with the `#<issue>`/);
+        expect(UNDER).toMatch(/gh issue edit "\$\{INITIATIVE_URL\}" --body-file/);
+        expect(UNDER_FLAT).toMatch(/changes nothing else/);
+    });
+
+    it("removes the run folder only after every initiative step is complete (D6)", () => {
+        expect(UNDER_FLAT).toMatch(/Step 6 runs only after/);
+    });
+});
