@@ -472,7 +472,8 @@ describe("nexus close — keyed by the epic (#906)", () => {
     });
 
     it("suggests --pr when the number it is given names no issue, since it may be a pull request", () => {
-        const h = harness({ issueKind: () => ({ ok: true, exists: false, kind: "other", parent: null, declared: true }) });
+        // As on GitHub: a number that names no issue has no comments to read either.
+        const h = harness({ issueKind: () => ({ ok: true, exists: false, kind: "other", parent: null, declared: true }), issueComments: () => ({ ok: false, message: "Could not resolve to an Issue" }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 905 } })));
         expect(err).toMatch(/remedy: .*nexus close --pr 905/);
     });

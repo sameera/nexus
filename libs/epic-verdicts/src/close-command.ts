@@ -406,10 +406,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    if (!epicComments.ok) {
-        return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
-    }
-    const earlierClose = [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER));
+    const earlierClose = epicComments.ok ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER)) : undefined;
 
     // Whatever named it — the lead, an entry path's link or a story's parent — the epic must be filed
     // as one, checked before anything (even the re-run shortcut) can close it. This is stricter
@@ -441,6 +438,11 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         });
     }
 
+    // After the kind check, so a number that names no issue (whose comments cannot be read either)
+    // is told so, not told to retry a read.
+    if (!epicComments.ok) {
+        return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+    }
     if (earlierClose !== undefined) {
         return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun, closeComment: earlierClose.body }, earlierBlock);
     }

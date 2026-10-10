@@ -3032,7 +3032,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         const m = value === undefined ? null : /^#?(\d+)$/.exec(value);
         return m !== null && Number(m[1]) > 0 ? Number(m[1]) : null;
     };
-    const targets: { form: string; target: CloseTarget }[] = [];
+    // Keyed by what each names, so the same epic or pull request given twice is one target.
+    const targets = new Map<string, { form: string; target: CloseTarget }>();
+    const add = (form: string, target: CloseTarget): void => {
+        const key = "epic" in target ? `epic ${target.epic}` : `pr ${target.pr.host ?? ""}/${target.pr.repo ?? ""}#${target.pr.number}`;
+        if (!targets.has(key)) targets.set(key, { form, target });
+    };
     let recover: number | undefined;
     let handoff: string | null = null;
     const paths: string[] = [];
@@ -3042,12 +3047,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             const value = argv[++i];
             const epic = issueNumber(value);
             if (epic === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
-            targets.push({ form: `--epic ${value}`, target: { epic } });
+            add(`--epic ${value}`, { epic });
         } else if (a === "--pr") {
             const value = argv[++i];
             const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
-            targets.push({ form: `--pr ${value}`, target: { pr: ref } });
+            add(`--pr ${value}`, { pr: ref });
         } else if (a === "--recover") {
             const value = argv[++i];
             const epic = issueNumber(value);
@@ -3060,12 +3065,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         else if (/^#?\d+$/.test(a)) {
             const epic = issueNumber(a);
             if (epic === null) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
-            targets.push({ form: a, target: { epic } });
+            add(a, { epic });
         }
         else paths.push(a);
     }
     if (recover !== undefined) {
-        if (targets.length > 0 || handoff !== null || paths.length > 0) {
+        if (targets.size > 0 || handoff !== null || paths.length > 0) {
             io.stderr(`close --recover takes only the closed epic's issue number: nexus close --recover <epic>.\n${usage}`);
             return 2;
         }
@@ -3075,19 +3080,17 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         for (const line of rendered.stderr) io.stderr(line);
         return rendered.exitCode;
     }
-    // The same epic named twice is still one epic.
-    const epicOf = (t: CloseTarget): number | null => ("epic" in t ? t.epic : null);
-    const distinct = targets.filter((t, i) => epicOf(t.target) === null || targets.findIndex((u) => epicOf(u.target) === epicOf(t.target)) === i);
-    if (distinct.length > 1) {
-        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${distinct.map((t) => t.form).join(" and ")}.`);
+    if (targets.size > 1) {
+        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${[...targets.values()].map((t) => t.form).join(" and ")}.`);
     }
     if (handoff === "") return refuse("--handoff takes the path to write the hand-off note to; got nothing.");
     if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
-    if (targets.length === 0 && paths.length > 0) {
+    if (targets.size === 0 && paths.length > 0) {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
     }
-    if (targets.length === 0 && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
-    if (targets.length === 0) {
+    const [only] = targets.values();
+    if (only === undefined && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
+    if (only === undefined) {
         io.stderr(usage);
         return 2;
     }
@@ -3099,7 +3102,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     });
     const outcome = runCloseCommand(deps, {
         cwd: io.cwd,
-        target: targets[0].target,
+        target: only.target,
         entryPath: paths.length === 1 ? path.resolve(io.cwd, paths[0]) : null,
         handoff: handoff === null ? null : path.resolve(io.cwd, handoff),
         date: localDate(),
