@@ -119,7 +119,7 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
         });
     }
     if (earlier.found === "unreadable") {
-        return stopped({ reason: `the close comment on epic ${epicRef} cannot be read as this epic's: ${earlier.why}`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --epic ${input.epic}, which posts one` });
+        return stopped({ reason: `the close comment on epic ${epicRef} cannot be read as this epic's: ${earlier.why}`, item: `epic ${epicRef}`, remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}` });
     }
     const { body: closeComment, block } = earlier;
     const record = recordNumber(block["record"]);
@@ -337,7 +337,7 @@ function sectionAt(lines: string[], heading: string): { start: number; end: numb
     const level = (/^#+/.exec(heading) ?? [""])[0].length;
     const next = new RegExp(`^#{1,${level}} `);
     let end = start + 1;
-    while (end < lines.length && !next.test(lines[end]) && lines[end].trimEnd() !== CLOSE_RECORD_MARKER) end++;
+    while (end < lines.length && !next.test(lines[end]) && !lines[end].startsWith(CLOSE_RECORD_MARKER)) end++;
     return { start, end };
 }
 
@@ -433,7 +433,7 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
 
     // The machine block: the first marker that opens a line, then its fence, as machineBlock reads
     // it. An indented or quoted copy above it is not close's own.
-    const marker = lines.findIndex((l) => l.trimEnd() === CLOSE_RECORD_MARKER);
+    const marker = lines.findIndex((l) => l.startsWith(CLOSE_RECORD_MARKER));
     const open = marker + 1;
     const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
     if (marker >= 0 && end > open) {

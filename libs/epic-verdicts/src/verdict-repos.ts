@@ -69,7 +69,7 @@ export function canonicalIssuesRepo(issuesRepo: string): string {
     const bare = issuesRepo
         .trim()
         .replace(/\/+$/, "")
-        .replace(/\.git$/, "")
+        .replace(/\.git$/i, "")
         .replace(/^[^@/\s]+@([^:/\s]+):/, "$1/")
         .replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?/i, "");
     const id = parseRepoIdentity(bare);

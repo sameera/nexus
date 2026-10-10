@@ -29,7 +29,6 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
-import { recordNumber } from "@nexus/epic-verdicts/close-record";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -68,6 +67,7 @@ import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
 import { deriveRangeList, type RangeListItem } from "@nexus/pr-worktree/range-list";
 import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
 import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
+import { parseIssueRef } from "@nexus/workspace/issue-ref";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -3029,10 +3029,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return 2;
     };
     const got = (value: string | undefined): string => (value === undefined ? "nothing" : `'${value}'`);
-    // An issue number, bare or as `#N`, the way every report prints one: the close comment's own parse.
+    // An issue number, bare or as `#N`, the way every report prints one.
     const issueNumber = (value: string | undefined): number | null => {
-        const n = value === undefined ? null : recordNumber(value);
-        return n !== null && n > 0 ? n : null;
+        const ref = value === undefined ? null : parseIssueRef(value);
+        return ref !== null && ref.repo === null ? ref.number : null;
     };
     const given: { form: string; target: CloseTarget }[] = [];
     let recover: number | undefined;

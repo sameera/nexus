@@ -18,6 +18,7 @@ import { TWO_VERDICT_ANALYZED_HEAD, TWO_VERDICT_PR, TWO_VERDICT_RECORD_HASH, TWO
 import { renderJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordDigest } from "@nexus/record-digest/digest";
 import { type CloseCommandDeps, type CloseInput, type CloseVerdictRead, closeCommandDeps, renderCloseOutcome, runCloseCommand } from "./close-command.js";
+import { amendmentKey } from "./close-record.js";
 import { type StubToFile } from "./close-stubs.js";
 import { type Runner } from "./run.js";
 import { defaultRunner } from "@nexus/workspace/run";
@@ -650,6 +651,25 @@ describe("nexus close — keyed by the epic (#906)", () => {
             findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
         });
         expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
+    });
+
+    it("names a story as not an epic before it names an unreadable close comment pasted on it", () => {
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === 864 ? [{ body: `<!-- nexus:close-record -->\nbroken`, authorAssociation: "OWNER" }] : [] }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 864 } })));
+        expect(err).toMatch(/reason: .*#864 .*story/);
+        expect(err).not.toMatch(/does not read/);
+    });
+
+    it("finds an amendment and a stub an earlier run keyed with epic-repo as configured", () => {
+        const configured = `https://github.com/${ISSUES}`;
+        const amended = { body: `x\n${amendmentKey(configured, EPIC)}`, authorAssociation: "OWNER" };
+        const h = harness({
+            issuesRepo: () => ({ ok: true, repos: { issuesRepo: configured, repo: ISSUES } }),
+            verdict: () => present(emptyJudgments({ items: [departure("DV1", { supersedes: { decision: "D2", instead: "x" } })] })),
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === RECORD ? [amended] : [] }),
+        });
+        closed(h);
+        expect(amendments(h)).toEqual([]);
     });
 
     it("names an unreadable close comment before asking how the issue is filed", () => {
@@ -1702,6 +1722,10 @@ describe("nexus close — the record fetch, the commit and the record-issue comm
         expect(ok.calls).toEqual([["gh", "api", "--method", "POST", `repos/${ISSUES}/issues/${RECORD}/comments`, "-f", "body=## Amended"]]);
         const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 403" }));
         expect(closeCommandDeps(failing.run, { singleRepo: () => true }).postComment("/repo", ISSUES, RECORD, "x")).toEqual({ ok: false, message: "HTTP 403" });
+        // An issues repository on another forge is posted to on that host.
+        const ghe = recorder(() => ({ status: 0, stdout: "{}", stderr: "" }));
+        closeCommandDeps(ghe.run, { singleRepo: () => true }).postComment("/repo", "ghe.corp/acme/app", RECORD, "x");
+        expect(ghe.calls[0].slice(0, 4)).toEqual(["gh", "api", "--hostname", "ghe.corp"]);
     });
 
     it("commits the entry's files, and reports nothing to commit when an earlier run's commit already holds them", () => {
