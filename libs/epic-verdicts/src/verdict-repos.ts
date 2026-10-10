@@ -61,11 +61,12 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
 
 /**
  * The issues repository as the slug the epic-resolve reads take: `owner/repo` or `host/owner/repo`,
- * else its last two path segments, so a configured epic-repo written as a URL (with a trailing
- * slash or `.git`) still reads. The one parse every close read of the issues repository uses.
+ * else its last two path segments, so a configured epic-repo written as a URL or in SSH form (with
+ * a trailing slash or `.git`) still reads. The one parse every close read of the issues repository uses.
  */
 export function issuesRepoSlug(issuesRepo: string): RepoSlug {
-    const bare = issuesRepo.trim().replace(/\.git\/?$/, "");
+    // `git@host:owner/repo` is the SSH form of `host/owner/repo`.
+    const bare = issuesRepo.trim().replace(/\.git\/?$/, "").replace(/^[^@/\s]+@([^:/\s]+):/, "$1/");
     const id = parseRepoIdentity(bare);
     if (id !== null) return { owner: id.owner, repo: id.name };
     const segments = bare.split("/").filter((p) => p.length > 0);

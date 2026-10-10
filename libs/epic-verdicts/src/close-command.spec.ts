@@ -623,6 +623,33 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
+    it("finishes a close comment of an epic filed under an initiative that has since lost its epic marking", () => {
+        const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({
+            issueKind: () => ({ ok: true, exists: true, kind: "other", parent: 491 }),
+            issueComments: () => ({ ok: true, comments: [earlier] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
+    });
+
+    it("names an unreadable close comment before asking how the issue is filed", () => {
+        const h = harness({
+            issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null }),
+            issueComments: () => ({ ok: true, comments: [{ body: `<!-- nexus:close-record -->\nbroken`, authorAssociation: "OWNER" }] }),
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toMatch(/reason: .*does not read/);
+        expect(err).not.toMatch(/not filed as an epic/);
+    });
+
+    it("reads an entry path saved with CRLF line endings", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\r\nlink: "#${EPIC}"\r\n---\r\n`);
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { entryPath: entry }))).exitCode).toBe(0);
+    });
+
     it("finishes a close comment that stamps this epic though the issue has since lost its epic marking", () => {
         const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const h = harness({

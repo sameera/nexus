@@ -113,7 +113,7 @@ describe("resolveVerdictRepos across a hub and a member checkout (#783)", () => 
 
 describe("issuesRepoSlug — the one parse of the issues repository (#906)", () => {
     it("reads owner/repo, host/owner/repo, and a URL with or without a trailing slash or .git", () => {
-        for (const configured of ["acme/issues", "github.com/acme/issues", "https://github.com/acme/issues", "https://github.com/acme/issues/", "https://github.com/acme/issues.git", "acme/issues.git"]) {
+        for (const configured of ["acme/issues", "github.com/acme/issues", "https://github.com/acme/issues", "https://github.com/acme/issues/", "https://github.com/acme/issues.git", "acme/issues.git", "git@github.com:acme/issues.git"]) {
             expect(issuesRepoSlug(configured), configured).toEqual({ owner: "acme", repo: "issues" });
         }
     });

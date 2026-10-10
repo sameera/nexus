@@ -49,7 +49,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { classifyIssueKind, countsAsEpic, resolveKindClassification, type IssueKind } from "@nexus/epic-resolve/classify";
+import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/epic-resolve/classify";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
@@ -268,9 +268,9 @@ export function linkedEpic(markdown: string): number | null {
 
 /** The issue an `epic.md`'s `link` names, with the repository it qualifies it with (null when bare), or null. */
 function linkedEpicRef(markdown: string): { repo: string | null; number: number } | null {
-    const fm = /^---\n([\s\S]*?)\n---/.exec(markdown);
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
     if (fm === null) return null;
-    const line = /^link:\s*(.+)$/m.exec(fm[1]);
+    const line = /^link:\s*(.+?)\r?$/m.exec(fm[1]);
     if (line === null) return null;
     return parseIssueRef(line[1].trim().replace(/^["']|["']$/g, ""));
 }
@@ -404,6 +404,14 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
     const earlier = epicComments.ok ? findEpicCloseComment(epicComments.comments, epic, issuesRepo) : ({ found: "none" } as const);
+    // A close comment that cannot be read is the first answer: no other check can be trusted around it.
+    if (earlier.found === "unreadable") {
+        return stopped({
+            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${earlier.why}, so close can neither finish that close nor tell that none happened`,
+            item: `epic ${epicRef}`,
+            remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
+        });
+    }
 
     // A number the lead typed must be an epic, checked before anything, even the re-run shortcut,
     // can close it; the story ladder already checked the epic it found from a pull request.
@@ -417,9 +425,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
         }
-        // This epic's own close comment excuses only a missing marking (an epic relabelled since),
-        // never an issue filed as something else.
-        if (!kind.exists || !countsAsEpic(kind.kind, kind.parent, { unmarkedTopLevel: earlier.found === "own" })) {
+        // Only an issue filed as an epic. This epic's own close comment excuses a marking lost since
+        // (an epic relabelled after close), never an issue filed as a story or a record.
+        if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && earlier.found === "own"))) {
             const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
             const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
             const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";
@@ -436,13 +444,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // is told so, not told to retry a read.
     if (!epicComments.ok) {
         return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
-    }
-    if (earlier.found === "unreadable") {
-        return stopped({
-            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${earlier.why}, so close can neither finish that close nor tell that none happened`,
-            item: `epic ${epicRef}`,
-            remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
-        });
     }
     if (earlier.found === "own") {
         return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlier.block);
@@ -1084,9 +1085,10 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
     return {
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
-            if (ref.repo === null) return resolvePr(run, repoRoot, ref.number, { requireMerged: false });
-            // A checkout with no forge remote leaves the host to gh, as a bare number does.
-            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: prRepoOnForge(ref, canonicalRepoRef(run, repoRoot)) ?? ref.repo });
+            // A bare number is read where resolvePr reads one, the checkout's own repository; a
+            // qualified one on the forge prRepoOnForge names, gh's own when the checkout names none.
+            const repo = ref.repo === null ? null : prRepoOnForge(ref, canonicalRepoRef(run, repoRoot));
+            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(repo === null ? {} : { repo }) });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {

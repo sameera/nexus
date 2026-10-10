@@ -33,7 +33,9 @@ are recovering, so an explicit invocation is sufficient and bounded.
    `<!-- nexus:close-record -->` marker opens a line and whose machine block stamps this epic
    (`epic: "#<N>"`) and, when it names one, this `issues_repo:`. This is the comment `nexus close`
    resumes from and `nexus close --recover` re-stamps. Ignore untrusted bodies, bodies that merely
-   quote one, and another epic's close comment. From it take:
+   quote one, and another epic's close comment. If the newest trusted marker comment that is not
+   another epic's has a block that does not read, or stamps this epic under another `issues_repo:`,
+   stop on it as `no-close-comment` rather than take an older one. From it take:
     - the **rationale**: the Key Decisions + Deviation Rationale prose, verbatim;
     - the **record reference and full approved-body hash**, the **conformance verdict**, and
       the **full-SHA landed `range:`**, parsed from the marker-anchored machine block, never
