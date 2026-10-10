@@ -251,6 +251,14 @@ describe("nexus close — a merged pull request whose every story is current (AC
         expect(rendered.stderr).toEqual([]);
     });
 
+    it("reports progress while it works, before the outcome returns", () => {
+        const h = harness();
+        const seen: string[] = [];
+        const out = runCloseCommand(h.deps, input(h, { progress: (m: string): void => void seen.push(m) }));
+        expect(out.ok).toBe(true);
+        expect(seen.length).toBeGreaterThan(1);
+    });
+
     it("names each shipped record it did not read because its author cannot speak for the repository", () => {
         const h = harness({
             ranges: () => ({ ok: true, ranges: ranges(), untrusted: [{ commentId: "c1", key: null, author: "drive-by", authorAssociation: "NONE" }] }),

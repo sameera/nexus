@@ -111,6 +111,8 @@ export interface CloseInput {
     date: string;
     /** The release writing the close record, or null when unresolved (the stamp is then omitted). */
     nexusVersion?: string | null;
+    /** Called with one short status line as each phase starts; the command prints nothing itself until it ends. */
+    progress?: (message: string) => void;
 }
 
 /** One stop: the reason, the thing concerned and the remedy that can clear it (G4). */
@@ -404,7 +406,10 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Until the epic is known a re-run repeats what the lead ran; from then on it names the epic.
     let rerun = `nexus close ${closeArgs(input.target, input)}`;
 
+    const say = (message: string): void => input.progress?.(message);
+
     // 1. Resolve, read-only.
+    say("Resolving the epic...");
     const role = deps.role(input.cwd);
     if (!role.ok) {
         return stopped({ reason: role.error.message, item: input.cwd, remedy: `run ${rerun} from inside a single-repo checkout or a workspace hub` });
@@ -542,6 +547,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const record = resolved.record?.number ?? null;
 
     // 2. Gate, read-only. Every gate runs, so one pass names everything to fix.
+    say("Checking stories, pull requests and verdicts...");
     const stops: CloseStop[] = [];
     const notes: string[] = [];
 
@@ -635,6 +641,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     if (stops.length > 0) return { ok: false, stops };
     const passed = gate as CloseRanges;
 
+    say("Assembling the close record...");
     // 3. Assemble in memory, from the verdicts, the record body and the gate's stamps only (G2).
     const fm = frontmatter(resolved.markdown);
     const content = assembleCloseContent({
@@ -672,6 +679,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const reusedStubs = stubs.size;
 
     // 4. Worktree. The first step that creates anything.
+    say("Preparing the distill worktree...");
     const wt = deps.openWorktree(repoRoot, epic, input.date);
     if (!wt.ok) return stopped({ reason: wt.error.message, item: repoRoot, remedy: `re-run ${rerun} once the cause above is fixed` });
     const entry = queueEntry(wt.wtPath, epic, entryRel, resolved.markdown);
@@ -712,6 +720,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     }
 
     // 6. The close record, with the stub numbers, committed and pushed.
+    say("Committing and pushing the close record...");
     const recordPath = path.join(entry.dir, "close-record.md");
     fs.writeFileSync(recordPath, renderCloseRecord(content, stubs));
     const commit = deps.commitEntry(wt.wtPath, [path.join(entry.dir, "epic.md"), recordPath], `close: epic-${epic} — ${entry.kind === "born" ? "born-at-close epic, close record" : "close record"}`);
@@ -728,6 +737,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     }
     done.push(`committed and pushed the close record on ${wt.branch}`);
 
+    say("Posting the close comment and closing the epic...");
     // 7. The record amendment, with find before write. A failed post is reported and stops nothing (G48).
     const amendment = postAmendment(deps, repoRoot, content);
 

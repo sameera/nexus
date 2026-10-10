@@ -3220,6 +3220,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         handoff: handoff === null ? null : path.resolve(io.cwd, handoff),
         date: localDate(),
         nexusVersion: releaseVersion(),
+        // stderr, and only on a terminal: stdout stays the close output, pipes and the relay stay clean.
+        progress: process.stderr.isTTY ? (message: string) => io.stderr(message) : undefined,
     });
     const rendered = renderCloseOutcome(outcome);
     for (const line of rendered.stdout) io.stdout(line);
