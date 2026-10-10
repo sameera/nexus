@@ -13,6 +13,15 @@ decisions. Resolve them one at a time. Stop when every functional goal is sharp 
 as an epic stub. You resolve decisions; you do not plan work, size epics, or file issues. Issues
 appear later, when `/nxs.epic` consumes the finished discovery.
 
+**Finish line:** start ends once the discovery is committed and its research agents are fired;
+resume ends once one decision is resolved and committed; close ends once the lessons note is
+committed and the folder removed. **Gates:** the destination (Phase 1), the feature (Phase 2), the
+resume-or-new choice when a discovery exists (Phase 3), the interview and the surface sketch ruling
+on a resumed ticket (Phase R2), and the outcome confirmation before close (Phase C0).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text

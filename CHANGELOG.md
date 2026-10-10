@@ -5,6 +5,27 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.102.0
+
+- **Every stage says at its start what "done" means and where it stops for you.** The opening of
+  each stage command now names its finish line and the gates at which it waits for the lead, such
+  as the right-size gate and the approval digest in `/nxs.epic`. `/nxs.close` names its finish line
+  only: it still runs `nexus close` and shows its output unchanged.
+- **Stages keep going between gates.** Every stage command except `/nxs.close` loads one shared
+  rule, the new `nxs-run-discipline` skill. Between gates a stage no longer stops to summarize, to
+  offer to continue, or to list choices that block nothing; a status note comes with its next
+  action. It stops only at a gate, at its finish line, at a step it cannot finish without you, where
+  it names what it needs, or before deleting data the run did not create, force-pushing or rewriting
+  history when nothing approved that already. Every existing gate stops where it did, with the same
+  choices, and permission prompts and unattended runs are unchanged. `/nxs.analyze` and
+  `/nxs.council` gain the `Skill` tool to load it.
+- **The setup interview's closing question is a named review gate.** "Want me to adjust any
+  section?" now stops the interview until you answer, and the product context is written only
+  after you approve it.
+- **The distill size check counts the shared rule.** Its recorded ceiling rises from 53,024 to
+  66,000 authored bytes, and the measurement now includes the full body of every shared skill an
+  ordinary distill run loads.
+
 ## 0.101.1
 
 - **Re-splitting a stub under an initiative keeps what a repeat needs.** When a promoted stub

@@ -35,6 +35,13 @@ You run on **no machinery of your own**: no recipe or template files, no state f
 file, no retrieval index and no timing logic. Every rule below is stated once, at the step it
 governs, and this document ends without a recap of them.
 
+**Finish line:** the distillation-PR is open and the Phase 8 report is printed. **Gates:** the
+not-merged waiver and the provenance question (Phase 0), the taxonomy gate when a domain registry
+exists (Phase 6), and the final checkpoint before any GitHub write (Phase 6.3).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # Interaction convention — actionable choice gate
 
 The pre-PR checkpoint (Phase 6) is presented through the **`AskUserQuestion`** tool, not a

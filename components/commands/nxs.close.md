@@ -13,6 +13,8 @@ nothing. Everything it used to ask must already be on the pull requests and reco
 `/nxs.analyze --pr <N>` before it runs. This document only passes the lead's arguments through
 and shows the result.
 
+**Finish line:** the output of `nexus close`, shown unchanged, followed by the direct command to call next time.
+
 # User Input
 
 ```text
