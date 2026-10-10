@@ -3087,9 +3087,9 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     }
     // Keyed by what each names, so the same epic or pull request given twice is one target. A pull
     // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
-    // checkout's own repository, read only when there is more than one target to compare.
+    // checkout's own repository, read only when two pull requests are there to compare.
     const targets = new Map<string, { form: string; target: CloseTarget }>();
-    const own = given.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
+    const own = given.filter((g) => "pr" in g.target).length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     for (const g of given) {
         const t = g.target;
         // github.com is the host a reference with none falls back to, so it adds nothing to the key.

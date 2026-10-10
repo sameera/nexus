@@ -72,3 +72,14 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
     const segments = bare.split("/").filter((p) => p.length > 0);
     return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }
+
+/**
+ * Whether two written forms name the same issues repository, whichever form each is in
+ * (`owner/repo`, `host/owner/repo`, a URL or the SSH form), compared by owner and name as GitHub
+ * compares them, without case.
+ */
+export function sameIssuesRepo(a: string, b: string): boolean {
+    const x = issuesRepoSlug(a);
+    const y = issuesRepoSlug(b);
+    return x.owner.toLowerCase() === y.owner.toLowerCase() && x.repo.toLowerCase() === y.repo.toLowerCase();
+}

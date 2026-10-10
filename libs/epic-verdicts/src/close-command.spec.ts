@@ -499,6 +499,19 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(out.resumed).toBe(false);
     });
 
+    it("finishes its own close comment when epic-repo is configured as a URL or in SSH form", () => {
+        const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: ${ISSUES}\n\`\`\``;
+        for (const configured of [`https://github.com/${ISSUES}`, `git@github.com:${ISSUES}.git`]) {
+            const h = harness({
+                issuesRepo: () => ({ ok: true, repos: { issuesRepo: configured, repo: ISSUES } }),
+                issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+                findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+            });
+            const out = runCloseCommand(h.deps, input(h));
+            expect(out.ok && out.resumed, configured).toBe(true);
+        }
+    });
+
     it("stops, creating nothing, on a close comment that stamps this epic in another issues repository, naming both", () => {
         const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: acme/old\n\`\`\``;
         const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });

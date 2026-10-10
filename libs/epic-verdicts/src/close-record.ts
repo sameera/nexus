@@ -35,6 +35,7 @@ import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type AppliedWaiver, type CloseRanges, type PrLandedCheck } from "./close-ranges.js";
 import { inertLines, inertText } from "./close-text.js";
+import { sameIssuesRepo } from "./verdict-repos.js";
 
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
@@ -599,7 +600,7 @@ export function findEpicCloseComment(comments: readonly { body: string; authorAs
         if (block === null || stamped === null) return { found: "unreadable", why: "its machine block does not read" };
         if (stamped !== epic) continue;
         const repo = block["issues_repo"];
-        if (typeof repo === "string" && !sameRepo(repo, issuesRepo)) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
+        if (typeof repo === "string" && !sameIssuesRepo(repo, issuesRepo)) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
         return { found: "own", body: c.body, block };
     }
     return { found: "none" };

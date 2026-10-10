@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
+import { issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
@@ -116,5 +116,14 @@ describe("issuesRepoSlug — the one parse of the issues repository (#906)", () 
         for (const configured of ["acme/issues", "github.com/acme/issues", "https://github.com/acme/issues", "https://github.com/acme/issues/", "https://github.com/acme/issues.git", "acme/issues.git", "git@github.com:acme/issues.git"]) {
             expect(issuesRepoSlug(configured), configured).toEqual({ owner: "acme", repo: "issues" });
         }
+    });
+});
+
+describe("sameIssuesRepo — one issues repository in any written form (#906)", () => {
+    it("matches owner/repo against a URL, the SSH form and a host-qualified form, without case", () => {
+        for (const other of ["https://github.com/Acme/Issues", "git@github.com:acme/issues.git", "github.com/acme/issues"]) {
+            expect(sameIssuesRepo("acme/issues", other), other).toBe(true);
+        }
+        expect(sameIssuesRepo("acme/issues", "acme/other")).toBe(false);
     });
 });

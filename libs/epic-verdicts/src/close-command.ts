@@ -90,7 +90,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -390,7 +390,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // After the target, so a pull request that has not merged is still the first answer.
     const link = input.entryPath === null ? null : entryLink(input.entryPath);
     if (link !== null && !link.ok) return stopped(link.stop);
-    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameRepo(link.repo, issuesRepo)))) {
+    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameIssuesRepo(link.repo, issuesRepo)))) {
         return stopped({
             reason: `the entry path's link names epic ${link.repo ?? issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close ${"epic" in input.target ? "was given" : "found from the pull request"}`,
             item: input.entryPath ?? "",
@@ -403,6 +403,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
+    const commentsUnread = (why: string): CloseOutcome =>
+        stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
     const earlier = epicComments.ok ? findEpicCloseComment(epicComments.comments, epic, issuesRepo) : ({ found: "none" } as const);
     // A close comment that cannot be read is the first answer: no other check can be trusted around it.
     if (earlier.found === "unreadable") {
@@ -420,7 +422,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // With the comments unread, close cannot know of an earlier close that would excuse a lost
         // marking; that read failing is the stop, unless the number names no issue at all.
         if (!epicComments.ok && !(kind.ok && !kind.exists)) {
-            return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+            return commentsUnread(epicComments.message);
         }
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
@@ -443,7 +445,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // After the kind check, so a number that names no issue (whose comments cannot be read either)
     // is told so, not told to retry a read.
     if (!epicComments.ok) {
-        return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+        return commentsUnread(epicComments.message);
     }
     if (earlier.found === "own") {
         return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlier.block);
@@ -579,7 +581,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         for (const p of content.approved) {
             const key = stubKey(content, p);
             const found = mentions.issues
-                .filter((i) => !i.pullRequest && i.trusted && sameRepo(i.repo, issuesRepo) && i.body.includes(key))
+                .filter((i) => !i.pullRequest && i.trusted && sameIssuesRepo(i.repo, issuesRepo) && i.body.includes(key))
                 .map((i) => i.number)
                 .sort((a, b) => a - b)[0];
             if (found !== undefined) stubs.set(proposalKey(p), found);

@@ -60,6 +60,8 @@ End with this one line, after the output, whether close finished or stopped:
 
     Next time, run `nexus close $ARGUMENTS` directly; /nxs.close only relays to it.
 
+Write `$ARGUMENTS` in that line quoted as Step 2 ran it, so the line can be pasted into a shell.
+
 # Recovery — re-stamp a closed entry whose record was revised after close
 
 This is the section `/nxs.distill` names when a drain is blocked because the decision record was
@@ -85,5 +87,5 @@ the recovery mode of the close command, run by the lead directly:
 /nxs.close 159                      # runs: nexus close 159
 /nxs.close --pr 123                 # runs: nexus close --pr 123
 /nxs.close --pr 'owner/repo#704'    # runs: nexus close --pr 'owner/repo#704'
-/nxs.close --pr 123 path/to/epic.md # runs: nexus close --pr 123 path/to/epic.md
+/nxs.close --pr 123 path/to/epic.md # runs: nexus close --pr 123 path/to/epic.md (the path must link that pull request's epic)
 ```
