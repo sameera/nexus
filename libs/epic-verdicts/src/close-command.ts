@@ -13,9 +13,9 @@
  *   1. Resolve, read-only (story #864). The checkout's role (a member is refused, G44), the issues
  *      repository every issue read and write targets (G46), and the epic. The lead names the epic
  *      (#906), or names a pull request that close resolves to it: the pull request must have
- *      merged, and its epic comes from the entry path when one is given, else from the pull
- *      request's story and that story's parent. No gate reads that pull request again. Whatever
- *      names it, the epic must be filed as one. A trusted close comment already on the epic means
+ *      merged, and its epic comes from the pull request's story and that story's parent; an entry
+ *      path given with either must link the same epic. No gate reads that pull request again. Either way
+ *      the epic must be filed as one. A trusted close comment already on the epic means
  *      an earlier run finished everything it carries: close then only closes the issue, writes the
  *      hand-off note and reports (G27).
  *   2. Gate, read-only (#864, #866). Every sub-issue closed, with no exemption (G43). #849's
@@ -157,8 +157,8 @@ export interface CloseCommandDeps {
     issuesRepo(root: string): ResolveVerdictReposResult;
     /** The epic and the stories the pull request implements, through the validated candidate ladder; `prRepo` is the repository it lives in. */
     storiesOfPr(root: string, issuesRepo: string, pr: PrInfo, prRepo: string): ResolveStoriesResult;
-    /** What an issue is filed as, its parent, and whether the repository declares how it files issues. */
-    issueKind(root: string, issuesRepo: string, issue: number): { ok: true; exists: boolean; kind: IssueKind; parent: number | null; declared: boolean } | { ok: false; message: string };
+    /** What an issue is filed as, and its parent: the check on an epic number the lead typed. */
+    issueKind(root: string, issuesRepo: string, issue: number): { ok: true; exists: boolean; kind: IssueKind; parent: number | null } | { ok: false; message: string };
     /** The epic: its live stories, its decision record and the materialized `epic.md`. */
     resolveEpic(root: string, issuesRepo: string, epic: number): ResolveEpicResult;
     /** Every sub-issue of the epic, whatever its kind, with its state. */
@@ -351,19 +351,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
 
     let epic: number;
-    // Whether the entry path's link alone named the epic, with no pull request to agree with it.
-    let linkOnly = link !== null;
-    // Whether the story ladder found the epic, which already checked that it counts as one.
-    let fromLadder = false;
     if ("epic" in input.target) {
         epic = input.target.epic;
-        if (link !== null && link.epic !== epic) {
-            return stopped({
-                reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close was given`,
-                item: input.entryPath ?? "",
-                remedy: `pass the epic.md of epic ${issuesRepo}#${epic}, or omit the path`,
-            });
-        }
     } else {
         // A pull request only finds the epic. One that has not merged is the cheap early answer for
         // a lead who ran close too soon.
@@ -380,32 +369,25 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         if (!read.pr.merged) {
             return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
         }
+        // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
+        // place is named by its epic instead: --epic replaces the old entry-path way through.
         const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
-        // The entry path is the way through a pull request that names no single epic; any other
-        // failure to resolve its stories stops, so a read error never skips the agreement check.
-        const unresolvable = !stories.ok && (stories.error.problem === "story-candidates-multiple-epics" || stories.error.problem === "no-story-candidates");
-        if (link !== null && (stories.ok || unresolvable)) {
-            if (stories.ok && stories.epic !== link.epic) {
-                return stopped({
-                    reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, but ${label} implements a story of epic ${issuesRepo}#${stories.epic}`,
-                    item: input.entryPath ?? "",
-                    remedy: `pass the epic.md of epic ${issuesRepo}#${stories.epic}, or omit the path`,
-                });
-            }
-            epic = link.epic;
-            linkOnly = !stories.ok;
-        } else {
-            if (!stories.ok) {
-                const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
-                return stopped({
-                    reason: ambiguous ? `${label} does not name one epic: ${stories.error.message}` : `the epic of ${label} cannot be resolved: ${stories.error.message}`,
-                    item: label,
-                    remedy: `name the epic instead: nexus close --epic <N>` + (ambiguous ? "" : `, or have the pull request close its story issue`),
-                });
-            }
-            epic = stories.epic;
-            fromLadder = true;
+        if (!stories.ok) {
+            const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
+            return stopped({
+                reason: ambiguous ? `${label} does not name one epic: ${stories.error.message}` : `the epic of ${label} cannot be resolved: ${stories.error.message}`,
+                item: label,
+                remedy: `name the epic instead: nexus close --epic <N>` + (ambiguous ? "" : `, or have the pull request close its story issue`),
+            });
         }
+        epic = stories.epic;
+    }
+    if (link !== null && link.epic !== epic) {
+        return stopped({
+            reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close ${"epic" in input.target ? "was given" : "found from the pull request"}`,
+            item: input.entryPath ?? "",
+            remedy: `pass the epic.md of epic ${issuesRepo}#${epic}, or omit the path`,
+        });
     }
     rerun = `nexus close ${closeArgs({ epic }, input)}`;
     const epicRef = `${issuesRepo}#${epic}`;
@@ -413,35 +395,32 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    const earlierClose = epicComments.ok ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER)) : undefined;
+    const newest = epicComments.ok ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER)) : undefined;
+    const earlierBlock = newest === undefined ? null : machineBlock(newest.body);
+    const stamped = earlierBlock === null ? null : recordNumber(earlierBlock["epic"]);
+    // A close comment that stamps another epic (one quoted onto this issue) is not this epic's close.
+    const earlierClose = newest !== undefined && (stamped === null || stamped === epic) ? newest : undefined;
 
-    // Whatever named it — the lead, an entry path's link or a story's parent — the epic must count as
-    // one under the shared rule (countsAsEpic), checked before anything, even the re-run shortcut,
-    // can close it.
-    // A close comment that stamps this very epic is proof enough: the re-run that finishes it never
-    // depends on how the issue is labelled today.
-    const earlierBlock = earlierClose === undefined ? null : machineBlock(earlierClose.body);
-    const stampsThis = earlierBlock !== null && recordNumber(earlierBlock["epic"]) === epic;
-    const kind = stampsThis || fromLadder ? null : deps.issueKind(repoRoot, issuesRepo, epic);
-    if (kind !== null && !kind.ok) {
-        return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
-    }
-    if (kind !== null && (!kind.exists || !countsAsEpic(kind.kind, kind.parent, { unmarkedTopLevel: !kind.declared }))) {
-        const source = "epic" in input.target ? "typed" : linkOnly ? "link" : "pr";
-        const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
-        const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
-        const prHint = source === "typed" && !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";
-        const unmarked = kind.exists && kind.kind === "other" ? `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}` : "";
-        return stopped({
-            reason: `${epicRef}${source === "link" ? ", which the entry path's link names," : ""} ${is}${parent}; close closes only an issue filed as an epic`,
-            item: source === "link" ? (input.entryPath ?? "") : `issue ${epicRef}`,
-            remedy:
-                (source === "link"
-                    ? "fix the link in the entry path's frontmatter to name the epic, or omit the path"
-                    : source === "pr"
-                      ? "name the epic instead: nexus close --epic <N>"
-                      : `pass the epic's own issue number: nexus close --epic <N>${prHint}`) + unmarked,
-        });
+    // A number the lead typed must be filed as an epic, checked before anything, even the re-run
+    // shortcut, can close it; the story ladder already checked the epic it found from a pull
+    // request. A close comment that stamps this very epic is proof enough, so a re-run never depends
+    // on how the issue is labelled today.
+    if ("epic" in input.target && stamped !== epic) {
+        const kind = deps.issueKind(repoRoot, issuesRepo, epic);
+        if (!kind.ok) {
+            return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
+        }
+        if (!kind.exists || !countsAsEpic(kind.kind, kind.parent, { unmarkedTopLevel: false })) {
+            const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
+            const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
+            const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";
+            const unmarked = kind.exists && kind.kind === "other" ? `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}` : "";
+            return stopped({
+                reason: `${epicRef} ${is}${parent}; close closes only an issue filed as an epic`,
+                item: `issue ${epicRef}`,
+                remedy: `pass the epic's own issue number: nexus close --epic <N>${prHint}${unmarked}`,
+            });
+        }
     }
 
     // After the kind check, so a number that names no issue (whose comments cannot be read either)
@@ -1125,10 +1104,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const slug = issuesSlug(issuesRepo);
             const facts = fetchIssueFacts(run, root, slug, issue);
             if (!facts.ok) return { ok: false, message: facts.error.message };
-            const declared = kinds.classification.mode !== "legacy-auto";
-            if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null, declared };
+            if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null };
             const kind = classifyIssueKind(kinds.classification, { number: issue, labels: facts.facts.labels, issueType: facts.facts.issueType });
-            return kind.ok ? { ok: true, exists: true, kind: kind.kind, parent: facts.facts.parent, declared } : { ok: false, message: kind.error.message };
+            return kind.ok ? { ok: true, exists: true, kind: kind.kind, parent: facts.facts.parent } : { ok: false, message: kind.error.message };
         },
         resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {

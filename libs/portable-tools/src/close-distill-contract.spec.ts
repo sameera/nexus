@@ -123,7 +123,7 @@ function runClose(reason: string): { entry: string; comment: string; wtPath: str
         }),
         issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: CODE } }),
         storiesOfPr: () => ({ ok: true, epic: EPIC, stories: [864] }),
-        issueKind: () => ({ ok: true, exists: true, kind: "epic", parent: null, declared: true }),
+        issueKind: () => ({ ok: true, exists: true, kind: "epic", parent: null }),
         resolveEpic: () => ({
             ok: true,
             markdown: `---\nfeature: "PR-Driven Delivery"\nlink: "#${EPIC}"\n---\n`,

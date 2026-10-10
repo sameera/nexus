@@ -14,7 +14,7 @@
  *   nexus uninstall                    remove the installed components from that directory
  *   nexus migrate-components           remove a repository's committed component set
  *   nexus deploy                       install the Nexus components into the invoking repo
- *   nexus close                        close an epic over its merged pull request (epic #830)
+ *   nexus close                        close an epic over its merged pull requests (epic #830, #906)
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
@@ -614,8 +614,8 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus close <N> [<path to epic.md>] [--handoff <path>]",
             "  nexus close --pr <ref> [<path to epic.md>] [--handoff <path>]",
             "      Closes an EPIC (not a worktree or a pull request): epic <N>, or with --pr the epic of",
-            "      merged pull request <ref> (a number, owner/repo#N or a pull-request URL; a qualified",
-            "      reference is read in the repository it names). The gate and the close record come",
+            "      merged pull request <ref> (a number, owner/repo#N or a pull-request URL; owner/repo#N",
+            "      is read on the checkout's forge, a URL on its own host). The gate and the close record come",
             "      from the epic's stories and the pull requests that claim them, in whatever repository",
             "      each merged; --pr only finds the epic, and stops early when that pull request has not",
             "      merged. Runs no model and asks no question. Every gate runs before anything is",
@@ -626,8 +626,8 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      block per stop naming the reason, the item and the remedy (a waiver stop prints the",
             "      comment to post) and exits 1. Then it reuses the distill branch an earlier run cut for",
             "      the epic, or cuts one from the trunk, and finds or creates the epic's queue entry.",
-            "      An entry path must link the same epic; with --pr it names the epic directly. A",
-            "      bare number is always the epic, so write an all-digit entry path as ./<path>.",
+            "      An entry path must link the same epic. A bare number is always the epic, so write",
+            "      an all-digit entry path as ./<path>.",
             "      A story no pull request claims passes on its marker, or on a trusted storyless waiver",
             "      comment on its own issue (a stop prints the exact form). Then, in this order, it files",
             "      each approved deferred-scope proposal as an unplanned epic stub, writes the marker on",

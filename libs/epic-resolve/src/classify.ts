@@ -257,8 +257,8 @@ export function resolveKindClassification(targetRoot: string): Ok<{ classificati
  * Whether an issue counts as an epic: one filed as an epic or, when `unmarkedTopLevel` allows it,
  * one filed as nothing in particular that is no sub-issue. The one rule every stage that refuses a
  * non-epic applies. Resolving an epic allows the unmarked case, so a repository that labels no
- * issue still resolves its epics; close allows it only where the repository declares no
- * classification, because close closes the issue and a declared repository marks its epics.
+ * issue still resolves its epics. Close does not: it closes the issue, so it takes only an issue
+ * filed as an epic, as the story ladder does for the epic it finds.
  */
 export function countsAsEpic(kind: IssueKind, parent: number | null, opts: { unmarkedTopLevel: boolean }): boolean {
     if (kind === "epic") return true;

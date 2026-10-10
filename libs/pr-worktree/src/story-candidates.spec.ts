@@ -306,17 +306,6 @@ describe("resolveStories — what it refuses", () => {
         expect(r.error.message).toContain("#700");
     });
 
-    it("in a repository that declares no classification, resolves to an unmarked top-level epic, as close does", () => {
-        const graph = {
-            800: { labels: [], parent: null, subIssues: [801] },
-            801: { labels: ["story"], parent: 800 },
-        };
-        const r = resolveStories(makeGraphRunner(graph), "/repo", SLUG, { ...LABELS, mode: "legacy-auto" }, { explicitStory: 801, closingIssues: [] });
-        expect(r.ok && r.epic).toBe(800);
-        // Under a declared classification the same unmarked issue is not an epic.
-        expect(resolveStories(makeGraphRunner(graph), "/repo", SLUG, LABELS, { explicitStory: 801, closingIssues: [] }).ok).toBe(false);
-    });
-
     it("stops when the declared classification does not match how the repository files issues", () => {
         // Settings say labels; the issue is typed instead. Reading the type anyway would let a
         // wrong `classification:` keep working here and disagree with every stage that trusts it.

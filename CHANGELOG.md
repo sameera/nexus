@@ -11,21 +11,21 @@ behaviour says so.
   `<N>` in the issues repository the checkout resolves to. Close reads no single pull request: its
   gate and its close record come from the epic's stories and the pull requests that claim them, in
   whichever repository each merged. From the hub, an epic whose pull requests merged in a member
-  repository no longer needs one of them named. Whichever form names the epic, an issue that is
-  not filed as an epic, by its label or issue type, stops close before it writes anything. A
-  repository that declares no classification still accepts an unmarked top-level issue, and a
-  re-run that finishes a close whose comment stamps that epic skips the check. Stops and
-  re-run hints name `nexus close --epic <N>`, and the report lists every merged pull request the
-  close covers.
+  repository no longer needs one of them named. A typed number that is not filed as an epic, by
+  its label or issue type, stops close before it writes anything; a re-run that finishes a close
+  whose comment stamps that epic skips the check. Stops and re-run hints name
+  `nexus close --epic <N>`, and the report lists every merged pull request the close covers.
 - **Close's `--pr` is a shortcut that accepts any pull-request reference.** `nexus close --pr`
   takes a number, `owner/repo#N` or a pull-request URL, finds the epic from that pull request, then
-  runs as `--epic` does. A qualified reference is read in the repository it names, so a member
-  pull request no longer fails to parse. A pull request that has not merged still stops close
-  early. Scripts that call `nexus close --pr <N>` keep working. Asked what an epic has shipped,
-  analyze now points at `nexus close --epic <epic>`.
-- **Analyze and close agree on what counts as an epic.** Both apply one rule. In a repository that
-  declares no classification, a pull request whose story sits under an unmarked top-level issue now
-  resolves to that issue as its epic in analyze and in `close --pr`, as `close --epic` already did.
+  runs as `--epic` does. A qualified reference is read in the repository it names, on the
+  checkout's forge for `owner/repo#N` and on the URL's own host for a URL, so a member pull request
+  no longer fails to parse. A pull request that has not merged still stops close early. Scripts
+  that call `nexus close --pr <N>` keep working. Asked what an epic has shipped, analyze now points
+  at `nexus close --epic <epic>`.
+- **An entry path no longer stands in for the epic (breaking).** An `epic.md` path given to close
+  must link the same epic the `--epic` number or the pull request names. A pull request that names
+  no single epic now stops with `nexus close --epic <N>` as the remedy, where `--pr <N> <epic.md>`
+  used to close the epic the path linked. Name the epic with `--epic` instead.
 - **Close names what was wrong with its arguments.** A value that does not parse gets its own
   message saying what close expected and what it got, and missing arguments print the usage. Close
   no longer answers a typing mistake with "close runs only against a merged pull request".

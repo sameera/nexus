@@ -25,7 +25,6 @@
 
 import {
     classifyIssueKind,
-    countsAsEpic,
     isWithdrawnStory,
     type IssueKind,
     type KindClassification,
@@ -287,14 +286,14 @@ export function resolveStories(
     }
     const epic: number = [...epics][0];
 
-    // The resolved epic must itself count as an epic, under the rule close applies to an epic it is
-    // given (countsAsEpic). Without this, a story filed under something that is not an epic resolves
-    // to that something, and the run reads its body for acceptance criteria it never had.
+    // The resolved epic must itself be filed as an epic. Without this, a story filed under
+    // something that is not an epic resolves to that something, and the run reads its body for
+    // acceptance criteria it never had.
     const epicFacts = facts(epic);
     if (!epicFacts.ok) return epicFacts;
     const epicKind = kindOf(epic, epicFacts.facts);
     if (!epicKind.ok) return epicKind;
-    if (!countsAsEpic(epicKind.kind, epicFacts.facts.parent, { unmarkedTopLevel: classification.mode === "legacy-auto" })) {
+    if (epicKind.kind !== "epic") {
         return {
             ok: false,
             error: {
