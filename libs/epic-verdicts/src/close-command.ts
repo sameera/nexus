@@ -376,10 +376,19 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         if (!read.pr.merged) {
             return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
         }
+        const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
         if (link !== null) {
+            // The entry path names the epic when the pull request names none close can resolve: the
+            // way through an ambiguous one. When it does name one, the two must agree.
+            if (stories.ok && stories.epic !== link.epic) {
+                return stopped({
+                    reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, but ${label} implements a story of epic ${issuesRepo}#${stories.epic}`,
+                    item: input.entryPath ?? "",
+                    remedy: `pass the epic.md of epic ${issuesRepo}#${stories.epic}, or omit the path`,
+                });
+            }
             epic = link.epic;
         } else {
-            const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
             if (!stories.ok) {
                 const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
                 return stopped({
@@ -394,16 +403,27 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     rerun = `nexus close ${closeArgs({ epic }, input)}`;
     const epicRef = `${issuesRepo}#${epic}`;
 
+    // Find before write: a trusted close comment on the epic is the durable copy an earlier run
+    // posted, so that run finished every write before it. Regenerate nothing (G27).
+    const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
+    if (!epicComments.ok) {
+        return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+    }
+    const earlierClose = [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER));
+
     // Whatever named it — the lead, an entry path's link or a story's parent — the epic must be filed
-    // as one, checked before anything (even the re-run shortcut below) can close it. This is stricter
+    // as one, checked before anything (even the re-run shortcut) can close it. This is stricter
     // than resolveEpic's fallback on purpose: close closes the issue, so in a repository that declares
     // how it files issues an unmarked top-level issue (a bug, an initiative) is refused. Only a
     // repository that declares nothing has no other way to mark an epic, and keeps that fallback.
-    const kind = deps.issueKind(repoRoot, issuesRepo, epic);
-    if (!kind.ok) {
-        return stopped({ reason: `what ${epicRef} is filed as could not be read, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
+    // A close comment that stamps this very epic is proof enough: the re-run that finishes it never
+    // depends on how the issue is labelled today.
+    const earlierBlock = earlierClose === undefined ? null : machineBlock(earlierClose.body);
+    const kind = earlierBlock !== null && recordNumber(earlierBlock["epic"]) === epic ? null : deps.issueKind(repoRoot, issuesRepo, epic);
+    if (kind !== null && !kind.ok) {
+        return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
     }
-    if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared))) {
+    if (kind !== null && (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared)))) {
         const source = "epic" in input.target ? "typed" : link !== null ? "link" : "pr";
         const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
         const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
@@ -421,15 +441,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         });
     }
 
-    // Find before write: a trusted close comment on the epic is the durable copy an earlier run
-    // posted, so that run finished every write before it. Regenerate nothing (G27).
-    const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    if (!epicComments.ok) {
-        return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
-    }
-    const earlierClose = [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER));
     if (earlierClose !== undefined) {
-        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun, closeComment: earlierClose.body });
+        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun, closeComment: earlierClose.body }, earlierBlock);
     }
 
     const resolved = deps.resolveEpic(repoRoot, issuesRepo, epic);
@@ -704,6 +717,7 @@ function finishClosed(
     deps: CloseCommandDeps,
     input: CloseInput,
     at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; closeComment: string },
+    block: Record<string, unknown> | null,
 ): CloseOutcome {
     const epicRef = `${at.issuesRepo}#${at.epic}`;
     // Look for the earlier run's branch read-only first, so a missing one stops with nothing created (G3).
@@ -718,7 +732,6 @@ function finishClosed(
     }
     const wt = deps.openWorktree(at.repoRoot, at.epic, input.date);
     if (!wt.ok) return stopped({ reason: wt.error.message, item: at.repoRoot, remedy: `re-run ${at.rerun} once the cause above is fixed` });
-    const block = machineBlock(at.closeComment);
     // The one write an earlier run can leave undone after its close comment: the amendment (G26, G28).
     const amendment = amendOnRerun(deps, input, at, block);
     const closedIssue = deps.closeIssue(at.repoRoot, at.issuesRepo, at.epic);

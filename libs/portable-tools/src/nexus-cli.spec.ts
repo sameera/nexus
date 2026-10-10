@@ -2195,6 +2195,7 @@ describe("nexus close — the argument forms (#906)", () => {
         [["#159"], "nexus close --epic 159"],
         [["--epic", "#159"], "nexus close --epic 159"],
         [["--pr", "#5"], "nexus close --pr 5"],
+        [["159", "--epic", "159"], "nexus close --epic 159"],
         [["--pr", "https://ghe.corp/acme/app/pull/7"], "nexus close --pr https://ghe.corp/acme/app/pull/7"],
     ])("accepts %j", async (args, named) => {
         const io: CapturedIo = makeIo(memberCheckout());
@@ -2244,6 +2245,12 @@ describe("nexus close — the argument forms (#906)", () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", ".nexus/queue/epic-90/epic.md"], io)).toBe(2);
         expect(io.err.join("\n")).toMatch(/entry path does not name the epic/);
+    });
+
+    it("names what is missing when it is given arguments but no epic", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", "--handoff", "note.md"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/close: .*needs the epic/);
     });
 
     it("refuses --handoff with no path, naming the flag", async () => {

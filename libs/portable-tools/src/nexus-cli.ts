@@ -3075,14 +3075,18 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         for (const line of rendered.stderr) io.stderr(line);
         return rendered.exitCode;
     }
-    if (targets.length > 1) {
-        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${targets.map((t) => t.form).join(" and ")}.`);
+    // The same epic named twice is still one epic.
+    const epicOf = (t: CloseTarget): number | null => ("epic" in t ? t.epic : null);
+    const distinct = targets.filter((t, i) => epicOf(t.target) === null || targets.findIndex((u) => epicOf(u.target) === epicOf(t.target)) === i);
+    if (distinct.length > 1) {
+        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${distinct.map((t) => t.form).join(" and ")}.`);
     }
     if (handoff === "") return refuse("--handoff takes the path to write the hand-off note to; got nothing.");
     if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
     if (targets.length === 0 && paths.length > 0) {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
     }
+    if (targets.length === 0 && argv.length > 0) return refuse("close needs the epic: --epic <N>, a bare <N> or --pr <ref>.");
     if (targets.length === 0) {
         io.stderr(usage);
         return 2;

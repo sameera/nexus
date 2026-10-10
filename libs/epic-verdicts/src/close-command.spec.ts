@@ -345,14 +345,8 @@ describe("nexus close — an epic with no committed queue entry (AC4, G45)", () 
             fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
             fs.writeFileSync(path.join(root, rel), `---\nlink: "#${EPIC}"\n---\n`);
         }
-        let asked = false;
-        h.deps.storiesOfPr = () => {
-            asked = true;
-            return { ok: true, epic: 1, stories: [] };
-        };
         const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: path.join(h.repoRoot, rel) })));
         expect(rendered.exitCode).toBe(0);
-        expect(asked).toBe(false);
         expect(text(rendered.stdout)).toContain(path.join(h.wtPath, ".nexus", "queue", "old-entry"));
     });
 
@@ -510,8 +504,9 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(stdout).toContain("no sub-issues");
     });
 
-    it("checks the number it is given is an epic before it finishes an earlier close", () => {
-        const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#864"\n\`\`\``, authorAssociation: "OWNER" };
+    it("checks the number it is given is an epic before it finishes a close comment that stamps another epic", () => {
+        // A close comment quoted onto a story: it stamps the epic it was written for, not this issue.
+        const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const h = harness({
             issueComments: () => ({ ok: true, comments: [earlier] }),
             findDistillBranch: () => ({ ok: true, branch: "distill/2026-10-03-epic-864", source: "local" }),
@@ -521,21 +516,42 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
-    it("stops, creating nothing, when what the number is filed as cannot be read, even with an earlier close comment", () => {
+    it("finishes a close comment that stamps this epic without asking what the issue is filed as today", () => {
         const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const h = harness({
-            issueKind: () => ({ ok: false, message: "HTTP 502" }),
+            issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null, declared: true }),
             issueComments: () => ({ ok: true, comments: [earlier] }),
             findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
         });
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
+        expect(h.writes).toEqual([`close #${EPIC}`]);
+    });
+
+    it("stops, creating nothing, when what the number is filed as cannot be determined", () => {
+        const h = harness({ issueKind: () => ({ ok: false, message: "HTTP 502" }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
         expect(err).toContain("HTTP 502");
         expect(err).toContain(`re-run nexus close --epic ${EPIC}`);
         expect(h.writes).toEqual([]);
     });
 
-    it("names the entry path's link as what to fix when it names an issue that is not an epic", () => {
+    it("with --pr, stops when the entry path links a different epic than the pull request's own", () => {
         const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC + 1}"\n---\n`);
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry })));
+        expect(err).toMatch(new RegExp(`reason: .*#${EPIC + 1}.*#${EPIC}`));
+    });
+
+    it("with --pr, takes the entry path's epic when the pull request names none close can resolve", () => {
+        const h = harness({ storiesOfPr: () => ({ ok: false, error: { problem: "story-candidates-multiple-epics", message: "more than one epic" } }) });
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\n---\n`);
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry }))).exitCode).toBe(0);
+    });
+
+    it("names the entry path's link as what to fix when it names an issue that is not an epic", () => {
+        const h = harness({ storiesOfPr: () => ({ ok: false, error: { problem: "story-candidates-multiple-epics", message: "more than one epic" } }) });
         const entry = path.join(h.repoRoot, "epic.md");
         fs.writeFileSync(entry, `---\nlink: "#864"\n---\n`);
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry })));
