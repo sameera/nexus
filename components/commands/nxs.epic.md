@@ -45,7 +45,7 @@ Every explicit-choice point in this command is presented through the **`AskUserQ
 At each gate:
 
 1. Render any context first as ordinary markdown (the digest, the assessment table, the clarification context, the proposed split).
-2. Then call `AskUserQuestion` with **one option per choice**. Use the canonical verb named at that gate as the option label (`approve`/`revise`, `proceed`/`split`, `stubs`/`full`, clarification `A`/`B`, `resume`/`new`) and put the action's effect in the option description.
+2. Then call `AskUserQuestion` with **one option per choice**. Use the canonical verb named at that gate as the option label (`approve`/`revise`, `proceed`/`split`, `stubs`/`full`, `split-initiative`/`split-flat`, `stubs-initiative`/`stubs-flat`, clarification `A`/`B`, `resume`/`new`) and put the action's effect in the option description.
 3. Act on the selected option. The user can always pick "Other" to give a custom answer (e.g. a different feature name, or a clarification answer not in the list).
 
 The option tables shown at the gates below describe each choice's impact. That detail is the context you render in step 1; the `AskUserQuestion` call in step 2 is what the user actually clicks.
@@ -263,7 +263,8 @@ buffer for overruns or the unexpected. Proceeding is allowed but risky.
 | Option | Action |
 |--------|--------|
 | **proceed** | Generate the full epic at this scope. Adds a utilization-risk banner. |
-| **split** | (safer) Decompose into the right-sized goals below and write them as stubs. |
+| **split-initiative** | (safer) Decompose into the right-sized goals below, and file them as stubs under one initiative that states the objective below. |
+| **split-flat** | (safer) Decompose into the right-sized goals below, and file them as stubs with no initiative. |
 ```
 
 **XL / XXL (exceeds one epic):**
@@ -283,21 +284,52 @@ epic.] Proposed split into right-sized goals:
 
 | Option | Action |
 |--------|--------|
-| **stubs** | (recommended) File these as unplanned epic issues (irreversible). Plan one later with `/nxs.epic <issue-number>`. |
+| **stubs-initiative** | File these as unplanned epic issues under one initiative that states the objective below (irreversible). Plan one later with `/nxs.epic <issue-number>`. |
+| **stubs-flat** | File these as unplanned epic issues with no initiative (irreversible). Plan one later with `/nxs.epic <issue-number>`. |
 | **full**  | Generate a single full epic at the original (oversized) scope anyway, with a scope-warning banner. |
 ```
 
-**Do NOT proceed without an explicit choice.**
+### The proposed objective
+
+The filing option comes in two versions only when the split has **two or more** goals. With one goal there is no set to group: offer a single `split` (L) or `stubs` (XL/XXL) option that files the stub flat, and propose no objective.
+
+With two or more goals, **always propose an objective**. You may not withhold it, even when you doubt the goals share one. The lead's decline is the only filter. Neither version of the filing option is marked as recommended, because this gate is the one place the lead can reject your reading of the set.
+
+- **Discovery mode:** the objective is the discovery's destination, copied in its own words. Do not draft a new sentence.
+- **Intent and promotion mode:** draft the objective from the lead's capability description. It may claim nothing the description does not.
+
+Render the proposal under the split, before the options, so every sentence the initiative will state is on screen before the lead chooses:
+
+```markdown
+**Proposed objective:** <one sentence: what completing every stub achieves>
+
+**Execution order, and how much of the objective each reaches:**
+
+1. <goal title> — <how much of the objective is reached once this stub is implemented>
+2. <goal title> — <how much is reached once this one and the ones before it are implemented>
+3. <goal title> — <the objective is reached>
+```
+
+The order respects every `blocked_by` edge between the goals; break a tie by the split's own order. Each reach statement is **cumulative** and in plain words, never a percentage. The last one says the objective is reached. The lead accepts or declines the objective, the order and the reach statements as **one unit**. An "Other" answer that rewords the objective counts as accepting it, in the lead's words.
+
+Repeat the proposal inside the `AskUserQuestion` call itself: the objective in the question text, and the order with its reach statements in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
+
+Declining needs no reason and is not an error. Do not ask why, and do not argue for the objective.
+
+**No other path proposes an objective.** The deferral stub (Phase 6 step 8), the stubs `nexus close` files for deferred scope (however many), the intake lane's follow-ups, a one-goal decomposition and the successors of a stub that already sits under an initiative ("When a promoted stub proves oversized") each file their stubs flat, with no proposal and no initiative.
+
+**Do NOT proceed without an explicit choice.** Nothing is created on GitHub before it.
 
 - **proceed** (L) → Phase 3, and include the utilization-risk banner in the epic.
-- **split** (L) / **stubs** (XL/XXL) → Phase 2b.
+- **split-flat** (L) / **stubs-flat** (XL/XXL), or the single `split` / `stubs` of a one-goal split → Phase 2b, filed flat: exactly the issues, labels and links a flat filing files, with no initiative and no parent link.
+- **split-initiative** (L) / **stubs-initiative** (XL/XXL) → Phase 2b, which files the initiative before the stubs.
 - **full** (XL/XXL) → Phase 3, and include the scope-warning banner in the epic.
 
 ## Phase 2b — Emit decomposition stubs (oversized path)
 
 File **one open GitHub issue per functional goal**. A stub is not a third kind of issue: it is an **epic that has been identified but not yet planned**, so it carries the repository's declared epic classification plus exactly one label denoting that unplanned state. Write **no** `backlog.md`; the issue is the stub.
 
-The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing is created before it.
+The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for this filing; nothing is created before it.
 
 1. **Resolve the classification and the unplanned label** (never hard-code either):
 
