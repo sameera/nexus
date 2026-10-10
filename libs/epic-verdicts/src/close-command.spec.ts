@@ -454,6 +454,14 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(stdout).toMatch(new RegExp(`Pull requests:.*${ISSUES}#${PR}.*acme/member#${PR2}`));
     });
 
+    it("takes the epic as owner/repo#N when it names the issues repository, and stops when it names another", () => {
+        const ok = harness();
+        expect(renderCloseOutcome(runCloseCommand(ok.deps, input(ok, { target: { epic: EPIC, repo: ISSUES.toUpperCase() } }))).exitCode).toBe(0);
+        const other = harness();
+        const err = expectStop(other, runCloseCommand(other.deps, input(other, { target: { epic: EPIC, repo: "acme/other" } })));
+        expect(err).toMatch(/reason: .*acme\/other#830 is not in the issues repository/);
+    });
+
     it("stops, creating nothing, when the number it is given is a story, and names its parent", () => {
         const h = harness();
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 864 } })));
@@ -516,7 +524,7 @@ describe("nexus close — keyed by the epic (#906)", () => {
             const out = runCloseCommand(h.deps, input(h));
             expect(out.ok && out.resumed, configured).toBe(true);
             // Every read names the issues repository in its one canonical form.
-            expect(new Set(readIn), configured).toEqual(new Set([`github.com/${ISSUES}`]));
+            expect(new Set(readIn), configured).toEqual(new Set([ISSUES]));
         }
     });
 

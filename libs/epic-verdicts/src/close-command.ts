@@ -97,7 +97,7 @@ import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, re
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
  * only finds the epic; the gate and the close record are built from the epic's stories.
  */
-export type CloseTarget = { epic: number } | { pr: ParsedPrReference };
+export type CloseTarget = { epic: number; repo?: string } | { pr: ParsedPrReference };
 
 /** What the lead passed: the arguments `/nxs.close` takes (D1), plus today's date for the branch name. */
 export interface CloseInput {
@@ -403,6 +403,15 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     let epic: number;
     if ("epic" in input.target) {
         epic = input.target.epic;
+        // `owner/repo#N`, as close's own reports print an epic, must name the issues repository.
+        const named = input.target.repo;
+        if (named !== undefined && !sameIssuesRepo(named, issuesRepo)) {
+            return stopped({
+                reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
+                item: `issue ${named}#${epic}`,
+                remedy: `pass an epic of ${issuesRepo}: nexus close --epic <N>`,
+            });
+        }
     } else {
         // A pull request only finds the epic. One that has not merged is the cheap early answer for
         // a lead who ran close too soon.

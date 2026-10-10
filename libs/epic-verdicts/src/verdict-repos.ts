@@ -17,8 +17,7 @@
 
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
-import { parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
-import { forgeHost } from "@nexus/pr-worktree/member-target";
+import { parseRepoIdentity } from "@nexus/workspace/issue-ref";
 import { normalizeRemote } from "@nexus/workspace/remote";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
@@ -62,16 +61,15 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
 }
 
 /**
- * The issues repository in the one form close reads, writes and compares: `owner/repo`, with the
- * host in front when the configured form names one (github.com's SSH aliases folded into
- * github.com). A configured epic-repo may be written as a URL, in SSH form, or with a trailing
- * slash or `.git`. A value that does not read is returned as given, so the read that uses it fails
- * and says so.
+ * The issues repository in the one form close reads, writes and compares: `owner/repo`. Close
+ * reaches it through gh on gh's configured host, as every issue read and write already does, so a
+ * host in the configured form is not part of its identity. A configured epic-repo may be written as
+ * a URL, in SSH form, or with a trailing slash or `.git`. A value that does not read is returned as
+ * given, so the read that uses it fails and says so.
  */
 export function canonicalIssuesRepo(issuesRepo: string): string {
     const id = parseRepoIdentity(normalizeRemote(issuesRepo));
-    if (id === null) return issuesRepo;
-    return id.host === null ? `${id.owner}/${id.name}` : `${forgeHost(id.host)}/${id.owner}/${id.name}`;
+    return id === null ? issuesRepo : `${id.owner}/${id.name}`;
 }
 
 /** The issues repository as the slug the epic-resolve reads take, from its canonical form. */
@@ -82,10 +80,7 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
     return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }
 
-/**
- * Whether two written forms name the same issues repository, by sameRepo's rule over their canonical
- * forms: a host stated on one side only neither matches nor rejects, two stated hosts must agree.
- */
+/** Whether two written forms name the same issues repository: the same owner and name, whatever form each is in. */
 export function sameIssuesRepo(a: string, b: string): boolean {
-    return sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
+    return canonicalIssuesRepo(a).toLowerCase() === canonicalIssuesRepo(b).toLowerCase();
 }

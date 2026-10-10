@@ -3096,9 +3096,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         const a = argv[i];
         if (a === "--epic") {
             const value = argv[++i];
-            const epic = issueNumber(value);
-            if (epic === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
-            given.push({ form: `--epic ${value}`, target: { epic } });
+            // `N`, `#N`, or `owner/repo#N` as close's reports print an epic; close checks the repository.
+            const ref = value === undefined ? null : parseIssueRef(value);
+            if (ref === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
+            given.push({ form: `--epic ${value}`, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
         } else if (a === "--pr") {
             const value = argv[++i];
             const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
