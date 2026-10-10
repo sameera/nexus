@@ -42,10 +42,11 @@ import { issuesRepoPath, sameIssuesRepo } from "./verdict-repos.js";
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
 
 /**
- * The close-record marker on a line of its own, indented or not, as close and the older model-written
- * close wrote it; a quoted copy (a line starting with `>`) is not it.
+ * The close-record marker opening a line, as close and the older model-written close wrote it, indented
+ * up to three spaces (inside `<details>`, say). A quoted copy (a line starting with `>`) is not it, and
+ * neither is one indented four spaces or a tab, which Markdown renders as a code block.
  */
-export const OWN_MARKER_RE = new RegExp(`^[ \\t]*${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
+export const OWN_MARKER_RE = new RegExp(`^ {0,3}${escapeRegExp(CLOSE_RECORD_MARKER)}`, "m");
 
 /** What opens the hidden key a record amendment carries. */
 export const AMENDMENT_KEY_PREFIX = "<!-- nexus:close-amendment ";

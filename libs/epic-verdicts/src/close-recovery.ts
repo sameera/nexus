@@ -38,7 +38,7 @@ import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, OWN_MARKER_RE, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
@@ -433,9 +433,9 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
     const dr = deviationBody(lines, "### Deviation Rationale", content, prs, rejudged);
     if (dr !== "unchanged") lines = setSection(lines, "### Deviation Rationale", dr.length === 0 ? null : dr, ["### Pointers (durable)"]);
 
-    // The machine block: the first marker, then its fence. Copied text above it is inert, so the
-    // first marker is close's own.
-    const marker = lines.findIndex((l) => l.trim() === CLOSE_RECORD_MARKER);
+    // The machine block: the block machineBlock reads, under the first own marker line with a fence
+    // right below it. A bare marker line above it, or copied text, is passed over.
+    const marker = lines.findIndex((l, i) => OWN_MARKER_RE.test(l) && l.trim() === CLOSE_RECORD_MARKER && /^```ya?ml$/.test(lines[i + 1] ?? ""));
     const open = marker + 1;
     const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
     if (marker >= 0 && end > open) {

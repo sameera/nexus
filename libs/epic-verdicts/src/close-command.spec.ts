@@ -583,6 +583,17 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(expectStop(h, runCloseCommand(h.deps, input(h)))).toMatch(/reason: .*does not read/);
     });
 
+    it("passes over a marker in an indented code block, which Markdown shows as code", () => {
+        const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const example = { body: `The marker looks like this:\n\n    <!-- nexus:close-record -->\n    hand-edited`, authorAssociation: "OWNER" };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [own, example] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
     it("names an unread comment list, not a missing epic marking, when the comments cannot be read", () => {
         const h = harness({
             issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null }),

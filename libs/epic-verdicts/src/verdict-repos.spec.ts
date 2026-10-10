@@ -141,11 +141,13 @@ describe("canonicalIssuesRepo — the one written form close uses (#906)", () =>
         run("gh", ["issue", "view", "5"], { cwd: "/" });
         run("gh", ["issue", "view", "6", "--repo", "acme/issues"], { cwd: "/" });
         run("gh", ["issue", "close", "7", "-R", "ghe.other/acme/issues"], { cwd: "/" });
+        run("gh", ["api", "--hostname=ghe.other", "graphql"], { cwd: "/" });
         expect(calls).toEqual([
             ["gh", "api", "--hostname", "ghe.corp", "graphql"],
             ["gh", "issue", "view", "5"],
             ["gh", "issue", "view", "6", "--repo", "ghe.corp/acme/issues"],
             ["gh", "issue", "close", "7", "-R", "ghe.other/acme/issues"],
+            ["gh", "api", "--hostname=ghe.other", "graphql"],
         ]);
     });
 });

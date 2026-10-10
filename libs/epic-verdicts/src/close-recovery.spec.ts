@@ -274,6 +274,15 @@ describe("nexus close --recover — every merged pull request carries a trusted 
         expect(h.posted[0].body).not.toContain("\r");
     });
 
+    it("re-stamps the machine block under a bare marker line above it, the block close reads", () => {
+        const h = harness();
+        const body = `${CLOSE_RECORD_MARKER}\nnotes first\n\n${h.earlier.comment}`;
+        h.deps.issueComments = () => ({ ok: true, comments: [{ body, authorAssociation: "OWNER" }, ...h.posted.filter((p) => p.issue === EPIC).map((p) => ({ body: p.body, authorAssociation: "OWNER" }))] });
+        expect(renderCloseOutcome(recover(h)).exitCode).toBe(0);
+        expect(h.posted[0].body).toContain(`record_hash: ${NEW_DIGEST}`);
+        expect(h.posted[0].body).not.toContain(`record_hash: ${OLD_DIGEST}`);
+    });
+
     it("takes the record's decisions from the new body and keeps the deviation rationale, on the entry and the comment alike (G9)", () => {
         const h = harness();
         recover(h);
