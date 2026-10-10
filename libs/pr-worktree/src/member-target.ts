@@ -52,6 +52,17 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     return null;
 }
 
+/**
+ * The `host/owner/repo` a pull-request reference lives in. A URL names its forge; `owner/repo#N`
+ * lives on the checkout's own, `own` as canonicalRepoRef gives it; a bare number is the checkout's
+ * own repository. `owner/repo` alone when no host is known; null for a bare number with no `own`.
+ */
+export function prRepoOnForge(ref: ParsedPrReference, own: string | null): string | null {
+    if (ref.repo === null) return own;
+    const host = ref.host ?? own?.split("/")[0];
+    return host === undefined ? ref.repo : `${host}/${ref.repo}`;
+}
+
 export interface AnalyzeTarget {
     repoRoot: string;
     repoIdentity: string;

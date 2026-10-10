@@ -60,7 +60,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parsePrReference, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoOnForge, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -3089,12 +3089,11 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     // request is keyed as host/owner/repo#N, a bare number and `owner/repo#N` filled in from the
     // checkout's own repository, read only when there is more than one target to compare.
     const targets = new Map<string, { form: string; target: CloseTarget }>();
-    const own = given.length > 1 ? (canonicalRepoRef(closeMigrationRunner, io.cwd)?.split("/") ?? []) : [];
+    const own = given.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     for (const g of given) {
         const t = g.target;
-        const [host, owner, name] = own;
-        const key =
-            "epic" in t ? `epic ${t.epic}` : `pr ${t.pr.host ?? host ?? "github.com"}/${t.pr.repo ?? (owner === undefined ? "" : `${owner}/${name}`)}#${t.pr.number}`.toLowerCase();
+        // github.com is the host a reference with none falls back to, so it adds nothing to the key.
+        const key = "epic" in t ? `epic ${t.epic}` : `pr ${(prRepoOnForge(t.pr, own) ?? "").toLowerCase().replace(/^github\.com\//, "")}#${t.pr.number}`;
         if (!targets.has(key)) targets.set(key, g);
     }
     if (targets.size > 1) {

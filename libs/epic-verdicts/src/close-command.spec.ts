@@ -485,10 +485,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).toMatch(/remedy: .*file it as one/);
     });
 
-    it("never takes a quoted or unreadable close comment, or one from another issues repository, as this epic's close", () => {
+    it("stops, creating nothing, on this epic's close comment when its machine block does not read", () => {
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body: `<!-- nexus:close-record -->\nno block`, authorAssociation: "OWNER" }] : [] }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toMatch(/reason: .*machine block does not read/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("never takes a quoted close comment, or one from another issues repository, as this epic's close", () => {
         for (const body of [
             `> <!-- nexus:close-record -->\n> \`\`\`yaml\n> epic: "#${EPIC}"\n> \`\`\``,
-            `<!-- nexus:close-record -->\nno block`,
             `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: other/repo\n\`\`\``,
         ]) {
             const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
@@ -577,6 +583,12 @@ describe("nexus close — keyed by the epic (#906)", () => {
         fs.writeFileSync(entry, `---\nlink: "#${EPIC + 1}"\n---\n`);
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry })));
         expect(err).toMatch(new RegExp(`reason: .*#${EPIC + 1}.*#${EPIC}`));
+    });
+
+    it("keeps --handoff in the remedy that asks for the epic by number", () => {
+        const h = harness({ storiesOfPr: () => ({ ok: false, error: { problem: "story-candidates-multiple-epics", message: "more than one epic" } }) });
+        const note = path.join(h.repoRoot, "handoff.txt");
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), handoff: note })))).toContain(`nexus close --epic <N> --handoff ${note}`);
     });
 
     it("with --pr, names --epic rather than trusting an entry path when the pull request names no single epic", () => {

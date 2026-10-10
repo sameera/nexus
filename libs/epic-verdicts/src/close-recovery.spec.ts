@@ -535,6 +535,15 @@ describe("nexus close --recover — a revised record that is still open (AC3, G3
 });
 
 describe("nexus close --recover — where the entry is", () => {
+    it("passes over another epic's close comment, as close does", () => {
+        const other = { body: `${CLOSE_RECORD_MARKER}\n\`\`\`yaml\nepic: "#99"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({ issueComments: () => ({ ok: true, comments: [other] }) });
+        const rendered = renderCloseOutcome(recover(h));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain(`nexus close --epic ${EPIC}`);
+        expect(h.writes).toEqual([]);
+    });
+
     it("stops on an epic no close comment closed, naming nexus close --epic", () => {
         const h = harness({ issueComments: () => ({ ok: true, comments: [{ body: `quoting ${CLOSE_RECORD_MARKER}`, authorAssociation: "NONE" }] }) });
         const rendered = renderCloseOutcome(recover(h));

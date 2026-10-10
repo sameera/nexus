@@ -30,7 +30,6 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { matchRecordWaiver, readPrWaivers, type PrWaivers } from "@nexus/pr-acceptance/waiver";
 import { findEpicDistillBranch, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
 import { fetchRecord } from "@nexus/record-digest/fetch";
@@ -39,7 +38,7 @@ import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, machineBlock, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, findEpicCloseComment, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
@@ -84,7 +83,6 @@ export type RecoveryOutcome = { ok: true; lines: string[]; recordPath: string | 
 
 const stopped = (...stops: CloseStop[]): RecoveryOutcome => ({ ok: false, stops });
 const stoppedAfter = (done: string[], ...stops: CloseStop[]): RecoveryOutcome => ({ ok: false, stops, done: [...done] });
-const trusted = (c: { authorAssociation: string }): boolean => MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase());
 
 /** A merged pull request, by its repository and number. */
 type Pr = { repo: string; pr: number };
@@ -108,21 +106,21 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
     const { issuesRepo, repo: codeRepo } = repos.repos;
     const epicRef = `${issuesRepo}#${input.epic}`;
 
-    // The earlier close: the newest trusted close comment, the copy distill's recovery reads too.
+    // The earlier close: the epic's own close comment, the one close resumes from, through the same finder.
     const comments = deps.issueComments(repoRoot, issuesRepo, input.epic);
     if (!comments.ok) return stopped({ reason: `the comments on epic ${epicRef} could not be read: ${comments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
-    const closeComment = [...comments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER))?.body;
-    if (closeComment === undefined) {
+    const earlier = findEpicCloseComment(comments.comments, input.epic, issuesRepo);
+    if (earlier.found === "none") {
         return stopped({
             reason: `epic ${epicRef} carries no close comment from someone who can speak for ${issuesRepo}, so it was never closed; recovery re-stamps a closed epic`,
             item: `epic ${epicRef}`,
             remedy: `close it with nexus close --epic ${input.epic}`,
         });
     }
-    const block = machineBlock(closeComment);
-    if (block === null) {
+    if (earlier.found === "unreadable") {
         return stopped({ reason: `the close comment on epic ${epicRef} carries no machine block that reads`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --epic ${input.epic}, which posts one` });
     }
+    const { body: closeComment, block } = earlier;
     const record = recordNumber(block["record"]);
     if (record === null) {
         return stopped({ reason: `the close comment on epic ${epicRef} names no decision record, so there is no record hash to re-stamp`, item: `epic ${epicRef}`, remedy: "nothing to recover: distill reads an epic with no record from its close record alone" });

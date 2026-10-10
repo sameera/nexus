@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parsePrReference, resolveAnalyzeTarget } from "./member-target.js";
+import { parsePrReference, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
 import { defaultRunner } from "./run.js";
 import { initRepo, makeParent, writeCommit } from "./git-fixtures.js";
 
@@ -28,6 +28,20 @@ function buildHubWithMember(parent: string, opts: { checkoutMember: boolean }): 
     }
     return { hub, memberPath };
 }
+
+describe("prRepoOnForge — which forge a pull-request reference lives on", () => {
+    const own = "ghe.corp/acme/hub";
+    it("reads a URL on its own host, owner/repo#N on the checkout's, and a bare number in the checkout's repository", () => {
+        expect(prRepoOnForge({ repo: "acme/app", number: 1, host: "github.com" }, own)).toBe("github.com/acme/app");
+        expect(prRepoOnForge({ repo: "acme/app", number: 1 }, own)).toBe("ghe.corp/acme/app");
+        expect(prRepoOnForge({ repo: null, number: 1 }, own)).toBe(own);
+    });
+
+    it("leaves the host to the caller when the checkout names no forge", () => {
+        expect(prRepoOnForge({ repo: "acme/app", number: 1 }, null)).toBe("acme/app");
+        expect(prRepoOnForge({ repo: null, number: 1 }, null)).toBeNull();
+    });
+});
 
 describe("parsePrReference", () => {
     it("parses a bare PR number", () => {

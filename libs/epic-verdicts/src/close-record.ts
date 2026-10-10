@@ -31,6 +31,7 @@ import { parse as parseYaml } from "yaml";
 import { CLOSE_STUB_KEY_PREFIX } from "@nexus/delivery-config/stub-key";
 import { deferredScopeStatus, type Departure, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordSections, type SectionDecision } from "@nexus/scope-razor/record";
+import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type AppliedWaiver, type CloseRanges, type PrLandedCheck } from "./close-ranges.js";
 import { inertLines, inertText } from "./close-text.js";
@@ -574,6 +575,36 @@ export function recordNumber(v: unknown): number | null {
     const m = /^#?(\d+)$/.exec(String(v ?? "").trim());
     return m === null ? null : Number(m[1]);
 }
+
+/** What an epic's comments say about its own close: the close to resume from, or that one cannot be read. */
+export type EpicCloseComment = { found: "own"; body: string; block: Record<string, unknown> } | { found: "unreadable" } | { found: "none" };
+
+/**
+ * The epic's own close comment, the one close resumes from and recovery re-stamps: the newest from
+ * an author who can speak for the repository, with the marker opening a line (a quoted copy's does
+ * not), whose machine block stamps this epic and, where it names one, this issues repository.
+ * Another epic's close comment is passed over. `unreadable` is a trusted, unquoted marker whose
+ * block does not read or stamps no epic, when no readable one exists: neither a close to resume
+ * from nor proof that none happened.
+ */
+export function findEpicCloseComment(comments: readonly { body: string; authorAssociation: string }[], epic: number, issuesRepo: string): EpicCloseComment {
+    let unreadable = false;
+    for (const c of [...comments].reverse()) {
+        if (!MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase()) || !OWN_MARKER_RE.test(c.body)) continue;
+        const block = machineBlock(c.body);
+        const stamped = block === null ? null : recordNumber(block["epic"]);
+        if (block === null || stamped === null) {
+            unreadable = true;
+            continue;
+        }
+        if (stamped !== epic || (typeof block["issues_repo"] === "string" && !sameRepo(block["issues_repo"], issuesRepo))) continue;
+        return { found: "own", body: c.body, block };
+    }
+    return unreadable ? { found: "unreadable" } : { found: "none" };
+}
+
+/** The close-record marker opening a line, as close writes it; a quoted copy starts with `>`. */
+const OWN_MARKER_RE = /^<!-- nexus:close-record -->/m;
 
 /** The merged pull requests a close stamped, in merge order: the range, then any with no range of its own. */
 export function stampedPrs(block: Record<string, unknown>): { prs: { repo: string; pr: number }[]; unnamed: number } {

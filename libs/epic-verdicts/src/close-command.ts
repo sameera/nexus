@@ -57,7 +57,7 @@ import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgme
 import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
-import { parsePrReference, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
@@ -70,10 +70,9 @@ import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import {
-    CLOSE_RECORD_MARKER,
     amendmentKey,
+    findEpicCloseComment,
     assembleCloseContent,
-    machineBlock,
     recordNumber,
     stampedPrs,
     proposalKey,
@@ -272,10 +271,15 @@ export function linkedEpic(markdown: string): number | null {
     return ref?.number ?? null;
 }
 
-/** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff` when given. */
+/** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff`. */
 function closeArgs(target: CloseTarget, input: Pick<CloseInput, "entryPath" | "handoff">): string {
     const named = "epic" in target ? `--epic ${target.epic}` : `--pr ${shellWord(prReference(target.pr))}`;
-    return [named, ...(input.entryPath === null ? [] : [shellWord(input.entryPath)]), ...(input.handoff === null ? [] : ["--handoff", shellWord(input.handoff)])].join(" ");
+    return [named, ...trailingArgs(input)].join(" ");
+}
+
+/** The entry path and `--handoff` a re-run repeats, whatever names the epic. */
+function trailingArgs(input: Pick<CloseInput, "entryPath" | "handoff">): string[] {
+    return [...(input.entryPath === null ? [] : [shellWord(input.entryPath)]), ...(input.handoff === null ? [] : ["--handoff", shellWord(input.handoff)])];
 }
 
 /** A path as one shell word, so a re-run hint copied as is passes it as one argument. */
@@ -376,7 +380,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             return stopped({
                 reason: ambiguous ? `${label} does not name one epic: ${stories.error.message}` : `the epic of ${label} cannot be resolved: ${stories.error.message}`,
                 item: label,
-                remedy: `name the epic instead: nexus close --epic <N>` + (ambiguous ? "" : `, or have the pull request close its story issue`),
+                remedy: `name the epic instead: nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}` + (ambiguous ? "" : `, or have the pull request close its story issue`),
             });
         }
         epic = stories.epic;
@@ -394,24 +398,13 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    // The newest trusted close comment that is this epic's own: its machine block stamps this epic
-    // and, where it names one, this issues repository. A quoted or unreadable copy, or another epic's
-    // close comment, is passed over, so it can never stand in for a close that did not happen.
-    let earlierClose: { block: Record<string, unknown> } | undefined;
-    for (const c of epicComments.ok ? [...epicComments.comments].reverse() : []) {
-        if (!trusted(c) || !c.body.includes(CLOSE_RECORD_MARKER)) continue;
-        const block = machineBlock(c.body);
-        if (block === null || recordNumber(block["epic"]) !== epic) continue;
-        if (typeof block["issues_repo"] === "string" && !sameRepo(block["issues_repo"], issuesRepo)) continue;
-        earlierClose = { block };
-        break;
-    }
+    const earlier = epicComments.ok ? findEpicCloseComment(epicComments.comments, epic, issuesRepo) : ({ found: "none" } as const);
 
     // A number the lead typed must be filed as an epic, checked before anything, even the re-run
     // shortcut, can close it; the story ladder already checked the epic it found from a pull
     // request. A close comment that stamps this very epic is proof enough, so a re-run never depends
     // on how the issue is labelled today.
-    if ("epic" in input.target && earlierClose === undefined) {
+    if ("epic" in input.target && earlier.found !== "own") {
         const kind = deps.issueKind(repoRoot, issuesRepo, epic);
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
@@ -434,8 +427,15 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     if (!epicComments.ok) {
         return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
     }
-    if (earlierClose !== undefined) {
-        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlierClose.block);
+    if (earlier.found === "unreadable") {
+        return stopped({
+            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo} whose machine block does not read, so close can neither finish that close nor tell that none happened`,
+            item: `epic ${epicRef}`,
+            remedy: `check that comment: restore its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
+        });
+    }
+    if (earlier.found === "own") {
+        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlier.block);
     }
 
     const resolved = deps.resolveEpic(repoRoot, issuesRepo, epic);
@@ -1075,10 +1075,8 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
             if (ref.repo === null) return resolvePr(run, repoRoot, ref.number, { requireMerged: false });
-            // A URL names its forge; `owner/repo#N` names none, so it lives on the checkout's own. A
-            // checkout with no forge remote leaves the host to gh, as a bare number does.
-            const host = ref.host ?? canonicalRepoRef(run, repoRoot)?.split("/")[0];
-            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: host === undefined ? ref.repo : `${host}/${ref.repo}` });
+            // A checkout with no forge remote leaves the host to gh, as a bare number does.
+            return resolvePr(run, repoRoot, ref.number, { requireMerged: false, repo: prRepoOnForge(ref, canonicalRepoRef(run, repoRoot)) ?? ref.repo });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {
