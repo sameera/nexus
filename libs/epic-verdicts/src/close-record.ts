@@ -36,7 +36,7 @@ import { sameRepo } from "@nexus/workspace/issue-ref";
 import { escapeRegExp } from "@nexus/workspace/regexp";
 import { type AppliedWaiver, type CloseRanges, type PrLandedCheck } from "./close-ranges.js";
 import { inertLines, inertText } from "./close-text.js";
-import { sameIssuesRepo } from "./verdict-repos.js";
+import { issuesRepoPath, sameIssuesRepo } from "./verdict-repos.js";
 
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
@@ -513,7 +513,8 @@ export function renderCloseComment(c: CloseContent, stubs: ReadonlyMap<string, n
 
 /** The hidden key a record amendment for this epic carries, which find-before-write looks for. */
 export function amendmentKey(issuesRepo: string, epic: number): string {
-    return `${AMENDMENT_KEY_PREFIX}epic: ${issuesRepo.toLowerCase()}#${epic} -->`;
+    // owner/repo, whatever host the issues repository states, so the key reads the same across forms.
+    return `${AMENDMENT_KEY_PREFIX}epic: ${issuesRepoPath(issuesRepo).toLowerCase()}#${epic} -->`;
 }
 
 /**
@@ -540,7 +541,7 @@ export function renderRecordAmendment(c: CloseContent): string | null {
 
 /** The hidden key a deferred-scope stub carries: its epic, pull request and proposal. */
 export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): string {
-    return `${CLOSE_STUB_KEY_PREFIX}epic: ${c.issuesRepo.toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
+    return `${CLOSE_STUB_KEY_PREFIX}epic: ${issuesRepoPath(c.issuesRepo).toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
 }
 
 /** Whether `body` carries the amendment key for `epic`, naming the issues repository in any written form. */

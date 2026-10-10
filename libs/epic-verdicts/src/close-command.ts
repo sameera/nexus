@@ -56,7 +56,7 @@ import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve
 import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
-import { forgeHost, parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
@@ -151,8 +151,6 @@ export type CloseRangesRead =
 export interface CloseCommandDeps {
     /** The checkout's role, through close's own role gate. */
     role(cwd: string): PreflightResult;
-    /** The forge the checkout's canonical remote is on (github.com's SSH aliases folded), or null when it names none. */
-    checkoutForge(root: string): string | null;
     /** The pull request, merged or not, in the repository a qualified reference names; the gate words the not-merged stop itself. */
     readPr(repoRoot: string, ref: ParsedPrReference): ResolvePrResult;
     /** The issues repository every issue read and write targets. */
@@ -323,18 +321,6 @@ function mergedList(prs: readonly { repo: string; pr: number }[]): string {
     return prs.length === 0 ? "none" : `${prs.map((p) => `${p.repo}#${p.pr}`).join(", ")} (merged)`;
 }
 
-/**
- * The stop for a reference on a non-github.com forge beside an issues repository that states no host:
- * gh reads that repository on its own host, which close cannot see, so the forge cannot be confirmed.
- */
-function unconfirmedForge(what: string, host: string, issuesRepo: string, epic: number | null): CloseStop {
-    return {
-        reason: `${what} is on ${host}, but the issues repository ${issuesRepo} states no host, so close cannot confirm gh reads its issues there`,
-        item: what,
-        remedy: `state the host in epic-repo (${host}/${issuesRepo}), then re-run ${epic === null ? "close" : `nexus close --epic ${epic}`}`,
-    };
-}
-
 /** The epic an entry path's frontmatter links, or the stop that says why it names none. */
 function entryLink(entryPath: string): { ok: true; epic: number; repo: string | null } | { ok: false; stop: CloseStop } {
     let markdown: string;
@@ -441,15 +427,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         ({ issuesRepo, codeRepo } = repos);
         epic = input.target.epic;
         // `owner/repo#N`, as close's own reports print an epic, or the issue's URL, must name the
-        // issues repository, on the forge close reads it on.
+        // issues repository; two hosts that are both stated must agree.
         const named = input.target.repo;
-        // A named host the issues repository does not state, other than gh's usual github.com, cannot
-        // be confirmed as the forge gh reads the issues on.
-        const namedHost = named === undefined ? null : issuesRepoHost(named);
-        const unconfirmed = namedHost !== null && namedHost !== "github.com" && issuesRepoHost(issuesRepo) === null;
-        if (named !== undefined && unconfirmed && sameIssuesRepo(named, issuesRepo)) {
-            return stopped(unconfirmedForge(`epic ${named}#${epic}`, namedHost ?? "", issuesRepo, epic));
-        }
         if (named !== undefined && !sameIssuesRepo(named, issuesRepo)) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
@@ -477,25 +456,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const repos = resolveRepos();
         if (!repos.ok) return stopped(repos.stop);
         ({ issuesRepo, codeRepo } = repos);
-        // A pull request on another forge than the issues repository states would read the pull request
-        // on one and the issues on the other. A URL names its forge, any other form is read on the
-        // checkout's. An issues repository that states no host is left to gh's own host, which close
-        // cannot see, so there is nothing to compare against.
-        // A pull request on a forge other than github.com (a URL's, or the checkout's for another form),
-        // beside an issues repository that states no host, cannot be confirmed as the forge gh reads
-        // the issues on, as for an --epic URL.
-        const statedForge = issuesRepoHost(issuesRepo);
-        const knownPr = ref.host ?? deps.checkoutForge(repoRoot);
-        const prForge = knownPr === null ? null : forgeHost(knownPr);
-        const unconfirmed = statedForge === null && prForge !== null && prForge !== "github.com";
-        if (unconfirmed) return stopped(unconfirmedForge(asLabel, prForge, issuesRepo, null));
-        if (statedForge !== null && prForge !== null && prForge !== statedForge) {
-            return stopped({
-                reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,
-                item: asLabel,
-                remedy: "name the epic instead: nexus close --epic <N>",
-            });
-        }
         const pr = { repo: readIn ?? codeRepo, pr: ref.number };
         const label = `pull request ${pr.repo}#${pr.pr}`;
         // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
@@ -1168,10 +1128,6 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
     };
     return {
         role: (cwd) => closePreflight(cwd, run),
-        checkoutForge: (root) => {
-            const host = ownRepo(root)?.split("/")[0];
-            return host === undefined ? null : forgeHost(host);
-        },
         readPr: (repoRoot, ref) => {
             // Every form is read on the forge prRepoOnForge names, github.com's SSH aliases folded; gh's
             // own resolution only when the checkout names no forge and the reference names none either.

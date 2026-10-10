@@ -157,7 +157,6 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
     let nextStub = 1000;
     h.deps = {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot, repo: { identity: ISSUES, source: "origin" } as never } }),
-        checkoutForge: () => "github.com",
         readPr: () => ({ ok: true, pr: prInfo() }),
         issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: ISSUES } }),
         storiesOfPr: () => ({ ok: true, epic: EPIC, stories: [864] }),
@@ -518,11 +517,6 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(out.ok && out.resumed).toBe(true);
     });
 
-    it("refuses a bare pull request read on an Enterprise checkout when the issues repository states no host", () => {
-        const h = harness({ checkoutForge: () => "ghe.corp" });
-        expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/states no host/);
-    });
-
     it("never takes a quoted close comment as this epic's close", () => {
         const body = `> <!-- nexus:close-record -->\n> \`\`\`yaml\n> epic: "#${EPIC}"\n> \`\`\``;
         const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
@@ -693,13 +687,6 @@ describe("nexus close — keyed by the epic (#906)", () => {
             const err = expectStop(h, runCloseCommand(h.deps, input(h)));
             expect(err, block).toMatch(/names no epic/);
         }
-    });
-
-    it("refuses an epic URL on an Enterprise host when the issues repository states none", () => {
-        const h = harness();
-        expect(expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: `ghe.corp/${ISSUES}` } })))).toMatch(/states no host[\s\S]*remedy: state the host in epic-repo/);
-        const gh = harness();
-        expect(renderCloseOutcome(runCloseCommand(gh.deps, input(gh, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } }))).exitCode).toBe(0);
     });
 
     it("checks the number it is given is an epic before it finishes a close comment that stamps another epic", () => {
@@ -931,23 +918,6 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/not merged/);
     });
 
-    it("refuses a pull-request URL on an Enterprise host when the issues repository states none", () => {
-        const h = harness();
-        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } })));
-        expect(err).toMatch(/on ghe\.corp, but the issues repository .* states no host/);
-        expect(err).not.toContain("null");
-    });
-
-    it("does not guess a pull request's forge when the checkout names none", () => {
-        const h = harness({ checkoutForge: () => null, issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
-        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, viaPr()))).exitCode).toBe(0);
-    });
-
-    it("reads a github.com pull-request URL when the issues repository states no host", () => {
-        const h = harness({ checkoutForge: () => null });
-        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "github.com" } } }))).exitCode).toBe(0);
-    });
-
     it("reads an entry path whose link is empty as linking nothing, never the next line", () => {
         const h = harness();
         const entry = path.join(h.repoRoot, "epic.md");
@@ -955,22 +925,10 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })))).toMatch(/no link naming the epic/);
     });
 
-    it("reads a pull-request URL on an Enterprise host when the issues repository states that host", () => {
-        const h = harness({ checkoutForge: () => "ghe.corp", issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
+    it("reads a pull-request URL on an Enterprise host, and names the issues repository by the host it states", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
         const { stdout } = closed(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } });
         expect(stdout).toContain(`epic ghe.corp/${ISSUES}#${EPIC} passed every gate`);
-    });
-
-    it("checks a bare pull request, read on the checkout's forge, against a stated issues forge", () => {
-        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
-        expect(err).toMatch(/reason: .*on github\.com, but the issues repository .* is on ghe\.corp/);
-    });
-
-    it("stops, creating nothing, on a pull request on another forge than the issues repository states", () => {
-        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `github.com/${ISSUES}`, repo: ISSUES } }) });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: "acme/app", number: 7, host: "ghe.corp" } } })));
-        expect(err).toMatch(/reason: .*ghe\.corp.*github\.com/);
     });
 
     it("checks the issues repository an entry path's issues_repo field names, when its link is bare", () => {
