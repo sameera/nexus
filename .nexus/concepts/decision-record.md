@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources"]
-last_updated_by: "#459"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list"]
+last_updated_by: "#896"
 status: active
 verification: verified
 ---
@@ -46,6 +46,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [razor-enforcement](razor-enforcement.md) — this stage has no gate agent of its own, which is what settles where a shared check must live.
 - [issue-asset-store](issue-asset-store.md) — pictures a record may carry, published only on its checkpoint's approval; a revision's new files are new commits, so a superseded body still resolves.
 - [pinned-sources](pinned-sources.md) — pinned for every workbook teaching the epic when the design stage closes this record, and again when a revision re-closes it.
+- [reading-list](reading-list.md) — the pages the record is designed against, and the source of its declared concept-store changes.
 
 ## Decision Log
 
@@ -90,3 +91,7 @@ The asset store declares an interaction with this concept, so the edge is mirror
 ### 2026-09-17 — #459 — Reciprocal link from pinned-sources
 
 Closing the record inside the design stage now also pins the lesson sources of every workbook slice the learner builds in the epic. A re-close after a revision runs the same step. A record closed directly on the issue pins nothing by itself; the lead runs the pinning step by hand before the epic is taught.
+
+### 2026-10-09 — #896 — The record always says which concept pages were read
+
+Stories required a positive statement both when no page was read and when no page changes. The existing Concept-store changes heading now always appears and opens with the pages-read sentence. Keeping the heading means every reader and every adopter's seeded template keeps working. Refuted alternative: a new section for pages read, which would force each adopter to reseed their template.

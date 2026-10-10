@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "offer list at the digest", "waits on line"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store", "planning-run-folder"]
-last_updated_by: "#711"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store", "planning-run-folder", "reading-list", "approved-set-filing"]
+last_updated_by: "#896"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The epic stage files the epic and its story issues together, gated by a single d
 
 ## How It Works
 
-The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners with what each waits on, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story for the approved set, sequences them from the draft's ordering block, and writes the feature navigation index linking to the filed issue. Filing declares the design warrant. Under issue-sourced planning, it commits nothing; the draft lives in the run's own folder. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics, and the gate's consent covers that irreversible filing. The gate reads the drafted wording, with no translation step before it. Each story body is a verbatim transcription of the derived filing body; only the reference rewrite to an issue number may change a body afterwards. The gate runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered offer list, and one typed selection both adds stories and keeps back removals. Issues are filed from a derived body, not the labelled draft.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners with what each waits on, the assumptions and out-of-scope boundary, and the reading list of concept pages with the reason each was proposed. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the approved set as described in approved-set-filing. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics, and the gate's consent covers that irreversible filing. The gate reads the drafted wording, with no translation step before it. Each story body is a verbatim transcription of the derived filing body; only the reference rewrite to an issue number may change a body afterwards. The gate runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered offer list, and one typed selection both adds stories and keeps back removals. Issues are filed from a derived body, not the labelled draft.
 
 ## Key Invariants
 
@@ -22,8 +22,6 @@ The epic stage takes a capability description directly, with no separate brief. 
 3. Open questions and a blocking razor finding each stop the digest before filing.
 4. Oversized scope becomes backlog stub issues filed on the gate's consent, not fully generated epics.
 5. The epic stage takes intent directly; no separate brief is a precondition.
-6. Filing commits nothing at planning: the epic issue precedes its story children, and a re-run reuses an already-filed one.
-7. The epic and its stories resolve their target repository independently; later stages address the epic where it was filed.
 
 ## Integration Points
 
@@ -48,6 +46,8 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [razor-enforcement](razor-enforcement.md) — the shared checker this gate invokes, and the source of the observations its digest carries.
 - [issue-asset-store](issue-asset-store.md) — approval here also publishes this run's files, so the digest names the store and its visibility; a revise publishes nothing.
 - [planning-run-folder](planning-run-folder.md) — where the draft lives, named before the right-size gate, and the path this gate reports beside its digest.
+- [reading-list](reading-list.md) — its proposed pages appear in the digest's selection, and the approved list is filed with the epic.
+- [approved-set-filing](approved-set-filing.md) — what approval files and in what order; split from this page.
 
 ## Decision Log
 
@@ -106,3 +106,7 @@ The draft used to live in the harness's session scratch, outside the checkout, s
 ### 2026-09-20 — #711 — The gate lists every story in one pre-ticked checklist
 
 The old gate made the reviewer compare two overlapping sets: the stories the draft listed, then a second list saying which of them a plain approval files. A number meant add under one heading and delete under another, and a story could not be dropped at the gate at all. The gate now shows one numbered list. A tick marks what a plain approval files, and a number flips the line it names. The reviewer reads the filed set directly and can drop a story without revising and re-running. Refuted alternative: a take-everything action. It was refused because it restores the cheap route to maximal scope that the addition gate removed. The ticks are written in the markdown, not in a checkbox control, because the question widget cannot arrive pre-ticked and an untouched box would read as drop it.
+
+### 2026-10-09 — #896 — The digest shows the reading list, and filing the approved set moves to its own page
+
+The digest now carries the reading list as a group in the numbered selection. Proposed pages are ticked with the reason each was proposed, and pages beyond seven are unticked. One typed selection flips pages and stories together. Refuted alternative: show the list as plain text and take changes as free text, which accepts unchecked page names at the one gate that files irreversibly. The addition pushed the page's own content past the cap. What approval files, and in what order, is separable from the digest the reviewer reads, so it moved to the approved-set-filing page, with no change to the rules.

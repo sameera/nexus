@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract", "drain-invocation"]
-last_updated_by: "#814"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract", "drain-invocation", "reading-list", "entry-admission"]
+last_updated_by: "#896"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The distiller drains queue entries into the concept store. It draws what changed
 
 ## How It Works
 
-It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area. It recomputes each entry's diff from the range stamped at close and from no other source, determines the reason using precedence rules, and maps both to per-concept deltas. An entry not yet in the trunk requires that its recorded range head reaches the trunk or that it resolves to a merged pull request; it never requires the file to be present. A lost entry is rebuilt on explicit request from its close comment. The reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when that page's own content overflows. It writes the store only when each entry's merge is applied. Every page it creates or updates, along with the pull-request body, are translated and verified before the validator reads them. The distiller is the only stage given grounding sources: the epic and the decision record. A page's wording can therefore be borrowed from them rather than left abstract.
+Which entries it admits follows the entry-admission concept. It recomputes each entry's diff from the range stamped at close and from no other source, determines the reason using precedence rules, and maps both to per-concept deltas. The reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when that page's own content overflows. It writes the store only when each entry's merge is applied. Every page it creates or updates, along with the pull-request body, are translated and verified before the validator reads them. The distiller is the only stage given grounding sources: the epic and the decision record. A page's wording can therefore be borrowed from them rather than left abstract.
 
 ## Key Invariants
 
@@ -21,7 +21,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 2. The what is the recomputed, never-stored diff; the why is the hash-verified record issue body, else the committed decision record, else the close record; a mismatch hard-errors with no waiver.
 3. ~~Judgment is the model's; the reciprocity, anchor, and validator steps are deterministic.~~ Judgment is the model's; the reciprocity, anchor, prose-verification and validator steps are deterministic.
 4. ~~A validation failure blocks the apply; a failing page is never shipped.~~ A blocking validation result stops the apply and a failing page is never shipped; an advisory never blocks and is carried to the reviewer.
-5. It infers the concept mapping itself. The pipeline emits no structured concept list.
+5. It infers the concept mapping itself. The epic's reading list names pages for planning and the conformance gate to read; it is never a drain input and never decides which pages a drain writes.
 6. ~~Draining is a manually-invoked curated step, not an automated trigger; recovery from a closed epic issue is an explicit per-entry request, never a discovery scan.~~
 7. Input is only gated entries and the recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into logs.
 
@@ -56,6 +56,8 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [planning-run-folder](planning-run-folder.md) — a planning draft sitting under the same scratch area; neither its shape nor a close record matches what this scan looks for, so it is never listed, aged or drained.
 - [on-demand-stage-contract](on-demand-stage-contract.md) — the way this stage is partitioned: it resolves its run shape first and reads only the contracts that shape names, so an ordinary drain reads none of them.
 - [drain-invocation](drain-invocation.md) — who starts a drain and what approves its pull request, split from this page.
+- [reading-list](reading-list.md) — names pages for planning and the gate to read; never a drain input.
+- [entry-admission](entry-admission.md) — which entries a drain takes; split from this page.
 
 ## Decision Log
 
@@ -186,3 +188,7 @@ The six paths became five contracts. Fix and intake share one, because loading a
 ### 2026-09-27 — #814 — Who starts a drain and what approves it moves to its own page
 
 The drain gained an unattended run, which the close-and-distill command starts right after an approved close. Stating that here would push this page past its size cap, and a task about who starts a drain or what approves its pull request does not need the diff, the why or the page-writing rules. So the invocation invariant moved to the drain-invocation page, rewritten there as the decision record gives it, and it is struck here. Everything else on this page stays.
+
+### 2026-10-09 — #896 — The reading list is never a drain input, and entry admission moves to its own page
+
+An epic now carries a reading list of concept pages, so the old statement that no structured concept list exists no longer held. The distiller still infers its own mapping from the diff and the records, because a list made before the code exists guesses concept boundaries. Refuted alternative: drain the pages the list names, which would write pages the code never changed. The rewrite pushed the page's own content past the cap. The rules for which entries a drain admits are independent of how it maps a diff, so they moved to the entry-admission page, with no change to the rules.
