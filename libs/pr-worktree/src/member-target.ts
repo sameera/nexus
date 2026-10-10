@@ -29,7 +29,9 @@ export interface ParsedPrReference {
 }
 
 const BARE_RE = /^(\d+)$/;
-const URL_RE = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(pull|issues)\/(\d+)\/?$/i;
+// A trailing path, query or fragment, as a URL copied from the browser carries (`/files`,
+// `#issuecomment-1`), names nothing more.
+const URL_RE = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(pull|issues)\/(\d+)(?:[/?#]\S*)?$/i;
 
 /** A forge URL naming a pull request or an issue: its repository, number, host and any port. */
 function parseForgeUrl(text: string, kind: "pull" | "issues"): ParsedPrReference | null {

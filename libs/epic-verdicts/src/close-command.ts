@@ -410,13 +410,10 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 
     // One written form for every read, write, key and report that names the issues repository. An
     // earlier run's stub and amendment keys are matched by the repository they name, in any form.
-    // Read once, and only when first needed, so a pull request that has not merged is answered first.
-    let configuredRead: ReturnType<CloseCommandDeps["issuesRepo"]> | undefined;
-    const configured = (): ReturnType<CloseCommandDeps["issuesRepo"]> => (configuredRead ??= deps.issuesRepo(repoRoot));
-    // The forge close reads the epic's issues on: the one the issues repository names, else the
-    // checkout's (where an unqualified issues repository comes from), else gh's default.
+    // Each branch resolves the issues repository once, at the point it needs it, so a pull request
+    // that has not merged is answered before any repository read.
     const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
-        const r = configured();
+        const r = deps.issuesRepo(repoRoot);
         if (!r.ok) return { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
         // A host the configured form states is kept and every read of it goes there; a form that names
         // none is left to gh's own host, as on main, never guessed from the checkout.
@@ -437,8 +434,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // issues repository, on the forge close reads it on.
         const named = input.target.repo;
         const namedHost = named === undefined ? null : issuesRepoHost(named);
-        const statedForge = issuesRepoHost(issuesRepo) ?? deps.checkoutForge(repoRoot) ?? "github.com";
-        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || (namedHost !== null && namedHost !== statedForge))) {
+        const statedForge = issuesRepoHost(issuesRepo);
+        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || (namedHost !== null && statedForge !== null && namedHost !== statedForge))) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
                 item: `issue ${named}#${epic}`,
@@ -465,12 +462,13 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const repos = resolveRepos();
         if (!repos.ok) return stopped(repos.stop);
         ({ issuesRepo, codeRepo } = repos);
-        // A pull request on another forge than the issues repository's would read the pull request on
-        // one and the issues on the other. A URL names its forge, any other form is read on the
-        // checkout's; the issues forge is the host the issues repository states, else the checkout's.
+        // A pull request on another forge than the issues repository states would read the pull request
+        // on one and the issues on the other. A URL names its forge, any other form is read on the
+        // checkout's. An issues repository that states no host is left to gh's own host, which close
+        // cannot see, so there is nothing to compare against.
+        const statedForge = issuesRepoHost(issuesRepo);
         const prForge = forgeHost(ref.host ?? deps.checkoutForge(repoRoot) ?? "github.com");
-        const statedForge = issuesRepoHost(issuesRepo) ?? deps.checkoutForge(repoRoot) ?? "github.com";
-        if (prForge !== statedForge) {
+        if (statedForge !== null && prForge !== statedForge) {
             return stopped({
                 reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,
                 item: asLabel,

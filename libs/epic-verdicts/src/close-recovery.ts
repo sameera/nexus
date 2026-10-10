@@ -352,8 +352,7 @@ function setSection(lines: string[], heading: string, body: string[] | null, bef
     if (body === null) return lines;
     let i = -1;
     for (const b of [...before, CLOSE_RECORD_MARKER]) {
-        // The machine block's marker counts only where it opens a line, as everywhere it is read.
-        i = lines.findIndex((l) => (b === CLOSE_RECORD_MARKER ? l.startsWith(b) : l.trim() === b));
+        i = lines.findIndex((l) => l.trim() === b);
         if (i >= 0) break;
     }
     if (i < 0) i = lines.length;
@@ -433,9 +432,9 @@ function restampComment(text: string, content: CloseContent, prs: readonly Pr[],
     const dr = deviationBody(lines, "### Deviation Rationale", content, prs, rejudged);
     if (dr !== "unchanged") lines = setSection(lines, "### Deviation Rationale", dr.length === 0 ? null : dr, ["### Pointers (durable)"]);
 
-    // The machine block: the first marker that opens a line, then its fence, as machineBlock reads
-    // it. An indented or quoted copy above it is not close's own.
-    const marker = lines.findIndex((l) => l.startsWith(CLOSE_RECORD_MARKER));
+    // The machine block: the first marker, then its fence. Copied text above it is inert, so the
+    // first marker is close's own.
+    const marker = lines.findIndex((l) => l.trim() === CLOSE_RECORD_MARKER);
     const open = marker + 1;
     const end = lines.findIndex((l, i) => i > open && l.startsWith("```"));
     if (marker >= 0 && end > open) {

@@ -84,6 +84,8 @@ describe("parsePrReference", () => {
         expect(parseIssueUrl("https://ghe.corp:8443/acme/widget/issues/5")).toEqual({ repo: "acme/widget", number: 5, host: "ghe.corp", port: "8443" });
         expect(parsePrReference("https://github.com/acme/widget/issues/5")).toBeNull();
         expect(parseIssueUrl("https://github.com/acme/widget/pull/5")).toBeNull();
+        expect(parseIssueUrl("https://github.com/acme/widget/issues/5#issuecomment-1")?.number).toBe(5);
+        expect(parsePrReference("https://github.com/acme/widget/pull/704/files")?.number).toBe(704);
     });
 
     it("rejects a URL whose authority does not read", () => {

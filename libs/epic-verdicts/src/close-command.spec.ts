@@ -454,8 +454,8 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(stdout).toMatch(new RegExp(`Pull requests:.*${ISSUES}#${PR}.*acme/member#${PR2}`));
     });
 
-    it("stops on an epic issue URL on another forge than the one close reads the issues on", () => {
-        const h = harness();
+    it("stops on an epic issue URL on another forge than the issues repository states", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `github.com/${ISSUES}`, repo: ISSUES } }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: `ghe.corp/${ISSUES}` } })));
         expect(err).toMatch(/is not in the issues repository/);
     });
@@ -892,10 +892,9 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(expectStop(h, runCloseCommand(h.deps, input(h, viaPr())))).toMatch(/not merged/);
     });
 
-    it("compares a pull-request URL with gh's default forge when the checkout names none", () => {
+    it("does not guess a forge for an issues repository that states no host", () => {
         const h = harness({ checkoutForge: () => null });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } })));
-        expect(err).toMatch(/reason: .*ghe\.corp.*github\.com/);
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } }))).exitCode).toBe(0);
     });
 
     it("reads an entry path whose link is empty as linking nothing, never the next line", () => {
@@ -917,8 +916,8 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).toMatch(/reason: .*on github\.com, but the issues repository .* is on ghe\.corp/);
     });
 
-    it("stops, creating nothing, on a pull request on another forge than the issues repository", () => {
-        const h = harness();
+    it("stops, creating nothing, on a pull request on another forge than the issues repository states", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `github.com/${ISSUES}`, repo: ISSUES } }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: "acme/app", number: 7, host: "ghe.corp" } } })));
         expect(err).toMatch(/reason: .*ghe\.corp.*github\.com/);
     });

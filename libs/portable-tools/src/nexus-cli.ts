@@ -3102,7 +3102,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const issueUrl = (value: string): { repo: string; number: number } | "port" | null => {
         const url = parseIssueUrl(value);
         if (url === null || url.number <= 0) return null;
-        return url.port !== undefined ? "port" : { repo: `${url.host}/${url.repo}`, number: url.number };
+        return url.port !== undefined ? "port" : { repo: `${forgeHost(url.host ?? "")}/${url.repo}`, number: url.number };
     };
     let recover: number | undefined;
     let handoff: string | null = null;
