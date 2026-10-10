@@ -23,12 +23,8 @@
  * When both are signalled, the stories the PR names win: the PR is stating its own scope.
  */
 
-import {
-    classifyIssueKind,
-    isWithdrawnStory,
-    type IssueKind,
-    type KindClassification,
-} from "@nexus/epic-resolve/classify";
+import { classifyIssueKind, type IssueKind, type KindClassification } from "@nexus/delivery-config/issue-kind";
+import { isWithdrawnStory } from "@nexus/epic-resolve/classify";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";

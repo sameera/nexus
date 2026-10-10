@@ -651,3 +651,64 @@ describe("resolveEpic — an unplanned epic is refused, not half-resolved (epic 
         expect(r.markdown).toContain("### Story #301: First story");
     });
 });
+
+describe("resolveEpic — an initiative is never resolved as an epic (decision record #786, D11)", () => {
+    const initiative = (labels: string[], issueType?: string): FixtureGraph => ({
+        epic: { number: 601, title: "Close runs no model", body: "The objective.", labels, issueType },
+        // Its children are epics, which a resolver that let it through would read as its stories.
+        stories: [{ number: 602, title: "A stub under it", body: "A goal.", blockedBy: [] }],
+    });
+
+    it("refuses an issue carrying the initiative label, naming it as an initiative, on every path (G18)", () => {
+        for (const opts of [{}, { requireEpic: true }]) {
+            const r = resolveEpic(makeGhRunner(initiative(["Initiative"])), "/repo", 601, opts);
+            expect(r.ok).toBe(false);
+            if (r.ok) return;
+            expect(r.error.problem).toBe("is-an-initiative");
+            expect(r.error.message).toContain("#601");
+            expect(r.error.message).toMatch(/initiative/);
+        }
+    });
+
+    it("refuses by the declared label, not an assumed one", () => {
+        const root: string = repoDeclaring("  classification: labels\n  initiative-label: theme\n");
+        const r = resolveEpic(makeGhRunner(initiative(["theme"])), root, 601);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("is-an-initiative");
+        expect(resolveEpic(makeGhRunner(initiative(["initiative"])), root, 601).ok).toBe(true);
+    });
+
+    it("refuses by the declared issue type where the repository classifies by type", () => {
+        const root: string = repoDeclaring(
+            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  initiative-type: Initiative\n",
+        );
+        const r = resolveEpic(makeGhRunner(initiative([], "Initiative")), root, 601);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("is-an-initiative");
+    });
+
+    it("adds no failure where no initiative type is declared, whatever the issue carries (G19)", () => {
+        const root: string = repoDeclaring("  classification: types\n  epic-type: Epic\n  story-type: Story\n");
+        expect(resolveEpic(makeGhRunner(initiative(["initiative"], "Initiative")), root, 601).ok).toBe(true);
+    });
+
+    it("still resolves an epic, and an epic that has an initiative above it (G19, G24)", () => {
+        expect(resolveEpic(makeGhRunner({ ...graph(), epic: { ...graph().epic, labels: ["epic"] } }), "/repo", 115).ok).toBe(true);
+        expect(resolveEpic(makeGhRunner({ ...graph(), parents: { 115: 601 } }), "/repo", 115).ok).toBe(true);
+    });
+
+    it("keeps resolving an epic in a repository whose epic label is `initiative`", () => {
+        const root: string = repoDeclaring("  classification: labels\n  epic-label: initiative\n");
+        expect(resolveEpic(makeGhRunner({ ...graph(), epic: { ...graph().epic, labels: ["initiative"] } }), root, 115).ok).toBe(true);
+    });
+
+    it("makes no additional read to decide it where the label alone answers", () => {
+        const calls: string[][] = [];
+        const inner = makeGhRunner(graph());
+        const before = resolveEpic((cmd, args, cwd) => (calls.push(args), inner(cmd, args, cwd)), "/repo", 115);
+        expect(before.ok).toBe(true);
+        expect(calls.some((args) => args.join(" ").includes("parent{number}"))).toBe(false);
+    });
+});

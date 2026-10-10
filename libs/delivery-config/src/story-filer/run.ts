@@ -28,6 +28,8 @@ import { type CreatePassResult } from "./create.js";
 import { type RewriteResult, refToNumber, rewritePass } from "./rewrite.js";
 import { type WireResult, refToDbId, wirePass } from "./wire.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
+import { stubParentsAreInitiatives } from "./stub-parent.js";
+import { resolveKeyFromLayers } from "../resolve.js";
 import { previewLine } from "./preview.js";
 import { type WriteReport } from "../write.js";
 import { writeBackDecisions } from "./writeback.js";
@@ -58,6 +60,20 @@ export function runCreateStory(
 
     const config: FilerConfig = resolveFilerConfig(ready.layers, args);
     reportIssuesRepo(config, io);
+
+    // Decided before anything is created, and before a rehearsal previews a batch that could not be
+    // filed. It reads from GitHub only when a stub names a parent.
+    const legalParents: boolean = stubParentsAreInitiatives(
+        {
+            items: ready.items,
+            unplannedLabel: resolveKeyFromLayers(ready.layers, "unplanned-label") ?? "",
+            projectRoot: ready.projectRoot,
+            issuesRepo: config.issuesRepo,
+            runner: () => env.runnerFor(ready.projectRoot),
+        },
+        io,
+    );
+    if (!legalParents) return 1;
 
     if (args.dryRun) {
         // A rehearsal reaches nothing: no type probe, no label upsert, no write-back.

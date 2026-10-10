@@ -131,6 +131,10 @@ function resume(item: WorkItem, carried: LedgerEntry, deps: CreatePassDeps, io: 
         }
     }
     io.stdout(`  Resuming: ref '${item.ref}' already created as #${number} — skipping creation`);
+    // The link is retried on every repeat (decision record #786, D9). The run that created this
+    // issue may have failed to attach it, and that failure only warned. An existing link counts as
+    // success, so the retry is safe to repeat.
+    if (number !== null) linkParent(item, number, deps, io);
     return { ref: item.ref, number, dbId, blockedBy: item.blockedBy, parent: item.parent, reused: true };
 }
 
@@ -154,16 +158,20 @@ function decorate(item: WorkItem, number: string, deps: CreatePassDeps, io: Tool
         }
     }
 
-    if (item.parent !== "") {
-        const linked: ParentLink = deps.platform.assignParent(number, item.parent);
-        // A link the platform refused and a pair of ids that never resolved are different failures,
-        // and an operator chasing the second is looking for a missing issue, not a broken mutation.
-        if (linked.error !== null) {
-            io.stderr(linked.unresolved ? `Error: ${linked.error}` : `Error creating sub-issue relationship: ${linked.error}`);
-        }
-        if (linked.value === true) io.stdout(`  Linked as sub-issue of: ${item.parent}`);
-        else io.stderr("  Warning: Failed to create sub-issue relationship");
+    linkParent(item, number, deps, io);
+}
+
+/** Link the issue under the parent its work item names, if it names one. Best-effort, like the rest. */
+function linkParent(item: WorkItem, number: string, deps: CreatePassDeps, io: ToolkitIo): void {
+    if (item.parent === "") return;
+    const linked: ParentLink = deps.platform.assignParent(number, item.parent);
+    // A link the platform refused and a pair of ids that never resolved are different failures,
+    // and an operator chasing the second is looking for a missing issue, not a broken mutation.
+    if (linked.error !== null) {
+        io.stderr(linked.unresolved ? `Error: ${linked.error}` : `Error creating sub-issue relationship: ${linked.error}`);
     }
+    if (linked.value === true) io.stdout(`  Linked as sub-issue of: ${item.parent}`);
+    else io.stderr("  Warning: Failed to create sub-issue relationship");
 }
 
 /** The database id of `number`, with a failed lookup reported in this filer's own wording. */

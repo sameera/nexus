@@ -44,6 +44,11 @@
       "import": "./src/publishing.ts",
       "default": "./src/publishing.ts"
     },
+    "./issue-kind": {
+      "types": "./src/issue-kind.ts",
+      "import": "./src/issue-kind.ts",
+      "default": "./src/issue-kind.ts"
+    },
     "./config-cli": {
       "types": "./src/config-cli.ts",
       "import": "./src/config-cli.ts",

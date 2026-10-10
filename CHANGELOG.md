@@ -5,6 +5,26 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.101.0
+
+- **Stubs of an accepted objective are filed under its initiative.** On the initiative choice in
+  `/nxs.epic`, every stub is a child of the initiative the run filed. The run reads the
+  initiative's children back afterwards. If a stub is missing, it reports the run incomplete and
+  keeps its folder, and re-running the same command attaches the stub without filing anything twice.
+- **A stub may sit under an initiative, and under nothing else.** `nexus create-story` used to refuse
+  any stub that named a parent. It now reads what the parent is filed as, and files the batch only
+  when every such parent is declared an initiative. An epic, a story, a decision record, an unmarked
+  issue or a number that does not resolve refuses the whole batch before anything is created. A
+  batch in which no stub names a parent makes no extra call. A repeated `nexus create-story` now
+  retries the parent link of every issue it already filed.
+- **Every stage refuses an initiative as its epic.** `nexus epic-resolve`, and so `/nxs.epic --from`,
+  `/nxs.decision-record`, `/nxs.analyze` and `nexus close`, stop on an issue declared an initiative
+  and name it as one. Initiatives filed by hand under the `initiative` label are refused too. An
+  epic that has an initiative above it resolves and closes as before.
+- **Planning and re-splitting a stub under an initiative.** `/nxs.epic <issue-number>` plans such a
+  stub by the same steps, and the epic stays under the initiative. When the stub proves larger than
+  one epic, its successors are filed under the same initiative and no new objective is proposed.
+
 ## 0.100.0
 
 - **An accepted objective in `/nxs.epic` files an initiative.** On the initiative choice the run
