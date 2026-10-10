@@ -29,7 +29,7 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
-import { issuesRepoHost, issuesRepoPath } from "@nexus/epic-verdicts/verdict-repos";
+import { issuesRepoHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -60,7 +60,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parseIssueUrl, parsePrReference, prRepoName, resolveAnalyzeTarget, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { forgeHost, parseIssueUrl, parsePrReference, prRepoName, resolveAnalyzeTarget, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -3094,7 +3094,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     // issues repository names a host.
     const epicRef = (value: string): { repo: string | null; number: number } | null => {
         const hosted = /^([^/\s#]+)\/([^/\s#]+)\/([^/\s#]+)#(\d+)$/.exec(value.trim());
-        if (hosted !== null) return Number(hosted[4]) > 0 ? { repo: `${hosted[1]}/${hosted[2]}/${hosted[3]}`.toLowerCase(), number: Number(hosted[4]) } : null;
+        if (hosted !== null) return Number(hosted[4]) > 0 ? { repo: `${forgeHost(hosted[1])}/${hosted[2]}/${hosted[3]}`, number: Number(hosted[4]) } : null;
         return parseIssueRef(value);
     };
     // An issue's URL as the browser shows it, host kept so close can tell an issue on another forge
@@ -3167,14 +3167,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const prs = given.filter((g): g is { form: string; target: { pr: ParsedPrReference } } => "pr" in g.target);
     const own = prs.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     const numbers = new Set(epics.map((g) => g.target.epic));
-    // Repositories compared as owner/name and, among those that state one, by host, so two forms of
-    // one repository are one and two forges are two.
+    // Every pair of named repositories must be one repository by close's own rule, so two forms of
+    // one are one and two forges (h1 and h2 beside a form naming neither) are two.
     const named = epics.flatMap((g) => (g.target.repo === undefined ? [] : [g.target.repo]));
-    const names = new Set(named.map((r) => issuesRepoPath(r).toLowerCase()));
-    const hosts = new Set(named.flatMap((r) => { const h = issuesRepoHost(r); return h === null ? [] : [h]; }));
-    const repoCount = Math.max(names.size, hosts.size);
+    const oneRepo = named.every((a) => named.every((b) => sameIssuesRepo(a, b)));
     const pulls = new Set(prs.map((g) => `${prRepoName(g.target.pr, own) ?? ""}#${g.target.pr.number}`));
-    if (numbers.size + pulls.size > 1 || repoCount > 1) {
+    if (numbers.size + pulls.size > 1 || !oneRepo) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.`);
     }
     // The most qualified form of the epic is kept, so close checks the repository and forge it names.
