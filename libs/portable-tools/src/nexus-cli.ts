@@ -32,7 +32,7 @@ import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget
 import { canonicalIssuesRepo, fetchRecordIn, issuesRepoHost, issuesRepoPath, onIssuesHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
-import { resolveKindClassification } from "@nexus/epic-resolve/classify";
+import { resolveKindClassification } from "@nexus/delivery-config/issue-kind";
 import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";

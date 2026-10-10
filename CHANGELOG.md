@@ -5,6 +5,54 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.101.0
+
+- **Stubs of an accepted objective are filed under its initiative.** On the initiative choice in
+  `/nxs.epic`, every stub is a child of the initiative the run filed. The run reads the
+  initiative's children back afterwards. If a stub is missing, it reports the run incomplete and
+  keeps its folder, and re-running the same command attaches the stub without filing anything twice.
+- **A stub may sit under an initiative, and under nothing else.** `nexus create-story` used to refuse
+  any stub that named a parent. It now reads what the parent is filed as, and files the batch only
+  when every such parent is declared an initiative. An epic, a story, a decision record, an unmarked
+  issue or a number that does not resolve refuses the whole batch before anything is created. A
+  batch in which no stub names a parent makes no extra call. A repeated `nexus create-story` now
+  retries the parent link of every issue it already filed.
+- **Every stage refuses an initiative as its epic.** `nexus epic-resolve`, and so `/nxs.epic --from`,
+  `/nxs.decision-record`, `/nxs.analyze` and `nexus close`, stop on an issue declared an initiative
+  and name it as one. Initiatives filed by hand under the `initiative` label are refused too. An
+  epic that has an initiative above it resolves and closes as before.
+- **Planning and re-splitting a stub under an initiative.** `/nxs.epic <issue-number>` plans such a
+  stub by the same steps, and the epic stays under the initiative. When the stub proves larger than
+  one epic, its successors are filed under the same initiative and no new objective is proposed.
+
+## 0.100.0
+
+- **An accepted objective in `/nxs.epic` files an initiative.** On the initiative choice the run
+  files one parent issue before the stubs. It carries the repository's initiative marker and
+  nothing else, and has no parent. Its body states the objective and one ordered list: each stub
+  in execution order, with how much of the objective is reached once it is implemented. It holds
+  no table. Once the stubs exist, the run writes their issue numbers into that list. Repeating an
+  interrupted run files no second initiative.
+- **The initiative is a declared issue kind.** Two settings name its marker: `initiative-label`,
+  which defaults to `initiative`, and `initiative-type`, which has no default. In a repository
+  that classifies by issue type and declares no `initiative-type`, the `/nxs.epic` gate offers
+  only the flat filing and names the missing setting. Attaching the stubs under the initiative
+  arrives in the next release.
+
+## 0.99.0
+
+- **`/nxs.epic` asks whether a decomposition serves one objective.** When an oversized scope splits
+  into two or more goals, the right-size gate offers the stub filing in two versions: under one
+  initiative, or flat. Neither is marked as recommended. The gate shows the proposed objective, the
+  order the stubs are meant to run in, and against each stub how much of the objective is reached,
+  and repeats them in the choice itself. The objective is always proposed on this path, and the
+  lead's decline is the only filter. In discovery mode the objective is the discovery's destination,
+  in its own words. Declining files exactly what the gate filed before. A one-goal split, the
+  deferral stub, the stubs `nexus close` files and the intake lane's follow-ups propose nothing.
+  The option labels changed: `split` is now `split-initiative` / `split-flat`, and `stubs` is now
+  `stubs-initiative` / `stubs-flat`. Filing the initiative itself arrives in the next release;
+  until then both versions file the stubs flat.
+
 ## 0.98.0
 
 - **Close takes the epic.** `nexus close --epic <N>`, or a bare `nexus close <N>`, closes epic

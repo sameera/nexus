@@ -15,6 +15,7 @@ export type EpicResolveProblem =
     | "subissue-fetch-failed"
     | "not-an-epic"
     | "epic-not-planned"
+    | "is-an-initiative"
     | "record-classification-unresolved"
     | "classification-mode-mismatch"
     | "multiple-record-subissues"

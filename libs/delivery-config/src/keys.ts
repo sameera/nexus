@@ -35,6 +35,11 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     { githubKey: "story-type", normalized: "storyType" },
     { githubKey: "story-label", normalized: "storyLabel", builtin: "story" },
     { githubKey: "classification", normalized: "classification" },
+    // The marker on an initiative — the parent a coherent decomposition's stubs are filed under
+    // (decision record #786, D5). The label carries a built-in; the issue type deliberately carries
+    // none, like the epic type, because a guessed type name marks nothing.
+    { githubKey: "initiative-type", normalized: "initiativeType" },
+    { githubKey: "initiative-label", normalized: "initiativeLabel", builtin: "initiative" },
     // The specific epic-repo/story-repo win over the general issues-repo, which stays the fallback
     // for whichever is unspecified.
     { githubKey: "epic-repo", normalized: "epicRepo", fallbackTo: "issuesRepo" },

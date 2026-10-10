@@ -9,7 +9,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ToolkitIo } from "../io.js";
-import { type RootLayers, layersAt, resolveKeyFromLayers } from "../resolve.js";
+import { type RootLayers, layersAt } from "../resolve.js";
 import { type FilerArgs } from "./args.js";
 import { type WorkItem, readWorkItem } from "./frontmatter.js";
 
@@ -76,26 +76,6 @@ export function preflight(args: FilerArgs, io: ToolkitIo): PreflightOutcome {
     const items: WorkItem[] = files.map((file) =>
         readWorkItem(path.basename(file), fs.readFileSync(file, "utf8"), file),
     );
-
-    // A stub is never a sub-issue of anything: `/nxs.close` hard-blocks until every sub-issue of an
-    // epic is closed, so a deferred-scope stub filed beneath the epic being closed would deadlock
-    // the stage that filed it. The filer refuses the relationship rather than trusting each writer
-    // to omit it — and refuses the whole batch, since a partial one is the thing being avoided.
-    const unplannedLabel: string = resolveKeyFromLayers(layers, "unplanned-label") ?? "";
-    const parentedStubs: WorkItem[] = items.filter(
-        (item) => item.parent.trim() !== "" && item.labels.includes(unplannedLabel),
-    );
-    if (parentedStubs.length > 0) {
-        for (const item of parentedStubs) {
-            io.stderr(
-                `Error: ${item.fileName} carries the '${unplannedLabel}' label and asks to be a ` +
-                    `sub-issue of ${item.parent}. An epic stub is never a sub-issue — its link to ` +
-                    "the epic that spawned it is a body mention. Remove the `parent:` key and re-run.",
-            );
-        }
-        io.stderr("Nothing was created.");
-        return { kind: "refused" };
-    }
 
     return { kind: "ready", targetFolder, projectRoot, layers, items };
 }
