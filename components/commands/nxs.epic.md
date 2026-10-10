@@ -145,7 +145,7 @@ The check reads; it writes nothing to the store. Nothing is published before the
 gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){parent{number issueType{name} labels(first:100){nodes{name}}}}}}' -f o=<owner> -f r=<repo> -F n=<n>
 ```
 
-The parent is an initiative when it carries the resolved marker: the issue type under `types`, the label otherwise. Then each successor names that same initiative as its `parent:` in its work item, and step 4's filer attaches it and checks the parent as it does for any stub. Propose no objective: the Phase 2 gate offers the single `stubs` option, as for a one-goal split. File no second initiative. Do not edit the initiative's body: its order keeps naming the closed original, whose closing comment names the successors. After step 4, read the initiative's children back as "Under an initiative" describes, and re-run step 4 if a successor is missing. Any other parent, or none, files the successors flat, exactly as before.
+The parent is an initiative when it carries the resolved marker: the issue type under `types`, the label otherwise. Then each successor names that same initiative as its `parent:` in its work item, and step 4's filer attaches it and checks the parent as it does for any stub. Propose no objective: the Phase 2 gate offers the single `stubs` option, as for a one-goal split. File no second initiative. Do not edit the initiative's body: its order keeps naming the closed original, whose closing comment names the successors. Add `--keep-manifest` to step 4's `nexus create-story` command, so the ledger at `${RUN_DIR}/.nxs-created.json` survives a `✅ Complete` batch. A parent link that fails only warns, so a batch can report `✅ Complete` with a successor still unattached. After step 4, confirm every successor is one of the initiative's children, by the read-back and repeat that "Under an initiative" describes. In that read-back, `INITIATIVE` is the parent's number from the query above, and `<owner>/<repo>` is the stub's own repository. Run step 6 only once every successor is confirmed. Short of that, keep the run folder: a repeat of step 4 without its ledger would file every successor a second time. Any other parent, or none, files the successors flat, exactly as before.
 
 ```bash
 gh issue comment <n> $REPO_ARG --body "Larger than one epic on planning. Re-decomposed into #<a>, #<b>, #<c>."
@@ -435,7 +435,7 @@ The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for 
     nexus planning-dir remove --name "nxs-epic-${RUN_NAME}"
     ```
 
-    **Skip this step** on anything short of that: an `⚠️ INCOMPLETE` filing, or a discovery-mode gist post that failed. The folder stays exactly as it is, so the same run can be repeated against it (decision record #646) — a repeated `nexus create-story` skips what its ledger already shows created and files only the remainder.
+    **Skip this step** on anything short of that: an `⚠️ INCOMPLETE` filing, a discovery-mode gist post that failed, or, for the successors of a stub under an initiative, a successor not yet confirmed as one of the initiative's children. The folder stays exactly as it is, so the same run can be repeated against it (decision record #646) — a repeated `nexus create-story` skips what its ledger already shows created and files only the remainder.
 
 ### Under an initiative (`split-initiative` / `stubs-initiative` only)
 
