@@ -73,7 +73,7 @@ describe("/nxs.analyze loads the shared skill and qualifies references on the PR
     });
 
     it("hands the drafted body to the pre-publish check before either publish path", () => {
-        expect(ANALYZE).toContain('nexus verdict-check --body "<scratch>/analyze-review.md" --dir "$wtPath"');
+        expect(ANALYZE).toContain('nexus verdict-check --body "<run>/analyze-review.md" --dir "$wtPath"');
         const checkAt = ANALYZE.indexOf("nexus verdict-check");
         expect(checkAt).toBeGreaterThan(-1);
         expect(checkAt).toBeLessThan(ANALYZE.indexOf("gh pr review <N> -R <repoIdentity> --approve"));
@@ -81,9 +81,9 @@ describe("/nxs.analyze loads the shared skill and qualifies references on the PR
     });
 
     it("carries -R <repoIdentity> on every gh pr review / gh pr comment call (the secondary bug)", () => {
-        expect(ANALYZE).toContain('gh pr review <N> -R <repoIdentity> --approve --body-file "<scratch>/analyze-review.md"');
-        expect(ANALYZE).toContain('gh pr review <N> -R <repoIdentity> --request-changes --body-file "<scratch>/analyze-review.md"');
-        expect(ANALYZE).toContain('gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"');
+        expect(ANALYZE).toContain('gh pr review <N> -R <repoIdentity> --approve --body-file "<run>/analyze-review.md"');
+        expect(ANALYZE).toContain('gh pr review <N> -R <repoIdentity> --request-changes --body-file "<run>/analyze-review.md"');
+        expect(ANALYZE).toContain('gh pr comment <N> -R <repoIdentity> --body-file "<run>/analyze-review.md"');
     });
 });
 

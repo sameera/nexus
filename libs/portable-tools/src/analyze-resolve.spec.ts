@@ -52,7 +52,7 @@ describe("it follows the mode the toolkit printed (D8)", () => {
     it("reads no code on an unchanged head and records the answers through the ID step's scope (G18)", () => {
         expect(RESOLVE()).toMatch(/\*\*`unchanged`\*\*/);
         expect(RESOLVE()).toMatch(/\*\*Read no code\*\*/);
-        expect(RESOLVE()).toMatch(/nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>\/scope\.json" --out "<scratch>\/judgments\.md"/);
+        expect(RESOLVE()).toMatch(/nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>\/scope\.json" --out "<run>\/judgments\.md"/);
     });
 
     it("on a moved head judges again only what the scope names, checks unlisted files against every guarantee, and carries the rest (G19, G20)", () => {
@@ -60,7 +60,7 @@ describe("it follows the mode the toolkit printed (D8)", () => {
         expect(RESOLVE()).toMatch(/a trunk merge or a rebase changes nothing by itself/);
         expect(RESOLVE()).toMatch(/`unlisted`[^]*new departures[^]*every guarantee/);
         expect(RESOLVE()).toMatch(/carried forward unchanged/);
-        expect(RESOLVE()).toMatch(/--scope "<scratch>\/scope\.json" --draft "<scratch>\/items\.json"/);
+        expect(RESOLVE()).toMatch(/--scope "<run>\/scope\.json" --draft "<run>\/items\.json"/);
     });
 
     it("publishes a complete verdict through the same publish check, which supersedes the earlier one (G24)", () => {

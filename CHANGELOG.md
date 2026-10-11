@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.106.0
+
+- **`analyze` and `distill` keep a run checklist that survives a context summary.** Once the stage
+  knows its items, it writes a checklist into a run folder under `.nexus/tmp/runs/`: one line per
+  story for `analyze`, one per queue entry for `distill`, and one line for the final write, which is
+  publishing the review or opening the distillation pull request. A line is ticked only after that
+  item's result is saved in the folder. A run whose context was summarized reads the checklist
+  again, repeats no ticked item, and never publishes a second review or opens a second pull request.
+- **The stage's working files move into that folder.** `analyze`'s record body, scope, judgments
+  and review body, and `distill`'s per-entry files, deltas, run summary and pull request body now
+  live in `.nexus/tmp/runs/analyze-pr-<N>/`, `.nexus/tmp/runs/analyze-epic-<n>/` or
+  `.nexus/tmp/runs/distill-<subject>/`. `distill` never mistakes the folder for a queue entry, and
+  an entry's diff is still never written to disk.
+- **Every run starts the folder fresh, and a finished run removes it.** A local `analyze` run now
+  writes working files into the checkout while it runs, and leaves no file behind once it finishes.
+  A run that stopped early leaves its folder for you to inspect; the next run replaces it and never
+  reads the old checklist.
+
 ## 0.105.0
 
 - **`analyze` marks what it could not confirm, and says where it looked.** An acceptance criterion
