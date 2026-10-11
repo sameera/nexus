@@ -47,3 +47,23 @@
 - **Choice:** the criterion verdict list keeps `unverifiable` beside the new `unconfirmed`, for both the judgments-block parser and the draft parser; the stage text tells the model to write `unconfirmed` and to report an old `unverifiable` as unconfirmed.
 - **Why:** both parsers share one result reader, and splitting old-read from new-write would add a second verdict table for no gain to the lead.
 - **Refuted alternative:** refuse `unverifiable` in a new draft while still reading it from a published verdict.
+
+## 2026-10-10 — Run folders live under one `.nexus/tmp/runs/` namespace, named `<stage>-<subject>`
+- **Choice:** analyze uses `.nexus/tmp/runs/analyze-pr-<N>/` (`analyze-<repo>-pr-<N>/` for a qualified ref) or `.nexus/tmp/runs/analyze-epic-<n>/`; distill uses `.nexus/tmp/runs/distill-<subject>/`, with `<subject>` the named entry's directory, `recover-<n>`, or `queue`.
+- **Why:** one namespace one level below `.nexus/tmp/`, like `planning/`, keeps every run folder off distill's entry scan, and the stage prefix keeps the leaf name from ever matching an entry shape.
+- **Refuted alternative:** a namespace per stage (`.nexus/tmp/analyze/<subject>/`, `.nexus/tmp/distill/<subject>/`), which adds two top-level names under `.nexus/tmp/` for no gain.
+
+## 2026-10-10 — Working files are renamed from `<scratch>/` to `<run>/` in analyze and distill
+- **Choice:** every `<scratch>/…` path in the two stages becomes `<run>/…`, and distill's unnamed "scratchpad" for deltas becomes `<run>/<entry-slug>/deltas.md`.
+- **Why:** `<scratch>` was never defined, so a path the stage cannot derive again would be lost in the same summary the checklist must survive.
+- **Refuted alternative:** keep `<scratch>` and add one line defining it as the run folder, which leaves a second name for the same folder.
+
+## 2026-10-10 — Analyze opens its run folder past both block states, in Phase 0.5
+- **Choice:** the folder opens as Phase 0.5's new step 5, after the block states and before the record body is first written.
+- **Why:** a blocked run must emit nothing at all, and the record body is the first working file analyze writes.
+- **Refuted alternative:** open it at the end of Phase 0 when the stories are first known, which leaves a folder behind on every blocked or non-epic run.
+
+## 2026-10-10 — The run folder is removed before the completion report is printed
+- **Choice:** a finished run removes its folder after its last read and before printing the report.
+- **Why:** analyze's fixed result line must stay the last line the run prints, and a removal after the report would follow it.
+- **Refuted alternative:** remove the folder after the report, which puts a tool call after the result line the implement script reads.

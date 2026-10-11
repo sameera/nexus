@@ -154,8 +154,8 @@ branch, stops at the checkpoint or opens a pull request of its own.
    contradictory claims about what the entry is, and picking the directory name would process an
    entry under the wrong razor, the exact case this check exists to catch.
 
-   **Resolve the kind once, here, and record it** in the entry's run scratch as
-   `<scratch>/<entry-slug>/entry-kind`, beside the record body Phase 0.1 writes there. Every later
+   **Resolve the kind once, here, and record it** as `<run>/<entry-slug>/entry-kind` when step 6
+   opens the run folder, beside the record body Phase 0.1 writes there. Every later
    phase reads that recorded value and must never re-derive the kind.
 
    When any discovered entry's recorded kind is **`fix`** or **`intake`**, load the
@@ -210,6 +210,11 @@ branch, stops at the checkpoint or opens a pull request of its own.
 4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → the run mode resolved at run-shape
    resolution is **recovery**. Load the **`nxs-distill-recovery`** skill and follow it.
 5. If nothing is drainable, report that and stop.
+6. **Open the run folder.** Load the **`nxs-long-run`** skill and follow it. The run folder is
+   `.nexus/tmp/runs/distill-<subject>/`: `<subject>` is the entry directory's name when
+   `$ARGUMENTS` names one entry, `recover-<n>` in recovery mode, else `queue`. Record each entry's
+   kind there (step 2). The checklist has one line per drainable entry and a final line for opening
+   the distillation-PR.
 
 All drainable entries in one run are batched into **one** distillation-PR (0007 batches
 naturally), applied entry-by-entry (Phase 4).
@@ -233,14 +238,14 @@ When the run mode resolved at run-shape resolution is **continuation**, load the
        re-resolving: this run may happen from a checkout whose `epic-repo` resolves differently than
        the checkout that closed the epic did, and the stamped value is the one the close comment's
        own `record`/`epic` numbers actually resolve against. **Write the fetched body to a file**,
-       `<scratch>/<entry-slug>/record-body.md`. Phase 4.6 grounds an abstraction in that file as a
+       `<run>/<entry-slug>/record-body.md`. Phase 4.6 grounds an abstraction in that file as a
        readable path, so a body captured only in context is grounding nothing:
 
         ```bash
         ISSUES_REPO="${STAMPED_ISSUES_REPO:-$(nexus config resolve epic-repo --root .)}"
-        mkdir -p "<scratch>/<entry-slug>"
+        mkdir -p "<run>/<entry-slug>"
         gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body \
-          > "<scratch>/<entry-slug>/record-body.md"                                    # the why
+          > "<run>/<entry-slug>/record-body.md"                                    # the why
         nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
         ```
 
@@ -382,8 +387,9 @@ derivation tool with each argument its own quoted token, never a shell-interpola
       header per range entry followed by that entry's diff, in ancestry order within each repo.
       Analyze each entry's diff against its own repo.
     - **Exit 1 — the entry is blocked, whatever the failure class.** Report the tool's diagnostic
-      **verbatim** and mark the entry **blocked**: it is not processed this run, its queue files
-      are untouched, and the remaining entries still drain. **There is no second diff source in
+      **verbatim** and mark the entry **blocked**: save the diagnostic to `<run>/<entry-slug>/blocked`
+      and tick the entry's line `blocked: <class token>`. It is not processed this run, its queue files are
+      untouched, and the remaining entries still drain. **There is no second diff source in
       either mode.** Never fall back to another repo, never treat the failure as an empty diff,
       never derive a partial diff, and never ask the user for a replacement range.
 
@@ -441,8 +447,8 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 
 For each entry, map the diff + records to a list of **per-concept `ConceptDelta`s in the 0003
 §8.2 stored form**: a markdown page-patch (YAML frontmatter + headed sections), never JSON.
-Write each delta to the scratchpad for the Phase 6 digest; deltas are working material, never
-committed.
+Write each entry's deltas to `<run>/<entry-slug>/deltas.md` for the Phase 6 digest; deltas are
+working material, never committed.
 
 **Sources:** the *what* (behavior, integration points, behavioral invariants) from the diff; the
 *why* (key decisions, refuted alternatives, deviation rationale) from the *why* file Phase 0
@@ -667,7 +673,8 @@ Run these for each entry, in order, before its commit:
     git commit
     ```
 
-   `<resolved-atlas-path>` is the path Step 4 reported, never a fixed literal.
+   `<resolved-atlas-path>` is the path Step 4 reported, never a fixed literal. Tick its line once
+   its commit is on the distill branch.
 
    The entry leaves `.nexus/queue/**` only on this branch; main still holds it until the PR merges,
    and it stays recoverable via git history thereafter.
@@ -700,7 +707,7 @@ Run these for each entry, in order, before its commit:
 ## Phase 6.3 — Final checkpoint
 
 **Write the run summary.** Everything the three surfaces state about this run is defined here,
-once, and written to `<scratch>/run-summary.md`. It is scratch: never `git add`ed, never
+once, and written to `<run>/run-summary.md`. It is scratch: never `git add`ed, never
 committed, and **not a state file** — no later run reads it. The checkpoint below, the pull
 request body (Phase 7) and the completion report (Phase 8) are *layouts* over these fields. They
 keep their own distinct shapes and labels, they name fields, and none of them redefines what a
@@ -756,12 +763,12 @@ Then ask via **`AskUserQuestion`**:
 
 # Phase 7 — Open the distillation-PR
 
-Draft the body below to a scratch file under the *Prose convention*, then open the pull request
-from that file with `--body-file`.
+Draft the body below to `<run>/pr-body.md` under the *Prose convention*, then open the pull
+request from that file with `--body-file`, and tick the final line with its URL.
 
 ```bash
 git push -u origin <distill-branch>
-gh pr create --title "distill: <epic title(s) or local-ids>" --body-file "<scratch>/pr-body.md"
+gh pr create --title "distill: <epic title(s) or local-ids>" --body-file "<run>/pr-body.md"
 git checkout -
 ```
 
@@ -797,7 +804,8 @@ atomically with the page writes — **no manual post-merge step**:
 
 # Phase 8 — Report completion
 
-Lay the run summary out in the report's own shape, under the run-discipline skill's headings:
+Lay the run summary out in the report's own shape, under the run-discipline skill's headings,
+reading it from `<run>/run-summary.md`; then remove the run folder and print the report:
 
 ```
 ## Blocked on me

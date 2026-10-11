@@ -37,7 +37,7 @@ export const CONTRACTS: readonly string[] = [
  * Every shared skill the base stage loads on every run, whatever its shape. Each is counted in full,
  * because an ordinary run reads its whole body, not only its description.
  */
-export const SHARED_SKILLS: readonly string[] = ["nxs-run-discipline"];
+export const SHARED_SKILLS: readonly string[] = ["nxs-run-discipline", "nxs-long-run"];
 
 /** The committed ceiling record, beside this source. */
 export const CEILING_FILE = "distill-load-ceiling.json";

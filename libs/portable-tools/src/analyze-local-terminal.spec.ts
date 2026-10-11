@@ -1,6 +1,6 @@
 /**
  * A run of analyze without a pull request reports in the terminal only (epic #829, story #863,
- * decision record #871, D12). It writes no file in any placement, and the shared derivation close
+ * decision record #871, D12). It leaves no file behind once it finishes (story #894), and the shared derivation close
  * still calls no longer writes the local receipt (G36). The fix lane, the intake lane, close, the
  * issue-reference rules and the implement scripts no longer name the local analysis file (G37), and
  * close behaves the same whether or not a local run happened, even when a file an older release
@@ -28,8 +28,11 @@ describe("analyze without a pull request reports in the terminal and writes no f
         expect(ANALYZE).not.toContain(LOCAL_FILE);
     });
 
-    it("states that a run without a pull request writes no file in any placement, old-contract entries included", () => {
-        expect(ANALYZE).toMatch(/Without a pull request, analyze writes \*\*no file\*\*/);
+    it("states that a run without a pull request leaves no file behind once it finishes, old-contract entries included", () => {
+        // Story #894 (record #905, D7): the run now keeps working files in its run folder while it
+        // runs, and removes the folder before it reports.
+        expect(ANALYZE).toMatch(/Without a pull request, analyze leaves \*\*no file\*\* behind once it finishes/);
+        expect(ANALYZE).toMatch(/run folder \(Phase 0\.5\) is working scratch: the run removes it before printing the report/);
         expect(ANALYZE).toMatch(/not beside a materialized `epic\.md` under `\.nexus\/tmp\/`, and not in an\s*\n?old-contract committed entry/);
     });
 
