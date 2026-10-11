@@ -233,6 +233,12 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(check(draft(1, [departure(), departure({ id: "DV2", found: false, departsFrom: "G9" })])).ok).toBe(true);
     });
 
+    it("approves counts of zero for a verdict whose only open question is an unconfirmed result, which never blocks (epic #889, story #893; G18)", () => {
+        const unconfirmed: Result = { kind: "guarantee", about: "G18", verdict: "unconfirmed", files: [], looked: "the merge pre-check surface", confirmBy: "a merge attempt" };
+        const body = fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items: [], results: [unconfirmed], keyDecisions: KEY }) });
+        expect(check(body).ok).toBe(true);
+    });
+
     it("approves a verdict listing no departure when the code matches the record (G2)", () => {
         expect(check(draft(0, [])).ok).toBe(true);
     });

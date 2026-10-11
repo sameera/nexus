@@ -1401,6 +1401,15 @@ describe("nexus close — reading a merged pull request's verdict", () => {
         expect(r.ok && r.found && r.judgments === "present" ? r.read.items.map((d) => d.answer?.author) : []).toEqual(["lead"]);
     });
 
+    it("reads a verdict carrying an unconfirmed result as present, with its open counts unchanged, so it never stops close (epic #889, story #893; G18, G34)", () => {
+        const withUnconfirmed = renderJudgmentsBlock({
+            items: [],
+            findings: [],
+            results: [{ kind: "criterion", about: "#893 AC1", verdict: "unconfirmed", files: [], looked: "libs/a.ts", confirmBy: "a benchmark run" }],
+        });
+        expect(read(twoVerdictPrPayload({ newerBody: verdictBody({ high: 0, judgments: withUnconfirmed }) }))).toMatchObject({ ok: true, found: true, critical: 0, high: 0, judgments: "present" });
+    });
+
     it("reads a verdict published before the judgments block as having none", () => {
         expect(read(twoVerdictPrPayload({ newerBody: verdictBody({ high: 2 }) }))).toEqual({ ok: true, found: true, critical: 0, high: 2, judgments: "absent" });
     });
