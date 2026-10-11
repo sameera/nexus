@@ -50,6 +50,7 @@ nexus config backlog-query --form exclude
 | [PR-Driven Delivery](pr-driven-delivery/README.md)                         | Conformance, closure, and distillation against a merged pull request.            |
 | [Pre-Epic Discovery](pre-epic-discovery/README.md)                         | Discovery of foggy initiatives into resolved decisions and epic stubs.           |
 | [Queue Scratch Capture](queue-scratch-capture/README.md)                   | In-flight decision scratch as committed per-user subdirs in the queue entry.      |
+| [Ranked PR Review](ranked-pr-review/README.md)                             | Reviewing a pull request, ranking the findings, and posting the ranking as one review. |
 | [Scope Discipline](scope-discipline/README.md)                             | Keeping planning artifacts to the scope someone actually asked for.              |
 | [Solo Delivery](solo-delivery/README.md)                                   | A lean lane for single-developer local projects: check, close and distill in one sitting. |
 
