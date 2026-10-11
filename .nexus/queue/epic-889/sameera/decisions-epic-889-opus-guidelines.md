@@ -67,3 +67,13 @@
 - **Choice:** a finished run removes its folder after its last read and before printing the report.
 - **Why:** analyze's fixed result line must stay the last line the run prints, and a removal after the report would follow it.
 - **Refuted alternative:** remove the folder after the report, which puts a tool call after the result line the implement script reads.
+
+## 2026-10-10 — Codex runs the readers in sequence through the runtime preamble
+- **Choice:** State G38 as one binding in the Codex runtime preamble (`codex-components.ts`), which tells Codex to read each item itself in turn and say so under Found.
+- **Why:** No component names Codex; the preamble is where every other Codex-only rule lives, and it costs distill's load ceiling nothing.
+- **Refuted alternative:** An "Under Codex" sentence in the `nxs-long-run` skill, which Claude would also load and the ceiling would count.
+
+## 2026-10-10 — A distill reader's checked result is saved but ticks nothing
+- **Choice:** Save it to `<run>/<entry-slug>/reading.md`; the entry's line is still ticked only when its commit is on the distill branch, so the skill says a line may be ticked only after the save, "where the stage says".
+- **Why:** The record ticks a distill entry at its commit, and a ticked line skips the item after a summary, so ticking at the reading would skip the entry's deltas and commit.
+- **Refuted alternative:** Tick at the saved reading, as analyze does at its story file.

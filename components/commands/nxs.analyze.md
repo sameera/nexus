@@ -3,7 +3,7 @@ name: nxs.analyze
 description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format), and the invariants on the concept pages the epic lists — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. A criterion or guarantee it cannot confirm from the code it read is marked unconfirmed, naming where it looked and what would confirm it; it is counted on its own, listed as a check for the lead, and never blocks. With `--pr <N> --resolve` it records those answers without judging unchanged code again: on an unchanged head it reads no code, on a moved head it judges again only the answered departures and what the files whose own change differs affect (a trunk merge or rebase changes nothing by itself), and it judges the whole pull request again, saying why, when the record or story set changed or the last verdict cannot say what a change affects; with no verdict to carry it stops and names a full run. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; Run without a pull request it reports in the terminal only and leaves no file behind once it finishes, ending its report with one fixed result line that gives the open severity counts and the analyzed head. With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block, followed by a judgments block that carries what close writes into its record: the key decisions (each record decision by ID, tied to the stamped record digest, plus each confirmed decision stub), every departure with its answer, and deferred-scope proposals with DS IDs, each tied to the finding or departure it would settle, which a trusted approved answer marks for filing and stops blocking; a verdict over the platform's size limit drops its results' file lists first, and one still too large is not published. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
-tools: Read, Grep, Glob, Bash, Write, Skill
+tools: Read, Grep, Glob, Bash, Write, Task, Skill
 ---
 
 # Role
@@ -486,6 +486,11 @@ For `system` stories, the AC states a measurable threshold — confirm the code 
 exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unconfirmed** and
 name the command that would measure it.
 
+**With more than one story, each gets its own reader** (`nxs-long-run` §4–5), on every run. The
+reader judges only that story's acceptance criteria against the change set, classifying each as
+above. Give it the Phase 1 diff command, with `BASE` and, in `--pr` mode, `wtPath`. Run the
+evidence check on its report. Severity, IDs and deferral stay yours.
+
 Save each story's results to `<run>/story-<n>.md`, then tick its line in the run checklist.
 
 ## 2.2 Guarantee and invariant conformance (full mode only)
@@ -776,8 +781,10 @@ Published:               this verdict, on pull request <N>                      
 Recorded:                <the scope's lines>   (--resolve only)
 
 ### Found
-Per-story AC conformance:
-  STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted · <unconfirmed> unconfirmed
+Per-story AC conformance: one row per story, evidence as locations only (no quotes)
+| Story | Met | Partial | Unmet | Contradicted | Unconfirmed | Evidence |
+|---|---|---|---|---|---|---|
+| STORY <story-ref> <title> | <met>/<total> | <partial> | <unmet> | <contradicted> | <unconfirmed> | <file:line, diff hunk or D<n>, per criterion> |
 
 Departures:              <none> | one line per departure (§2.5):
   DV<n> (<critical|high>) from <G<n> | D<n> | title | section> · <file:line> · <what the code does>
@@ -807,6 +814,10 @@ Notes:                   <stories still open → close before /nxs.close, ...>  
 
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L> · unconfirmed <U>
 ```
+
+The per-story table is the run's final table (`nxs-long-run` §6), built from `<run>/story-<n>.md`,
+or in a recording run from each result's `files`. Its evidence gives locations only, so the review
+stays inside the platform's size limit.
 
 Under Blocked on me, each open critical or high item appears once, by its ID; its full line stays
 under Found. Medium and low items never block, so they appear only under Found. Each unconfirmed

@@ -5,6 +5,27 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.107.0
+
+- **`analyze` and `distill` give each story or entry to its own reader.** When a run covers more
+  than one story or queue entry, each one goes to its own subagent, and the subagents run in
+  parallel. This holds on every run, including the repeated `analyze` rounds during implementation,
+  so token use grows with the number of stories. A run with one story or entry reads it itself, as
+  before. A reader reads and reports. It writes no file, makes no commit and writes nothing to
+  GitHub. An `analyze` reader judges one story's acceptance criteria. A `distill` reader derives one
+  entry's diff again, still never on disk, and returns the behaviour changes and decisions it found.
+- **The stage checks each reader's evidence before it accepts the report.** Every claim cites a
+  location (a file and line, a diff hunk, or a decision ID in the record) and a short quote from
+  it. The stage confirms each quote is really there. When one is not, the stage reads that location
+  itself once, and marks the claim unconfirmed if it still does not hold. Severity, IDs,
+  departures, guarantees, deltas, page prose, the checkpoint and publishing stay with the stage.
+- **One table under Found.** `analyze` now shows its per-story results as a table: the counts of
+  met, partial, unmet, contradicted and unconfirmed criteria, and the evidence locations, with no
+  quotes so the review stays inside the platform's size limit. `distill`'s report ends with one row
+  per entry: drained, blocked or skipped, the concepts it changed, and the decisions and diff
+  locations behind them. The `distill` checkpoint and pull request body are unchanged.
+- **Under Codex the readers run one after another,** and the report says so.
+
 ## 0.106.0
 
 - **`analyze` and `distill` keep a run checklist that survives a context summary.** Once the stage

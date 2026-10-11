@@ -2,7 +2,7 @@
 name: nxs.distill
 description: Move the closed queue (committed entries and same-sitting ephemeral .nexus/tmp entries alike) into the concept store via a reviewed distillation-PR. Reads each closed queue entry (epic + close record) plus the epic's decision record, fetched from its record sub-issue and verified against the hash stamped at close, plus the recomputed merged diff, synthesizes per-concept deltas, runs the deterministic steps (touches-reciprocity fan-out, code-anchor refresh, validator), then, after a checkpoint, opens the distillation-PR. Never writes .nexus/concepts/ on main; consumed queue entries are deleted only when that PR merges.
 category: engineering
-tools: Read, Grep, Glob, Write, Edit, Bash, Skill, AskUserQuestion
+tools: Read, Grep, Glob, Write, Edit, Bash, Task, Skill, AskUserQuestion
 model: inherit
 ---
 
@@ -450,6 +450,12 @@ For each entry, map the diff + records to a list of **per-concept `ConceptDelta`
 Write each entry's deltas to `<run>/<entry-slug>/deltas.md` for the Phase 6 digest; deltas are
 working material, never committed.
 
+**With more than one entry, each gets its own reader** (`nxs-long-run` §4–5). A blocked entry gets
+no reader: Phase 1 decided it. The reader runs `nexus derive-entry-diff --entry "<entry-dir>"`
+again, never writing the diff anywhere, reads the entry's *why* file and `close-record.md`, and
+returns only behaviour changes and decisions with evidence, never deltas or prose. Save the checked
+result to `<run>/<entry-slug>/reading.md` and draw the deltas from it.
+
 **Sources:** the *what* (behavior, integration points, behavioral invariants) from the diff; the
 *why* (key decisions, refuted alternatives, deviation rationale) from the *why* file Phase 0
 resolved plus `close-record.md`. Engineer scratch is not a distill input (`<entry>/<username>/**`).
@@ -722,6 +728,7 @@ field holds or when it drops out. Change what a value holds here.
 | `skipped` / `blocked` | per entry: local id, age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case under its own **unqualified** label, `Skipped:` at the checkpoint and `Entries skipped:` at the report, reading `none — every queue entry drained; no drain-SLO breaches` |
 | `waived` | the Phase 0.4 not-merged entries the lead waived, and that the PR carries their unmerged feature commits | the line is absent when every drained entry was on the trunk |
 | `pr_url` | the distillation-PR's URL | written at Phase 7 |
+| `evidence` | per entry: outcome (drained \| blocked \| skipped), the concepts it changed, and the record decisions and diff locations behind them | report only |
 
 Provenance in every field takes the Phase 0.6 resolved form, and the consumed entries are removed
 on the branch so the deletion lands with the merge, never on main now.
@@ -827,6 +834,10 @@ Validator:         PASS
 Entries skipped (not closed): <list with ages, drain-SLO flags>
 Entries blocked (diff underivable): <list with age, drain-SLO flag, the class token and the
                                range entry that failed>
+
+| Entry | Outcome | Concepts changed | Evidence |
+|---|---|---|---|
+| <local-id> | <drained, blocked or skipped> | <slugs, or none> | <D<n>, diff locations> |
 ```
 
 # Usage
