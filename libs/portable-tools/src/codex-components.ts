@@ -38,6 +38,9 @@ wording differs; these bindings take precedence over tool names and interaction 
   subagents are available, give each the full role instructions, brief and resolved docs root.
   Otherwise perform the reviews sequentially with the same inputs, keep their findings distinct,
   and disclose that they were not independent subagent runs. Never invent a tool or review result.
+- A general-purpose \`Task\` reader is not a specialist review. A stage's readers run one after
+  another here: read each item yourself in turn, under the same reader brief and evidence check,
+  and say so under Found in the completion report.
 - Use the current Codex model and its configured permissions. Claude tool lists and model choices
   are not Codex configuration. Do not change permission settings or bypass approval requirements.
 

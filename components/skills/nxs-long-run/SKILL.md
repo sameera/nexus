@@ -1,6 +1,6 @@
 ---
 name: nxs-long-run
-description: The run folder and checklist /nxs.analyze and /nxs.distill keep, so a run whose context was summarized picks up where it was. Only those two stages load it, once they know their items.
+description: The run folder and checklist /nxs.analyze and /nxs.distill keep, so a run whose context was summarized picks up where it was, and the readers, evidence check and final table of a run over many items. Only those two stages load it, once they know their items.
 ---
 
 # nxs-long-run
@@ -57,7 +57,36 @@ again first.
   from the run's branch. If it did, tick the line instead of writing.
 - **Build the report from the saved files, not from the conversation.**
 
-## 4. Finishing the run
+## 4. Readers
+
+- **More than one item:** give each its own general-purpose reader (`Task`), all launched in one
+  message so they run in parallel. This holds on every run, repeated analyze rounds included.
+- **One item:** no reader. Read it yourself, citing in the evidence form.
+- **The reader brief.** Copy it into each reader's prompt, after the item and what to return:
+
+  ```
+  Read only. Write nothing: no file, no commit, no GitHub write.
+  Cite every claim in the evidence form: a location plus a short quote from it. A location is a
+  file and line, a diff hunk, or a decision ID in the record.
+  Mark a claim you cannot support unconfirmed, and say where you looked.
+  ```
+
+- **Every gate and judgment stays with the stage.** A reader reports what it read. You decide
+  severity, IDs, departures, guarantees, deltas, page prose, the checkpoint and what to publish.
+
+## 5. The evidence check
+
+Before accepting a report, confirm each quote appears at its cited location. Where one does not,
+read that location yourself, once. If the claim still does not hold, mark it unconfirmed, or the
+whole item when nothing in it holds. Never send a report back to its reader. Save the accepted
+result in the run folder; only then may the item's line be ticked, where the stage says.
+
+## 6. The final table
+
+Build one table, under Found, from the saved results in the run folder: one row per item, its
+verdict and its evidence. The stage names the columns.
+
+## 7. Finishing the run
 
 - **At the finish line, remove the run folder** (`rm -rf "<run>"`) after its last read and before
   printing the completion report, so the report stays the run's last output. A finished run leaves
