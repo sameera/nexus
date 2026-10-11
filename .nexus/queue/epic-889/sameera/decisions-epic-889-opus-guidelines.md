@@ -77,3 +77,8 @@
 - **Choice:** Save it to `<run>/<entry-slug>/reading.md`; the entry's line is still ticked only when its commit is on the distill branch, so the skill says a line may be ticked only after the save, "where the stage says".
 - **Why:** The record ticks a distill entry at its commit, and a ticked line skips the item after a summary, so ticking at the reading would skip the entry's deltas and commit.
 - **Refuted alternative:** Tick at the saved reading, as analyze does at its story file.
+
+## 2026-10-10 — Setup's Phase 1 gate ships as patch 0.107.1
+- **Choice:** Release the added Phase 1 gate name in `/nxs.setup` as its own patch version, 0.107.1, with its own changelog entry.
+- **Why:** Each story on this branch carries its own version, and this fix changes what setup names as a gate, which adopters see.
+- **Refuted alternative:** Fold the line into the 0.107.0 entry, which describes story #895's readers and not setup.

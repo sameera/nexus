@@ -33,7 +33,7 @@ const SKILL: string = flat(read(`skills/${SKILL_NAME}/SKILL.md`));
  * the one the stage's own phases use, so the opening and the phase it points at say the same thing.
  */
 const STAGES: Readonly<Record<string, readonly string[]>> = {
-    "nxs.setup.md": ["stack confirmation", "interview's questions", "review gate"],
+    "nxs.setup.md": ["proceed-or-stop question", "stack confirmation", "interview's questions", "review gate"],
     "nxs.discover.md": ["destination", "feature", "resume-or-new", "interview", "surface sketch", "outcome confirmation"],
     "nxs.epic.md": ["resume-or-new", "feature-name confirmation", "right-size gate", "open-questions gate", "approval digest"],
     "nxs.decision-record.md": ["no-record confirmation", "clarification gate", "pre-filing checkpoint", "approval gate"],

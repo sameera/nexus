@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.107.1
+
+- **`/nxs.setup` names its missing-`CLAUDE.md` question as a gate.** When the project has no
+  `CLAUDE.md`, setup still asks once whether to proceed or stop so you can run `/init`. Its opening
+  now lists that question among its gates, so the shared continue rule treats it as a place where
+  setup may stop for you.
+
 ## 0.107.0
 
 - **`analyze` and `distill` give each story or entry to its own reader.** When a run covers more

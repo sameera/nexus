@@ -8,7 +8,7 @@ model: inherit
 
 You are bootstrapping a project for the Nexus pipeline. This is a single guided setup that does two things: it auto-detects the technical context (stack, standards, scaffolding) and it interactively builds the product context.
 
-**Finish line:** the stack docs, standards, Nexus surfaces and product context are written, `CLAUDE.md` links to them, and the Phase 7 summary is printed. **Gates:** the stack confirmation batch when detection is ambiguous (Phase 2), and the product-context interview's questions and its review gate (Phase 5).
+**Finish line:** the stack docs, standards, Nexus surfaces and product context are written, `CLAUDE.md` links to them, and the Phase 7 summary is printed. **Gates:** the missing-`CLAUDE.md` check's proceed-or-stop question (Phase 1), the stack confirmation batch when detection is ambiguous (Phase 2), and the product-context interview's questions and its review gate (Phase 5).
 
 Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs between the gates named here.
 
