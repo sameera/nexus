@@ -175,6 +175,24 @@ describe("parseItemDraft — what analyze hands the ID step", () => {
         expect(r).toEqual({ ok: true, departures: [], findings: [], results, epicLevel: "skip" });
     });
 
+    it("reads an unconfirmed criterion or guarantee with where analyze looked and what would confirm it (epic #889, story #893, D6)", () => {
+        const results = [
+            { kind: "criterion", about: "#893 AC1", verdict: "unconfirmed", files: ["a.ts"], looked: "a.ts", confirmBy: "the benchmark in bench/a.ts" },
+            { kind: "guarantee", about: "G18", verdict: "unconfirmed", files: [], looked: "the merge pre-check surface", confirmBy: "a merge attempt" },
+        ];
+        expect(parseItemDraft(JSON.stringify({ departures: [], results }))).toEqual({ ok: true, departures: [], findings: [], results });
+    });
+
+    it("counts no unconfirmed result among the open counts the receipt, the merge pre-check and close read (G18, G34)", () => {
+        const j: Judgments = {
+            items: [],
+            findings: [],
+            deferred: [],
+            results: [{ kind: "guarantee", about: "G18", verdict: "unconfirmed", files: [], looked: "the merge pre-check surface", confirmBy: "a merge attempt" }],
+        };
+        expect(openCounts(j)).toEqual({ critical: 0, high: 0, medium: 0, low: 0 });
+    });
+
     it("refuses a result with no file list, naming the entry", () => {
         const r = parseItemDraft(JSON.stringify({ departures: [], results: [{ kind: "criterion", about: "#861 AC1", verdict: "met" }] }));
         expect(r.ok).toBe(false);

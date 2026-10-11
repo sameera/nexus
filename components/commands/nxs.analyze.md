@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format), and the invariants on the concept pages the epic lists — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. With `--pr <N> --resolve` it records those answers without judging unchanged code again: on an unchanged head it reads no code, on a moved head it judges again only the answered departures and what the files whose own change differs affect (a trunk merge or rebase changes nothing by itself), and it judges the whole pull request again, saying why, when the record or story set changed or the last verdict cannot say what a change affects; with no verdict to carry it stops and names a full run. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; Run without a pull request it reports in the terminal only and writes no file in any placement, ending its report with one fixed result line that gives the open severity counts and the analyzed head. With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block, followed by a judgments block that carries what close writes into its record: the key decisions (each record decision by ID, tied to the stamped record digest, plus each confirmed decision stub), every departure with its answer, and deferred-scope proposals with DS IDs, each tied to the finding or departure it would settle, which a trusted approved answer marks for filing and stops blocking; a verdict over the platform's size limit drops its results' file lists first, and one still too large is not published. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format), and the invariants on the concept pages the epic lists — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. A criterion or guarantee it cannot confirm from the code it read is marked unconfirmed, naming where it looked and what would confirm it; it is counted on its own, listed as a check for the lead, and never blocks. With `--pr <N> --resolve` it records those answers without judging unchanged code again: on an unchanged head it reads no code, on a moved head it judges again only the answered departures and what the files whose own change differs affect (a trunk merge or rebase changes nothing by itself), and it judges the whole pull request again, saying why, when the record or story set changed or the last verdict cannot say what a change affects; with no verdict to carry it stops and names a full run. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; Run without a pull request it reports in the terminal only and writes no file in any placement, ending its report with one fixed result line that gives the open severity counts and the analyzed head. With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block, followed by a judgments block that carries what close writes into its record: the key decisions (each record decision by ID, tied to the stamped record digest, plus each confirmed decision stub), every departure with its answer, and deferred-scope proposals with DS IDs, each tied to the finding or departure it would settle, which a trusted approved answer marks for filing and stops blocking; a verdict over the platform's size limit drops its results' file lists first, and one still too large is not published. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write, Skill
@@ -379,7 +379,8 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
 In either recording mode, `scope-stale` means a newer verdict was published after the scope was
 computed: run `nexus verdict-scope` again. Then publish exactly as Phase 3's pull-request path
 does: write the summary from what the ID step printed — its `items`, `findings` and `results`, with
-each result's verdict on the per-story and `Departures:` lines — then the verdict block with `head`
+each result's verdict on the per-story and `Departures:` lines, and each `unconfirmed` result, with
+its `looked` and `confirmBy`, under Blocked on me and `Unconfirmed:` — then the verdict block with `head`
 the analyzed head, the same `record` and `stories`, and `findings:` the `open` counts, then the
 judgments block verbatim, checked by `nexus verdict-check` before it goes out. The new verdict is
 complete — every result, item and answer, so no reader needs an earlier one — and it supersedes the
@@ -464,6 +465,9 @@ Classify the AC:
 - **unmet** — no implementing code found in the change set. **(high)** An open story issue is never
   the reason — the diff decides.
 - **contradicted** — the code implements the opposite of, or breaks, the stated criterion. **(critical)**
+- **unconfirmed** — the code you read can neither confirm nor rule out the criterion. Name where you
+  looked, by file or by surface, and what would confirm it. It is never met, partial, unmet or
+  contradicted, it is not a finding, and it is never passed silently (see Phase 3).
 
 **Propose the missing part for deferral** (record #871, D7) when a criterion is **unmet** or
 **partial** in a story this pull request covers and the missing part could ship later on its own:
@@ -472,8 +476,8 @@ a `DS<n>` ID that belongs to the finding. Never propose a criterion of a story t
 cover — that is a sibling's scope, and the sibling will deliver it.
 
 For `system` stories, the AC states a measurable threshold — confirm the code path that would meet it
-exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unverifiable here**
-and name the command that would measure it, do not pass it silently.
+exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unconfirmed** and
+name the command that would measure it.
 
 ## 2.2 Guarantee and invariant conformance (full mode only)
 
@@ -484,7 +488,9 @@ or an old-contract entry's committed `decision-record.md`. A change that breaks 
 invariant is **critical**, because these are what the build "must preserve". It is reported
 **once, as a departure** (§2.5) citing the guarantee's `G<n>` ID (or the invariant's text) and the
 changed file and line — **never also as a separate finding** — so one fact carries one ID and
-needs one answer.
+needs one answer. A guarantee or invariant the code you read can neither confirm nor rule out is
+**unconfirmed**, never held or broken: name where you looked and what would confirm it, as §2.1
+says. It is not a departure.
 
 Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
 record. That is now the exception rather than the norm: the record has a durable home (the record
@@ -504,7 +510,7 @@ nexus concept-invariants --epic "<epic.md>" --base "$BASE" [--record "<scratch>/
 
 - **Skip every covered invariant.** The approver already saw that change. Judge each **uncovered** invariant against the diff.
 - **A change that contradicts an uncovered invariant is a departure** (§2.5) whose "departs from" text names the page and the invariant number, for example `distiller page, invariant 3`. Set `breaksGuarantee: false`: it is **high**, not critical, and an unanswered one blocks close like any other. It is numbered, answered, kept across runs and reported as no longer found by the same machinery as every other departure. Never also report it as a finding.
-- **Record each judged invariant** in `results` under the existing `guarantee` kind, with `about` set to the page and invariant number (`distiller page, invariant 3`), its verdict `held` or `broken` and the files you read, so an answer-recording run judges it again when those files change. Add no new kind and no new field to the machine blocks.
+- **Record each judged invariant** in `results` under the existing `guarantee` kind, with `about` set to the page and invariant number (`distiller page, invariant 3`), its verdict `held`, `broken` or `unconfirmed` and the files you read, so an answer-recording run judges it again when those files change. Add no new kind and no new field to the machine blocks for an invariant: an unconfirmed one carries `looked` and `confirmBy` like any unconfirmed result.
 - **A listed page the lister reports under `missing` is named** in the report line below and the rest are checked.
 - **Exit 1 stops the run:** the store cannot be read at the base while the epic lists pages. Report the diagnostic, publish nothing, and do not treat zero invariants checked as a pass.
 
@@ -635,15 +641,19 @@ criterion of §2.1, per guarantee or invariant of §2.2, and per success metric 
 ```json
 "results": [
   { "kind": "<criterion|guarantee|metric>", "about": "<#<story> AC<k> | G<n> or the invariant | the metric>",
-    "verdict": "<criterion: met|partial|unmet|contradicted|unverifiable; guarantee: held|broken; metric: met|not-moved|unverifiable>",
-    "files": ["<path>", ...] }
+    "verdict": "<criterion: met|partial|unmet|contradicted|unconfirmed; guarantee: held|broken|unconfirmed; metric: met|not-moved|unverifiable>",
+    "files": ["<path>", ...],
+    "looked": "<where you looked, by file or by surface>", "confirmBy": "<what would confirm it>" }
 ],
 "epicLevel": "<Phase 0.7's epicLevel>"
 ```
 
 List the files each judgment actually read. An empty list counts as affected by any change, so it
 is safe but costly; a list that leaves out a file the result depends on can carry a stale result
-across a moved head (record #871, R5).
+across a moved head (record #871, R5). Write `looked` and `confirmBy` on an `unconfirmed` result
+only; the step refuses an unconfirmed result without them. A criterion's `unverifiable` in a
+verdict written before `unconfirmed` existed is still read: report it as unconfirmed, with its
+files as where it looked.
 
 Without a pull request there is no registry: list the departures without IDs.
 
@@ -745,7 +755,9 @@ Surface: <N> files changed, <N> stories (<M> closed / <O> open)
   DV<n> (<critical|high>) · <what it departs from>
   F<n> (<critical|high>) · <about>
   Fix the code and run analyze again, or (--pr) answer each on the pull request, then /nxs.analyze --pr <N> --resolve.
-<when no critical or high item is open, one line instead>:
+<then one line per unconfirmed criterion or guarantee, a check the lead makes by hand; it never blocks>:
+  Check by hand: <#<story> AC<k> | G<n> | the invariant> · <what would confirm it>
+<when no critical or high item is open, one line names the next step; drop "Nothing." when a check by hand is listed>:
   Nothing. Next: /nxs.analyze --pr <N> on the story's pull request          (local)
   Nothing. Next: merge; once every story has merged, nexus close --epic <epic-ref>   (--pr)
 
@@ -756,7 +768,7 @@ Recorded:                <the scope's lines>   (--resolve only)
 
 ### Found
 Per-story AC conformance:
-  STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted
+  STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted · <unconfirmed> unconfirmed
 
 Departures:              <none> | one line per departure (§2.5):
   DV<n> (<critical|high>) from <G<n> | D<n> | title | section> · <file:line> · <what the code does>
@@ -764,6 +776,8 @@ Departures:              <none> | one line per departure (§2.5):
     supersedes <D<n>>: <what the code does instead>                (when superseding)
   DV<n> (<critical|high>) accepted by @<who> (<link>): <reason>   (answered — counts nothing)
   DV<n> no longer found · answered by <who> (<link>)              (listed, never dropped)
+Unconfirmed:             <none> | one line per unconfirmed criterion or guarantee (§2.1, §2.2):
+  <#<story> AC<k> | G<n> | the invariant> · looked: <files or surface> · confirm by: <what would confirm it>
 Findings:                <none> | one line per finding (--pr: with the ID the ID step printed):
   F<n> (<critical|high|medium|low>) <about> · <what is wrong>
   F<n> (<critical|high>) waived by @<who> (<link>): <reason>      (answered — counts nothing)
@@ -782,17 +796,21 @@ Success metrics:         <metric → met | not moved | unverifiable: what would 
 Scope drift:             <unplanned behavior, ...>
 Notes:                   <stories still open → close before /nxs.close, ...>   (omit when none)
 
-Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
+Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L> · unconfirmed <U>
 ```
 
 Under Blocked on me, each open critical or high item appears once, by its ID; its full line stays
-under Found. Medium and low items never block, so they appear only under Found. Locally, where
+under Found. Medium and low items never block, so they appear only under Found. Each unconfirmed
+criterion or guarantee is listed under Blocked on me as a check the lead makes by hand, and in full
+under `Unconfirmed:`. An unconfirmed item is not a finding: it never counts in the findings or the
+open counts, so it never blocks the merge pre-check or close. The `Severity:` line counts it on its
+own, as `unconfirmed <U>`, which the result line and the receipt leave out. Locally, where
 items have no IDs, name each blocking item by what it departs from or what it is about.
 
 A broken guarantee appears on the `Departures:` line with its `G<n>` ID (an invariant by its text),
 and nowhere else among the results; Blocked on me names it by its `DV<n>` ID only. Write the `DV<n>` and `F<n>` IDs `nexus verdict-items` printed, in `--pr` mode;
 locally, list the departures and findings without IDs. In `--pr` mode the `Severity:` line is the
-step's `open` counts (§2.6); an answered item is listed, never counted. Never write a listed item
+step's `open` counts (§2.6), plus the number of `unconfirmed` results it printed; an answered item is listed, never counted. Never write a listed item
 as `<ID> — <verb>:` — that is the answer form, and a verdict never holds an answer.
 
 `<epic-ref>`, `<record-ref>` and every `<story-ref>` are written under the **`nxs-issue-reference`**
@@ -912,6 +930,7 @@ file is written here either, and the worktree is removed after this phase. A **b
     `findings:` is the `open` counts `nexus verdict-items` printed (§2.6): only items still open,
     never a total. The merge pre-check and close block on these counts unchanged, so an accepted
     departure or a waived finding stops blocking them with no change to how they read a verdict.
+    An unconfirmed result is never in them: the judgments block carries it with its results.
 
     Then append the **judgments block** — the file `nexus verdict-items` wrote to `--out` in §2.5,
     verbatim, **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`

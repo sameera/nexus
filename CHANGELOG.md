@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.105.0
+
+- **`analyze` marks what it could not confirm, and says where it looked.** An acceptance criterion
+  or a guarantee that the code `analyze` read can neither confirm nor rule out is now `unconfirmed`,
+  never met, held, unmet or broken. Each one names where the stage looked, by file or by surface,
+  and what would confirm it. This replaces "unverifiable here" for criteria, such as a threshold
+  that needs a benchmark. Success metrics still say "unverifiable", which means a measurement after
+  release.
+- **Unconfirmed items are yours to check, and they never block.** They are listed under Blocked on
+  me as checks you make by hand, and in full under Found. The severity line counts them on their
+  own. They are left out of the open counts, so the receipt, the result line, the merge pre-check
+  and `nexus close` read the same numbers as before.
+- **A `--resolve` run keeps them.** On a pull request the verdict's judgments block records the
+  unconfirmed state with where the stage looked, so `analyze --pr <N> --resolve` lists each one
+  again in the review it publishes. Verdicts written before this release, whose criteria say
+  "unverifiable", are still read. A verdict that carries an unconfirmed item needs this release's
+  `nexus` to be read.
+
 ## 0.104.0
 
 - **Every stage's completion report opens with what waits on you.** The report a stage prints at

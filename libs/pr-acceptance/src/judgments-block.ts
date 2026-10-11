@@ -153,10 +153,18 @@ export interface KeyDecisions {
 /** What a result judges: an acceptance criterion, a guarantee or invariant, or a success metric. */
 export type ResultKind = "criterion" | "guarantee" | "metric";
 
-/** The verdicts each kind of result takes. A broken guarantee is also a departure (D1). */
+/**
+ * The verdicts each kind of result takes. A broken guarantee is also a departure (D1).
+ *
+ * `unconfirmed` (epic #889, record #905, D6, D9) is a criterion or guarantee analyze could not
+ * confirm from the code it read. It is never a finding, so no count the receipt, the merge
+ * pre-check or close reads includes it. A criterion's `unverifiable` is what a verdict written
+ * before it said, and is still read; a metric keeps `unverifiable`, which means a measurement after
+ * release.
+ */
 const RESULT_VERDICTS: Readonly<Record<ResultKind, readonly string[]>> = {
-    criterion: ["met", "partial", "unmet", "contradicted", "unverifiable"],
-    guarantee: ["held", "broken"],
+    criterion: ["met", "partial", "unmet", "contradicted", "unconfirmed", "unverifiable"],
+    guarantee: ["held", "broken", "unconfirmed"],
     metric: ["met", "not-moved", "unverifiable"],
 };
 
@@ -170,6 +178,10 @@ export interface Result {
     about: string;
     verdict: string;
     files: string[];
+    /** Unconfirmed only: where analyze looked, by file or by surface (G17). Kept when the file lists are dropped. */
+    looked?: string;
+    /** Unconfirmed only: what would confirm it. */
+    confirmBy?: string;
 }
 
 /** Phase 0.7's answer for the pull request: judge the epic level, report it not run, or skip it. */
@@ -422,7 +434,11 @@ export function readResult(raw: unknown): Result | string {
         return `has no ${kind} verdict of ${RESULT_VERDICTS[kind].join(", ")} (verdict)`;
     }
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
-    return { kind, about, verdict, files: files as string[] };
+    if (verdict !== "unconfirmed") return { kind, about, verdict, files: files as string[] };
+    const { looked, confirmBy } = raw;
+    if (!nonEmpty(looked)) return "is unconfirmed but does not say where analyze looked, by file or by surface (looked)";
+    if (!nonEmpty(confirmBy)) return "is unconfirmed but does not say what would confirm it (confirmBy)";
+    return { kind, about, verdict, files: files as string[], looked, confirmBy };
 }
 
 /** Read a results list, refusing an unreadable entry or two results judging the same thing. */

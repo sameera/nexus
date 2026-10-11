@@ -37,3 +37,13 @@
 - **Choice:** templates in a code block use `##`/`###` headings (analyze, distill, fix, intake, setup); bullet-list reports use `- **Blocked on me:**` labels (discover, epic, decision-record). The spec accepts either form and checks order only.
 - **Why:** each stage keeps the report form it already had, so the change is a regrouping, not a rewrite.
 - **Refuted alternative:** convert every bullet-list report into a code-block template, which would rewrite three stages' report prose for no gain to the lead.
+
+## 2026-10-10 — Unconfirmed results carry `looked` and `confirmBy` in the judgments block
+- **Choice:** a result whose verdict is `unconfirmed` must carry two text fields, `looked` (where analyze looked, by file or by surface) and `confirmBy` (what would confirm it); the parser refuses an unconfirmed result without them and drops neither when a too-large verdict sheds its file lists.
+- **Why:** a `--resolve` run rebuilds the review only from the machine record, so G17's "where it looked" and D6's "what would confirm it" would vanish from the next review if they lived only in prose, and a surface is not a file path the `files` list can hold.
+- **Refuted alternative:** add only the `unconfirmed` verdict and treat the result's `files` list as where it looked, which loses a non-file surface and what would confirm it on carry-forward, and loses everything when the file lists are dropped for size.
+
+## 2026-10-10 — A criterion's old `unverifiable` stays accepted, also in new drafts
+- **Choice:** the criterion verdict list keeps `unverifiable` beside the new `unconfirmed`, for both the judgments-block parser and the draft parser; the stage text tells the model to write `unconfirmed` and to report an old `unverifiable` as unconfirmed.
+- **Why:** both parsers share one result reader, and splitting old-read from new-write would add a second verdict table for no gain to the lead.
+- **Refuted alternative:** refuse `unverifiable` in a new draft while still reading it from a published verdict.
