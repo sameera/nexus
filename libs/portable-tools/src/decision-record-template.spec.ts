@@ -76,7 +76,7 @@ describe.each(TEMPLATES)("%s of the record template (D1)", (_label: string, file
 
     it("groups the Approval brief by what the approver has to do", () => {
         const brief: string = section(template, "Approval brief");
-        for (const group of ["Resolve before approval", "Choices with trade-offs", "Before implementation", "Committed follow-up"]) {
+        for (const group of ["Resolve before approval", "Choices with trade-offs", "Before implementation", "Delivered by another epic", "Committed follow-up"]) {
             expect(brief, group).toContain(`**${group}**`);
         }
         expect(brief).toMatch(/Revision delta/);
@@ -100,6 +100,42 @@ describe.each(TEMPLATES)("%s of the record template (D1)", (_label: string, file
 
     it("states the length of How it works as a guideline that caps nothing (G2)", () => {
         expect(section(template, "How it works")).toMatch(/guideline, not a limit/i);
+    });
+});
+
+describe("where the brief lists an ADDRESS risk another epic delivers (epic #934, story #935)", () => {
+    const stage: string = component("commands/nxs.decision-record.md").replace(/\s+/g, " ");
+
+    function rule(text: string, group: string): string {
+        const match: RegExpMatchArray | null = text.match(new RegExp(`\\*\\*${group}:\\*\\* (.+?)(?= - \\*\\*|$)`));
+        expect(match, group).not.toBeNull();
+        return (match as RegExpMatchArray)[1];
+    }
+
+    it.each([["the stage", stage], ...TEMPLATES.map(([label, file]: [string, string]) => [label, read(file).replace(/\s+/g, " ")])])(
+        "in %s, keeps Before implementation to work this epic's team must do before its first story",
+        (_label: string, text: string) => {
+            expect(text).toMatch(/Before implementation:?(\*\*)? every ADDRESS risk whose mitigation is a plan this epic's team has not yet made and must make before its first story/);
+        },
+    );
+
+    it("lists an accepted outside-epic dependency with who delivers it, apart from Before implementation", () => {
+        const outside: string = rule(stage, "Delivered by another epic");
+        expect(outside).toMatch(/another epic delivers/);
+        expect(outside).toMatch(/owner accepts/);
+        expect(outside).toMatch(/who delivers it/);
+    });
+
+    it("sends an outside-epic dependency whose gap the owner has not accepted to Resolve before approval", () => {
+        expect(rule(stage, "Resolve before approval")).toMatch(/another epic delivers[^.]*does not say the owner accepts/);
+    });
+
+    it("lists each ADDRESS risk in exactly one group", () => {
+        expect(stage).toMatch(/Every ADDRESS risk appears in the brief exactly once/);
+    });
+
+    it("has the architect say, in the risk's own text, who delivers the mitigation and whether the owner accepts the gap", () => {
+        expect(stage).toMatch(/RISKS[^]*?another epic[^]*?owner accepts the gap/);
     });
 });
 

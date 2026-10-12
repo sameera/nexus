@@ -79,13 +79,19 @@ date: {{YYYY-MM-DD}}
      decision the approver is accepting a cost for. Omit an empty group.
      - Resolve before approval: every BLOCKER; every epic or story commitment not yet amended,
        with the date it was checked against the live issue; every guarantee with no supporting
-       decision; every decision no story delivers.
+       decision; every decision no story delivers; every ADDRESS risk another epic delivers whose
+       text does not say the owner accepts the gap until it ships.
      - Choices with trade-offs: every decision with a trade-off, in plain words, with the
        trade-off as a sub-bullet. The rule is mechanical: the drafter does not pick which are
        "material". A decision already listed under Resolve is not repeated here, but its
        trade-off moves with it, as a sub-bullet of its Resolve entry.
-     - Before implementation: every ADDRESS risk whose mitigation is a plan not yet made.
-     - Committed follow-up: every ADDRESS risk whose mitigation is decided, with who delivers it.
+     - Before implementation: every ADDRESS risk whose mitigation is a plan this epic's team has
+       not yet made and must make before its first story.
+     - Delivered by another epic: every ADDRESS risk whose mitigation another epic delivers and
+       whose text says the owner accepts the gap until it ships, with who delivers it.
+     - Committed follow-up: every ADDRESS risk whose mitigation is decided and is delivered by a
+       story of this epic or by existing behaviour, with who delivers it.
+     Every ADDRESS risk appears in exactly one group: the first above whose rule it meets.
      - Revision delta: changed and withdrawn decision IDs. Only when revising. -->
 
 Approval covers the whole record. This brief lists what needs a decision and every choice that carries a trade-off.
@@ -103,6 +109,10 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 **Before implementation**
 
 - {{RISK_ID}} ADDRESS: {{PLAN_NEEDED}}
+
+**Delivered by another epic**
+
+- {{RISK_ID}} ADDRESS: {{GAP}} Delivered by {{EPIC}}. The owner accepts the gap until it ships.
 
 **Committed follow-up**
 
@@ -133,7 +143,8 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 ## Risks and dependencies
 
 <!-- Only risks that force a human decision. BLOCKER: a decision required before approval.
-     ADDRESS: a risk with a mitigation, and who delivers it. No likelihood × severity matrix and
+     ADDRESS: a risk with a mitigation, and who delivers it. When another epic delivers it, say
+     whether the owner accepts the gap until that epic ships. No likelihood × severity matrix and
      no speculative risks. Plain vocabulary. -->
 
 - R1 BLOCKER — {{RISK}}. {{DECISION_NEEDED}}

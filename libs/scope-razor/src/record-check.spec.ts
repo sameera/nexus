@@ -44,7 +44,17 @@ function decision(d: Decision): string[] {
     ];
 }
 
-function record(parts: { resolve?: string[]; choices?: string[]; before?: string[]; guarantees?: string[]; existing?: string[]; decisions?: Decision[] }): string {
+function record(parts: {
+    resolve?: string[];
+    choices?: string[];
+    before?: string[];
+    outside?: string[];
+    followUp?: string[];
+    guarantees?: string[];
+    existing?: string[];
+    risks?: string[];
+    decisions?: Decision[];
+}): string {
     const group = (name: string, items: string[] | undefined): string[] => (items === undefined ? [] : [`**${name}**`, "", ...items, ""]);
     return [
         "# Decision Record: A Capability",
@@ -60,6 +70,8 @@ function record(parts: { resolve?: string[]; choices?: string[]; before?: string
         ...group("Resolve before approval", parts.resolve),
         ...group("Choices with trade-offs", parts.choices),
         ...group("Before implementation", parts.before),
+        ...group("Delivered by another epic", parts.outside),
+        ...group("Committed follow-up", parts.followUp),
         "## Guarantees",
         "",
         "### Filing",
@@ -72,7 +84,7 @@ function record(parts: { resolve?: string[]; choices?: string[]; before?: string
         "",
         "## Risks and dependencies",
         "",
-        "- R1 ADDRESS — a thing. Delivered by #100. `[inferred]`",
+        ...(parts.risks ?? ["- R1 ADDRESS — a thing. Delivered by #100. `[inferred]`"]),
         "",
         "## Design rationale and mechanism",
         "",
@@ -262,6 +274,53 @@ describe("a decision with a trade-off (G14, G5)", () => {
 
     it("asks nothing of a decision whose trade-off is none", () => {
         expect(crossRefs(record({ decisions: [{ id: "D1", deliveredBy: "#100", tradeOff: "None." }] }))).toEqual([]);
+    });
+});
+
+describe("an ADDRESS risk listed in more than one group of the brief (epic #934)", () => {
+    const risks: string[] = [
+        "- R1 ADDRESS — a thing. Delivered by #100. `[inferred]`",
+        "- R2 ADDRESS — maps are not shown until the Maps epic ships, and the owner accepts that gap. Delivered by #500. `[inferred]`",
+    ];
+
+    it("blocks, naming the risk, when it is listed under both Before implementation and Delivered by another epic", () => {
+        const body: string = record({
+            risks,
+            before: ["- R2 ADDRESS: plan the map layer."],
+            outside: ["- R2 ADDRESS: the map layer. Delivered by #500."],
+            followUp: ["- R1 ADDRESS: a thing. Delivered by #100."],
+        });
+        const found: RazorFinding[] = crossRefs(body);
+        expect(found.map((f: RazorFinding) => f.where.match(/^R\d+/)?.[0])).toEqual(["R2"]);
+        expect(found[0].severity).toBe("blocking");
+    });
+
+    it("passes when each ADDRESS risk is listed in one group", () => {
+        const body: string = record({
+            risks,
+            outside: ["- R2 ADDRESS: the map layer. Delivered by #500."],
+            followUp: ["- R1 ADDRESS: a thing. Delivered by #100."],
+        });
+        expect(crossRefs(body)).toEqual([]);
+    });
+
+    it("does not count a trade-off sub-bullet that cites the risk as a listing", () => {
+        const body: string = record({
+            risks,
+            choices: ["- D1. A thing.", "  - Trade-off: a gap stays open until #500 ships (R2)."],
+            outside: ["- R2 ADDRESS: the map layer. Delivered by #500."],
+            decisions: [{ id: "D1", tradeOff: "a cost.", deliveredBy: "#100" }],
+        });
+        expect(crossRefs(body)).toEqual([]);
+    });
+
+    it("blocks a risk listed under Resolve before approval and under Committed follow-up", () => {
+        const body: string = record({
+            risks,
+            resolve: ["- R2 ADDRESS: the owner has not accepted the gap. Accept it, or change the plan."],
+            followUp: ["- R2 ADDRESS: the map layer. Delivered by #500."],
+        });
+        expect(crossRefs(body).map((f: RazorFinding) => f.where.match(/^R\d+/)?.[0])).toEqual(["R2"]);
     });
 });
 

@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.102.0
+
+- **An accepted outside-epic dependency is no longer work before implementation.**
+  `/nxs.decision-record` lists an ADDRESS risk whose mitigation another epic delivers, and whose
+  gap the record says the owner accepts, under a new **Delivered by another epic** group of the
+  approval brief, with who delivers it. "Before implementation" keeps only plans this epic's team
+  must make before its first story. A risk another epic delivers whose gap the owner has not
+  accepted goes under "Resolve before approval". Each ADDRESS risk appears in one group, and
+  `nexus razor-check --record` blocks a draft that lists one in two. The unattended
+  implementation run is told to leave the new group alone, so such a risk no longer stops it
+  before the first story.
+
 ## 0.101.1
 
 - **Re-splitting a stub under an initiative keeps what a repeat needs.** When a promoted stub

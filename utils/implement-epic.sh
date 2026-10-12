@@ -267,8 +267,9 @@ and mechanism' → 'Decisions and reasons' is built in the commit of the story \
 its 'Delivered by' line names, the way Mechanism describes; a decision \
 delivered by an issue outside this epic is not yours to build. Do the Approval \
 brief's 'Before implementation' items before the first story; if one cannot be \
-done from this checkout, name it and stop. Leave 'Committed follow-up' items \
-and Concept-store changes alone — other issues and /nxs.distill deliver them. \
+done from this checkout, name it and stop. Leave 'Delivered by another epic' \
+and 'Committed follow-up' items and Concept-store changes alone — other issues \
+and /nxs.distill deliver them. \
 Before starting each story, re-read its epic.md section and the decisions it \
 delivers. Do not push and do not open a PR — the calling script does both. \
 Stop after ${TURNS} turns."

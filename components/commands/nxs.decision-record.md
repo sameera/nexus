@@ -344,8 +344,10 @@ Number decisions D1…, guarantees G1…, risks R1… so each can cite the other
   IDs. Behaviour already true that must not break goes under "Existing behaviour to preserve".
   Per-subsystem only — route any cross-cutting NFR budget to <docs-root>/system/standards/ instead.
 - RISKS limited to BLOCKER / ADDRESS (those that force a human decision), each ADDRESS risk with
-  who delivers its mitigation and whether that plan is already made. No likelihood×severity
-  matrix, no speculative risks.
+  who delivers its mitigation (a story of this epic, another epic named by its issue, or existing
+  behaviour) and whether that plan is already made. When another epic delivers it, say in the
+  risk's own text whether the owner accepts the gap until that epic ships; say it only where the
+  epic or the lead says so. No likelihood×severity matrix, no speculative risks.
 - CONCEPT-STORE CHANGES: only a concept-page statement the design changes, quoted, with its new
   wording.
 - OPEN CLARIFICATIONS: ⚠️ NEEDS CLARIFICATION items only the human can resolve.
@@ -480,18 +482,26 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         - **Resolve before approval:** every BLOCKER risk; every epic or story commitment whose
           status is not *amended* (the Phase 3.5 amendment check reads each against the live issue
           and moves a pending one to the top); every guarantee that cites no decision and is not under "Existing
-          behaviour to preserve"; and, in a multi-story epic, every decision no story delivers.
+          behaviour to preserve"; in a multi-story epic, every decision no story delivers; and every
+          ADDRESS risk whose mitigation another epic delivers and whose text does not say the owner
+          accepts the gap until it ships. The approver accepts that gap or changes the plan.
         - **Choices with trade-offs:** every decision whose trade-off is not `none`, in plain
           words, with its trade-off as a sub-bullet.
-        - **Before implementation:** every ADDRESS risk whose mitigation is a plan not yet made.
-        - **Committed follow-up:** every ADDRESS risk whose mitigation is decided, with who
-          delivers it.
+        - **Before implementation:** every ADDRESS risk whose mitigation is a plan this epic's team
+          has not yet made and must make before its first story.
+        - **Delivered by another epic:** every ADDRESS risk whose mitigation another epic delivers
+          and whose text says the owner accepts the gap until it ships, with who delivers it. It is
+          not work before implementation: this epic's team cannot finish it.
+        - **Committed follow-up:** every ADDRESS risk whose mitigation is decided and is delivered
+          by a story of this epic or by existing behaviour, with who delivers it.
         - **Revision delta:** on a `--revise` run only, the IDs of the decisions changed and
           withdrawn.
 
       Every decision with a trade-off appears in the brief exactly once. A decision listed under
       "Resolve before approval" carries its trade-off there, as a sub-bullet of its entry, and is
-      not repeated under "Choices with trade-offs".
+      not repeated under "Choices with trade-offs". Every ADDRESS risk appears in the brief exactly
+      once, in the first group above whose rule it meets. `nexus razor-check --record` blocks an
+      ADDRESS risk listed in two groups.
     - **An old-format revision** fills the old-format template from the old sections the architect
       returned, as the stage did before the approval-first format.
 4. Delete all template guidance comments before writing.
