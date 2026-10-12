@@ -53,6 +53,7 @@ nexus config backlog-query --form exclude
 | [Ranked PR Review](ranked-pr-review/README.md)                             | Reviewing a pull request, ranking the findings, and posting the ranking as one review. |
 | [Scope Discipline](scope-discipline/README.md)                             | Keeping planning artifacts to the scope someone actually asked for.              |
 | [Solo Delivery](solo-delivery/README.md)                                   | A lean lane for single-developer local projects: check, close and distill in one sitting. |
+| [Unattended Epic Implementation](unattended-implementation/README.md)      | Implement a planned epic unattended, from stories to a reviewed pull request, with one `nexus` command. |
 
 A feature folder appears here once it has an epic; the folder itself is created at that feature's
 first epic filing.
