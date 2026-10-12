@@ -116,10 +116,10 @@ const toolLabel = (block) => {
     return `${block.name}(${clip(detail, 120)})`;
 };
 
-// The final report of a local analyze run, captured for the conformance loop (record #871, D12):
-// each agent message (Codex) or the run result (Claude) overwrites the file, so it ends holding
-// the final report.
-const reportFile = process.env.ANALYZE_REPORT_FILE;
+// The final message of a run the script reads back — the implementation run (its blocked line) or
+// a local analyze run (its result line, record #871, D12): each agent message (Codex) or the run
+// result (Claude) overwrites the file, so it ends holding the final message.
+const reportFile = process.env.CAPTURE_FILE;
 const capture = (text) => {
     if (reportFile && typeof text === "string") fs.writeFileSync(reportFile, text + "\n");
 };
@@ -250,16 +250,27 @@ run_local_analyze() {
     mkdir -p "$REPORT_DIR"
     LAST_REPORT="${REPORT_DIR}/analyze-${ANALYZE_RUN}.md"
     : > "$LAST_REPORT"
-    export ANALYZE_REPORT_FILE="$LAST_REPORT"
+    export CAPTURE_FILE="$LAST_REPORT"
     run_analyze "/nxs.analyze ${N}"
-    unset ANALYZE_REPORT_FILE
+    unset CAPTURE_FILE
 }
 
-GOAL="/goal Every story sub-issue of epic #${N} is implemented on a new branch — \
+# The goal has two ways to hold. Only a user can run /goal clear, and nobody can in -p mode, so a
+# goal that can only hold by finishing keeps its Stop hook re-prompting a run that has correctly
+# stopped on a gate it cannot clear, until the turn cap (epic #31, record #38: an R1 under 'Before
+# implementation' burned the whole budget that way). The blocked outcome lets the goal check pass
+# at once, which clears the goal; the script then reads the blocked line and stops before pushing.
+BLOCKED_PREFIX="Implementation blocked:"
+GOAL="/goal Either (a) every story sub-issue of epic #${N} is implemented on a new branch — \
 one commit per story, in blocked_by order, each commit body ending with a line \
 reading exactly 'Closes #<that story's issue number>' — and the full test suite \
-passes. Prove it: git log shows one commit per story, each with its Closes line, \
-test command exits 0. Start by running /nxs-epic-resolve ${N}, then read the \
+passes, or (b) the run has stopped on something it cannot do from this checkout, \
+has made no commit, and its final message ends with one line beginning exactly \
+'${BLOCKED_PREFIX}' that names what blocked it and what would unblock it. \
+Outcome (b) is the only way to stop short; once you have written that line, the \
+goal holds and you stop — do not wait for a reply. Prove (a): git log shows one \
+commit per story, each with its Closes line, test command exits 0. Start by \
+running /nxs-epic-resolve ${N}, then read the \
 decision-record sub-issue it names with gh issue view. The record is binding: \
 every guarantee (G<n>) under Guarantees must hold, including those under \
 'Existing behaviour to preserve'. Each decision (D<n>) under 'Design rationale \
@@ -267,7 +278,7 @@ and mechanism' → 'Decisions and reasons' is built in the commit of the story \
 its 'Delivered by' line names, the way Mechanism describes; a decision \
 delivered by an issue outside this epic is not yours to build. Do the Approval \
 brief's 'Before implementation' items before the first story; if one cannot be \
-done from this checkout, name it and stop. Leave 'Committed follow-up' items \
+done from this checkout, end with outcome (b). Leave 'Committed follow-up' items \
 and Concept-store changes alone — other issues and /nxs.distill deliver them. \
 Before starting each story, re-read its epic.md section and the decisions it \
 delivers. Do not push and do not open a PR — the calling script does both. \
@@ -275,8 +286,26 @@ Stop after ${TURNS} turns."
 
 ANALYZE_ARGS=("$@")
 
+# Every captured final message of this run lives here, the implementation run's and each local
+# analyze run's.
+rm -rf "$REPORT_DIR"
+mkdir -p "$REPORT_DIR"
+IMPLEMENT_REPORT="${REPORT_DIR}/implement.md"
+
 echo ">>> stage 1: implement epic #${N} | harness: ${HARNESS} | turn cap: ${TURNS}" >&2
+export CAPTURE_FILE="$IMPLEMENT_REPORT"
 run_agent "$GOAL" "$@"
+unset CAPTURE_FILE
+
+# Outcome (b): the run named a gate it cannot clear. Stop here — nothing to push, no PR to open.
+BLOCKED="$(grep -F "$BLOCKED_PREFIX" "$IMPLEMENT_REPORT" 2>/dev/null | tail -1 || true)"
+if [[ -n "$BLOCKED" ]]; then
+    echo "" >&2
+    echo "!!! stage 1 stopped before implementing epic #${N}:" >&2
+    echo "!!! ${BLOCKED#*"$BLOCKED_PREFIX"}" >&2
+    echo "!!! full message: ${IMPLEMENT_REPORT}" >&2
+    exit 1
+fi
 
 # The loop neither pushes nor opens a PR, so nothing has left the machine yet.
 # Both steps below are needed for issue linkage: GitHub records a commit → issue
@@ -346,7 +375,6 @@ fi
 
 echo "" >&2
 echo ">>> stage 2: /nxs.analyze #${N} (fresh context)" >&2
-rm -rf "$REPORT_DIR"
 run_local_analyze
 
 # --- stage 3: conformance rounds (local mode) -------------------------------
