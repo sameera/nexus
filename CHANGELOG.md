@@ -5,25 +5,135 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.108.0
+
+- **Accepted outside-epic dependencies no longer block this epic's implementation.** The approval
+  brief lists an ADDRESS risk delivered by another epic under "Delivered by another epic" when the
+  record says the owner accepts the gap, with the delivering epic named. An unaccepted gap stays in
+  "Resolve before approval", while "Before implementation" holds only plans this epic's team must
+  make before its first story. `nexus razor-check --record` rejects an ADDRESS risk listed in
+  multiple groups, and the unattended implementation run leaves outside-epic work alone.
+- **A revision can re-group an approved record's risks without changing its design.**
+  `/nxs.decision-record --revise` rebuilds the approval brief under the current groups and records
+  each moved risk in the revision delta. Its decisions, guarantees and risks remain unchanged.
+
+## 0.107.1
+
+- **`/nxs.setup` names its missing-`CLAUDE.md` question as a gate.** When the project has no
+  `CLAUDE.md`, setup still asks once whether to proceed or stop so you can run `/init`. Its opening
+  now lists that question among its gates, so the shared continue rule treats it as a place where
+  setup may stop for you.
+
+## 0.107.0
+
+- **`analyze` and `distill` give each story or entry to its own reader.** When a run covers more
+  than one story or queue entry, each one goes to its own subagent, and the subagents run in
+  parallel. This holds on every run, including the repeated `analyze` rounds during implementation,
+  so token use grows with the number of stories. A run with one story or entry reads it itself, as
+  before. A reader reads and reports. It writes no file, makes no commit and writes nothing to
+  GitHub. An `analyze` reader judges one story's acceptance criteria. A `distill` reader derives one
+  entry's diff again, still never on disk, and returns the behaviour changes and decisions it found.
+- **The stage checks each reader's evidence before it accepts the report.** Every claim cites a
+  location (a file and line, a diff hunk, or a decision ID in the record) and a short quote from
+  it. The stage confirms each quote is really there. When one is not, the stage reads that location
+  itself once, and marks the claim unconfirmed if it still does not hold. Severity, IDs,
+  departures, guarantees, deltas, page prose, the checkpoint and publishing stay with the stage.
+- **One table under Found.** `analyze` now shows its per-story results as a table: the counts of
+  met, partial, unmet, contradicted and unconfirmed criteria, and the evidence locations, with no
+  quotes so the review stays inside the platform's size limit. `distill`'s report ends with one row
+  per entry: drained, blocked or skipped, the concepts it changed, and the decisions and diff
+  locations behind them. The `distill` checkpoint and pull request body are unchanged.
+- **Under Codex the readers run one after another,** and the report says so.
+
+## 0.106.0
+
+- **`analyze` and `distill` keep a run checklist that survives a context summary.** Once the stage
+  knows its items, it writes a checklist into a run folder under `.nexus/tmp/runs/`: one line per
+  story for `analyze`, one per queue entry for `distill`, and one line for the final write, which is
+  publishing the review or opening the distillation pull request. A line is ticked only after that
+  item's result is saved in the folder. A run whose context was summarized reads the checklist
+  again, repeats no ticked item, and never publishes a second review or opens a second pull request.
+- **The stage's working files move into that folder.** `analyze`'s record body, scope, judgments
+  and review body, and `distill`'s per-entry files, deltas, run summary and pull request body now
+  live in `.nexus/tmp/runs/analyze-pr-<N>/`, `.nexus/tmp/runs/analyze-epic-<n>/` or
+  `.nexus/tmp/runs/distill-<subject>/`. `distill` never mistakes the folder for a queue entry, and
+  an entry's diff is still never written to disk.
+- **Every run starts the folder fresh, and a finished run removes it.** A local `analyze` run now
+  writes working files into the checkout while it runs, and leaves no file behind once it finishes.
+  A run that stopped early leaves its folder for you to inspect; the next run replaces it and never
+  reads the old checklist.
+
+## 0.105.0
+
+- **`analyze` marks what it could not confirm, and says where it looked.** An acceptance criterion
+  or a guarantee that the code `analyze` read can neither confirm nor rule out is now `unconfirmed`,
+  never met, held, unmet or broken. Each one names where the stage looked, by file or by surface,
+  and what would confirm it. This replaces "unverifiable here" for criteria, such as a threshold
+  that needs a benchmark. Success metrics still say "unverifiable", which means a measurement after
+  release.
+- **Unconfirmed items are yours to check, and they never block.** They are listed under Blocked on
+  me as checks you make by hand, and in full under Found. The severity line counts them on their
+  own. They are left out of the open counts, so the receipt, the result line, the merge pre-check
+  and `nexus close` read the same numbers as before.
+- **A `--resolve` run keeps them.** On a pull request the verdict's judgments block records the
+  unconfirmed state with where the stage looked, so `analyze --pr <N> --resolve` lists each one
+  again in the review it publishes. Verdicts written before this release, whose criteria say
+  "unverifiable", are still read. A verdict that carries an unconfirmed item needs this release's
+  `nexus` to be read.
+
+## 0.104.0
+
+- **Every stage's completion report opens with what waits on you.** The report a stage prints at
+  the end of its run now has three headings in this order: Blocked on me, Changed, Found. This
+  covers `setup`, `discover`, `epic`, `decision-record`, `analyze`, `distill`, `/nxs.fix` and
+  `/nxs.intake`. When nothing waits on you, Blocked on me still appears, as one line that names the
+  next stage to run. Each stage's existing report content keeps its place: the `epic`
+  implementation sequence is under Changed, and the `distill` counts are under Found. The layout is
+  stated once, in the shared `nxs-run-discipline` skill. `close` is unchanged and still shows the
+  close command's output as it is, and the council's recommendation keeps its format.
+- **`analyze` uses the same layout in the terminal and in its pull-request review.** Each open
+  critical or high item is listed by its ID under Blocked on me, with its full line under Found.
+  Medium and low findings are still listed under Found. The machine blocks, the open counts and the
+  fixed result line are unchanged, and a local run's result line is still its last line.
+- **`/nxs.fix` and `/nxs.intake` say what they did not write.** Their closing self-check is now a
+  line under Changed: nothing else was written, no issue, no comment, no branch, no pull request and
+  no commit.
+
 ## 0.103.0
 
-- **A revision moves an accepted outside-epic dependency out of "Before implementation".**
-  `/nxs.decision-record --revise` rebuilds the approval brief under the current grouping, so a
-  record approved before that group existed lists such a risk under "Delivered by another epic". A lead can
-  revise only to correct where risks are listed: every decision, guarantee and risk is carried
-  forward unchanged, and the Revision delta names no decision as changed or withdrawn.
+- **The PM agent gives a short justification instead of showing its reasoning.** This is the
+  agent `/nxs.discover` and `/nxs.council` call for the product view. Each recommendation is
+  justified in at most three sentences. The quick council response heads its
+  points "Why", one sentence each, and the agent writes an analysis you can act on without a
+  meeting. A request to show its work could be declined as a request to reproduce internal
+  reasoning; this one cannot.
+- **The PM agent and `/nxs.council` no longer run a self-check before replying.** The PM agent's
+  reply now states its confidence, what it does not know, the assumption it challenged and
+  concrete next steps. The council's next steps each name an owner. The council's report and the
+  agents' output formats are otherwise unchanged.
+- **No component asks a model to think carefully, think step by step, show its work or explain its
+  reasoning.** A new check over every component holds this.
 
 ## 0.102.0
 
-- **An accepted outside-epic dependency is no longer work before implementation.**
-  `/nxs.decision-record` lists an ADDRESS risk whose mitigation another epic delivers, and whose
-  gap the record says the owner accepts, under a new **Delivered by another epic** group of the
-  approval brief, with who delivers it. "Before implementation" keeps only plans this epic's team
-  must make before its first story. A risk another epic delivers whose gap the owner has not
-  accepted goes under "Resolve before approval". Each ADDRESS risk appears in one group, and
-  `nexus razor-check --record` blocks a draft that lists one in two. The unattended
-  implementation run is told to leave the new group alone, so such a risk no longer stops it
-  before the first story.
+- **Every stage says at its start what "done" means and where it stops for you.** The opening of
+  each stage command now names its finish line and the gates at which it waits for the lead, such
+  as the right-size gate and the approval digest in `/nxs.epic`. `/nxs.close` names its finish line
+  only: it still runs `nexus close` and shows its output unchanged.
+- **Stages keep going between gates.** Every stage command except `/nxs.close` loads one shared
+  rule, the new `nxs-run-discipline` skill. Between gates a stage no longer stops to summarize, to
+  offer to continue, or to list choices that block nothing; a status note comes with its next
+  action. It stops only at a gate, at its finish line, at a step it cannot finish without you, where
+  it names what it needs, or before deleting data the run did not create, force-pushing or rewriting
+  history when nothing approved that already. Every existing gate stops where it did, with the same
+  choices, and permission prompts and unattended runs are unchanged. `/nxs.analyze` and
+  `/nxs.council` gain the `Skill` tool to load it.
+- **The setup interview's closing question is a named review gate.** "Want me to adjust any
+  section?" now stops the interview until you answer, and the product context is written only
+  after you approve it.
+- **The distill size check counts the shared rule.** Its recorded ceiling rises from 53,024 to
+  66,000 authored bytes, and the measurement now includes the full body of every shared skill an
+  ordinary distill run loads.
 
 ## 0.101.1
 

@@ -1,7 +1,7 @@
 ---
 title: "Epic Issue Filing"
 aliases: ["epic filer", "create-or-promote", "promotion legality gate", "decoration after existence"]
-touches: ["report-free-shared-layer", "publishing-config-resolution", "backlog-stub"]
+touches: ["report-free-shared-layer", "publishing-config-resolution", "backlog-stub", "stub-promotion"]
 last_updated_by: "#352"
 status: active
 verification: verified
@@ -34,9 +34,14 @@ Classification is decided before creation when a label must be established first
 - [report-free-shared-layer](report-free-shared-layer.md) — supplies every platform call and project lookup this contract makes, none of them printing for themselves.
 - [publishing-config-resolution](publishing-config-resolution.md) — decides the classification mode, the project target, and the repository this contract files into.
 - [backlog-stub](backlog-stub.md) — the unplanned marker this contract checks for and clears is the same marker that state names.
+- [stub-promotion](stub-promotion.md) — the planning step that runs through this path to edit a stub in place and clear its unplanned marker.
 
 ## Decision Log
 
 ### 2026-08-30 — #352 — Composed from the shared toolkit mechanism rather than built from scratch
 
 This contract is the single-issue counterpart to the toolkit's existing batch-filing contract: composed almost entirely from mechanism another capability already built for itself — configuration, classification, the shared platform and project lookups — with only the creation-or-promotion shape, the draft reader, and the confirmation seam newly written. Refuted alternative: build the single-issue path independently of the batch path's mechanism, on the reasoning that one issue and many issues are different enough problems to warrant it — rejected because the two capabilities' remote calls, classification rules and configuration are identical in substance and would drift the moment one changed without the other.
+
+### 2026-10-10 — #705 — Reciprocal link from stub-promotion
+
+Mechanical reciprocity fan-out: the stub-promotion page, split from backlog-stub, names this path as the one a promotion runs through to edit the stub in place.

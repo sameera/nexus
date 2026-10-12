@@ -184,9 +184,11 @@ After generating:
 1. **Summarize what you created** — brief overview of key sections
 2. **Highlight your assumptions** — "I assumed X, Y, Z based on our conversation"
 3. **Ask for corrections** — "What did I get wrong or miss?"
-4. **Offer to refine** — "Want me to adjust any section?"
+4. **Review gate** — "Want me to adjust any section?" This is the interview's review gate: stop
+   here until the lead answers. Apply any corrections they give, and ask again only if they asked
+   for a change.
 
-Write the file after presenting, not before. Let them approve the approach first.
+Write the file after the lead approves at the review gate, not before.
 
 ---
 

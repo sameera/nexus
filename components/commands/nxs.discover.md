@@ -13,6 +13,15 @@ decisions. Resolve them one at a time. Stop when every functional goal is sharp 
 as an epic stub. You resolve decisions; you do not plan work, size epics, or file issues. Issues
 appear later, when `/nxs.epic` consumes the finished discovery.
 
+**Finish line:** start ends once the discovery is committed and its research agents are fired;
+resume ends once one decision is resolved and committed; close ends once the lessons note is
+committed and the folder removed. **Gates:** the destination (Phase 1), the feature (Phase 2), the
+resume-or-new choice when a discovery exists (Phase 3), the interview and the surface sketch ruling
+on a resumed ticket (Phase R2), and the outcome confirmation before close (Phase C0).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text
@@ -295,14 +304,15 @@ lead is away from the keyboard.
 that reads it. It is never a resolution: a fact is not a decision, and only a session marks a ticket
 resolved. Firing the agents is the last thing start does.
 
-Report:
+Report in the run-discipline skill's layout:
 
-- The destination, in the accepted words.
-- The feature this discovery's goals will land under.
-- The ticket count by type, naming each ticket **by title**, never by a bare filename.
-- What went to "Not yet specified" and what went to "Out of scope".
-- The commit, and that nothing was pushed and nothing was written to GitHub.
-- Next step: `/nxs.discover --resume <folder>` to work one decision.
+- **Blocked on me:** nothing. Next: `/nxs.discover --resume <folder>` to work one decision.
+- **Changed:** the commit, and that nothing was pushed and nothing was written to GitHub.
+- **Found:**
+    - The destination, in the accepted words.
+    - The feature this discovery's goals will land under.
+    - The ticket count by type, naming each ticket **by title**, never by a bare filename.
+    - What went to "Not yet specified" and what went to "Out of scope".
 
 ---
 
@@ -496,18 +506,19 @@ git commit -m "discover: resolve <ticket title>"
 Then **stop**. One decision is resolved per session. Research-typed tickets fired earlier may still
 be running in parallel. That is fine; they resolve nothing.
 
-Report:
+Report in the run-discipline skill's layout:
 
-- The ticket resolved, **by title**, and the decision in one sentence.
-- For a surface ticket: the surface that was sketched, and the answer the chosen drawing embodies.
-- Any takeover that was recorded.
-- What moved out of "Not yet specified" into a ticket, and what moved to "Out of scope", each **by
-  title**.
-- What remains open, **by title**, and what is still blocked and by which ticket.
-- The commit, and that nothing was pushed.
-- Next step: `/nxs.discover --resume <folder>` again while open tickets remain. When none remain and
-  "Not yet specified" is empty, the discovery is done. Promote it with `/nxs.epic`, or end it with
-  `/nxs.discover --close <folder>` if the resolutions concluded that no build follows.
+- **Blocked on me:** nothing, in one line naming the next step: `/nxs.discover --resume <folder>`
+  again while open tickets remain. When none remain and "Not yet specified" is empty, the discovery
+  is done: promote it with `/nxs.epic`, or end it with `/nxs.discover --close <folder>` if the
+  resolutions concluded that no build follows.
+- **Changed:** the ticket resolved, **by title**, and the decision in one sentence; any takeover
+  that was recorded; what moved out of "Not yet specified" into a ticket, and what moved to "Out
+  of scope", each **by title**; the commit, and that nothing was pushed.
+- **Found:**
+    - For a surface ticket: the surface that was sketched, and the answer the chosen drawing
+      embodies.
+    - What remains open, **by title**, and what is still blocked and by which ticket.
 
 ---
 
@@ -602,7 +613,12 @@ git commit -m "discover: close <initiative> — no build follows"
 Writing the note and removing the folder in the **same commit** makes the trade atomic on merge, so
 the record cannot be deleted without its replacement landing.
 
-**Never push.** Report the note's path, the conclusion, and the commit.
+**Never push.** Report in the run-discipline skill's layout:
+
+- **Blocked on me:** nothing. The discovery is closed and no stage follows it; push the commit to
+  share it, with an ordinary `git push`.
+- **Changed:** the note's path, and the commit.
+- **Found:** the conclusion.
 
 ---
 

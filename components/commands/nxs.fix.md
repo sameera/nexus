@@ -21,6 +21,13 @@ needs to alter what a page asserts is a **design change**, and it keeps taking `
 razor is enforced mechanically at the drain, not here (`/nxs.distill`, invariant 13) — your own
 razor check is advisory and fails soft.
 
+**Finish line:** the fix entry's two files are written and the Phase 7 report is printed.
+**Gates:** the range question when the range cannot be resolved (Phase 3/4) and the why question
+(Phase 5).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text
@@ -153,13 +160,21 @@ one gate and persisting is another; this command writes nothing durable and noth
 second gate over a scratch directory would be ceremony that forces no decision. Write no
 conformance result: a fix entry has none.
 
-Report and stop:
+Report in the run-discipline skill's layout, and stop:
 
 ```
+## Blocked on me
+Nothing. Run /nxs.distill to drain it into the concept store.
+
+## Changed
 Fix entry written for <reference>:
   .nexus/tmp/fix-<n>/epic.md
   .nexus/tmp/fix-<n>/close-record.md
-Run /nxs.distill to drain it into the concept store.
+Nothing else was written: no issue, no comment, no branch, no pull request, no commit.
+
+## Found
+What changed: <the behaviour that moved, as Phase 5 read it from the diff, in one line>
+Razor check: <the Phase 5 warning, naming how many behaviours fit no existing page | none>
 ```
 
-Confirm to yourself before you finish: no issue, no comment, no branch, no pull request, no commit.
+Write the `Nothing else was written` line only when it is true.

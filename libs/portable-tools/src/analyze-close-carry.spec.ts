@@ -30,7 +30,7 @@ const RESOLVE = (): string => between(ANALYZE, "## Phase 0.8 — Recording answe
 
 describe("the key decisions are the record's decisions by ID plus confirmed stubs (D5, D6; G25)", () => {
     it("hands the record body and the stamped digest to the ID step, which lists the decisions itself", () => {
-        expect(ID_STEP()).toContain('--record-body "<scratch>/record-body.md" --record-hash "$RECORD_HASH"');
+        expect(ID_STEP()).toContain('--record-body "<run>/record-body.md" --record-hash "$RECORD_HASH"');
         expect(CARRY()).toMatch(/\*\*You never list\s+the record's decisions yourself\*\*/);
         expect(CARRY()).toMatch(/by\s+its ID \(by title in an old-format record\), tied to the digest the verdict stamps/);
         expect(CARRY()).toMatch(/Only a record in\s+neither format is carried in full/);
@@ -95,7 +95,7 @@ describe("the judgments block is the one place the verdict carries it, and it is
 
 describe("an answer-recording run carries them forward (G24)", () => {
     it("passes the record to the ID step and carries proposals and confirmed stubs", () => {
-        expect(RESOLVE()).toContain('--record-body "<scratch>/record-body.md" --record-hash "$RECORD_HASH"');
+        expect(RESOLVE()).toContain('--record-body "<run>/record-body.md" --record-hash "$RECORD_HASH"');
         expect(RESOLVE()).toMatch(/each\s+deferred-scope proposal travels with the item it would settle/);
         expect(RESOLVE()).toMatch(/hand the whole\s+`confirmedStubs` list again/);
     });

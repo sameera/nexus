@@ -108,10 +108,16 @@ stop — never open a pull request:
 ```
 DISTILLATION STOPPED (unattended): <n> blocking condition(s).
 
+## Blocked on me
   <condition> — <what clears it>
   ...
+  Then run /nxs.distill again, unless nothing was left to drain.
 
+## Changed
 No pull request was opened. Nothing was pushed. <branch reset to <ref> | no branch was cut>
+
+## Found
+<the skipped and blocked entries, as the base stage's report lists them | none>
 ```
 
 List every blocking condition found this run, not only the first. "What clears it" is "re-run

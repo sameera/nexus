@@ -180,6 +180,46 @@ describe("the judgments block carries each criterion and guarantee result with i
     });
 });
 
+describe("a criterion or guarantee analyze could not confirm is recorded as unconfirmed (epic #889, story #893, D6, D9)", () => {
+    const unconfirmed: Result[] = [
+        { kind: "criterion", about: "#893 AC1", verdict: "unconfirmed", files: ["libs/a.ts"], looked: "libs/a.ts and the CLI help text", confirmBy: "run the benchmark in libs/a.bench.ts" },
+        { kind: "guarantee", about: "G18", verdict: "unconfirmed", files: [], looked: "the merge pre-check workflow, which is not in this repository", confirmBy: "a merge attempt with one unconfirmed item" },
+    ];
+
+    it("reads back an unconfirmed criterion and guarantee with where analyze looked and what would confirm it (G16, G17)", () => {
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results: unconfirmed }));
+        expect(r.ok && r.judgments?.results).toEqual(unconfirmed);
+    });
+
+    it("refuses an unconfirmed result that does not say where analyze looked or what would confirm it (G17)", () => {
+        const { looked: _looked, ...noLooked } = unconfirmed[0];
+        const { confirmBy: _confirmBy, ...noConfirm } = unconfirmed[1];
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results: [noLooked] })).ok).toBe(false);
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results: [noConfirm] })).ok).toBe(false);
+    });
+
+    it("keeps unverifiable as a success metric's verdict, and refuses unconfirmed there", () => {
+        const metric: Result = { kind: "metric", about: "SM1", verdict: "unconfirmed", files: [], looked: "x", confirmBy: "y" };
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results: [metric] })).ok).toBe(false);
+    });
+
+    it("still reads a verdict written before unconfirmed existed, whose criterion says unverifiable", () => {
+        const old: Result[] = [{ kind: "criterion", about: "#861 AC4", verdict: "unverifiable", files: ["libs/a.ts"] }];
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results: old }));
+        expect(r.ok && r.judgments?.results).toEqual(old);
+    });
+
+    it("keeps where analyze looked when a verdict too large for the platform drops the file lists (G17)", () => {
+        const dropped = withoutResultFileLists({ items: [], findings: [], deferred: [], results: unconfirmed });
+        expect(dropped.results?.map((r) => r.looked)).toEqual(unconfirmed.map((r) => r.looked));
+    });
+
+    it("leaves unconfirmed results out of the open items the counts are made from (G18)", () => {
+        const j: Judgments = { items: [], findings: [finding({ severity: "low" })], deferred: [], results: unconfirmed };
+        expect(openItems(j).map((x) => x.id)).toEqual(["F1"]);
+    });
+});
+
 const proposal = (over: Partial<DeferredScope> = {}): DeferredScope => ({
     id: "DS1",
     kind: "deferred-scope",

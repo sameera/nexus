@@ -1,15 +1,15 @@
 ---
 title: "Issue Kind Classification"
 aliases: ["issue kind", "what an issue is filed as", "epic or story", "classification mode mismatch", "declared marker over graph shape"]
-touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership"]
-last_updated_by: "#515"
+touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight"]
+last_updated_by: "#705"
 status: active
 verification: verified
 ---
 
 # Issue Kind Classification
 
-An issue's kind is read from the marker its repository declares for that kind. The kinds are epic, story, decision record, and none of these. Kind is never inferred from the issue graph's shape, because shape cannot tell a story of an epic from an epic of an initiative.
+An issue's kind is read from the marker its repository declares for that kind. The kinds are initiative, epic, story, decision record, and none of these. Kind is never inferred from the issue graph's shape, because shape cannot tell a story of an epic from an epic of an initiative.
 
 ## How It Works
 
@@ -17,7 +17,7 @@ A repository declares one classification mode. Under label mode a kind is the co
 
 Under a declared mode only that mode's marker is read. When that marker says nothing and the other mode's marker would have answered, the run stops and names the mismatch. The declared classification then does not describe how this repository files issues, and a stage that quietly worked around it would resolve the same issue differently from a stage that trusts the declaration. Issue-type mode carries no built-in type names, so a repository selecting it without declaring them is reported rather than guessed at.
 
-The design stage's import refuses an issue its repository files as a story or a record.
+The design stage's import refuses an issue its repository files as a story or a record. Every stage refuses an initiative as its epic, by name. The batch filer reads a stub's parent through this rule. The initiative marker is tested last, so a repository whose epic label is the word initiative still reads epics as epics.
 
 ## Key Invariants
 
@@ -35,6 +35,8 @@ The design stage's import refuses an issue its repository files as a story or a 
 - [pr-story-resolution](pr-story-resolution.md) — validates each of a pull request's story candidates through this rule.
 - [decision-record](decision-record.md) — the design stage's import decides here whether the issue it was handed is the epic.
 - [entry-slot-ownership](entry-slot-ownership.md) — reads the declared epic marker through this rule, so a landed-work lane names an epic from the repository's own statement.
+- [initiative](initiative.md) — the kind every stage refuses as an epic and the filer allows as a stub's parent.
+- [filing-preflight](filing-preflight.md) — reads through this rule whether a stub's named parent is an initiative.
 
 ## Decision Log
 
@@ -45,3 +47,7 @@ The rule this replaced asked the issue graph: an issue with a parent that lists 
 ### 2026-09-12 — #515 — Reciprocal link from entry-slot-ownership
 
 Mechanical reciprocity fan-out: the rule that decides which kind of entry holds a number's slot now names this rule as the source of the epic marker it reads, so both landed-work lanes refuse an epic from the repository's own declaration rather than from a hard-coded label or type name. Nothing this page already asserted has changed.
+
+### 2026-10-10 — #705 — Initiative becomes a declared kind, tested last
+
+An initiative needed a positive marker for two checks. The filer allows it as a stub's parent, and every stage refuses it as an epic. Working out a kind from the issue graph is already forbidden here, so the initiative became its own declared kind with its own label or issue type. The label defaults to the word initiative, and the issue type has no default. The marker is tested after epic, story and record, because a repository whose epic label is that same word would otherwise have every epic refused. The initiative check reads only the initiative marker, so it adds no failure for any issue that is not an initiative. Under issue-type mode, an issue that carries only the initiative label reads as none of these, as it did before the kind existed. The rule now lives in one place that both the filer and the resolver call, because a second copy inside the filer would let filing and reading disagree about the same issue. Refuted alternative: test the initiative marker first, so an issue carrying both markers is refused as an initiative. It lost because it refuses every epic in a repository whose epic label is the same word.

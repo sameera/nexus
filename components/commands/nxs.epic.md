@@ -10,6 +10,10 @@ model: inherit
 
 Act as a product manager and delivery lead. Turn one capability description into a bounded epic: user stories with testable acceptance criteria. When the scope is oversized, turn it into decomposition stubs for later promotion instead. You do not design or implement; that work is downstream (`/nxs.decision-record`, the engineer).
 
+**Finish line:** the epic and one issue per kept story are filed and the Phase 7 report is printed; on the oversized path the stubs are filed instead, and with `--from` the materialized `epic.md` is written. **Gates:** the resume-or-new choice (Phase 0), the feature-name confirmation (Phase 1), the right-size gate (Phase 2), and the open-questions gate and the approval digest (Phase 5).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs between the gates named here.
+
 # User Input
 
 ```text
@@ -76,7 +80,12 @@ Run the phases in order.
     ```
 
 2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>: <message>`). Report it verbatim and stop. In particular, `not-an-epic` (the number is a story sub-issue), `epic-not-found` (no such issue), `is-an-initiative` (the number is an initiative, which is a planning container and never an epic; name one of the epics under it), and `epic-not-planned` (the number is a backlog stub, which has nothing to load; offer `/nxs.epic <n>` to plan it) each name why. **No `epic.md` is produced** on failure.
-3. **On success** it printed `{ epic, targetRoot, outPath }`: a materialized `epic.md` at `outPath` under the gitignored `.nexus/tmp/`. Report that path, and report that `/nxs.decision-record <n>` / `/nxs.analyze` can now run against this epic. **Commit nothing** (the same no-commit contract as planning; the output is gitignored). Then **stop**. The phases below do not run for `--from`.
+3. **On success** it printed `{ epic, targetRoot, outPath }`: a materialized `epic.md` at `outPath` under the gitignored `.nexus/tmp/`. **Commit nothing** (the same no-commit contract as planning; the output is gitignored). Report in the run-discipline skill's layout, then **stop**:
+    - **Blocked on me:** nothing. Next: `/nxs.decision-record <n>` or `/nxs.analyze`, which can now run against this epic.
+    - **Changed:** the materialized `epic.md` path, and that nothing was committed.
+    - **Found:** the epic's title and its story count, from that `epic.md`.
+
+   The phases below do not run for `--from`.
 
 Otherwise (no `--from`), continue with normal planning.
 
@@ -508,17 +517,15 @@ Every stub's number must be in that list. If any stub is missing, the run is **i
 
 **Step 6 runs only after** the initiative is filed, the stubs are filed, the initiative names every stub by issue number, and every stub is one of its children. Short of that, keep the run folder: it holds both ledgers, and a repeat that cannot read them would file everything a second time.
 
-Report the initiative's number first, then the stubs in the initiative's order.
+Then **stop**. Do **not** create a queue entry, a feature `README.md`, or a full epic issue this run. Report in the run-discipline skill's layout:
 
-Then **stop**. Report the created issue numbers with their goals, and tell the user to promote one with `/nxs.epic <issue-number>`. Do **not** create a queue entry, a feature `README.md`, or a full epic issue this run.
+- **Blocked on me:** promote one stub with `/nxs.epic <issue-number>`. **In discovery mode**, also that `<DISCOVERY>` has been **consumed** and can now be removed, and that removing it is a plain commit the user makes. This command does not delete the folder and **commits nothing**, which is its contract on every path. Name the folder in the report only; never write it into an issue body or a comment.
+- **Changed:** the created issue numbers with their goals. Under an initiative, report the initiative's number first, then the stubs in the initiative's order.
+- **Found:** the **cross-feature backlog query**: the whole backlog, this batch included, in one query. Ask for it rather than spelling the label out:
 
-**In discovery mode**, also report that `<DISCOVERY>` has been **consumed** and can now be removed, and that removing it is a plain commit the user makes. This command does not delete the folder and **commits nothing**, which is its contract on every path. Name the folder in the report only; never write it into an issue body or a comment.
-
-Close the report with the **cross-feature backlog query**: the whole backlog, this batch included, in one query. Ask for it rather than spelling the label out:
-
-```bash
-nexus config backlog-query
-```
+    ```bash
+    nexus config backlog-query
+    ```
 
 ## Phase 3 — Generate the epic
 
@@ -974,18 +981,22 @@ A **promotion** needs no follow-up here beyond step 10: the stub issue *is* the 
 
 ## Phase 7 — Report completion
 
-Report:
+Report in the run-discipline skill's layout:
 
-- Feature name and folder.
-- Epic title, complexity rating, and story count (with `story_type` breakdown).
-- **In promotion mode**: that epic issue `#<n>` is the same issue the stub was filed under. No second issue was created, and the unplanned label was removed.
-- **In discovery mode**: that the discovery folder has been **consumed** and can be removed, and that removing it is a plain commit the user makes. This command does not delete it. Name it in the report only, never in an issue body or comment.
-- **Nothing committed to `.nexus/queue/`**: the epic lives on GitHub issues, and the queue entry is created at close. The `epic.md` draft stayed in `RUN_DIR`, gitignored under `.nexus/tmp/planning/`, and (on a complete filing) `RUN_DIR` is now gone (Phase 6 step 10). This holds in discovery mode too: a consumed discovery folder is left exactly as it was found.
-- **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07 write-back): a repo with no `github:` block had its resolved publishing decisions (classification mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a **tracked config file**, distinct from the no-queue-commit planning contract above. Tell the user to review that diff and commit it, so the fragile probe never runs again.
-- **The deferral stub, when one was filed** (Phase 6 step 8): its issue number, and the story titles it carries. If none was filed, say so: either every asked-for story was ticked, or this run was planning a single-story deferral and the floor suppressed it.
-- **Assets**, when `--assets` was passed: each published file with its pinned reference and the issue it landed in; any declared file that no body mentioned and so was **not** published; or, when the repository declares no store, that assets were unsupported and the issues were filed without them.
-- Epic issue link and the created story issue numbers, plus the implementation sequence (the table from Phase 6 step 5). If the user chose `revise`, report instead that no issues were created and how to resume (`/nxs.epic --resume`).
-- Next step: `/nxs.decision-record <epic-issue-#>` to produce the decision record for this epic (it resolves the epic from its issue number; there is no committed planning file).
+- **Blocked on me:**
+    - **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07 write-back): a repo with no `github:` block had its resolved publishing decisions (classification mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a **tracked config file**, distinct from the no-queue-commit planning contract below. Tell the user to review that diff and commit it, so the fragile probe never runs again.
+    - **In discovery mode**: that the discovery folder has been **consumed** and can be removed, and that removing it is a plain commit the user makes. This command does not delete it. Name it in the report only, never in an issue body or comment.
+    - If the user chose `revise`: that no issues were created, and how to resume (`/nxs.epic --resume`).
+    - Last, on a filing: `/nxs.decision-record <epic-issue-#>` as the next step, to produce the decision record for this epic (it resolves the epic from its issue number; there is no committed planning file). When nothing above applies, this is the one line, opening with "Nothing.".
+- **Changed:**
+    - Epic issue link and the created story issue numbers, plus the implementation sequence (the table from Phase 6 step 5).
+    - **In promotion mode**: that epic issue `#<n>` is the same issue the stub was filed under. No second issue was created, and the unplanned label was removed.
+    - **The deferral stub, when one was filed** (Phase 6 step 8): its issue number, and the story titles it carries. If none was filed, say so: either every asked-for story was ticked, or this run was planning a single-story deferral and the floor suppressed it.
+    - **Assets**, when `--assets` was passed: each published file with its pinned reference and the issue it landed in; any declared file that no body mentioned and so was **not** published; or, when the repository declares no store, that assets were unsupported and the issues were filed without them.
+    - **Nothing committed to `.nexus/queue/`**: the epic lives on GitHub issues, and the queue entry is created at close. The `epic.md` draft stayed in `RUN_DIR`, gitignored under `.nexus/tmp/planning/`, and (on a complete filing) `RUN_DIR` is now gone (Phase 6 step 10). This holds in discovery mode too: a consumed discovery folder is left exactly as it was found.
+- **Found:**
+    - Feature name and folder.
+    - Epic title, complexity rating, and story count (with `story_type` breakdown).
 
 ---
 

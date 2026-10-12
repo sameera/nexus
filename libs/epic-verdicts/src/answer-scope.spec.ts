@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { type Departure, type Finding, type Judgments, type Result, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { type Departure, type Finding, type Judgments, type Result, parseJudgmentsBlock, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { verdictBody } from "@nexus/pr-acceptance/verdict-fixtures";
 import { type Runner } from "./run.js";
 import {
@@ -390,5 +390,42 @@ describe("an answer-recording run carries the key decisions and the deferred sco
         expect(r.ok && r.judgments.keyDecisions).toEqual(KEY);
         const restubbed = mergeAnswerRun(j, scope, { ...draft, stubs: [] });
         expect(restubbed.ok && restubbed.judgments.keyDecisions).toEqual({ ...KEY, stubs: [] });
+    });
+});
+
+describe("an answer-recording run carries an unconfirmed result forward like any other (epic #889, story #893, D6; G19)", () => {
+    const PR = 7;
+    const REPO = "acme/widget";
+    const UNCONFIRMED: Result = { kind: "guarantee", about: "G22", verdict: "unconfirmed", files: ["libs/e.ts"], looked: "libs/e.ts", confirmBy: "a run whose context is summarized mid-way" };
+    const withUnconfirmed = (): Judgments => judgments({ results: [...results(), UNCONFIRMED] });
+    const published = (j: Judgments): string => `${verdictBody({ high: 1, repo: REPO, pr: PR, issuesRepo: REPO })}\n\n${renderJudgmentsBlock(j)}`;
+    const runner =
+        (body: string): Runner =>
+        (cmd, args) =>
+            cmd === "gh" && args[0] === "pr" && args[1] === "view"
+                ? { status: 0, stdout: JSON.stringify({ headRefOid: "f".repeat(40), reviews: [], comments: [{ body, createdAt: "2026-10-02T00:00:00Z", authorAssociation: "OWNER" }] }), stderr: "" }
+                : { status: 0, stdout: "0\n", stderr: "" };
+
+    it("reads the newest verdict when it carries an unconfirmed result", () => {
+        const r = readEarlierVerdict(runner(published(withUnconfirmed())), "/repo", PR, REPO, REPO);
+        expect(r.ok && r.earlier?.judgments?.results).toContainEqual(UNCONFIRMED);
+    });
+
+    it("keeps the unconfirmed result, with where analyze looked, in the verdict an unchanged head publishes", () => {
+        const r = mergeAnswerRun(withUnconfirmed(), scopeOf(withUnconfirmed(), "unchanged"), null);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        const again = parseJudgmentsBlock(renderJudgmentsBlock(r.judgments));
+        expect(again.ok && again.judgments?.results).toContainEqual(UNCONFIRMED);
+    });
+
+    it("keeps an unconfirmed result the changed files do not affect when the head moved", () => {
+        const j = withUnconfirmed();
+        const r = mergeAnswerRun(j, scopeOf(j, "moved", ["libs/b.ts"]), {
+            departures: [{ departsFrom: "G9", summary: "still calls once per item", breaksGuarantee: true, files: ["libs/d.ts"], stub: null, supersedes: null }],
+            findings: [],
+            results: [{ kind: "criterion", about: "#861 AC2", verdict: "met", files: ["libs/b.ts"] }],
+        });
+        expect(r.ok && r.judgments.results).toContainEqual(UNCONFIRMED);
     });
 });

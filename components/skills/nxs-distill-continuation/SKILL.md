@@ -66,10 +66,10 @@ here, so it is **add-then-deleted within the branch** and invisible in the net "
 prose lives durably in the epic-issue close comment; quote or link that comment in the PR body so
 the reviewer can see the *why* without a dangling queue path.
 
-## Phase 8 — end with the worktree-cleanup instruction
+## Phase 8 — the worktree-cleanup instruction, under Blocked on me
 
 `/nxs.distill` runs *inside* the close worktree, so it cannot remove that worktree itself; the lead
-removes it once done reviewing:
+removes it once done reviewing. Add this under the report's Blocked on me heading:
 
     Worktree: <wtPath> (the close/distill worktree, still checked out on this branch)
     CLEANUP (after the distillation-PR is merged or closed):

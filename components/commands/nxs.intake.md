@@ -22,6 +22,14 @@ is approved once as a decision record and again at the distillation pull request
 reasoning is approved only once, at the distillation pull request, because the code has already
 shipped and the record describes what is rather than what will be.
 
+**Finish line:** the intake entry is written and the Phase 8 report is printed, or the lead
+declines at the checkpoint and nothing is written. **Gates:** the range question when the range
+cannot be resolved (Phase 2), the one prompt for unexplained decisions (Phase 4), and the
+checkpoint (Phase 6).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text
@@ -280,11 +288,22 @@ lesson from.
 
 # Phase 8 — Report, and stop
 
+Report in the run-discipline skill's layout, and stop:
+
 ```
+## Blocked on me
+Nothing. Run /nxs.distill to drain it into the concept store.
+
+## Changed
 Intake entry written for <qualified reference>:
   .nexus/tmp/intake-<n>/epic.md
   .nexus/tmp/intake-<n>/close-record.md
-Run /nxs.distill to drain it into the concept store.
+Follow-ups filed: <#<issue> — <one-line goal>, one per line | none>
+Nothing else was written: no issue, no comment, no branch, no pull request, no commit.
+
+## Found
+Close record: <n> key decisions, <n> refuted alternatives, <n> deferred-scope items
 ```
 
-Confirm to yourself before you finish: no issue, no comment, no branch, no pull request, no commit.
+The kept follow-ups Phase 6.5 filed are the only issues this command writes, so they are listed
+above that line. Write the `Nothing else was written` line only when it is true.

@@ -15,6 +15,7 @@ import {
     descriptionLine,
     ordinaryLoadedBytes,
     RESIDENCY,
+    SHARED_SKILLS,
     type CeilingRecord,
 } from "./distill-load-ceiling";
 
@@ -24,10 +25,15 @@ const CEILING: CeilingRecord = JSON.parse(
 );
 
 describe("the ordinary drain's loaded size is held under a recorded ceiling", () => {
-    it("measures the base stage plus every contract's preloaded description, and no contract body", () => {
+    it("measures the base stage, every shared skill's body, and every contract's preloaded description, and no contract body", () => {
         const base: number = Buffer.byteLength(
             fs.readFileSync(path.join(COMPONENTS, "commands", "nxs.distill.md"), "utf8"),
             "utf8",
+        );
+        const shared: number = SHARED_SKILLS.reduce(
+            (sum, name) =>
+                sum + Buffer.byteLength(fs.readFileSync(path.join(COMPONENTS, "skills", name, "SKILL.md"), "utf8"), "utf8"),
+            0,
         );
         const descriptions: number = CONTRACTS.reduce(
             (sum, name) =>
@@ -38,7 +44,7 @@ describe("the ordinary drain's loaded size is held under a recorded ceiling", ()
                 ),
             0,
         );
-        expect(ordinaryLoadedBytes(COMPONENTS)).toBe(base + descriptions);
+        expect(ordinaryLoadedBytes(COMPONENTS)).toBe(base + shared + descriptions);
     });
 
     it("stays at or under the ceiling", () => {
@@ -48,7 +54,19 @@ describe("the ordinary drain's loaded size is held under a recorded ceiling", ()
 
     it("records the ceiling with its date and the value it replaces", () => {
         expect(CEILING.recorded).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-        expect(CEILING.replaces).toBeGreaterThan(CEILING.bytes);
+        expect(CEILING.replaces).not.toBeNull();
+        expect(CEILING.replaces).not.toBe(CEILING.bytes);
+    });
+
+    it("counts every shared skill the base stage loads on every run (epic #889, story #890)", () => {
+        expect(SHARED_SKILLS).toContain("nxs-run-discipline");
+        const base: string = fs.readFileSync(path.join(COMPONENTS, "commands", "nxs.distill.md"), "utf8");
+        const named: Set<string> = new Set(base.match(/`nxs-[a-z-]+`/g)?.map((n) => n.replaceAll("`", "")) ?? []);
+        for (const name of named) {
+            if (!fs.existsSync(path.join(COMPONENTS, "skills", name, "SKILL.md"))) continue;
+            expect(CONTRACTS.includes(name) || SHARED_SKILLS.includes(name), `${name} is loaded but not counted`).toBe(true);
+        }
+        for (const name of SHARED_SKILLS) expect(named.has(name), `${name} is counted but not loaded`).toBe(true);
     });
 
     it("names both the measured value and the ceiling when a change pushes the drain over it", () => {
