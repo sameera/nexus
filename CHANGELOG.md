@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.103.0
+
+- **A revision moves an accepted outside-epic dependency out of "Before implementation".**
+  `/nxs.decision-record --revise` rebuilds the approval brief under the current grouping, so a
+  record approved before that group existed lists such a risk under "Delivered by another epic". A lead can
+  revise only to correct where risks are listed: every decision, guarantee and risk is carried
+  forward unchanged, and the Revision delta names no decision as changed or withdrawn.
+
 ## 0.102.0
 
 - **An accepted outside-epic dependency is no longer work before implementation.**

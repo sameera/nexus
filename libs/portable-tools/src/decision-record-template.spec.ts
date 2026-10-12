@@ -139,6 +139,29 @@ describe("where the brief lists an ADDRESS risk another epic delivers (epic #934
     });
 });
 
+describe("a revision re-groups an approved record's risks (epic #934, story #936)", () => {
+    const stage: string = component("commands/nxs.decision-record.md").replace(/\s+/g, " ");
+
+    it("rebuilds the approval brief of a revised record under the current grouping rules", () => {
+        expect(stage).toMatch(/A `--revise` run rebuilds the Approval brief under the rules above/);
+        expect(stage).toMatch(/listed under "Before implementation" moves to "Delivered by another epic"/);
+    });
+
+    it("lets a lead revise only to correct where risks are listed, carrying every decision forward unchanged", () => {
+        expect(stage).toMatch(/A revision that only re-groups risks/);
+        expect(stage).toMatch(/carries every decision, guarantee and risk forward unchanged/);
+    });
+
+    it("marks no decision changed or withdrawn when a revision only moves a risk between groups", () => {
+        expect(stage).toMatch(/Moving a risk between groups changes no decision/);
+        expect(stage).toMatch(/Revision delta[^.]*names no decision as changed or withdrawn/);
+    });
+
+    it.each(TEMPLATES)("in %s, keeps a moved risk out of the decisions the Revision delta names", (_label: string, file: string) => {
+        expect(read(file).replace(/\s+/g, " ")).toMatch(/Revision delta: changed and withdrawn decision IDs\. A risk moved between groups is not a changed decision\./);
+    });
+});
+
 describe("the old-format record template (D11)", () => {
     it("ships beside the new one, so a revision of an old-format record has its template", () => {
         expect(SEEDED_TEMPLATES).toContain(NEW_TEMPLATE);

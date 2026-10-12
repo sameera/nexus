@@ -55,6 +55,12 @@ path, revision included) and **Phases 1–3** to produce the new body. File the 
 re-closes it. Strip the token before resolving the entry path. Without an existing closed record
 there is nothing to revise: say so and run the normal path instead.
 
+**A revision that only re-groups risks** corrects where the approved Approval brief lists them, for
+example an accepted outside-epic dependency still under "Before implementation". Tell the architect
+in Phase 1 that the design is unchanged. Phase 1 then carries every decision, guarantee and risk
+forward unchanged, with its ID and its text, and Phase 3 rebuilds only the brief. The Phase 4.5
+comment's *what changed* names each moved risk and the group it left.
+
 **Assets (`--assets <path>[,<path>…]`).** Any filing path, `--revise` included, may carry local
 files that the record sub-issue should show, such as the diagram a decision was made against or a
 sketch of the chosen shape. The flag is repeatable and its value comma-separated. Strip every
@@ -495,13 +501,20 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         - **Committed follow-up:** every ADDRESS risk whose mitigation is decided and is delivered
           by a story of this epic or by existing behaviour, with who delivers it.
         - **Revision delta:** on a `--revise` run only, the IDs of the decisions changed and
-          withdrawn.
+          withdrawn. Moving a risk between groups changes no decision. A revision that only moves
+          risks has a Revision delta that names no decision as changed or withdrawn, and names each
+          moved risk with the group it left.
 
       Every decision with a trade-off appears in the brief exactly once. A decision listed under
       "Resolve before approval" carries its trade-off there, as a sub-bullet of its entry, and is
       not repeated under "Choices with trade-offs". Every ADDRESS risk appears in the brief exactly
       once, in the first group above whose rule it meets. `nexus razor-check --record` blocks an
       ADDRESS risk listed in two groups.
+
+      A `--revise` run rebuilds the Approval brief under the rules above, whatever groups the
+      approved body used. So in a record approved before the "Delivered by another epic" group
+      existed, an ADDRESS risk that another epic delivers, whose gap the owner accepts, and that is
+      listed under "Before implementation" moves to "Delivered by another epic", with who delivers it.
     - **An old-format revision** fills the old-format template from the old sections the architect
       returned, as the stage did before the approval-first format.
 4. Delete all template guidance comments before writing.

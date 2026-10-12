@@ -92,7 +92,8 @@ date: {{YYYY-MM-DD}}
      - Committed follow-up: every ADDRESS risk whose mitigation is decided and is delivered by a
        story of this epic or by existing behaviour, with who delivers it.
      Every ADDRESS risk appears in exactly one group: the first above whose rule it meets.
-     - Revision delta: changed and withdrawn decision IDs. Only when revising. -->
+     - Revision delta: changed and withdrawn decision IDs. A risk moved between groups is not a
+       changed decision. Only when revising. -->
 
 Approval covers the whole record. This brief lists what needs a decision and every choice that carries a trade-off.
 
