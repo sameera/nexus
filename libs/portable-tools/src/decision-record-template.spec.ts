@@ -134,6 +134,11 @@ describe("where the brief lists an ADDRESS risk another epic delivers (epic #934
         expect(stage).toMatch(/Every ADDRESS risk appears in the brief exactly once/);
     });
 
+    it.each(TEMPLATES)("in %s, offers only a story of this epic or existing behaviour as the deliverer under Committed follow-up", (_label: string, file: string) => {
+        const followUp: string = section(read(file), "Approval brief").split("**Committed follow-up**")[1] ?? "";
+        expect(followUp).toMatch(/Delivered by \{\{STORY \| existing behaviour\}\}/);
+    });
+
     it("has the architect say, in the risk's own text, who delivers the mitigation and whether the owner accepts the gap", () => {
         expect(stage).toMatch(/RISKS[^]*?another epic[^]*?owner accepts the gap/);
     });

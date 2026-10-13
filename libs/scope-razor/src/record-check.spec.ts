@@ -50,6 +50,7 @@ function record(parts: {
     before?: string[];
     outside?: string[];
     followUp?: string[];
+    delta?: string[];
     guarantees?: string[];
     existing?: string[];
     risks?: string[];
@@ -72,6 +73,7 @@ function record(parts: {
         ...group("Before implementation", parts.before),
         ...group("Delivered by another epic", parts.outside),
         ...group("Committed follow-up", parts.followUp),
+        ...group("Revision delta", parts.delta),
         "## Guarantees",
         "",
         "### Filing",
@@ -310,6 +312,16 @@ describe("an ADDRESS risk listed in more than one group of the brief (epic #934)
             choices: ["- D1. A thing.", "  - Trade-off: a gap stays open until #500 ships (R2)."],
             outside: ["- R2 ADDRESS: the map layer. Delivered by #500."],
             decisions: [{ id: "D1", tradeOff: "a cost.", deliveredBy: "#100" }],
+        });
+        expect(crossRefs(body)).toEqual([]);
+    });
+
+    it("does not count a Revision delta entry that names a moved risk as a listing (story #936)", () => {
+        const body: string = record({
+            risks,
+            outside: ["- R2 ADDRESS: the map layer. Delivered by #500."],
+            followUp: ["- R1 ADDRESS: a thing. Delivered by #100."],
+            delta: ["- R2 moved from Before implementation to Delivered by another epic."],
         });
         expect(crossRefs(body)).toEqual([]);
     });

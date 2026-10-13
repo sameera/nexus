@@ -7,3 +7,8 @@
 - **Choice:** `nexus razor-check --record` blocks an ADDRESS risk whose ID opens entries in more than one brief group; an unlisted risk still passes.
 - **Why:** Blocking an unlisted risk would fail approved worked examples and drafts that never listed every ADDRESS risk; a duplicate is the case the new group makes likely.
 - **Refuted alternative:** Require every ADDRESS risk in exactly one group mechanically.
+
+## 2026-10-12 — The duplicate-listing check counts only the five placing groups
+- **Choice:** `nexus razor-check --record` counts a risk's listings only in Resolve before approval, Choices with trade-offs, Before implementation, Delivered by another epic and Committed follow-up.
+- **Why:** A Revision delta entry must name each moved risk, and any other bold line in the brief would otherwise count as a group too.
+- **Refuted alternative:** Exclude "Revision delta" by name; smaller, but any other bold line a drafter adds would still be counted.

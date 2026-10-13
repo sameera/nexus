@@ -171,12 +171,14 @@ export function crossReferenceFindings(draft: string, stories: number): RazorFin
         }
     }
 
+    // Only the groups that place a risk count. A Revision delta entry names a moved risk without listing it.
+    const placing: string[] = ["resolve before approval", "choices with trade-offs", "before implementation", "delivered by another epic", "committed follow-up"];
     for (const r of recordSections(draft).risks) {
         if (r.severity !== "ADDRESS" || r.id === undefined) continue;
         const id: string = r.id;
         // A risk is listed by an entry that opens with its ID. A trade-off that cites it is not a listing.
         const entry: RegExp = new RegExp(`^- (?:\\*\\*)?${id}(?![A-Za-z0-9_])`);
-        const listed: string[] = [...groups.keys()].filter((group: string) => (groups.get(group) ?? []).some((line: string) => entry.test(line)));
+        const listed: string[] = placing.filter((group: string) => (groups.get(group) ?? []).some((line: string) => entry.test(line)));
         if (listed.length > 1) {
             gaps.push({
                 id,

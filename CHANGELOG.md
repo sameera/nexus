@@ -16,6 +16,8 @@ behaviour says so.
 - **A revision can re-group an approved record's risks without changing its design.**
   `/nxs.decision-record --revise` rebuilds the approval brief under the current groups and records
   each moved risk in the revision delta. Its decisions, guarantees and risks remain unchanged.
+  `nexus razor-check --record` no longer reads a revision delta entry that names a moved risk as a
+  second listing of it.
 
 ## 0.107.1
 

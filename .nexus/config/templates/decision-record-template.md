@@ -117,7 +117,7 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 
 **Committed follow-up**
 
-- {{RISK_ID}} ADDRESS: {{MITIGATION}} Delivered by {{STORY | EPIC | existing behaviour}}.
+- {{RISK_ID}} ADDRESS: {{MITIGATION}} Delivered by {{STORY | existing behaviour}}.
 
 ## Guarantees
 
