@@ -4,7 +4,7 @@
  * A record's parts must point at each other. Each guarantee names the decisions behind it. In a
  * multi-story epic, each decision names the story that delivers it. Each epic or story change gives
  * the exact old and new wording. Each change not yet made, and each decision with a trade-off,
- * appears in the Approval brief. A gap in any of these is the kind the trial caught only by hand,
+ * appears in the Approval brief, and each ADDRESS risk in only one of its groups. A gap in any of these is the kind the trial caught only by hand,
  * so each one blocks filing here. Most are allowed when the brief lists the item under "Resolve
  * before approval", because that is where the approver decides it.
  *
@@ -168,6 +168,23 @@ export function crossReferenceFindings(draft: string, stories: number): RazorFin
                     });
                 }
             }
+        }
+    }
+
+    // Only the groups that place a risk count. A Revision delta entry names a moved risk without listing it.
+    const placing: string[] = ["resolve before approval", "choices with trade-offs", "before implementation", "delivered by another epic", "committed follow-up"];
+    for (const r of recordSections(draft).risks) {
+        if (r.severity !== "ADDRESS" || r.id === undefined) continue;
+        const id: string = r.id;
+        // A risk is listed by an entry that opens with its ID. A trade-off that cites it is not a listing.
+        const entry: RegExp = new RegExp(`^- (?:\\*\\*)?${id}(?![A-Za-z0-9_])`);
+        const listed: string[] = placing.filter((group: string) => (groups.get(group) ?? []).some((line: string) => entry.test(line)));
+        if (listed.length > 1) {
+            gaps.push({
+                id,
+                line: r.line,
+                message: `${id} is listed in ${listed.length} groups of the Approval brief (${listed.map((g: string) => `"${g}"`).join(", ")}). An ADDRESS risk appears once, in the group where its mitigation is delivered. Remove the others.`,
+            });
         }
     }
 
