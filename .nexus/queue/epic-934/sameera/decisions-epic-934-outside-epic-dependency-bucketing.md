@@ -12,3 +12,8 @@
 - **Choice:** `nexus razor-check --record` counts a risk's listings only in Resolve before approval, Choices with trade-offs, Before implementation, Delivered by another epic and Committed follow-up.
 - **Why:** A Revision delta entry must name each moved risk, and any other bold line in the brief would otherwise count as a group too.
 - **Refuted alternative:** Exclude "Revision delta" by name; smaller, but any other bold line a drafter adds would still be counted.
+
+## 2026-10-13 — Before implementation takes every own-team plan not yet made
+- **Choice:** Drop "and must make before its first story" from the Before implementation rule.
+- **Why:** The narrowed rule left an own-team plan due later in the epic in no brief group (analyze F1); "this epic's team" already keeps outside-epic risks out.
+- **Refuted alternative:** A sixth group for plans due mid-epic; more brief to read, and the unattended run would need a new timing rule.

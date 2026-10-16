@@ -86,7 +86,7 @@ date: {{YYYY-MM-DD}}
        "material". A decision already listed under Resolve is not repeated here, but its
        trade-off moves with it, as a sub-bullet of its Resolve entry.
      - Before implementation: every ADDRESS risk whose mitigation is a plan this epic's team has
-       not yet made and must make before its first story.
+       not yet made.
      - Delivered by another epic: every ADDRESS risk whose mitigation another epic delivers and
        whose text says the owner accepts the gap until it ships, with who delivers it.
      - Committed follow-up: every ADDRESS risk whose mitigation is decided and is delivered by a
