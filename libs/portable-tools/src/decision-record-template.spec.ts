@@ -113,12 +113,9 @@ describe("where the brief lists an ADDRESS risk another epic delivers (epic #934
     }
 
     it.each([["the stage", stage], ...TEMPLATES.map(([label, file]: [string, string]) => [label, read(file).replace(/\s+/g, " ")])])(
-        "in %s, gives Before implementation every plan this epic's team has not yet made, whenever it is due",
+        "in %s, keeps Before implementation to work this epic's team must do before its first story",
         (_label: string, text: string) => {
-            const before: RegExpMatchArray | null = text.match(/Before implementation:?(\*\*)? (every ADDRESS risk[^.]*)\./);
-            expect(before).not.toBeNull();
-            expect((before as RegExpMatchArray)[2]).toMatch(/a plan this epic's team has not yet made/);
-            expect((before as RegExpMatchArray)[2]).not.toMatch(/first story/);
+            expect(text).toMatch(/Before implementation:?(\*\*)? every ADDRESS risk whose mitigation is a plan this epic's team has not yet made and must make before its first story/);
         },
     );
 

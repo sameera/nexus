@@ -506,7 +506,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         - **Choices with trade-offs:** every decision whose trade-off is not `none`, in plain
           words, with its trade-off as a sub-bullet.
         - **Before implementation:** every ADDRESS risk whose mitigation is a plan this epic's team
-          has not yet made.
+          has not yet made and must make before its first story.
         - **Delivered by another epic:** every ADDRESS risk whose mitigation another epic delivers
           and whose text says the owner accepts the gap until it ships, with who delivers it. It is
           not work before implementation: this epic's team cannot finish it.

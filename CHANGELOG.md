@@ -10,8 +10,8 @@ behaviour says so.
 - **Accepted outside-epic dependencies no longer block this epic's implementation.** The approval
   brief lists an ADDRESS risk delivered by another epic under "Delivered by another epic" when the
   record says the owner accepts the gap, with the delivering epic named. An unaccepted gap stays in
-  "Resolve before approval", while "Before implementation" holds only plans this epic's team has
-  not yet made. `nexus razor-check --record` rejects an ADDRESS risk listed in
+  "Resolve before approval", while "Before implementation" holds only plans this epic's team must
+  make before its first story. `nexus razor-check --record` rejects an ADDRESS risk listed in
   multiple groups, and the unattended implementation run leaves outside-epic work alone.
 - **A revision can re-group an approved record's risks without changing its design.**
   `/nxs.decision-record --revise` rebuilds the approval brief under the current groups and records
