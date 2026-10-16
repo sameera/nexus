@@ -1,8 +1,8 @@
 ---
 title: "Rule Set Enforcement"
 aliases: ["normative home", "conformance test", "pinned constants", "one implementation", "judgment never blocks", "rule ships with its assertion"]
-touches: ["scope-razor", "scope-provenance", "set-closure-check", "epic-approval-gate", "decision-record", "citation-check", "design-warrant"]
-last_updated_by: "#759"
+touches: ["scope-razor", "scope-provenance", "set-closure-check", "epic-approval-gate", "decision-record", "citation-check", "design-warrant", "approval-brief"]
+last_updated_by: "#934"
 status: active
 verification: verified
 ---
@@ -38,6 +38,8 @@ A rule and the assertion pinning it ship in the same story. Shipping the rule in
 
 - [citation-check](citation-check.md) — one of the mechanically decidable checks, comparing a fragment against a materialized copy.
 - [design-warrant](design-warrant.md) — a rollup rule placed in the shared checker rather than a gate's prose, for the same reason.
+- [approval-brief](approval-brief.md) — a placement rule in the shared checker: an ADDRESS risk listed in two placing groups blocks filing.
+
 ## Decision Log
 
 ### 2026-09-13 — #576 — Split from the scope razor: how the rules are kept honest
@@ -47,3 +49,7 @@ Split from scope-razor, which was at its own-content capacity and was describing
 ### 2026-09-21 — #759 — A shared rule fires only on a draft that declares what it assumes
 
 Four stages invoke this checker and they write different documents. The story rules read every third-level heading as a story, so they demanded a provenance label on each decision a record states — the one item the rule set says outright carries no label. A record with six decisions produced six blocking findings, and the stage prescribing the check could satisfy it on no draft it produced. The sibling ordering rule had already answered this by asking whether the draft declares a story at all and skipping when it does not. The story rules now ask the same question, through the same definition, so the guard is one definition with two callers rather than two guards that can disagree. Refuted alternative: give the record stage its own checker, or a flag naming which document it is drafting. A competent engineer would take it, because it makes each stage's rules explicit at the call site. It loses because the divergence it invites is the one this page exists to prevent: two implementations of the same rules, drifting in silence, with the conformance test pinning only one of them.
+
+### 2026-10-16 — #934 — Reciprocal link from approval-brief
+
+Mechanical reciprocity fan-out: the shared checker now blocks a decision record whose approval brief lists one ADDRESS risk in two placing groups. A risk listed in no group still passes. Follow the link for the grouping rules.
