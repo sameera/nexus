@@ -123,6 +123,11 @@ describe("/nxs.code-review rates, groups and numbers findings by fixed rules (D2
         expect(scales).toMatch(/Regression risk.*none.*high/s);
     });
 
+    it("takes Low and Negligible severity from the lead's personal skill, as D2's base (G5)", () => {
+        expect(scales).toMatch(/\*\*Low\*\*: a loud false failure, or local-only confusion/);
+        expect(scales).toMatch(/\*\*Negligible\*\*: performance or tidiness only/);
+    });
+
     it("checks the four groups in a fixed order and puts each finding in the first one it matches (G7, G16)", () => {
         const order: number[] = ["Follow-up issues", "Fix in this pull request", "Fix if the author agrees", "Optional"].map((g) =>
             groups.indexOf(`**${g}**`),

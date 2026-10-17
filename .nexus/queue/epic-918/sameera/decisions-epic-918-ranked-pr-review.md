@@ -17,3 +17,8 @@
 - **Choice:** `nexus review-post` prefixes every inline comment body with `**#<n>**`; the skill leaves the number out.
 - **Why:** The tag (G10) is then applied by tested code, not by the model.
 - **Refuted alternative:** The skill writes the tag into each comment body itself.
+
+## 2026-10-16 — Low and Negligible severity taken from the personal skill
+- **Choice:** Low = a loud false failure, or local-only confusion; Negligible = performance or tidiness only — the wording of the lead's personal `nxs.code-review` skill. Supersedes the "written fresh" entry above.
+- **Why:** D2 makes the personal skill the base for these two levels, and analyze on PR 943 found the fresh wording departed from it (DV1).
+- **Refuted alternative:** Keep the fresh wording and accept DV1 — it moves a loud false failure out of Low and performance into Low.
