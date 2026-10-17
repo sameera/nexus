@@ -58,6 +58,14 @@ const sizeOf = (body: string): number => [...body].length;
  * A refusal is a failure of the publish step: the gate stops there and reports it, rather than
  * publishing a verdict whose story numbers name no repository.
  */
+/**
+ * The remedy every refusal of a hand-reachable defect ends with. The model writes no byte of the
+ * published verdict (epic #923, record #949, G3): `nexus verdict-items` writes all of it, so a body
+ * that fails here was edited after that step or built from a wrong run fact, and the fix is the
+ * draft or `facts.json`, never the body.
+ */
+const RERUN_ID_STEP = "Leave the body unedited: run `nexus verdict-items` again and check the body it writes.";
+
 export function checkVerdictPublish(run: Runner, cwd: string, body: string): CheckVerdictPublishResult {
     const resolved = resolveVerdictRepos(run, cwd);
     if (!resolved.ok) return resolved;
@@ -69,7 +77,7 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
             ok: false,
             error: {
                 problem: "block-missing",
-                message: `the drafted verdict carries no parseable ${RECEIPT_MARKER} block, so nothing states which repository its story numbers resolve against.`,
+                message: `the drafted verdict carries no parseable ${RECEIPT_MARKER} block, so nothing states which repository its story numbers resolve against. ${RERUN_ID_STEP}`,
             },
         };
     }
@@ -79,7 +87,7 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
             ok: false,
             error: {
                 problem: "issues-repo-missing",
-                message: `the drafted verdict names no issues repository; it must carry \`issues_repo: ${issuesRepo}\` — the repository its epic, record and story numbers resolve against (the analyzed pull request's code repository is ${repo}).`,
+                message: `the drafted verdict names no issues repository; it must carry \`issues_repo: ${issuesRepo}\` — the repository its epic, record and story numbers resolve against (the analyzed pull request's code repository is ${repo}). Set \`issuesRepo\` in \`facts.json\` to ${issuesRepo}, then run \`nexus verdict-items\` again and check the body it writes.`,
             },
         };
     }
@@ -89,7 +97,7 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
             ok: false,
             error: {
                 problem: "issues-repo-mismatch",
-                message: `the drafted verdict names \`issues_repo: ${parsed.issuesRepo}\`, but this checkout's issues live in ${issuesRepo}.`,
+                message: `the drafted verdict names \`issues_repo: ${parsed.issuesRepo}\`, but this checkout's issues live in ${issuesRepo}. Set \`issuesRepo\` in \`facts.json\` to ${issuesRepo}, then run \`nexus verdict-items\` again and check the body it writes.`,
             },
         };
     }
@@ -103,7 +111,7 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
             ok: false,
             error: {
                 problem: "story-text-recorded",
-                message: "the drafted verdict records `story_fingerprints:`; a receipt no longer records the text of the stories it covers. Drop that line and check again.",
+                message: `the drafted verdict records \`story_fingerprints:\`; a receipt no longer records the text of the stories it covers, and the ID step never writes that line. ${RERUN_ID_STEP}`,
             },
         };
     }
@@ -184,29 +192,29 @@ function checkJudgments(body: string, receipt: AnalyzeReceipt): { ok: true; judg
     if (at < 0) {
         return refuse(
             "judgments-missing",
-            `the drafted verdict carries no ${JUDGMENTS_MARKER} block. Write its departures and findings through \`nexus verdict-items\`, append the block it writes after the verdict block, and check again; a verdict with no item still carries the block.`,
+            `the drafted verdict carries no ${JUDGMENTS_MARKER} block. A verdict with no item still carries the block. ${RERUN_ID_STEP}`,
         );
     }
     if (at < body.indexOf(RECEIPT_MARKER)) {
-        return refuse("judgments-malformed", `the drafted verdict puts its ${JUDGMENTS_MARKER} block before the verdict block; it must follow it.`);
+        return refuse("judgments-malformed", `the drafted verdict puts its ${JUDGMENTS_MARKER} block before the verdict block; it must follow it. ${RERUN_ID_STEP}`);
     }
     for (const marker of [RECEIPT_MARKER, JUDGMENTS_MARKER]) {
         if (body.split(marker).length > 2) {
             return refuse(
                 "marker-repeated",
-                `the drafted verdict carries ${marker} more than once, so a reader could parse the wrong block. Text copied into the summary — an answer's reason, most often — carries the marker: write its \`<!--\` as \`&lt;!--\` in the summary (the judgments block already carries it safely) and check again.`,
+                `the drafted verdict carries ${marker} more than once, so a reader could parse the wrong block. The ID step writes draft text with its \`<\` escaped, so the marker was added to the body after it. ${RERUN_ID_STEP}`,
             );
         }
     }
     const parsed = parseJudgmentsBlock(body);
-    if (!parsed.ok) return refuse("judgments-malformed", `the drafted verdict's judgments block cannot be read: ${parsed.message}.`);
+    if (!parsed.ok) return refuse("judgments-malformed", `the drafted verdict's judgments block cannot be read: ${parsed.message}. ${RERUN_ID_STEP}`);
     const judgments = parsed.judgments as Judgments;
 
     const key = judgments.keyDecisions;
     if (key === undefined) {
         return refuse(
             "key-decisions-missing",
-            "the drafted verdict's judgments block carries no key decisions. Pass the record body and digest (`--record-body`, `--record-hash`) and the confirmed stubs to `nexus verdict-items`, append the block it writes, and check again; a verdict on an epic with no record still carries them, with no record.",
+            "the drafted verdict's judgments block carries no key decisions. Run `nexus verdict-items` again with the record body and digest (`--record-body`, `--record-hash`) and the confirmed stubs in the draft, and check the body it writes; a verdict on an epic with no record still carries them, with no record.",
         );
     }
     if ((key.record?.digest ?? null) !== (receipt.recordHash ?? null)) {
@@ -225,7 +233,7 @@ function checkJudgments(body: string, receipt: AnalyzeReceipt): { ok: true; judg
         if (story === null || !covered.has(Number(story[1]))) {
             return refuse(
                 "deferred-scope-sibling",
-                `deferred-scope proposal ${ds.id} settles ${ds.settles} (${parent.about}), which is not a criterion of a story this verdict covers (${receipt.stories.map((n) => `#${n}`).join(", ") || "none"}). Scope is proposed for deferral only from an unmet or partial criterion of a covered story, or from record scope the delivered stories leave out (a departure); scope a sibling story will deliver is never proposed. Drop the proposal and check again.`,
+                `deferred-scope proposal ${ds.id} settles ${ds.settles} (${parent.about}), which is not a criterion of a story this verdict covers (${receipt.stories.map((n) => `#${n}`).join(", ") || "none"}). Scope is proposed for deferral only from an unmet or partial criterion of a covered story, or from record scope the delivered stories leave out (a departure); scope a sibling story will deliver is never proposed. Remove that \`deferred\` from the draft, then run \`nexus verdict-items\` again and check the body it writes.`,
             );
         }
     }
@@ -238,7 +246,7 @@ function checkJudgments(body: string, receipt: AnalyzeReceipt): { ok: true; judg
             const listed = atSeverity.length === 0 ? "none" : atSeverity.map((d) => d.id).join(", ");
             return refuse(
                 "counts-not-open",
-                `the drafted verdict counts ${counted} ${severity} finding(s), but its open ${severity} items are ${atSeverity.length} (${listed}). The counts are the items still open: every unanswered departure and finding \`nexus verdict-items\` listed whose deferral no one approved, and no answered or unlisted one. Write the counts it printed as \`open\` and check again.`,
+                `the drafted verdict counts ${counted} ${severity} finding(s), but its open ${severity} items are ${atSeverity.length} (${listed}). The counts are the items still open: every unanswered departure and finding \`nexus verdict-items\` listed whose deferral no one approved, and no answered or unlisted one. The ID step stamps those counts itself. ${RERUN_ID_STEP}`,
             );
         }
     }
