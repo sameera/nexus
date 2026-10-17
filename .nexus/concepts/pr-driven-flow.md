@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers"]
-last_updated_by: "#829"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "distill-command"]
+last_updated_by: "#909"
 status: active
 verification: verified
 ---
@@ -43,6 +43,7 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [published-verdict-selection](published-verdict-selection.md) — decides which of the verdicts this flow publishes on a pull request is the one a later stage reads.
 - [close-and-distill-command](close-and-distill-command.md) — runs this whole flow for a merged pull request with one command and one approval.
 - [pr-verdict-answers](pr-verdict-answers.md) — the answers an engineer posts on the open pull request, which the next conformance run records in a new verdict.
+- [distill-command](distill-command.md) — finds this flow's shared worktree from a merged pull request and drains in it, with nobody watching.
 
 ## Decision Log
 
@@ -115,3 +116,7 @@ Since the post-merge conformance run became required, a closure without a pull r
 ### 2026-10-04 — #829 — Reciprocal links: aggregated-epic-receipt retired, pr-verdict-answers added
 
 Mechanical reciprocity fan-out, two edges. The epic-wide receipt that collected this flow's per-story verdicts is retired, so that edge is removed; the pull request that completes the epic carries the epic-level judgment instead. The pull-request verdict answers page declared an interaction with this flow, so this page mirrors it: the engineer answers each departure and finding on the open pull request, before the merge.
+
+### 2026-10-17 — #909 — Close names the distill command, and an attended drain can name the worktree
+
+A successful close now names two next steps: the distill command, and an attended distillation that passes the worktree path from the session the lead already has open. Leads forgot the old manual step, so close points at the new routes. In the attended form, every command names the worktree, because the session resets its directory when a command leaves its working directories, and a single change of directory would send later commits into the lead's checkout without an error. Refuted alternative: change into the worktree once at the start. It is the simplest instruction, but the reset makes it wrong in the default worktree location. A path that is neither such a worktree nor a queue entry is refused before any entry is read.
