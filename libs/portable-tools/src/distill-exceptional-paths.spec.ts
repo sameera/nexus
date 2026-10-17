@@ -100,7 +100,7 @@ describe("the continuation contract is read only in continuation mode (story #72
             "Drain exactly the one entry this branch carries",
             "range-head-reachability",
             "Do not run `git checkout -`",
-            "git worktree remove --force <wtPath>",
+            "nexus pr-worktree remove <wtPath>",
             "add-then-deleted within the branch",
         ]) {
             expect(body).toContain(rule);

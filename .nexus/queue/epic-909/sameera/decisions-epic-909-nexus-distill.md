@@ -22,3 +22,8 @@
 - **Choice:** The background run starts this same executable as `distill --detached-runner`, with the checked plan as JSON in `NEXUS_DISTILL_PLAN`.
 - **Why:** The checks already passed in the parent; re-running them in the child would repeat the GitHub reads and trip over the parent's own live-run marker.
 - **Refuted alternative:** Re-invoking `distill --pr <N>` in the child, which re-checks everything and cannot tell its own marker from another run's.
+
+## 2026-10-17 — The worktree form selects the continuation contract through its existing row
+- **Choice:** The base stage classifies a path argument and resolves a close worktree as run mode `continuation`; the existing continuation row loads the worktree rules, with no new selection row.
+- **Why:** The selection table keeps one row per contract named once outside it, and the ordinary-load ceiling left about 1 KB for the base stage.
+- **Refuted alternative:** A second row that loads the continuation contract at run-shape resolution, which breaks the one-row-per-contract rule.
