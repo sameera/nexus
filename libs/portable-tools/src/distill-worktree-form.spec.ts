@@ -31,6 +31,17 @@ describe("a path argument is classified by what is at the path (D11, G22, G25)",
         expect(selectionRows()).toContainEqual(["run mode is `continuation`", "`nxs-distill-continuation`", "Input Resolution, after the entry list"]);
     });
 
+    it("refuses a queue-entry path inside another checkout at classification, naming that checkout's root (D11)", () => {
+        const front = BASE_STAGE.slice(BASE_STAGE.indexOf("## Run-shape resolution"), BASE_STAGE.indexOf("1. **Run mode.**"));
+        expect(front).toMatch(/queue-entry path\s+inside another checkout is refused,\s+naming that checkout's root/);
+    });
+
+    it("drains the worktree's one entry when the path names a close worktree (#945 AC1)", () => {
+        const discovery = BASE_STAGE.slice(BASE_STAGE.indexOf("## Entry discovery"), BASE_STAGE.indexOf("2. **No arguments**"));
+        expect(discovery).toMatch(/worktree form/);
+        expect(discovery).toMatch(/one entry/);
+    });
+
     it("requires the worktree's root, this repository's git folder, a distill branch and the continuation test", () => {
         expect(WORKTREE_FORM).toContain("--show-toplevel");
         expect(WORKTREE_FORM).toContain("--git-common-dir");
@@ -58,6 +69,13 @@ describe("every phase works through the pinned root (D12, G23, G24, R2)", () => 
         expect(WORKTREE_FORM).toContain('(cd "$WT" && <command>)');
         expect(WORKTREE_FORM).toMatch(/absolute path inside `\$WT`/);
         expect(WORKTREE_FORM).toContain("$WT/.nexus/tmp/runs/distill-<subject>/");
+    });
+
+    it("opens the run folder inside the worktree before the continuation contract loads (G23)", () => {
+        const front = BASE_STAGE.slice(BASE_STAGE.indexOf("## Run-shape resolution"), BASE_STAGE.indexOf("1. **Run mode.**"));
+        expect(front).toMatch(/run folder included/);
+        const openRunFolder = BASE_STAGE.slice(BASE_STAGE.indexOf("**Open the run folder.**"), BASE_STAGE.indexOf("All drainable entries"));
+        expect(openRunFolder).toMatch(/worktree form[^.]*`\$WT\/\.nexus\/tmp\/runs\/`/);
     });
 
     it("checks the worktree's tree, never the lead's checkout", () => {

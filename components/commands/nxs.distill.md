@@ -77,7 +77,9 @@ the resolved value instead of re-deriving it.
    discovery step 1 states. The root of a worktree that shares this checkout's git folder, on a
    `distill/*` branch passing the continuation test below, is the **worktree form**: run mode is
    **continuation**, and every value below is resolved against that worktree, named in every
-   command. Anything else is refused before any entry is read, naming what was found: no such
+   command; every file path, the run folder included, lies inside it. A queue-entry path
+   inside another checkout is refused, naming that checkout's root to pass instead. Anything
+   else is refused before any entry is read, naming what was found: no such
    directory, not a worktree, another repository's worktree, not a distillation branch, or
    commits beyond close's.
 1. **Run mode.**
@@ -132,7 +134,8 @@ branch, stops at the checkpoint or opens a pull request of its own.
 **Do NOT search when a path is given.**
 
 1. **`$ARGUMENTS` contains a queue-entry path** (a directory like `.nexus/queue/fe205650/`,
-   or a file inside one; resolve a file to its directory) → process exactly that entry.
+   or a file inside one; resolve a file to its directory) → process exactly that entry. The
+   worktree form drains that worktree's one entry.
 2. **No arguments** → scan `.nexus/queue/**` for entry directories (a directory containing an
    `epic.md`). **Presence = unconsumed**; there is no state file to consult.
 
@@ -221,7 +224,7 @@ branch, stops at the checkpoint or opens a pull request of its own.
    `.nexus/tmp/runs/distill-<subject>/`: `<subject>` is the entry directory's name when
    `$ARGUMENTS` names one entry, `recover-<n>` in recovery mode, else `queue`. Record each entry's
    kind there (step 2). The checklist has one line per drainable entry and a final line for opening
-   the distillation-PR.
+   the distillation-PR. In the worktree form it is under `$WT/.nexus/tmp/runs/`, never here.
 
 All drainable entries in one run are batched into **one** distillation-PR (0007 batches
 naturally), applied entry-by-entry (Phase 4).
