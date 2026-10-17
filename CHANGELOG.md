@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.110.0
+
+- **`/nxs.code-review` now posts the approved ranking as one pull request review, ahead of
+  `analyze`.** After showing the ranking it recommends a verdict and asks the lead to choose request
+  changes, comment, approve, or not to post. Nothing is posted without that choice. The new
+  `nexus review-post` command then checks every inline comment and posts one review on the head
+  commit. The review carries the ranking in its body, one inline comment per finding location
+  inside the changed lines tagged with its finding number, and every other finding in the body.
+  When any inline comment names a file not in the pull request, a line outside the changed lines,
+  or text that is not on its line, it posts nothing and lists every problem. A second review by
+  the lead on the same head commit is posted only after the lead confirms it. The lead then sees
+  the review link, the inline comment count and the count of findings carried only in the body.
+
 ## 0.109.0
 
 - **New `/nxs.code-review` ranks a pull request's review findings before `analyze`.** It runs

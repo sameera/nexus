@@ -1,16 +1,17 @@
 ---
 name: nxs.code-review
-description: Rank a pull request's review findings so its author knows what to fix now and what can wait. Runs Claude Code's own `/code-review` on the pull request (passing an optional effort level through, never its posting or fixing options), moves each finding to its line at the pull request's head, rates every finding on probability, severity, fix effort and regression risk, and numbers them into four groups by fixed rules — fix in this pull request, fix if the author agrees, optional, follow-up issues. Refuses, reviewing nothing itself, when Claude Code's review cannot be run. Changes no file and opens no issue.
+description: Rank a pull request's review findings so its author knows what to fix now and what can wait. Runs Claude Code's own `/code-review` on the pull request (passing an optional effort level through, never its posting or fixing options), moves each finding to its line at the pull request's head, rates every finding on probability, severity, fix effort and regression risk, and numbers them into four groups by fixed rules — fix in this pull request, fix if the author agrees, optional, follow-up issues. After the lead chooses request changes, comment or approve, posts the ranking as one pull request review through `nexus review-post`, with one inline comment per finding location inside the changed lines and every other finding in the review body; posts nothing without a verdict or when any inline comment would land on the wrong line. Refuses, reviewing nothing itself, when Claude Code's review cannot be run. Changes no file and opens no issue.
 ---
 
 # nxs.code-review
 
-Rank the findings of one pull request's review. The review itself is Claude Code's own
-`/code-review`. This skill adds the ranking only: it rates each finding, sorts it into one of four
-groups and numbers it, so the author can tell which findings to fix in this pull request and which
-can wait.
+Rank the findings of one pull request's review, and post the ranking once the lead approves it.
+The review itself is Claude Code's own `/code-review`. This skill adds the ranking and the posting:
+it rates each finding, sorts it into one of four groups and numbers it, so the author can tell
+which findings to fix in this pull request and which can wait.
 
-**Finish line:** the ranking, shown to the lead, or a refusal that names what is missing.
+**Finish line:** the posted review's link and counts; or the ranking, unposted, when the lead
+chose not to post; or a refusal that names what is missing.
 
 # User Input
 
@@ -24,9 +25,10 @@ request reference, stop and ask the lead for one.
 
 # Scope
 
-A run reads the pull request and the review. It changes no file in the pull request, opens no
-issue and posts nothing. Follow-up items are only suggested, in the ranking's "Follow-up issues"
-group.
+A run reads the pull request and the review. It changes no file in the pull request and opens no
+issue. Follow-up items are only suggested, in the ranking's "Follow-up issues" group. It posts to
+the pull request only in Step 8, through `nexus review-post`, after the lead chose a verdict in
+this run.
 
 # Step 1 — Run Claude Code's review
 
@@ -133,4 +135,59 @@ findings by number. Leave out a group with no findings. For each finding show:
 - one line on why it is in its group.
 
 Below the groups, give the count of findings in each group and the count of body-only findings.
-Then end the run. Nothing is posted to the pull request.
+
+# Step 6 — The lead chooses the verdict
+
+Recommend **request changes** when any finding in "Fix in this pull request" has high severity,
+and **comment** otherwise. Then ask the lead with `AskUserQuestion`. The question itself carries
+the group counts, the body-only count and the recommendation, because text shown before the
+question may not be displayed. The options are:
+
+- **Request changes**
+- **Comment**
+- **Approve**
+- **Do not post**
+
+Mark the recommended verdict as recommended. The lead chooses. Without a verdict — the lead chose
+"Do not post", or gave no answer — nothing is posted: end the run with the ranking unposted.
+
+# Step 7 — Write the review
+
+Write one review file at `.nexus/tmp/code-review-<pr-number>/review.json`, a JSON object with:
+
+- `findings` — the number of ranked findings.
+- `body` — the ranking, as Step 5 showed it, in markdown. It lists every finding by number, and
+  carries each body-only finding in full: its file and head line, its ratings, its summary and its
+  failure scenario.
+- `comments` — one entry per finding location that is not body-only:
+  `{ "finding": <number>, "path": <file>, "line": <head line>, "expectedText": <expected text>, "body": <the finding's summary, failure scenario and group> }`.
+  Leave the finding number out of `body`: `nexus review-post` puts the tag in front.
+- `bodyOnly` — one entry per body-only finding: `{ "finding": <number>, "path": <file>, "line": <head line> }`.
+
+Every finding appears in `comments` or `bodyOnly`, or both when it has locations of each kind.
+
+# Step 8 — Post through `nexus review-post`
+
+Hand the review and the lead's verdict to the posting command. It runs the checks before posting
+and posts with no model judgment:
+
+```bash
+nexus review-post --pr <pr-number> --repo <owner/repo> --review .nexus/tmp/code-review-<pr-number>/review.json --verdict <request-changes|comment|approve>
+```
+
+Take `<owner/repo>` from the pull request's URL (`host/owner/repo` on a host other than
+`github.com`). On exit 0 it has posted; go to Step 9. Otherwise nothing was posted:
+
+- **`second-review-unconfirmed`** — the lead already has a review on this head commit. Ask the lead
+  with `AskUserQuestion` whether to post a second review. Only when the lead confirms, run the same
+  command again with `--confirm-second` added. Otherwise end the run, unposted.
+- **`comment-check-failed`** — an inline comment names a file not in the pull request, a line
+  outside the changed lines, or expected text that is not on its line. Show the lead every problem
+  it listed, unchanged, and end the run. Do not move a line, drop a comment or retry.
+- Any other stop — show its message unchanged and end the run.
+
+# Step 9 — Report
+
+Show the lead the posted review's link (`url`), the number of inline comments (`inlineComments`)
+and, next to it, the number of findings carried only in the review body (`bodyOnly`), all as
+`nexus review-post` printed them.

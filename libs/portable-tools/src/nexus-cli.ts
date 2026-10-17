@@ -15,6 +15,7 @@
  *   nexus migrate-components           remove a repository's committed component set
  *   nexus deploy                       install the Nexus components into the invoking repo
  *   nexus close                        close an epic over its merged pull requests (epic #830, #906)
+ *   nexus review-post                  check and post /nxs.code-review's ranked review (epic #918)
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
@@ -120,6 +121,7 @@ import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
 import { runRecordAmendments } from "./record-amendments.js";
+import { REVIEW_POST_USAGE, runReviewPost } from "./review-post.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -806,6 +808,11 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      File one GitHub issue per STORY-*.md work item in the folder, resumably.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runCreateStory(argv, io)),
+    },
+    "review-post": {
+        summary: "Check a ranked review from /nxs.code-review and post it as one pull request review.",
+        usage: REVIEW_POST_USAGE,
+        run: (argv, io) => Promise.resolve(runReviewPost(argv, io)),
     },
     "seed-templates": {
         summary: "Place the tool-agnostic templates the pipeline stages read into a repository.",
