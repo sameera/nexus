@@ -105,7 +105,7 @@ import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from 
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
-import { distillDeps, runDistillCommand, type DistillHarness } from "./distill-command.js";
+import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness } from "./distill-command.js";
 import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
@@ -166,12 +166,14 @@ const PLANNING_DIR_SUBVERBS: readonly string[] = ["ensure", "list", "remove"];
 const CONFIG_SUBVERBS: readonly string[] = Object.keys(CONFIG_COMMANDS);
 
 const DISTILL_USAGE: string = [
-    "  nexus distill --pr <ref> [--harness claude|codex] [--permission-mode <mode>] [-- <harness args>...]",
+    "  nexus distill --pr <ref> [--background] [--harness claude|codex] [--permission-mode <mode>] [-- <harness args>...]",
     "      After nexus close has closed the epic of merged pull request <ref> (N, owner/repo#N or a URL),",
     "      run /nxs.distill --unattended in the worktree close prepared, asking nothing. Success is an",
     "      open distillation pull request on GitHub; the command prints its URL, or the stop and the",
     "      distillation's final message. The permission mode defaults to bypassPermissions for claude",
-    "      and workspace-write for codex, and is printed before the session starts.",
+    "      and workspace-write for codex, and is printed before the session starts. --background returns",
+    "      at once, names where the log and outcome will be written, and prints a status line to this",
+    "      terminal every few minutes until the run ends.",
 ].join("\n");
 
 const REGISTRY: Record<string, VerbEntry> = {
@@ -3264,6 +3266,9 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
     let pr: ParsedPrReference | null = null;
     let harness: DistillHarness = "claude";
     let permissionMode: string | null = null;
+    let background = false;
+    // The detached copy a --background run starts; its plan comes from the environment (D6).
+    if (own.length === 1 && own[0] === "--detached-runner") return runDetachedFromEnv(distillDeps(closeMigrationRunner));
     for (let i = 0; i < own.length; i++) {
         const a = own[i];
         const value = own[i + 1];
@@ -3273,6 +3278,8 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
             if (ref.port !== undefined) return refuse(`--pr cannot read a pull-request URL with a port through gh; got '${value}'.`);
             pr = ref;
             i++;
+        } else if (a === "--background") {
+            background = true;
         } else if (a === "--harness") {
             if (value !== "claude" && value !== "codex") return refuse(`--harness must be claude or codex; got ${value === undefined ? "nothing" : `'${value}'`}.`);
             harness = value;
@@ -3284,7 +3291,7 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
         } else return refuse(`unknown argument ${a}`);
     }
     if (pr === null) return refuse("distill needs a merged pull request of the closed epic: --pr <ref>.");
-    return runDistillCommand(distillDeps(closeMigrationRunner), { cwd: io.cwd, pr, harness, permissionMode, harnessArgs }, io);
+    return runDistillCommand(distillDeps(closeMigrationRunner), { cwd: io.cwd, pr, harness, permissionMode, harnessArgs, background }, io);
 }
 
 /**

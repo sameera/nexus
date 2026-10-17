@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.113.0
+
+- **`nexus distill --background` returns at once and leaves the distillation running.** It names
+  where the log and the outcome will be written, in the main checkout's ignored scratch area, so
+  `git status` shows none of them. The run keeps going if the terminal closes. That terminal gets a
+  status line every 3 minutes and a final line with the pull request URL or the stop. The outcome
+  is the same as a foreground run's.
+- **A second `nexus distill` for the same pull request refuses while the first is still running**,
+  and names where that run's outcome will be written. A marker left by a run whose process is gone
+  does not block.
+
 ## 0.112.0
 
 - **`nexus distill` refuses to start when close's result does not hold.** Before any session

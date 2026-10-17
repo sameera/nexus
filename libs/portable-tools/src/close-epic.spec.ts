@@ -303,10 +303,10 @@ describe("close-epic.sh — distill runs through nexus distill (epic #909, D13)"
         expect(result.stdout).toContain("Blocked: taxonomy forced fit for concept X.");
     });
 
-    it("returns immediately under --background, without waiting for distill", () => {
-        const result = run("42", ["--background"]);
+    it("passes --background on to nexus distill, before any harness arguments (D13)", () => {
+        const result = run("42", ["--background", "--model", "opus"]);
         expect(result.status).toBe(0);
-        expect(result.stderr).toMatch(/background/);
+        expect(result.calls[distillCall(result.calls)].args).toEqual(["distill", "--pr", "42", "--background", "--", "--model", "opus"]);
     });
 
     it("passes a chosen claude permission mode on to nexus distill", () => {

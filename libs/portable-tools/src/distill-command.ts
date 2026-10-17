@@ -14,6 +14,11 @@
  * main checkout's ignored scratch area, one folder per pull request, under a name no drainable
  * queue entry can have (D5, G18).
  *
+ * With `--background` the same runner runs in a detached copy of the command, in its own process
+ * session, so it outlives the terminal (D6). That terminal gets a status line at a fixed interval
+ * and a final line. A live-run marker in the run folder refuses a second start for the same pull
+ * request while the process it names exists (D7).
+ *
  * Every platform read and the session itself are injected, so a spec stands in for GitHub, git and
  * the harness.
  */
@@ -60,6 +65,8 @@ export interface DistillInput {
     permissionMode: string | null;
     /** Extra arguments for the harness, passed after `--`. They never reach the prompt. */
     harnessArgs: string[];
+    /** Return once the detached runner has started, leaving the run going (D6). */
+    background?: boolean;
 }
 
 /** One harness session, as the runner starts it. */
@@ -107,6 +114,10 @@ export interface DistillDeps {
     openPr(wtPath: string, branch: string): OpenPrRead;
     /** Run one session to its end, handing each condensed line to `line` as it arrives. */
     session(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd>;
+    /** Whether a process with this id exists. */
+    alive(pid: number): boolean;
+    /** Start the detached runner for `plan` in its own process session; its id once it has started. */
+    detach(plan: DistillPlan): Promise<{ ok: true; pid: number } | { ok: false; message: string }>;
 }
 
 export interface DistillIo {
@@ -126,13 +137,21 @@ export interface RunFiles {
     log: string;
     outcome: string;
     final: string;
+    /** The live-run marker: the id of the process that owns a run in progress (D7). */
+    marker: string;
 }
 
 /** The run folder for a pull request, in the main checkout's ignored scratch area (D5). */
 export function runFiles(mainRoot: string, pr: number): RunFiles {
     // `distill-run-pr-<N>` can never be read as `epic-<n>`, `fix-<n>` or `intake-<n>`, the drainable entries (G18).
     const dir = path.join(mainRoot, ".nexus", "tmp", `distill-run-pr-${pr}`);
-    return { dir, log: path.join(dir, "distill.log"), outcome: path.join(dir, "outcome.txt"), final: path.join(dir, "distill-final.txt") };
+    return {
+        dir,
+        log: path.join(dir, "distill.log"),
+        outcome: path.join(dir, "outcome.txt"),
+        final: path.join(dir, "distill-final.txt"),
+        marker: path.join(dir, "running.pid"),
+    };
 }
 
 /** The pull request as `nexus close --pr` takes it back. */
@@ -147,6 +166,7 @@ function renderRefusal(r: DistillRefusal): string[] {
 
 /** Everything a run needs once the checks pass. */
 export interface DistillPlan {
+    pr: number;
     epic: number;
     issuesRepo: string;
     branch: string;
@@ -212,11 +232,19 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
         return refuse(`a distillation pull request from ${branch.branch} is already open: ${open.url}`, `review that pull request; to distill again, close it first, then re-run ${rerun}`);
     }
 
+    // 7. One run per pull request at a time. A marker whose process is gone is stale (D7, G6).
+    const mainRoot = deps.mainCheckout(repoRoot);
+    const files = runFiles(mainRoot, input.pr.number);
+    const owner = liveRun(deps, files);
+    if (owner !== null) {
+        return refuse(`a run for this pull request is still in progress (process ${owner}); its outcome will be written to ${files.outcome}`, `wait for it to end and read ${files.outcome}`);
+    }
+
+    // 8. The harness itself.
     const command = input.harness;
     if (!deps.onPath(command)) return refuse(`the ${command} command is not on the PATH, so no session can start`, `install and sign in to ${command}, then re-run nexus distill`);
 
-    const mainRoot = deps.mainCheckout(repoRoot);
-    const files = runFiles(mainRoot, input.pr.number);
+    // 9. The run folder, which must be ignored before anything is written to it (G18).
     if (!deps.ignored(mainRoot, files.dir)) {
         return refuse(`git does not ignore ${files.dir}, so the run's files would show as changes`, "add .nexus/tmp/ to .gitignore, then re-run nexus distill");
     }
@@ -232,7 +260,33 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
                   cwd: wtPath,
               }
             : { command, args: ["-p", prompt, "--permission-mode", permissionMode, "--output-format", "stream-json", "--verbose", ...input.harnessArgs], cwd: wtPath };
-    return { ok: true, plan: { epic, issuesRepo, branch: branch.branch, wtPath, mainRoot, files, spec, permissionMode } };
+    return { ok: true, plan: { pr: input.pr.number, epic, issuesRepo, branch: branch.branch, wtPath, mainRoot, files, spec, permissionMode } };
+}
+
+/** The process a live-run marker names, when that process still exists; null otherwise. */
+function liveRun(deps: Pick<DistillDeps, "alive">, files: RunFiles): number | null {
+    let pid: number;
+    try {
+        pid = Number(fs.readFileSync(files.marker, "utf8").trim());
+    } catch {
+        return null;
+    }
+    return Number.isInteger(pid) && pid > 0 && deps.alive(pid) ? pid : null;
+}
+
+/** Write the marker naming `pid`. */
+function claimRun(files: RunFiles, pid: number): void {
+    fs.mkdirSync(files.dir, { recursive: true });
+    fs.writeFileSync(files.marker, `${pid}\n`);
+}
+
+/** Remove the marker, but only while it still names `pid`. */
+function releaseRun(files: RunFiles, pid: number): void {
+    try {
+        if (fs.readFileSync(files.marker, "utf8").trim() === String(pid)) fs.rmSync(files.marker, { force: true });
+    } catch {
+        // Already gone.
+    }
 }
 
 /** The line printed before every session (G10, R1). */
@@ -329,11 +383,108 @@ export async function runDistillCommand(deps: DistillDeps, input: DistillInput, 
     }
     const { plan } = checked;
     io.stderr(permissionLine(input.harness, plan.permissionMode, input.permissionMode !== null));
+    claimRun(plan.files, process.pid);
+    if (input.background === true) {
+        const started = await deps.detach(plan);
+        if (!started.ok) {
+            releaseRun(plan.files, process.pid);
+            io.stderr(`nexus distill stopped: the background run could not start: ${started.message}. No session was started.`);
+            return 1;
+        }
+        claimRun(plan.files, started.pid);
+        io.stdout(`Distilling epic ${plan.issuesRepo}#${plan.epic} in the background (process ${started.pid}), in ${plan.wtPath}.`);
+        io.stdout(`Log:     ${plan.files.log}`);
+        io.stdout(`Outcome: ${plan.files.outcome} (written when the run ends)`);
+        io.stdout(`This terminal gets a status line every ${STATUS_INTERVAL_MS / 60_000} minutes until the run ends.`);
+        return 0;
+    }
     io.stderr(`Distilling epic ${plan.issuesRepo}#${plan.epic} in ${plan.wtPath} (branch ${plan.branch}). Log: ${plan.files.log}`);
-    const outcome = await runSession(deps, plan, (line) => io.stdout(line));
+    let outcome: RunOutcome;
+    try {
+        outcome = await runSession(deps, plan, (line) => io.stdout(line));
+    } finally {
+        releaseRun(plan.files, process.pid);
+    }
     io.stdout("");
     for (const line of outcome.text) io.stdout(line);
     io.stdout(`Outcome written to ${plan.files.outcome}`);
+    return outcome.success ? 0 : 1;
+}
+
+/** How often a background run tells the terminal it started from that it is still going (D6). */
+export const STATUS_INTERVAL_MS = 3 * 60_000;
+
+/**
+ * The detached runner (D6): the same runner as the foreground (G21), plus a status line to the
+ * starting terminal every `intervalMs` and one final line. A failed status write stops further
+ * status lines and never the run (G20).
+ */
+export async function runDetached(
+    deps: Pick<DistillDeps, "session" | "openPr">,
+    plan: DistillPlan,
+    status: (line: string) => void,
+    intervalMs: number = STATUS_INTERVAL_MS,
+): Promise<RunOutcome> {
+    let silent = false;
+    const say = (line: string): void => {
+        if (silent) return;
+        try {
+            status(line);
+        } catch {
+            silent = true;
+        }
+    };
+    const label = `nexus distill (pull request ${plan.pr})`;
+    const started = Date.now();
+    const timer = setInterval(() => {
+        const mins = Math.round((Date.now() - started) / 60_000);
+        say(`${label}: still running after ${mins} min — log: ${plan.files.log}`);
+    }, intervalMs);
+    try {
+        const outcome = await runSession(deps, plan, () => undefined);
+        say(`${label}: ended — ${outcome.text[0]} Outcome: ${plan.files.outcome}`);
+        return outcome;
+    } finally {
+        clearInterval(timer);
+        releaseRun(plan.files, process.pid);
+    }
+}
+
+/** The environment variable a detached runner reads its plan from. */
+export const PLAN_ENV = "NEXUS_DISTILL_PLAN";
+
+/**
+ * Start the detached runner: this same executable, in its own process session, its stdout dropped
+ * and its stderr on the starting terminal for the status lines. `entry` is how to run the executable.
+ */
+export function detachRunner(plan: DistillPlan, entry: { command: string; args: string[] }): Promise<{ ok: true; pid: number } | { ok: false; message: string }> {
+    return new Promise((resolve) => {
+        const child = spawn(entry.command, [...entry.args, "distill", "--detached-runner"], {
+            cwd: plan.mainRoot,
+            detached: true,
+            stdio: ["ignore", "ignore", "inherit"],
+            env: { ...process.env, [PLAN_ENV]: JSON.stringify(plan) },
+        });
+        child.once("error", (e) => resolve({ ok: false, message: e.message }));
+        child.once("spawn", () => {
+            child.unref();
+            resolve({ ok: true, pid: child.pid ?? 0 });
+        });
+    });
+}
+
+/** The detached runner's own entry: read the plan, run, and keep going whatever happens to the terminal. */
+export async function runDetachedFromEnv(deps: Pick<DistillDeps, "session" | "openPr">, env: NodeJS.ProcessEnv = process.env): Promise<number> {
+    const raw = env[PLAN_ENV];
+    if (raw === undefined) return 2;
+    const plan = JSON.parse(raw) as DistillPlan;
+    // A closed terminal turns status writes into errors and must never end the run (G20).
+    process.on("SIGHUP", () => undefined);
+    process.stderr.on("error", () => undefined);
+    const outcome = await runDetached(deps, plan, (line) => {
+        if (!process.stderr.writable) throw new Error("terminal gone");
+        process.stderr.write(line + "\n");
+    });
     return outcome.success ? 0 : 1;
 }
 
@@ -515,5 +666,15 @@ export function distillDeps(run: Runner): DistillDeps {
             return { ok: true, url: url === "" ? null : url };
         },
         session: spawnSession,
+        alive: (pid) => {
+            try {
+                process.kill(pid, 0);
+                return true;
+            } catch (e) {
+                // EPERM: it exists, owned by someone else.
+                return (e as NodeJS.ErrnoException).code === "EPERM";
+            }
+        },
+        detach: (plan) => detachRunner(plan, { command: process.execPath, args: [...process.execArgv, process.argv[1] ?? ""] }),
     };
 }
