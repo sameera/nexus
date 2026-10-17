@@ -118,8 +118,9 @@ Implementation sits between the decision record and analyze; engineers own it.
     - A plain command that runs no model and asks nothing. It writes the close record from the pull requests' verdicts: what was decided, what deviated and why, what was deferred. Answers and waivers are posted on the pull request and recorded by `/nxs.analyze` before close runs; anything missing is a stop that names its remedy.
     - Approved deferred scope becomes backlog issues, not a forgotten section in a document. The epic issue gets a durable close comment and is closed.
 
-8. **Distill** (`/nxs.distill`)
+8. **Distill** (`nexus distill --pr <N>`, or `/nxs.distill` for an attended run)
     - Drains closed epics into the concept store via a reviewed PR.
+    - After `nexus close`, `nexus distill --pr <N>` runs the distillation unattended in the worktree close prepared and prints the distillation PR's URL, or the reason it stopped. See [Distilling with one command](#distilling-with-one-command).
     - Per-concept pages are updated with the epic's validated decisions; the temporary planning artifacts are deleted. The record that survives is the one you'll actually read.
 
 ## The Difference
@@ -375,6 +376,32 @@ each stage and a `workspace-write` sandbox. Set `CODEX_SANDBOX` or pass addition
 options for your environment. Turn caps are prompt instructions, not enforced runtime budgets.
 As with the existing Claude runner, this utility pushes the implementation branch and opens or
 updates its PR; use it only when that publication is intended.
+
+## Distilling with one command
+
+After `nexus close` succeeds, run:
+
+```bash
+nexus distill --pr <N>
+```
+
+`<N>` is any merged pull request of the closed epic. The command finds the worktree close prepared,
+starts one Claude Code session there and runs `/nxs.distill --unattended`. It asks nothing. It
+reports success only when GitHub shows an open distillation pull request, and it prints that pull
+request's URL. Otherwise it prints the stop and the distillation's final message, and exits
+non-zero. The review of the distillation pull request is the only approval the run needs.
+
+The harness must already be installed and signed in. `--harness codex` runs the session under
+Codex instead.
+
+**The permission default.** A session nobody watches cannot answer a permission prompt. So by
+default the claude session runs with `--permission-mode bypassPermissions`: it can run any command
+with your git and GitHub credentials. Under Codex the default is the `workspace-write` sandbox. The
+command prints the mode before every session. To use another mode for one run, pass
+`--permission-mode <mode>`.
+
+The run's log and outcome are written to `.nexus/tmp/distill-run-pr-<N>/` in the main checkout. When
+you no longer need the worktree, remove it with `nexus pr-worktree remove <worktree>`.
 
 ## Removing Nexus
 

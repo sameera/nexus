@@ -404,6 +404,93 @@ function epicReadStop(
     return null;
 }
 
+type ResolvedRepos = { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop };
+
+/**
+ * The issues repository every issue read and write targets, and the checkout's code repository.
+ * One written form for every read, write, key and report that names the issues repository. An
+ * earlier run's stub and amendment keys are matched by the repository they name, in any form.
+ * Each branch resolves the issues repository once, at the point it needs it, so a pull request
+ * that has not merged is answered before any repository read.
+ */
+function resolveIssuesRepos(deps: Pick<CloseCommandDeps, "issuesRepo" | "checkoutRepo">, repoRoot: string, rerun: string): ResolvedRepos {
+    const r = deps.issuesRepo(repoRoot);
+    if (!r.ok) return { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
+    // A host the configured form states is kept and every read of it goes there. A form that names
+    // none, when it is the checkout's own repository on an Enterprise host, is on that host: the
+    // checkout's remote says so. Any other form that names none is left to gh's own host, as on main.
+    const issuesRepo = canonicalIssuesRepo(r.repos.issuesRepo);
+    const own = issuesRepoHost(issuesRepo) === null ? deps.checkoutRepo(repoRoot) : null;
+    const ownHost = own === null ? null : issuesRepoHost(own);
+    const onOwnHost = ownHost !== null && ownHost !== "github.com" && sameIssuesRepo(issuesRepoPath(own ?? ""), issuesRepo);
+    return { ok: true, issuesRepo: onOwnHost ? `${ownHost}/${issuesRepo}` : issuesRepo, codeRepo: r.repos.repo };
+}
+
+/** The epic a merged pull request belongs to, or the stop that says why it cannot be found. */
+export type ResolvedEpicOfPr = { ok: true; epic: number; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop };
+
+/**
+ * Close's own resolution of a pull request to its epic (#906), shared with `nexus distill` (epic
+ * #909, D2) so the two commands cannot disagree about which epic a pull request belongs to. The
+ * pull request must have merged, and its epic comes from the story ladder. `rerun` is the command a
+ * remedy repeats, and `byEpic` the command that names the epic instead.
+ */
+export function resolveEpicOfPr(
+    deps: Pick<CloseCommandDeps, "readPr" | "issuesRepo" | "checkoutRepo" | "storiesOfPr">,
+    repoRoot: string,
+    ref: ParsedPrReference,
+    rerun: string,
+    byEpic: string,
+): ResolvedEpicOfPr {
+    const refused = (stop: CloseStop): ResolvedEpicOfPr => ({ ok: false, stop });
+    // A pull request only finds the epic. It is read first: one that has not merged is the cheap
+    // early answer for a lead who ran close too soon, before anything about the issues repository.
+    const read = deps.readPr(repoRoot, ref);
+    if (!read.ok) {
+        const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${prRepoName(ref, null)}#${ref.number}`;
+        return refused({ reason: `${asked} could not be read: ${read.error.message}`, item: asked, remedy: `check the reference, then re-run ${rerun}` });
+    }
+    // The repository it was read in, which in a fork checkout can differ from the checkout's
+    // default: the platform's URL for it says which.
+    const fromUrl = parsePrReference(read.pr.url);
+    const readIn = (fromUrl === null ? null : prRepoName(fromUrl, null)) ?? prRepoName(ref, null);
+    const asLabel = readIn === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${readIn}#${ref.number}`;
+    if (!read.pr.merged) {
+        return refused({ reason: `${asLabel} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: asLabel, remedy: `merge it, then re-run ${rerun}` });
+    }
+    const repos = resolveIssuesRepos(deps, repoRoot, rerun);
+    if (!repos.ok) return repos;
+    const { issuesRepo, codeRepo } = repos;
+    const unstated = ref.host === undefined ? null : unstatedHost(asLabel, ref.host, issuesRepo, rerun);
+    if (unstated !== null) return refused(unstated);
+    // A pull request on another forge than the one the issues repository states would have its
+    // story numbers looked up on the wrong forge, as an --epic URL on it would be refused. The
+    // forge is the typed URL's, else the one the pull request was read on (its URL as read).
+    const stated = issuesRepoHost(issuesRepo);
+    const prHost = ref.host ?? fromUrl?.host;
+    if (prHost !== undefined && stated !== null && forgeHost(prHost) !== stated) {
+        return refused({
+            reason: `${asLabel} is on ${forgeHost(prHost)}, but the issues repository ${issuesRepo} is on ${stated}`,
+            item: asLabel,
+            remedy: `name the epic instead: ${byEpic}`,
+        });
+    }
+    const pr = { repo: readIn ?? codeRepo, pr: ref.number };
+    const label = `pull request ${pr.repo}#${pr.pr}`;
+    // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
+    // place is named by its epic instead: --epic replaces the old entry-path way through.
+    const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
+    if (!stories.ok) {
+        const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
+        return refused({
+            reason: ambiguous ? `${label} does not name one epic: ${stories.error.message}` : `the epic of ${label} cannot be resolved: ${stories.error.message}`,
+            item: label,
+            remedy: `name the epic instead: ${byEpic}` + (ambiguous ? "" : `, or have the pull request close its story issue`),
+        });
+    }
+    return { ok: true, epic: stories.epic, issuesRepo, codeRepo };
+}
+
 /** Run close through the close record and the amendment. Asks nothing; every outcome is returned. */
 export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): CloseOutcome {
     // Until the epic is known a re-run repeats what the lead ran; from then on it names the epic.
@@ -426,22 +513,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         });
     }
 
-    // One written form for every read, write, key and report that names the issues repository. An
-    // earlier run's stub and amendment keys are matched by the repository they name, in any form.
-    // Each branch resolves the issues repository once, at the point it needs it, so a pull request
-    // that has not merged is answered before any repository read.
-    const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
-        const r = deps.issuesRepo(repoRoot);
-        if (!r.ok) return { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
-        // A host the configured form states is kept and every read of it goes there. A form that names
-        // none, when it is the checkout's own repository on an Enterprise host, is on that host: the
-        // checkout's remote says so. Any other form that names none is left to gh's own host, as on main.
-        const issuesRepo = canonicalIssuesRepo(r.repos.issuesRepo);
-        const own = issuesRepoHost(issuesRepo) === null ? deps.checkoutRepo(repoRoot) : null;
-        const ownHost = own === null ? null : issuesRepoHost(own);
-        const onOwnHost = ownHost !== null && ownHost !== "github.com" && sameIssuesRepo(issuesRepoPath(own ?? ""), issuesRepo);
-        return { ok: true, issuesRepo: onOwnHost ? `${ownHost}/${issuesRepo}` : issuesRepo, codeRepo: r.repos.repo };
-    };
+    const resolveRepos = (): ResolvedRepos => resolveIssuesRepos(deps, repoRoot, rerun);
 
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
 
@@ -468,53 +540,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const unstated = namedHost === null ? null : unstatedHost(`epic ${named}#${epic}`, namedHost, issuesRepo, rerun);
         if (unstated !== null) return stopped(unstated);
     } else {
-        // A pull request only finds the epic. It is read first: one that has not merged is the cheap
-        // early answer for a lead who ran close too soon, before anything about the issues repository.
-        const ref = input.target.pr;
-        const read = deps.readPr(repoRoot, ref);
-        if (!read.ok) {
-            const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${prRepoName(ref, null)}#${ref.number}`;
-            return stopped({ reason: `${asked} could not be read: ${read.error.message}`, item: asked, remedy: `check the reference, then re-run ${rerun}` });
-        }
-        // The repository it was read in, which in a fork checkout can differ from the checkout's
-        // default: the platform's URL for it says which.
-        const fromUrl = parsePrReference(read.pr.url);
-        const readIn = (fromUrl === null ? null : prRepoName(fromUrl, null)) ?? prRepoName(ref, null);
-        const asLabel = readIn === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${readIn}#${ref.number}`;
-        if (!read.pr.merged) {
-            return stopped({ reason: `${asLabel} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: asLabel, remedy: `merge it, then re-run ${rerun}` });
-        }
-        const repos = resolveRepos();
-        if (!repos.ok) return stopped(repos.stop);
-        ({ issuesRepo, codeRepo } = repos);
-        const unstated = ref.host === undefined ? null : unstatedHost(asLabel, ref.host, issuesRepo, rerun);
-        if (unstated !== null) return stopped(unstated);
-        // A pull request on another forge than the one the issues repository states would have its
-        // story numbers looked up on the wrong forge, as an --epic URL on it would be refused. The
-        // forge is the typed URL's, else the one the pull request was read on (its URL as read).
-        const stated = issuesRepoHost(issuesRepo);
-        const prHost = ref.host ?? fromUrl?.host;
-        if (prHost !== undefined && stated !== null && forgeHost(prHost) !== stated) {
-            return stopped({
-                reason: `${asLabel} is on ${forgeHost(prHost)}, but the issues repository ${issuesRepo} is on ${stated}`,
-                item: asLabel,
-                remedy: `name the epic instead: nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}`,
-            });
-        }
-        const pr = { repo: readIn ?? codeRepo, pr: ref.number };
-        const label = `pull request ${pr.repo}#${pr.pr}`;
-        // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
-        // place is named by its epic instead: --epic replaces the old entry-path way through.
-        const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
-        if (!stories.ok) {
-            const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
-            return stopped({
-                reason: ambiguous ? `${label} does not name one epic: ${stories.error.message}` : `the epic of ${label} cannot be resolved: ${stories.error.message}`,
-                item: label,
-                remedy: `name the epic instead: nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}` + (ambiguous ? "" : `, or have the pull request close its story issue`),
-            });
-        }
-        epic = stories.epic;
+        const found = resolveEpicOfPr(deps, repoRoot, input.target.pr, rerun, `nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}`);
+        if (!found.ok) return stopped(found.stop);
+        ({ epic, issuesRepo, codeRepo } = found);
     }
     // Read after the target, so a pull request that has not merged is answered before a bad entry path.
     const link = input.entryPath === null ? null : entryLink(input.entryPath);
@@ -804,7 +832,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         `Epic issue:        ${epicRef} — ${closedIssue.already ? "already closed" : "closed"}`,
         "",
         ...amendment.byHand,
-        ...nextLines(input.handoff, wt.wtPath),
+        ...nextLines(input.handoff, wt.wtPath, distillPrArg(input.target, passed.merged, codeRepo)),
     ];
     return { ok: true, resumed: false, epic, issuesRepo, wtPath: wt.wtPath, branch: wt.branch, recordPath, closeComment, content, stubs, lines };
 }
@@ -852,7 +880,7 @@ function finishClosed(
         `Epic issue:        ${epicRef} — ${closedIssue.already ? "already closed" : "closed"}`,
         "",
         ...(amendment === null ? [] : amendment.byHand),
-        ...nextLines(input.handoff, wt.wtPath),
+        ...nextLines(input.handoff, wt.wtPath, distillPrArg(input.target, stampedPrs(block).prs, at.codeRepo)),
     ];
     return { ok: true, resumed: true, epic: at.epic, issuesRepo: at.issuesRepo, wtPath: wt.wtPath, branch: wt.branch, lines };
 }
@@ -921,10 +949,27 @@ function writeHandoff(at: string | null, epic: number, branch: string, wtPath: s
     }
 }
 
-/** How the report ends: the hand-off to the script, or the command that continues the drain. */
-function nextLines(handoff: string | null, wtPath: string): string[] {
-    if (handoff !== null) return [`Hand-off note written: ${handoff}`, "", "NEXT — utils/close-epic.sh continues from here."];
-    return ["NEXT — continue the drain from the worktree:", `    cd ${wtPath} && /nxs.distill`];
+/**
+ * The pull request `nexus distill --pr` is named with in the next step (epic #909, D14): one close
+ * itself read. The one the lead typed, else the last merged one, bare when it is in the checkout's
+ * own repository. Null when close read none.
+ */
+function distillPrArg(target: CloseTarget, merged: readonly { repo: string; pr: number }[], codeRepo: string): string | null {
+    if ("pr" in target) return prReference(target.pr);
+    const last = merged[merged.length - 1];
+    if (last === undefined) return null;
+    return sameRepo(last.repo, codeRepo) ? `${last.pr}` : `${last.repo}#${last.pr}`;
+}
+
+/** How the report ends: the hand-off note when one was asked for, then the two ways to distill (D14). */
+function nextLines(handoff: string | null, wtPath: string, pr: string | null): string[] {
+    return [
+        ...(handoff === null ? [] : [`Hand-off note written: ${handoff}`, ""]),
+        "NEXT — distill the closed epic, unattended, with one command:",
+        `    nexus distill --pr ${pr ?? "<N>"}${pr === null ? "   (any merged pull request of the epic)" : ""}`,
+        "  or run an attended distillation from the session you already have open:",
+        `    /nxs.distill ${wtPath}`,
+    ];
 }
 
 /** The frontmatter keys of a materialized `epic.md`, unquoted. */

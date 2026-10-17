@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
 # close-epic.sh — take a merged epic pull request from close through an unattended distillation
-# run in one command, with nobody at the terminal: check the pull request, run `nexus close`,
-# verify what close left behind, then run /nxs.distill --unattended in the worktree close prepared.
+# run in one command, with nobody at the terminal: check the pull request, run `nexus close`, then
+# run `nexus distill --pr <PR>`, which distills in the worktree close prepared.
 #
 # Close is the plain command `nexus close` (decision record #872, D16). It runs no model and asks
 # nothing, so the script reads its outcome from its exit status. On a stop it prints close's
-# reason and remedy again and starts no distill. On success it still checks the hand-off note
-# against GitHub and git before distill starts.
+# reason and remedy again and starts no distill. The distill stage is the shipped command (epic
+# #909, D13): its checks, its session and its outcome are that command's, never a copy here.
 #
 # There is no analyze stage (decision record #849, D9). The pull request was analyzed before the
 # merge, with /nxs.analyze --pr; close's own evidence gate decides whether that analysis still
@@ -17,14 +17,15 @@
 #   utils/close-epic.sh <PR> [--merge] [--background] [extra harness args...]
 #   HARNESS=codex utils/close-epic.sh <PR> [--merge] [--background] [extra codex exec args...]
 #
-# Extra harness arguments go to the distill stage only; close takes none.
+# Extra harness arguments go to the distill stage only, after `--`; close takes none.
 #
 # Environment:
 #   HARNESS          claude (default) or codex, the harness distill runs under; install Nexus for
 #                    that harness first
-#   CODEX_SANDBOX    Codex sandbox mode (default workspace-write)
-#   PERMISSION_MODE  claude permission mode for the headless stage (default bypassPermissions —
-#                    required for unattended runs; tool calls cannot be approved interactively)
+#   CODEX_SANDBOX    Codex sandbox mode, passed to nexus distill as --permission-mode (its default
+#                    is workspace-write)
+#   PERMISSION_MODE  claude permission mode, passed to nexus distill as --permission-mode (its
+#                    default is bypassPermissions — tool calls cannot be approved unattended)
 #   MERGE_METHOD     merge | squash | rebase, used only with --merge (default merge)
 #   BASE             trunk branch name (default main)
 #
@@ -35,9 +36,9 @@
 # words. Without --merge, an open pull request is refused — this command never merges without being
 # asked to.
 #
-# --background detaches the distill stage once close is verified: this command returns at once,
-# and distill's log and outcome record land in the run folder this command names
-# (.nexus/tmp/close-epic-<PR>/), which is gitignored and never looks like a queue entry.
+# --background detaches the distill stage once close succeeds: this command returns at once, and
+# the stage's output lands in the run folder this command names (.nexus/tmp/close-epic-<PR>/),
+# which is gitignored and never looks like a queue entry.
 #
 # Single-repo checkouts only (decision record #818, D10) — a hub or member checkout is refused
 # before anything else runs, through the same role check close itself uses.
@@ -71,8 +72,6 @@ for a in "$@"; do
 done
 
 HARNESS="${HARNESS:-claude}"
-CODEX_SANDBOX="${CODEX_SANDBOX:-workspace-write}"
-PERMISSION_MODE="${PERMISSION_MODE:-bypassPermissions}"
 MERGE_METHOD="${MERGE_METHOD:-merge}"
 BASE="${BASE:-main}"
 if [[ "$HARNESS" != "claude" && "$HARNESS" != "codex" ]]; then
@@ -90,96 +89,6 @@ let c = v;
 for (const k of path) c = c == null ? undefined : c[k];
 process.stdout.write((c === undefined || c === null ? "" : String(c)) + "\n");
 ' "$1"
-}
-
-FORMATTER='
-import readline from "node:readline";
-const tty = process.stdout.isTTY;
-const dim = (s) => (tty ? `\x1b[2m${s}\x1b[0m` : s);
-const bold = (s) => (tty ? `\x1b[1m${s}\x1b[0m` : s);
-const cyan = (s) => (tty ? `\x1b[36m${s}\x1b[0m` : s);
-const clip = (s, n) => { s = String(s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n) + "…" : s; };
-const toolLabel = (block) => {
-    const i = block.input ?? {};
-    const detail = i.command ?? i.file_path ?? i.path ?? i.pattern ?? i.url ?? i.skill ?? i.description ?? "";
-    return `${block.name}(${clip(detail, 120)})`;
-};
-// FINAL_OUT, when set, receives the final message of the stage word for word — the outcome record
-// quotes it when a distill run stops.
-import fs from "node:fs";
-const keepFinal = (text) => {
-    if (process.env.FINAL_OUT && text) fs.writeFileSync(process.env.FINAL_OUT, text.trim() + "\n");
-};
-const rl = readline.createInterface({ input: process.stdin });
-rl.on("line", (line) => {
-    let ev;
-    try { ev = JSON.parse(line); } catch { return; }
-    switch (ev.type) {
-        case "thread.started": console.log(dim(`session ${ev.thread_id}`)); break;
-        case "item.started":
-            if (ev.item?.type === "command_execution") console.log(cyan(`  ● ${clip(ev.item.command, 120)}`));
-            break;
-        case "item.completed":
-            if (ev.item?.type === "agent_message") { console.log("\n" + ev.item.text); keepFinal(ev.item.text); }
-            else if (ev.item?.aggregated_output) console.log(dim(`    ⎿ ${clip(ev.item.aggregated_output, 200)}`));
-            break;
-        case "turn.completed": console.log(bold("\n=== Codex turn completed ===")); break;
-        case "turn.failed": console.error(ev.error?.message ?? "Codex turn failed"); process.exitCode = 1; break;
-        case "error": console.error(ev.message ?? "Codex stream error"); process.exitCode = 1; break;
-        case "system":
-            if (ev.subtype === "init") console.log(dim(`session ${ev.session_id} | model ${ev.model}`));
-            break;
-        case "assistant":
-            for (const block of ev.message?.content ?? []) {
-                if (block.type === "text" && block.text.trim()) console.log("\n" + block.text.trim());
-                else if (block.type === "tool_use") console.log(cyan(`  ● ${toolLabel(block)}`));
-            }
-            break;
-        case "user":
-            for (const block of ev.message?.content ?? []) {
-                if (block.type !== "tool_result") continue;
-                const parts = Array.isArray(block.content)
-                    ? block.content.filter((c) => c.type === "text").map((c) => c.text)
-                    : [String(block.content ?? "")];
-                const text = parts.join(" ").trim();
-                if (text) console.log(dim(`    ⎿ ${clip(text, 200)}`));
-            }
-            break;
-        case "result": {
-            const mins = (ev.duration_ms / 60000).toFixed(1);
-            const cost = ev.total_cost_usd != null ? ` | $${ev.total_cost_usd.toFixed(2)}` : "";
-            console.log(bold(`\n=== ${ev.subtype} | ${ev.num_turns} turns | ${mins} min${cost} ===`));
-            if (ev.result) { console.log(ev.result); keepFinal(ev.result); }
-            if (ev.is_error) process.exitCode = 1;
-            break;
-        }
-    }
-});
-'
-
-# The headless (nobody-watching) stage: distill. Every fresh context carries this
-# clause — an omitted answer never approves an action, on either harness (D1).
-UNATTENDED="
-
-You are running unattended inside a headless script. Nobody can answer a question, so never end by \
-asking which option to take, and never wait for a decision. If the stage cannot proceed, state in \
-your final message what blocked it and stop."
-
-run_headless() {
-    local prompt="$1${UNATTENDED}"
-    shift
-    if [[ "$HARNESS" == "codex" ]]; then
-        prompt="${prompt//\/nxs.distill/\$nxs-distill}"
-        codex exec --sandbox "$CODEX_SANDBOX" --json "$@" -- "$prompt" \
-            | node --input-type=module -e "$FORMATTER"
-    else
-        claude -p "$prompt" \
-            --permission-mode "$PERMISSION_MODE" \
-            --output-format stream-json \
-            --verbose \
-            "$@" \
-            | node --input-type=module -e "$FORMATTER"
-    fi
 }
 
 # --- Phase 1: single-repo checkouts only (D10) — refuse hub and member, the same check
@@ -239,23 +148,19 @@ fi
 echo ">>> fetching trunk" >&2
 git fetch "$(nexus trunk --form remote)" "$BASE"
 
-# Absolute, so the note's place does not depend on close's working directory.
 RUN_DIR="${PWD}/.nexus/tmp/close-epic-${PR}"
 mkdir -p "$RUN_DIR"
-HANDOFF="${RUN_DIR}/handoff.txt"
-LOG="${RUN_DIR}/distill.log"
-OUTCOME="${RUN_DIR}/outcome.txt"
-FINAL="${RUN_DIR}/distill-final.txt"
 CLOSE_ERR="${RUN_DIR}/close.err"
-rm -f "$HANDOFF" "$LOG" "$OUTCOME" "$FINAL" "$CLOSE_ERR"
+LOG="${RUN_DIR}/distill.log"
+rm -f "$CLOSE_ERR" "$LOG"
 
 # --- Phase 3: close, unattended — the plain command, read through its exit status (#872, D16) -----
 # Close's output streams to the terminal as it runs; its error stream is also kept in the run
 # folder, so a stop's reason and remedy can be repeated where the lead looks last.
 echo "" >&2
-echo ">>> stage 1: nexus close --pr ${PR} --handoff ${HANDOFF}" >&2
+echo ">>> stage 1: nexus close --pr ${PR}" >&2
 set +e
-{ nexus close --pr "$PR" --handoff "$HANDOFF" 2>&1 1>&3 3>&- | tee "$CLOSE_ERR" >&2; } 3>&1
+{ nexus close --pr "$PR" 2>&1 1>&3 3>&- | tee "$CLOSE_ERR" >&2; } 3>&1
 CLOSE_STATUS="${PIPESTATUS[0]}"
 set -e
 if [[ "$CLOSE_STATUS" != "0" ]]; then
@@ -270,87 +175,25 @@ if [[ "$CLOSE_STATUS" != "0" ]]; then
     exit 1
 fi
 
-# --- Phase 4: verify the hand-off note against GitHub and git --------------------------------------
-echo "" >&2
-echo ">>> verifying the hand-off note" >&2
-if [[ ! -f "$HANDOFF" ]]; then
-    echo "!!! nexus close succeeded but left no hand-off note at ${HANDOFF} — distill was not started." >&2
-    exit 1
-fi
-NOTE_EPIC="$(sed -n 's/^epic: *//p' "$HANDOFF" | head -1)"
-DISTILL_BRANCH="$(sed -n 's/^branch: *//p' "$HANDOFF" | head -1)"
-WTPATH="$(sed -n 's/^worktree: *//p' "$HANDOFF" | head -1)"
-if [[ -z "$NOTE_EPIC" || -z "$DISTILL_BRANCH" || -z "$WTPATH" ]]; then
-    echo "!!! hand-off note at ${HANDOFF} is incomplete — distill was not started." >&2
-    exit 1
-fi
-EPIC_STATE="$(gh issue view "$NOTE_EPIC" --json state --jq .state)"
-if [[ "$EPIC_STATE" != "CLOSED" ]]; then
-    echo "!!! epic issue #${NOTE_EPIC} is not closed (${EPIC_STATE}) — distill was not started." >&2
-    exit 1
-fi
-# The note must name a worktree git has registered, checked out on the note's branch (D5).
-if ! git worktree list --porcelain | WTPATH="$WTPATH" BRANCH="$DISTILL_BRANCH" node -e '
-const fs = require("fs");
-const path = require("path");
-const real = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
-const want = real(process.env.WTPATH);
-const blocks = fs.readFileSync(0, "utf8").split(/\n\n+/);
-const hit = blocks.some((b) => {
-    const wt = /^worktree (.+)$/m.exec(b)?.[1];
-    const br = /^branch (.+)$/m.exec(b)?.[1];
-    return wt !== undefined && real(wt) === want && br === `refs/heads/${process.env.BRANCH}`;
-});
-process.exit(hit ? 0 : 1);
-'; then
-    echo "!!! ${WTPATH} named in the hand-off note is not a registered worktree on ${DISTILL_BRANCH} — distill was not started." >&2
-    exit 1
-fi
-if ! git ls-remote --exit-code --heads origin "$DISTILL_BRANCH" >/dev/null 2>&1; then
-    echo "!!! branch ${DISTILL_BRANCH} is not pushed — distill was not started." >&2
-    exit 1
-fi
-
-# --- Phase 5: distill, unattended, in the worktree close left ---------------------------------------
-# Distill commits inside the worktree, and git writes those commits into the main checkout's git
-# folder, outside the worktree. Codex's workspace-write sandbox gets that folder as an extra
-# writable place (R2).
-DISTILL_ARGS=(${ARGS[@]+"${ARGS[@]}"})
+# --- Phase 4: distill, through the shipped command (epic #909, D13) ---------------------------------
+# nexus distill finds the worktree close prepared from the pull request, checks close's result
+# still holds, runs /nxs.distill --unattended there and reads success from GitHub.
+DISTILL=(nexus distill --pr "$PR")
 if [[ "$HARNESS" == "codex" ]]; then
-    DISTILL_ARGS+=(--add-dir "$(git rev-parse --path-format=absolute --git-common-dir)")
+    DISTILL+=(--harness codex)
+    if [[ -n "${CODEX_SANDBOX:-}" ]]; then DISTILL+=(--permission-mode "$CODEX_SANDBOX"); fi
+elif [[ -n "${PERMISSION_MODE:-}" ]]; then
+    DISTILL+=(--permission-mode "$PERMISSION_MODE")
 fi
+if [[ ${#ARGS[@]} -gt 0 ]]; then DISTILL+=(-- "${ARGS[@]}"); fi
 
-# Distill's output always lands in the run folder's log. Success is read from GitHub (an open pull
-# request from the distill branch), never from distill's own words (D9).
-run_distill_and_record() {
-    ( cd "$WTPATH" && FINAL_OUT="$FINAL" run_headless "/nxs.distill --unattended" \
-        ${DISTILL_ARGS[@]+"${DISTILL_ARGS[@]}"} ) || true
-    local pr_url
-    pr_url="$(gh pr list --head "$DISTILL_BRANCH" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
-    {
-        if [[ -n "$pr_url" ]]; then
-            echo "distillation pull request: ${pr_url}"
-        else
-            echo "stopped — no distillation pull request opened. Distill's final message:"
-            echo ""
-            if [[ -s "$FINAL" ]]; then cat "$FINAL"; else echo "(none — see ${LOG})"; fi
-        fi
-        echo ""
-        echo "Remove the worktree once you no longer need it: nexus pr-worktree remove ${WTPATH}"
-    } >"$OUTCOME"
-}
-
+echo "" >&2
 if [[ "$BACKGROUND" == "1" ]]; then
-    echo "" >&2
-    echo ">>> stage 2: /nxs.distill --unattended, in the background (log: ${LOG})" >&2
-    ( run_distill_and_record ) >"$LOG" 2>&1 </dev/null &
+    echo ">>> stage 2: ${DISTILL[*]}, in the background (log: ${LOG})" >&2
+    ( "${DISTILL[@]}" ) >"$LOG" 2>&1 </dev/null &
     disown
-    echo ">>> close-epic.sh returns now; outcome will land in ${OUTCOME}" >&2
+    echo ">>> close-epic.sh returns now; the outcome will be at the end of ${LOG}" >&2
     exit 0
 fi
-
-echo "" >&2
-echo ">>> stage 2: /nxs.distill --unattended (fresh context, in ${WTPATH})" >&2
-run_distill_and_record 2>&1 | tee "$LOG"
-echo "" >&2
-cat "$OUTCOME" >&2
+echo ">>> stage 2: ${DISTILL[*]}" >&2
+exec "${DISTILL[@]}"

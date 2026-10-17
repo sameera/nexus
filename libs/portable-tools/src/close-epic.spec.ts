@@ -67,8 +67,8 @@ if (args[0] === "merge-precheck") {
     }));
     process.exit(0);
 }
-// The deterministic close (decision record #872, D16): on success it writes the three-line
-// hand-off note at --handoff and exits 0; on a stop it prints its stop block and exits 1.
+// The deterministic close (decision record #872, D16): exits 0 on success; on a stop it prints its
+// stop block and exits 1.
 if (args[0] === "close") {
     if (process.env.CLOSE_STOPS === "1") {
         console.log("nexus close: checking the gates");
@@ -80,13 +80,15 @@ if (args[0] === "close") {
         console.error("  remedy: answer F3 on the pull request, run /nxs.analyze --pr 42 --resolve, then re-run nexus close --pr 42");
         process.exit(1);
     }
-    const at = args.indexOf("--handoff");
-    if (at > -1 && process.env.WRITE_HANDOFF !== "0") {
-        fs.mkdirSync(require("node:path").dirname(args[at + 1]), { recursive: true });
-        fs.writeFileSync(args[at + 1], "epic: 7\\nbranch: distill/2026-01-01-epic-7\\nworktree: ${worktree.replace(/\\/g, "\\\\")}\\n");
-    }
-    console.log("Hand-off note written");
+    console.log("NEXT — distill the closed epic");
     process.exit(0);
+}
+// The shipped distill command (epic #909, D13): an open distillation pull request is success.
+if (args[0] === "distill") {
+    if (process.env.DISTILL_STOPS !== "1") { console.log("distillation pull request: " + (process.env.DISTILL_PR_URL || "https://github.com/acme/repo/pull/1")); process.exit(0); }
+    console.log("stopped — no distillation pull request was opened.");
+    console.log(process.env.DISTILL_FINAL || "done");
+    process.exit(1);
 }
 process.exit(0);
 `;
@@ -148,8 +150,8 @@ const interactiveSession = (calls: Call[]) =>
 /** Any harness call that carries close — close must never run through a model. */
 const closeThroughHarness = (calls: Call[]) =>
     calls.some((c) => (c.name === "claude" || c.name === "codex") && c.args.some((a) => a.includes("/nxs.close") || a.includes("$nxs-close")));
-const distillCall = (calls: Call[]) =>
-    calls.findIndex((c) => (c.name === "claude" || c.name === "codex") && c.args.some((a) => a.includes("/nxs.distill") || a.includes("$nxs-distill")));
+/** The distill stage: a direct call to the shipped command (epic #909, D13). */
+const distillCall = (calls: Call[]) => calls.findIndex((c) => c.name === "nexus" && c.args[0] === "distill");
 
 describe("close-epic.sh — the pull request gate", () => {
     it("refuses a member checkout before any stage runs", () => {
@@ -274,68 +276,31 @@ describe("close-epic.sh — close and the hand-off note (D4, D5, D6)", () => {
         expect(headlessAnalyze(result.calls)).toBe(false);
     });
 
-    it("stops when close exits 0 but wrote no hand-off note (G50)", () => {
-        const result = run("42", [], { WRITE_HANDOFF: "0" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/no hand-off note/);
-    });
-
-    it("stops when the hand-off note's epic issue is not closed", () => {
-        const result = run("42", [], { EPIC_STATE: "OPEN" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/not closed/);
-    });
-
-    it("stops when the hand-off note's worktree does not exist", () => {
-        const result = run("42", [], { WT_OK: "0" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/worktree/);
-    });
-
-    it("stops when the hand-off note's worktree is registered on a different branch", () => {
-        const result = run("42", [], { WT_BRANCH: "feat/something-else" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/not a registered worktree/);
-        expect(result.calls.some((c) => c.args.some((a) => a.includes("/nxs.distill")))).toBe(false);
-    });
-
-    it("stops when the hand-off note's branch was not pushed", () => {
-        const result = run("42", [], { BRANCH_PUSHED: "0" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/not pushed/);
+    it("asks close for no hand-off note: nothing reads one any more (D13)", () => {
+        const result = run("42");
+        expect(closeCall(result.calls)!.args).not.toContain("--handoff");
     });
 });
 
-describe("close-epic.sh — distill runs unattended in the worktree (D1, D8, D9)", () => {
-    it("runs /nxs.distill --unattended headlessly, cwd'd into the hand-off worktree", () => {
-        const result = run("42");
-        expect(result.status).toBe(0);
-        const distillCall = result.calls.find(
-            (c) => c.name === "claude" && c.args.includes("-p") && c.args.some((a) => a.includes("/nxs.distill --unattended")),
-        );
-        expect(distillCall).toBeDefined();
-        expect(fs.realpathSync(distillCall!.cwd!)).toBe(fs.realpathSync(worktree));
-    });
-
-    it("hands close an absolute hand-off path", () => {
-        const result = run("42");
-        const close = closeCall(result.calls)!;
-        const handoff = close.args[close.args.indexOf("--handoff") + 1];
-        expect(path.isAbsolute(handoff)).toBe(true);
-    });
-
-    it("writes the outcome record naming the distillation pull request when one opened", () => {
+describe("close-epic.sh — distill runs through nexus distill (epic #909, D13)", () => {
+    it("starts nexus distill --pr <PR> after close succeeds, and no harness session of its own", () => {
         const result = run("42", [], { DISTILL_PR_URL: "https://github.com/acme/repo/pull/9" });
         expect(result.status).toBe(0);
-        expect(result.stderr).toContain("https://github.com/acme/repo/pull/9");
+        const at = distillCall(result.calls);
+        expect(result.calls[at].args).toEqual(["distill", "--pr", "42"]);
+        expect(at).toBeGreaterThan(result.calls.indexOf(closeCall(result.calls)!));
+        expect(result.calls.some((c) => c.name === "claude" || c.name === "codex")).toBe(false);
     });
 
-    it("writes a stopped outcome quoting distill's final message when no pull request opened", () => {
-        const result = run("42", [], { DISTILL_PR_URL: "", DISTILL_FINAL: "Blocked: taxonomy forced fit for concept X." });
-        expect(result.status).toBe(0);
-        expect(result.stderr).toMatch(/stopped — no distillation pull request/);
-        expect(result.stderr).toContain("Blocked: taxonomy forced fit for concept X.");
-        expect(result.stderr).toContain(`nexus pr-worktree remove ${worktree}`);
+    it("shows the distillation pull request nexus distill reports", () => {
+        const result = run("42", [], { DISTILL_PR_URL: "https://github.com/acme/repo/pull/9" });
+        expect(result.stdout).toContain("https://github.com/acme/repo/pull/9");
+    });
+
+    it("ends with nexus distill's stop and exit status when no pull request opened", () => {
+        const result = run("42", [], { DISTILL_STOPS: "1", DISTILL_FINAL: "Blocked: taxonomy forced fit for concept X." });
+        expect(result.status).not.toBe(0);
+        expect(result.stdout).toContain("Blocked: taxonomy forced fit for concept X.");
     });
 
     it("returns immediately under --background, without waiting for distill", () => {
@@ -343,26 +308,25 @@ describe("close-epic.sh — distill runs unattended in the worktree (D1, D8, D9)
         expect(result.status).toBe(0);
         expect(result.stderr).toMatch(/background/);
     });
+
+    it("passes a chosen claude permission mode on to nexus distill", () => {
+        const result = run("42", [], { PERMISSION_MODE: "acceptEdits", DISTILL_PR_URL: "u" });
+        expect(result.calls[distillCall(result.calls)].args).toEqual(expect.arrayContaining(["--permission-mode", "acceptEdits"]));
+    });
 });
 
 describe("close-epic.sh — Codex harness parity (D10)", () => {
-    it("runs distill via codex exec, and close as nexus close, when HARNESS=codex", () => {
-        const result = run("42", [], { HARNESS: "codex" });
+    it("runs distill under codex, and close as nexus close, when HARNESS=codex", () => {
+        const result = run("42", [], { HARNESS: "codex", DISTILL_PR_URL: "u" });
         expect(result.status).toBe(0);
-        expect(result.calls.some((c) => c.name === "codex" && c.args.includes("exec"))).toBe(true);
+        expect(result.calls[distillCall(result.calls)].args).toEqual(expect.arrayContaining(["--harness", "codex"]));
         expect(closeCall(result.calls)).toBeDefined();
         expect(interactiveSession(result.calls)).toBe(false);
-        expect(result.calls.some((c) => c.name === "claude")).toBe(false);
     });
 
-    it("gives codex distill the main checkout's git folder as a writable place (R2)", () => {
-        const result = run("42", [], { HARNESS: "codex" });
-        const distill = result.calls.find(
-            (c) => c.name === "codex" && c.args.includes("exec") && c.args.some((a) => a.includes("$nxs-distill")),
-        )!;
-        const at = distill.args.indexOf("--add-dir");
-        expect(at).toBeGreaterThan(-1);
-        expect(distill.args[at + 1]).toBe("/main/checkout/.git");
+    it("passes the Codex sandbox on to nexus distill as its permission mode", () => {
+        const result = run("42", [], { HARNESS: "codex", CODEX_SANDBOX: "danger-full-access", DISTILL_PR_URL: "u" });
+        expect(result.calls[distillCall(result.calls)].args).toEqual(expect.arrayContaining(["--permission-mode", "danger-full-access"]));
     });
 });
 
@@ -377,11 +341,11 @@ const entryPoints: Array<[string, string, NodeJS.ProcessEnv]> = [
 describe("close-epic.sh — close runs unattended, as nexus close (G40)", () => {
     for (const [label, entry, env] of entryPoints) {
         it(`${label}: runs nexus close then distill, with no interactive stage`, () => {
-            const result = run("42", [], env, entry);
+            const result = run("42", [], { ...env, DISTILL_PR_URL: "u" }, entry);
             expect(result.status).toBe(0);
             const close = closeCall(result.calls);
             expect(close).toBeDefined();
-            expect(close!.args).toEqual(expect.arrayContaining(["--pr", "42", "--handoff"]));
+            expect(close!.args).toEqual(["close", "--pr", "42"]);
             expect(interactiveSession(result.calls)).toBe(false);
             expect(closeThroughHarness(result.calls)).toBe(false);
             const closeAt = result.calls.indexOf(close!);
@@ -390,17 +354,16 @@ describe("close-epic.sh — close runs unattended, as nexus close (G40)", () => 
     }
 
     it("the Codex entry point sends distill to codex, not claude", () => {
-        const result = run("42", [], {}, codexEntry);
-        expect(result.calls.some((c) => c.name === "codex" && c.args.includes("exec"))).toBe(true);
-        expect(result.calls.some((c) => c.name === "claude")).toBe(false);
+        const result = run("42", [], { DISTILL_PR_URL: "u" }, codexEntry);
+        expect(result.calls[distillCall(result.calls)].args).toEqual(expect.arrayContaining(["--harness", "codex"]));
     });
 
-    it("passes extra harness arguments to distill only, never to nexus close", () => {
-        const result = run("42", ["--model", "opus"]);
+    it("passes extra harness arguments to distill only, after --, never to nexus close", () => {
+        const result = run("42", ["--model", "opus"], { DISTILL_PR_URL: "u" });
         expect(result.status).toBe(0);
         expect(closeCall(result.calls)!.args).not.toContain("--model");
         const distill = result.calls[distillCall(result.calls)];
-        expect(distill.args).toEqual(expect.arrayContaining(["--model", "opus"]));
+        expect(distill.args.slice(distill.args.indexOf("--"))).toEqual(["--", "--model", "opus"]);
     });
 });
 
@@ -417,10 +380,9 @@ describe("close-epic.sh — a close stop starts no distill (G41)", () => {
         });
     }
 
-    it("checks no hand-off note after a stop", () => {
+    it("starts no nexus distill after a stop", () => {
         const result = run("42", [], { CLOSE_STOPS: "1" });
         expect(result.status).not.toBe(0);
-        expect(result.calls.some((c) => c.name === "gh" && c.args[0] === "issue")).toBe(false);
         expect(distillCall(result.calls)).toBe(-1);
     });
 });
