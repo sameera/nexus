@@ -8,7 +8,9 @@ import { type Judgments, JUDGMENTS_MARKER, parseJudgmentsBlock, openItems } from
 import { RECEIPT_MARKER } from "@nexus/pr-acceptance/receipt-blocks";
 import { parseReceiptBlock } from "@nexus/pr-acceptance/verify";
 import { VERDICT_SIZE_LIMIT, longestFields } from "./publish-check.js";
-import { type VerdictFacts, inlineText, missingFields, parseVerdictFacts, renderVerdict } from "./verdict-render.js";
+import { parseAnswerLines } from "@nexus/pr-acceptance/waiver";
+import { applyAnswers } from "./verdict-items.js";
+import { type VerdictFacts, inlineText, locationLink, missingFields, parseVerdictFacts, renderVerdict } from "./verdict-render.js";
 
 const HEAD = "a".repeat(40);
 const HASH = "b".repeat(64);
@@ -46,10 +48,23 @@ export function judgments(): Judgments {
                 supersedes: null,
                 answer: { verb: "accepted", author: "lead", link: "https://github.com/acme/app/pull/12#c1", reason: "fine for now" },
             },
-            { id: "DV1", kind: "departure", found: true, severity: "critical", departsFrom: "G3", summary: "model writes text", files: ["src/b.ts"], stub: null, supersedes: null, answer: null },
+            {
+                id: "DV1",
+                kind: "departure",
+                found: true,
+                severity: "critical",
+                departsFrom: "G3",
+                summary: "model writes text",
+                files: ["src/b.ts"],
+                stub: null,
+                supersedes: null,
+                answer: null,
+                fix: "render the body in the ID step",
+                location: { file: "src/b.ts", line: 12 },
+            },
         ],
         findings: [
-            { id: "F1", kind: "finding", found: true, severity: "medium", about: "#924 AC2", summary: "counts differ", files: [], answer: null },
+            { id: "F1", kind: "finding", found: true, severity: "medium", about: "#924 AC2", summary: "counts differ", files: [], answer: null, fix: "count once" },
             { id: "F2", kind: "finding", found: false, severity: "high", about: "#924 AC1", summary: "gone", files: [], answer: null },
         ],
         deferred: [],
@@ -77,8 +92,11 @@ describe("the same input gives the same bytes (D5; G1)", () => {
     });
 
     it("lists items by kind, then by ID number, whatever order they arrive in", () => {
-        const body = renderVerdict({ judgments: judgments(), facts: facts(), unapplied: [] }).body;
-        const order = ["DV1", "DV2", "F1", "F2"].map((id) => body.indexOf(`**${id}**`));
+        const j = judgments();
+        j.items[0] = { ...j.items[0], answer: null, fix: "x", location: { file: "src/a.ts", line: 1 } };
+        j.findings[0] = { ...j.findings[0], severity: "high" };
+        const body = renderVerdict({ judgments: j, facts: facts(), unapplied: [] }).body;
+        const order = ["DV1", "DV2", "F1"].map((id) => body.indexOf(`**${id}**`));
         expect(order.every((at) => at >= 0)).toBe(true);
         expect([...order].sort((x, y) => x - y)).toEqual(order);
     });
@@ -163,10 +181,94 @@ describe("an open item judged in this run must carry what the verdict shows (D4;
         expect(missingFields(j, new Set(["DV1", "DV2", "F1"]))).toEqual([{ id: "DV1", subject: "G3", field: "summary" }]);
     });
 
+    it("requires a fix, and a location when the item has files (#925)", () => {
+        const j = judgments();
+        const { fix: _fix, location: _location, ...bare } = j.items[1] as typeof j.items[1] & { fix?: string };
+        j.items[1] = bare;
+        expect(missingFields(j, new Set(["DV1"]))).toEqual([
+            { id: "DV1", subject: "G3", field: "fix" },
+            { id: "DV1", subject: "G3", field: "location" },
+        ]);
+    });
+
     it("does not refuse an item carried unchanged from an earlier verdict", () => {
         const j = judgments();
         j.items[1] = { ...j.items[1], summary: "" };
         expect(missingFields(j, new Set(["F1"]))).toEqual([]);
+    });
+});
+
+describe("the verdict shows what blocks first, and how to resolve each item (epic #923, story #925)", () => {
+    const render = (j: Judgments = judgments(), unapplied: Parameters<typeof renderVerdict>[0]["unapplied"] = []): string => renderVerdict({ judgments: j, facts: facts(), unapplied }).body;
+
+    it("says blocked or clear to merge on the first line, then the open count per severity (D7; G9)", () => {
+        expect(render().split("\n")[0]).toMatch(/^## Blocked · critical 1 · high 0 · medium 1 · low 0 · checks by hand 1$/);
+        const clear = judgments();
+        clear.items = clear.items.filter((d) => d.id !== "DV1");
+        expect(render(clear).split("\n")[0]).toMatch(/^## Clear to merge · critical 0 · high 0 · medium 1 · low 0/);
+    });
+
+    it("orders the item sections needs action, worth a look, already answered, no longer found (D8; G10)", () => {
+        const at = ["### Needs action", "### Worth a look", "### Already answered", "### No longer found"].map((h) => render().indexOf(h));
+        expect(at.every((x) => x > 0)).toBe(true);
+        expect([...at].sort((a, b) => a - b)).toEqual(at);
+    });
+
+    it("shows an open item's ID, severity and subject, then what is wrong, the location link, and how to resolve it (G11)", () => {
+        const body = render();
+        const item = body.slice(body.indexOf("**DV1**"), body.indexOf("### Worth a look"));
+        expect(item.split("\n")[0]).toBe("**DV1** · critical · G3");
+        const order = ["What is wrong: model writes text", "Location: [src/b.ts:12]", "Fix: render the body in the ID step", "DV1 — accepted:", "/nxs.analyze --pr 12 --resolve"].map((t) => item.indexOf(t));
+        expect(order.every((x) => x > 0)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+
+    it("links the location at the analyzed head in the code repository, host included (D10; G16)", () => {
+        expect(render()).toContain(`(https://github.com/acme/app/blob/${HEAD}/src/b.ts#L12)`);
+        expect(locationLink({ repo: "git.example.com/acme/app", head: HEAD }, { file: "a b.ts", line: 3 })).toBe(`[a b.ts:3](https://git.example.com/acme/app/blob/${HEAD}/a%20b.ts#L3)`);
+    });
+
+    it("prints a paste line in its own code block that applies nothing pasted unedited (D9; G12, R2)", () => {
+        const body = render();
+        expect(body).toContain("  ```text\n  DV1 — accepted:\n  ```");
+        const pasted = parseAnswerLines("DV1 — accepted:");
+        expect(pasted.every((a) => a.reason.length === 0)).toBe(true);
+        const applied = applyAnswers(judgments(), pasted.map((a) => ({ ...a, author: "lead", url: "u", at: "2026-10-17T00:00:00Z", trusted: true })));
+        expect(applied.unapplied.map((u) => u.why)).toEqual(["no-reason"]);
+    });
+
+    it("gives medium and low findings a fix and no paste line", () => {
+        const body = render();
+        const worth = body.slice(body.indexOf("### Worth a look"), body.indexOf("### Already answered"));
+        expect(worth).toContain("Fix: count once");
+        expect(worth).not.toContain("F1 — waived:");
+    });
+
+    it("shows the deferral approval line only on the item it settles (R2)", () => {
+        const j = judgments();
+        j.deferred = [{ id: "DS1", kind: "deferred-scope", found: true, settles: "DV1", summary: "the rest", answer: null }];
+        const body = render(j);
+        expect(body.split("DS1 — approved:")).toHaveLength(2);
+        expect(body.indexOf("DS1 — approved:")).toBeLessThan(body.indexOf("### Worth a look"));
+    });
+
+    it("shows an answered item's subject, then the answer, who gave it, the reason and its ID (G13)", () => {
+        expect(render()).toMatch(/- D4 — accepted by @lead \(\[comment\]\(https:\/\/github\.com\/acme\/app\/pull\/12#c1\)\): fine for now · DV2/);
+    });
+
+    it("lists an item no longer found with its answer, never dropping it (G14)", () => {
+        const body = render();
+        expect(body.slice(body.indexOf("### No longer found"))).toContain("#924 AC1 · F2 · unanswered");
+    });
+
+    it("names every answer that applied nothing, with its author and link (G15)", () => {
+        const body = render(judgments(), [
+            { id: "DV1", verb: "accepted", author: "guest", url: "https://x/1", why: "untrusted" },
+            { id: "F9", verb: "waived", author: "lead", url: "https://x/2", why: "unknown-id" },
+        ]);
+        const needs = body.slice(body.indexOf("### Needs action"), body.indexOf("### Worth a look"));
+        expect(needs).toContain("Answer not applied: @guest on DV1 ([comment](https://x/1)): untrusted");
+        expect(needs).toContain("Answer not applied: @lead on F9 ([comment](https://x/2)): unknown-id");
     });
 });
 

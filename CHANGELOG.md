@@ -13,6 +13,14 @@ behaviour says so.
   in the text, in the receipt and in the hidden data always agree, and the same judgments always
   give the same verdict, byte for byte. The review requests changes exactly when the step prints
   `blocked: true`.
+- **The verdict on a pull request leads with what blocks.** Its first line says **Blocked** or
+  **Clear to merge**, then the open count per severity. Items follow in four sections: needs
+  action, worth a look, already answered, and no longer found.
+- **Each open item says how to resolve it.** It shows its ID, severity and subject, what is wrong,
+  a link to the file and line at the analyzed commit, and a fix. An item you can answer on the pull
+  request also shows the exact answer line to paste and the `--resolve` command to run afterwards.
+  The accept and waive lines stop after the colon, so you must write a reason before they apply.
+  Draft every departure and finding with a `fix`, and a `location` when it has files.
 - **An open item judged in a run must carry what the verdict shows.** One that lacks a field is
   refused with `item-incomplete`, naming its ID, its subject and the field, and nothing is
   published. Items carried over from a verdict published before this release are shown without

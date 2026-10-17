@@ -32,11 +32,13 @@ import {
     type EpicLevel,
     type Finding,
     type ItemAnswer,
+    type ItemLocation,
     type Judgments,
     type RecordKeyDecisions,
     type Result,
     openItems,
     parseJudgmentsBlock,
+    readFixAndLocation,
     readResults,
     splitItemId,
 } from "@nexus/pr-acceptance/judgments-block";
@@ -56,6 +58,10 @@ export interface DepartureDraft {
     supersedes: { decision: string; instead: string } | null;
     /** Record scope the delivered stories leave out, proposed for deferral (D7); absent when none. */
     deferred?: string | null;
+    /** What to change in the code to resolve it (epic #923, D9). */
+    fix?: string;
+    /** Where it shows, at the analyzed head (epic #923, D10). */
+    location?: ItemLocation;
 }
 
 /** One finding as analyze judged it, before it has an ID. */
@@ -67,6 +73,8 @@ export interface FindingDraft {
     files: string[];
     /** The missing part of an unmet or partial criterion, proposed for deferral (D7); absent when none. */
     deferred?: string | null;
+    fix?: string;
+    location?: ItemLocation;
 }
 
 export type ParsedDraft =
@@ -163,7 +171,9 @@ function readFindingDraft(raw: unknown): FindingDraft | string {
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
     const deferred = readDeferral(raw);
     if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
-    return { about, severity: severity as Finding["severity"], summary: (summary as string | undefined) ?? "", files: files as string[], ...(deferred === null ? {} : { deferred }) };
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
+    return { ...extra, about, severity: severity as Finding["severity"], summary: (summary as string | undefined) ?? "", files: files as string[], ...(deferred === null ? {} : { deferred }) };
 }
 
 function readDraft(raw: unknown): DepartureDraft | string {
@@ -183,7 +193,10 @@ function readDraft(raw: unknown): DepartureDraft | string {
     }
     const deferred = readDeferral(raw);
     if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
     return {
+        ...extra,
         ...(deferred === null ? {} : { deferred }),
         departsFrom,
         summary: (summary as string | undefined) ?? "",
@@ -232,6 +245,7 @@ export function assignItemIds(
                 stub: draft.stub,
                 supersedes: draft.supersedes,
                 answer: match?.answer ?? null,
+                ...fixAndLocation(draft),
             };
         },
     );
@@ -253,10 +267,16 @@ export function assignItemIds(
                 files: draft.files,
                 // A waiver holds only while the finding can be waived (G13).
                 answer: draft.severity === "critical" || draft.severity === "high" ? (match?.answer ?? null) : null,
+                ...fixAndLocation(draft),
             };
         },
     );
     return { items, findings: judgedFindings, deferred: numberDeferrals(registry, proposals, rejudge) };
+}
+
+/** The draft's fix and location, when it gives them (epic #923, D3). */
+function fixAndLocation(draft: { fix?: string; location?: ItemLocation }): { fix?: string; location?: ItemLocation } {
+    return { ...(draft.fix === undefined ? {} : { fix: draft.fix }), ...(draft.location === undefined ? {} : { location: draft.location }) };
 }
 
 /**

@@ -78,6 +78,16 @@ export interface Departure {
     /** Set only when the code does the opposite of what a record decision chose. */
     supersedes: { decision: string; instead: string } | null;
     answer: ItemAnswer | null;
+    /** What to change in the code to resolve it (epic #923, D3); absent on an item judged before it was carried. */
+    fix?: string;
+    /** Where it shows, at the analyzed head (epic #923, D3, D10); absent when it has no file or was judged before. */
+    location?: ItemLocation;
+}
+
+/** One file and line, at the analyzed head, where an item shows. */
+export interface ItemLocation {
+    file: string;
+    line: number;
 }
 
 /** Something analyze found wrong that is not a departure: an unmet criterion, a metric not moved. */
@@ -96,6 +106,10 @@ export interface Finding {
     files: string[];
     /** Only a critical or high finding can carry a waiver (G13). */
     answer: ItemAnswer | null;
+    /** What to change in the code to resolve it (epic #923, D3). */
+    fix?: string;
+    /** Where it shows, at the analyzed head (epic #923, D3, D10). */
+    location?: ItemLocation;
 }
 
 /**
@@ -483,6 +497,8 @@ function readFinding(raw: Record<string, unknown>): Finding | string {
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list";
     if (answer !== null && !isAnswer(answer)) return "carries an unreadable answer";
     if (answer !== null && severity !== "critical" && severity !== "high") return "is waived, but only a critical or high finding can be";
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
     return {
         id: raw["id"] as string,
         kind: "finding",
@@ -492,6 +508,7 @@ function readFinding(raw: Record<string, unknown>): Finding | string {
         summary,
         files: files as string[],
         answer: answer === null ? null : (answer as unknown as ItemAnswer),
+        ...extra,
     };
 }
 
@@ -557,6 +574,8 @@ function readDeparture(raw: Record<string, unknown>): Departure | string {
         return "is marked superseding without naming the decision and what the code does instead";
     }
     if (answer !== null && !isAnswer(answer)) return "carries an unreadable answer";
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
     return {
         id: raw["id"] as string,
         kind: "departure",
@@ -571,7 +590,29 @@ function readDeparture(raw: Record<string, unknown>): Departure | string {
                 ? null
                 : { decision: (supersedes as Record<string, string>)["decision"], instead: (supersedes as Record<string, string>)["instead"] },
         answer: answer === null ? null : (answer as unknown as ItemAnswer),
+        ...extra,
     };
+}
+
+/**
+ * An item's optional fix and location (epic #923, D3). Absent reads as none, so a block written
+ * before they were carried reads the same; a present one must be well formed.
+ */
+export function readFixAndLocation(raw: Record<string, unknown>): { fix?: string; location?: ItemLocation } | string {
+    const out: { fix?: string; location?: ItemLocation } = {};
+    const fix = raw["fix"] ?? null;
+    if (fix !== null) {
+        if (!nonEmpty(fix)) return "carries a fix that is not text (fix)";
+        out.fix = fix;
+    }
+    const location = raw["location"] ?? null;
+    if (location !== null) {
+        if (!isRecord(location) || !nonEmpty(location["file"]) || typeof location["line"] !== "number" || !Number.isInteger(location["line"]) || location["line"] < 1) {
+            return "carries a location without its file and a line from 1 (location)";
+        }
+        out.location = { file: location["file"], line: location["line"] };
+    }
+    return out;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
