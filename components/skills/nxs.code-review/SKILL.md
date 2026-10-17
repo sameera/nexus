@@ -96,9 +96,8 @@ findings always get the same groups and the same numbers.
     when it should fail.
   - **Medium**: a person is shown a wrong result that looks plausible, or a valid change is
     blocked.
-  - **Low**: a nuisance with an obvious workaround — a misleading message, noisy output, a slower
-    path — that leaves every result correct.
-  - **Negligible**: no effect on behaviour — wording, naming or style.
+  - **Low**: a loud false failure, or local-only confusion.
+  - **Negligible**: performance or tidiness only.
 - **Fix effort** — the work the fix takes: very low, low, medium or high.
 - **Regression risk** — the chance the fix breaks something else: none, very low, low, medium or
   high.
