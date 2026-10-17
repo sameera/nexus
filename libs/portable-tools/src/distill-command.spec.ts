@@ -44,6 +44,8 @@ function harness(over: Partial<DistillDeps> = {}, end: SessionEnd = { started: t
     h.deps = {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot: mainRoot, repo: { identity: "acme/app", source: "origin" } as never } }),
         epicOfPr: () => ({ ok: true, epic: EPIC, issuesRepo: "acme/app" }),
+        epicClosed: () => ({ ok: true, closed: true }),
+        branchPushed: () => ({ ok: true, pushed: true }),
         findBranch: () => ({ ok: true, branch: BRANCH, source: "local" }),
         worktreeOn: () => wtPath,
         mainCheckout: () => mainRoot,
@@ -60,6 +62,12 @@ function harness(over: Partial<DistillDeps> = {}, end: SessionEnd = { started: t
         ...over,
     };
     return h;
+}
+
+/** GitHub shows no open pull request before the session, then `read` after it. */
+function afterSession(read: ReturnType<DistillDeps["openPr"]>): DistillDeps["openPr"] {
+    let calls = 0;
+    return () => (calls++ === 0 ? { ok: true, url: null } : read);
 }
 
 function input(over: Partial<DistillInput> = {}): DistillInput {
@@ -132,7 +140,7 @@ describe("nexus distill — success is read from GitHub only (AC2, AC3, D4, G12,
     });
 
     it("reports an unconfirmed outcome, never success, when GitHub cannot be read", async () => {
-        const h = harness({ openPr: () => ({ ok: false, message: "HTTP 502" }) });
+        const h = harness({ openPr: afterSession({ ok: false, message: "HTTP 502" }) });
         const { code, out } = await run(h);
         expect(code).not.toBe(0);
         expect(out).toMatch(/unconfirmed/);
@@ -147,7 +155,7 @@ describe("nexus distill — success is read from GitHub only (AC2, AC3, D4, G12,
     });
 
     it("reports success, noting the error, when the session opened the pull request and then failed", async () => {
-        const h = harness({ openPr: () => ({ ok: true, url: URL }) }, { started: true, exitCode: 1, error: "crashed", finalMessage: null });
+        const h = harness({ openPr: afterSession({ ok: true, url: URL }) }, { started: true, exitCode: 1, error: "crashed", finalMessage: null });
         const { code, out } = await run(h);
         expect(code).toBe(0);
         expect(out).toContain(URL);
@@ -197,6 +205,86 @@ describe("nexus distill — codex (D8, G27)", () => {
         expect(code).not.toBe(0);
         expect(err).toContain("codex");
         expect(h.sessions).toHaveLength(0);
+    });
+});
+
+describe("nexus distill — refusals before a session starts (story #911, D2, D3, D4)", () => {
+    /** A refusal: non-zero, no session, and no run folder written (G7). */
+    async function refused(h: Harness, over: Partial<DistillInput> = {}): Promise<string> {
+        const { code, err } = await run(h, over);
+        expect(code).not.toBe(0);
+        expect(h.sessions).toHaveLength(0);
+        expect(fs.existsSync(path.join(h.mainRoot, ".nexus"))).toBe(false);
+        expect(err).toContain("No session was started");
+        return err;
+    }
+
+    it("refuses while the epic is still open, naming nexus close --pr <N> (AC1, G2)", async () => {
+        const err = await refused(harness({ epicClosed: () => ({ ok: true, closed: false }) }));
+        expect(err).toMatch(/still open/);
+        expect(err).toContain(`nexus close --pr ${PR}`);
+    });
+
+    it("passes on close's own stop for a pull request that has not merged (G2)", async () => {
+        const stop = { reason: "pull request 901 is not merged (it is open)", item: "pr", remedy: `merge it, then re-run nexus close --pr ${PR}` };
+        let rerun = "";
+        const err = await refused(harness({ epicOfPr: (_r, _p, again) => ((rerun = again), { ok: false, stop }) }));
+        expect(rerun).toBe(`nexus close --pr ${PR}`);
+        expect(err).toContain("not merged");
+        expect(err).toContain(`nexus close --pr ${PR}`);
+    });
+
+    it("names a missing distillation branch apart from a missing worktree, with nexus close --pr <N> as the remedy (AC2, G3)", async () => {
+        const noBranch = await refused(harness({ findBranch: () => ({ ok: true, branch: null }) }));
+        expect(noBranch).toMatch(/no distillation branch/);
+        expect(noBranch).toContain(`nexus close --pr ${PR}`);
+        const noWorktree = await refused(harness({ worktreeOn: () => null }));
+        expect(noWorktree).toMatch(/no worktree/);
+        expect(noWorktree).toContain(BRANCH);
+        expect(noWorktree).toContain(`nexus close --pr ${PR}`);
+    });
+
+    it("refuses when the distillation branch is not pushed, naming the branch (AC3, G4)", async () => {
+        const err = await refused(harness({ branchPushed: () => ({ ok: true, pushed: false }) }));
+        expect(err).toMatch(/not pushed/);
+        expect(err).toContain(BRANCH);
+    });
+
+    it("refuses in a hub or a member checkout, naming the manual route (AC4, G1)", async () => {
+        for (const role of ["hub", "member"] as const) {
+            const h = harness({ role: () => ({ ok: true, preflight: { role, repoRoot: "/r", repo: { identity: "acme/app", source: "origin" } as never } }) });
+            let resolved = false;
+            h.deps.epicOfPr = () => ((resolved = true), { ok: true, epic: EPIC, issuesRepo: "acme/app" });
+            const err = await refused(h);
+            expect(err).toContain("/nxs.distill <worktree-path>");
+            expect(resolved).toBe(false);
+        }
+    });
+
+    it("refuses when a distillation pull request from the branch is already open, printing its URL (D4, G5)", async () => {
+        const err = await refused(harness({ openPr: () => ({ ok: true, url: URL }) }));
+        expect(err).toContain(URL);
+        expect(err).toMatch(/already open/);
+    });
+
+    it("runs the cheap checks before the GitHub reads: a hub is refused without resolving anything (D3)", async () => {
+        const reads: string[] = [];
+        const h = harness({
+            role: () => ({ ok: true, preflight: { role: "hub", repoRoot: "/r", repo: { identity: "acme/app", source: "origin" } as never } }),
+            epicClosed: () => (reads.push("epic"), { ok: true, closed: true }),
+            openPr: () => (reads.push("pr"), { ok: true, url: null }),
+        });
+        await refused(h);
+        expect(reads).toEqual([]);
+    });
+
+    it("reads the epic state and the push remote through gh and git", () => {
+        const calls: string[][] = [];
+        const deps = distillDeps((cmd, args) => (calls.push([cmd, ...args]), cmd === "git" ? { status: 2, stdout: "", stderr: "" } : { status: 0, stdout: "CLOSED\n", stderr: "" }));
+        expect(deps.epicClosed("/r", "acme/app", EPIC)).toEqual({ ok: true, closed: true });
+        expect(deps.branchPushed("/r", BRANCH)).toEqual({ ok: true, pushed: false });
+        expect(calls[0]).toEqual(expect.arrayContaining(["gh", "issue", "view", String(EPIC), "--repo", "acme/app"]));
+        expect(calls[1]).toEqual(expect.arrayContaining(["git", "ls-remote", `refs/heads/${BRANCH}`]));
     });
 });
 
