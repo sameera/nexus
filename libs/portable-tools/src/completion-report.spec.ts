@@ -161,7 +161,7 @@ describe("stage-specific content keeps its place under the heading it belongs to
     });
 });
 
-describe("analyze uses one layout for its terminal report and its published review", () => {
+describe("analyze's terminal report keeps its layout, and on a pull request the toolkit writes the published review (epic #923, D12)", () => {
     it("lists each open critical or high item by ID under Blocked on me, with its detail under Found", () => {
         const blocked: string = under(ANALYZE_REPORT, "Blocked on me");
         expect(blocked).toMatch(/DV<n> \(<critical\|high>\)/);
@@ -169,8 +169,9 @@ describe("analyze uses one layout for its terminal report and its published revi
         expect(blocked).not.toMatch(/medium|low/);
     });
 
-    it("publishes the same summary, verbatim, as the review body", () => {
-        expect(between(ANALYZE, "## PR mode — publish a review", "2. **Check the drafted body")).toMatch(/the summary block above \*\*verbatim\*\*/);
+    it("publishes the body the ID step wrote, never one the stage writes, and keeps the short completion report in the terminal", () => {
+        expect(flat(between(ANALYZE, "## PR mode — publish a review", "2. **Check the drafted body"))).toMatch(/which the ID step wrote[\s\S]*\*\*Never write or edit it by hand\.\*\*/);
+        expect(flat(ANALYZE)).toMatch(/In `--pr` mode the two separate\*\* \(epic #923, record #949, D12\)/);
     });
 
     it("keeps the fixed result line last and spelled as before, after Found", () => {

@@ -78,6 +78,16 @@ export interface Departure {
     /** Set only when the code does the opposite of what a record decision chose. */
     supersedes: { decision: string; instead: string } | null;
     answer: ItemAnswer | null;
+    /** What to change in the code to resolve it (epic #923, D3); absent on an item judged before it was carried. */
+    fix?: string;
+    /** Where it shows, at the analyzed head (epic #923, D3, D10); absent when it has no file or was judged before. */
+    location?: ItemLocation;
+}
+
+/** One file and line, at the analyzed head, where an item shows. */
+export interface ItemLocation {
+    file: string;
+    line: number;
 }
 
 /** Something analyze found wrong that is not a departure: an unmet criterion, a metric not moved. */
@@ -96,6 +106,10 @@ export interface Finding {
     files: string[];
     /** Only a critical or high finding can carry a waiver (G13). */
     answer: ItemAnswer | null;
+    /** What to change in the code to resolve it (epic #923, D3). */
+    fix?: string;
+    /** Where it shows, at the analyzed head (epic #923, D3, D10). */
+    location?: ItemLocation;
 }
 
 /**
@@ -182,6 +196,8 @@ export interface Result {
     looked?: string;
     /** Unconfirmed only: what would confirm it. */
     confirmBy?: string;
+    /** Where the judgment rests, as locations (epic #923, D3); absent on a result judged before it was carried. */
+    evidence?: string;
 }
 
 /** Phase 0.7's answer for the pull request: judge the epic level, report it not run, or skip it. */
@@ -201,6 +217,10 @@ export interface Judgments {
     filesDropped?: boolean;
     /** The key decisions (D5, D6); absent in a block written before they were carried. */
     keyDecisions?: KeyDecisions;
+    /** Material behaviour no story called for (epic #923, D3); absent in a block written before it was carried. */
+    scopeDrift?: string[];
+    /** The run's notes, such as stories still open (epic #923, D3); absent in a block written before they were carried. */
+    notes?: string[];
 }
 
 export type ParsedJudgments = { ok: true; judgments: Judgments | null } | { ok: false; message: string };
@@ -220,12 +240,16 @@ export function renderJudgmentsBlock(judgments: {
     epicLevel?: EpicLevel;
     filesDropped?: boolean;
     keyDecisions?: KeyDecisions;
+    scopeDrift?: readonly string[];
+    notes?: readonly string[];
 }): string {
     const doc: Record<string, unknown> = { schema: SCHEMA, items: [...judgments.items, ...(judgments.findings ?? []), ...(judgments.deferred ?? [])] };
     if (judgments.keyDecisions !== undefined) doc["keyDecisions"] = judgments.keyDecisions;
     if (judgments.results !== undefined) doc["results"] = judgments.results;
     if (judgments.epicLevel !== undefined) doc["epicLevel"] = judgments.epicLevel;
     if (judgments.filesDropped === true) doc["filesDropped"] = true;
+    if (judgments.scopeDrift !== undefined) doc["scopeDrift"] = judgments.scopeDrift;
+    if (judgments.notes !== undefined) doc["notes"] = judgments.notes;
     return `${JUDGMENTS_MARKER}\n${ENCODED_OPEN}${deflateRawSync(JSON.stringify(doc)).toString("base64")} -->\n`;
 }
 
@@ -303,6 +327,13 @@ export function parseJudgmentsBlock(body: string): ParsedJudgments {
     if (doc["filesDropped"] !== undefined) {
         if (typeof doc["filesDropped"] !== "boolean") return fail("the judgments block's filesDropped is not true or false");
         judgments.filesDropped = doc["filesDropped"];
+    }
+    // Optional fields a later release added (epic #923, D3): a reader from an earlier release ignores them.
+    for (const key of ["scopeDrift", "notes"] as const) {
+        if (doc[key] === undefined) continue;
+        const list = doc[key];
+        if (!Array.isArray(list) || !list.every((x) => typeof x === "string")) return fail(`the judgments block's ${key} is not a list of text`);
+        judgments[key] = list as string[];
     }
     return { ok: true, judgments };
 }
@@ -434,11 +465,14 @@ export function readResult(raw: unknown): Result | string {
         return `has no ${kind} verdict of ${RESULT_VERDICTS[kind].join(", ")} (verdict)`;
     }
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
-    if (verdict !== "unconfirmed") return { kind, about, verdict, files: files as string[] };
+    const evidence = raw["evidence"] ?? null;
+    if (evidence !== null && !nonEmpty(evidence)) return "carries evidence that is not text (evidence)";
+    const extra = evidence === null ? {} : { evidence };
+    if (verdict !== "unconfirmed") return { kind, about, verdict, files: files as string[], ...extra };
     const { looked, confirmBy } = raw;
     if (!nonEmpty(looked)) return "is unconfirmed but does not say where analyze looked, by file or by surface (looked)";
     if (!nonEmpty(confirmBy)) return "is unconfirmed but does not say what would confirm it (confirmBy)";
-    return { kind, about, verdict, files: files as string[], looked, confirmBy };
+    return { kind, about, verdict, files: files as string[], looked, confirmBy, ...extra };
 }
 
 /** Read a results list, refusing an unreadable entry or two results judging the same thing. */
@@ -468,6 +502,8 @@ function readFinding(raw: Record<string, unknown>): Finding | string {
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list";
     if (answer !== null && !isAnswer(answer)) return "carries an unreadable answer";
     if (answer !== null && severity !== "critical" && severity !== "high") return "is waived, but only a critical or high finding can be";
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
     return {
         id: raw["id"] as string,
         kind: "finding",
@@ -477,6 +513,7 @@ function readFinding(raw: Record<string, unknown>): Finding | string {
         summary,
         files: files as string[],
         answer: answer === null ? null : (answer as unknown as ItemAnswer),
+        ...extra,
     };
 }
 
@@ -542,6 +579,8 @@ function readDeparture(raw: Record<string, unknown>): Departure | string {
         return "is marked superseding without naming the decision and what the code does instead";
     }
     if (answer !== null && !isAnswer(answer)) return "carries an unreadable answer";
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
     return {
         id: raw["id"] as string,
         kind: "departure",
@@ -556,7 +595,29 @@ function readDeparture(raw: Record<string, unknown>): Departure | string {
                 ? null
                 : { decision: (supersedes as Record<string, string>)["decision"], instead: (supersedes as Record<string, string>)["instead"] },
         answer: answer === null ? null : (answer as unknown as ItemAnswer),
+        ...extra,
     };
+}
+
+/**
+ * An item's optional fix and location (epic #923, D3). Absent reads as none, so a block written
+ * before they were carried reads the same; a present one must be well formed.
+ */
+export function readFixAndLocation(raw: Record<string, unknown>): { fix?: string; location?: ItemLocation } | string {
+    const out: { fix?: string; location?: ItemLocation } = {};
+    const fix = raw["fix"] ?? null;
+    if (fix !== null) {
+        if (!nonEmpty(fix)) return "carries a fix that is not text (fix)";
+        out.fix = fix;
+    }
+    const location = raw["location"] ?? null;
+    if (location !== null) {
+        if (!isRecord(location) || !nonEmpty(location["file"]) || typeof location["line"] !== "number" || !Number.isInteger(location["line"]) || location["line"] < 1) {
+            return "carries a location without its file and a line from 1 (location)";
+        }
+        out.location = { file: location["file"], line: location["line"] };
+    }
+    return out;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

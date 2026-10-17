@@ -5,6 +5,42 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.116.0
+
+- **`/nxs.analyze --pr` writes no verdict text of its own any more; the toolkit writes the whole
+  published verdict.** The ID step (`nexus verdict-items --facts`) takes the run's judgments and
+  facts and writes the visible text, the receipt and the judgments block in one step. The counts
+  in the text, in the receipt and in the hidden data always agree, and the same judgments always
+  give the same verdict, byte for byte. The review requests changes exactly when the step prints
+  `blocked: true`.
+- **The verdict on a pull request leads with what blocks.** Its first line says **Blocked** or
+  **Clear to merge**, then the open count per severity. Items follow in four sections: needs
+  action, worth a look, already answered, and no longer found.
+- **Each open item says how to resolve it.** It shows its ID, severity and subject, what is wrong,
+  a link to the file and line at the analyzed commit, and a fix. An item you can answer on the pull
+  request also shows the exact answer line to paste and the `--resolve` command to run afterwards.
+  The accept and waive lines stop after the colon, so you must write a reason before they apply.
+  Draft every departure and finding with a `fix`, and a `location` when it has files.
+- **Supporting detail is folded away.** The stories table shows counts only. The evidence per
+  criterion sits in a collapsed section; draft it as each result's `evidence`. The epic-level
+  results are one table with one row per check. The mode, the record and its hash, the head commit,
+  the key decisions and the machine blocks sit in a collapsed run-details section. A section with
+  nothing to report is not shown.
+- **An open item judged in a run must carry what the verdict shows.** One that lacks a field is
+  refused with `item-incomplete`, naming its ID, its subject and the field, and nothing is
+  published. Items carried over from a verdict published before this release are shown without
+  the fields they never had.
+- **Text from the draft or from an answer can no longer change a verdict's structure.** Line
+  breaks fold to spaces and markup is escaped.
+- **A verdict over the platform's size limit names the longest draft fields to shorten**, by item
+  ID, instead of asking you to shorten summary prose.
+- **Every refusal of `nexus verdict-check` is corrected through the ID step.** Its remedy names
+  the draft or the `facts.json` field to fix, then says to run `nexus verdict-items` again and
+  check the body it writes. No remedy asks for a hand edit of the body any more.
+- **The terminal report of `/nxs.analyze --pr` is the short completion report.** It links to the
+  published verdict. A run without a pull request keeps its report and its result line.
+- Verdicts already published keep working with `nexus close` and the merge pre-check.
+
 ## 0.115.0
 
 - **`nexus distill` never reports success for a session that did not start.** If a distillation

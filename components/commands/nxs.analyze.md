@@ -354,7 +354,7 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
     step with the scope and no draft:
 
     ```bash
-    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>/scope.json" --out "<run>/judgments.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
+    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>/scope.json" --facts "<run>/facts.json" --out "<run>/analyze-review.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
     ```
 
     It carries every item, answer, result, deferred-scope proposal and confirmed stub of the last
@@ -372,7 +372,7 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
     result in `rejudge.results`. Then:
 
     ```bash
-    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>/scope.json" --draft "<run>/items.json" --out "<run>/judgments.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
+    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>/scope.json" --draft "<run>/items.json" --facts "<run>/facts.json" --out "<run>/analyze-review.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
     ```
 
     Every other item and result is carried forward unchanged, with its answer, and each
@@ -382,15 +382,14 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
     do not find again is listed as no longer found, with its answer. `draft-malformed` names a
     result in scope the draft left out, or one out of scope it judged again: fix the draft.
 
-In either recording mode, tick every story's line once `<run>/judgments.md` is written: it holds
+In either recording mode, tick every story's line once `<run>/analyze-review.md` is written: it holds
 every result. `scope-stale` means a newer verdict was published after the scope was
-computed: run `nexus verdict-scope` again. Then publish exactly as Phase 3's pull-request path
-does: write the summary from what the ID step printed — its `items`, `findings` and `results`, with
-each result's verdict on the per-story and `Departures:` lines, and each `unconfirmed` result, with
-its `looked` and `confirmBy`, under Blocked on me and `Unconfirmed:` — then the verdict block with `head`
-the analyzed head, the same `record` and `stories`, and `findings:` the `open` counts, then the
-judgments block verbatim, checked by `nexus verdict-check` before it goes out. The new verdict is
-complete — every result, item and answer, so no reader needs an earlier one — and it supersedes the
+computed: run `nexus verdict-scope` again. The ID step wrote the whole verdict body from the
+carried judgments and the run facts, the scope's lines included (epic #923, D3): **write no verdict
+text**, on this path either. Each `unconfirmed` result travels with its `looked` and `confirmBy`,
+and the verdict lists it again as a check by hand. Then check the body with `nexus verdict-check`
+and publish it exactly as Phase 3's pull-request path does.
+The new verdict is complete — every result, item and answer, so no reader needs an earlier one — and it supersedes the
 last one by the newest trusted rule close and the merge pre-check already apply.
 
 # Phase 1 — Gather the implementation surface
@@ -619,12 +618,45 @@ trusted verdict on this pull request as the registry, so an item found again kee
 answer survives a re-run, and it then applies the answers posted on the pull request (§2.6):
 
 ```bash
-nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<run>/items.json" --out "<run>/judgments.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
+nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<run>/items.json" --facts "<run>/facts.json" --out "<run>/analyze-review.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
 ```
 
 `--record-body` is the record body Phase 0.5 wrote to the run folder, and `--record-hash` the digest the
 verdict block stamps; omit both only in degraded mode. The step builds the record half of the key
 decisions from them (§2.7).
+
+**The toolkit writes the verdict; you write none of it** (epic #923, record #949, D1, D2). The ID
+step numbers the items, applies the answers, and then writes the **whole** verdict body to `--out`
+— the visible text, the receipt block and the judgments block — from the judgments and the **run
+facts** in `--facts`. You hand it only what the run knows that is not a judgment; write
+`<run>/facts.json` as:
+
+```json
+{ "epic": { "ref": "<epic-ref>", "title": "<epic title>" }, "pr": <N>, "repo": "<repoIdentity>",
+  "issuesRepo": "<ISSUES_REPO>", "stories": [{ "number": <n>, "ref": "<story-ref>", "title": "<title>" }],
+  "head": "<full 40-hex analyzedHead>", "date": "<YYYY-MM-DD>", "nexusVersion": "<nexus version>" | null,
+  "record": { "ref": "<record-ref>", "hash": "<RECORD_HASH>" } | null,
+  "epicLevel": { "state": "<Phase 0.7's epicLevel>", "lines": [<Phase 0.7's lines>] },
+  "concepts": { "pages": [<the concept pages the epic lists>], "checked": <n>, "notFound": [<listed pages not found>] } }
+```
+
+`record` is null only in degraded mode; the references follow the `nxs-issue-reference` rule
+(Phase 3). The published verdict reads top down (D7, D8): its first line says **Blocked** exactly
+when a critical or high item is open, else **Clear to merge**, then the open count per severity
+and the checks to make by hand, which never block. Then come the items in four sections: needs
+action, worth a look, already answered, and no longer found. Below them sit the stories table with
+counts only, the evidence per criterion in a collapsed section, one epic-level table with one row
+per check, and a collapsed run-details section holding the mode, the record and its full hash, the
+head, the key decisions and the concept-invariant sentence, and then the receipt and judgments
+blocks (epic #923, D11). A section with nothing to report is left out. The step prints `blocked`: true exactly when a critical or high item is open, and the
+review event follows it (Phase 3). Text you put in the draft is written as plain inline text, so a
+line break, a heading or a marker in it changes nothing about the verdict's structure (D6).
+
+**Every open item you judge must carry what the verdict shows** (D4). An open item judged in this
+run that lacks one is refused: the step exits 1 with `item-incomplete`, names the item's ID, its
+subject and the missing field, and writes nothing. Add the field to the draft and run the step
+again. An item carried unchanged from a verdict published before this release is shown without the
+fields it never had, and is never refused.
 
 The draft is `{ "departures": [ ... ], "findings": [ ... ], "confirmedStubs": [ ... ] }`. One entry
 per departure: `{ "departsFrom": "<D<n>, G<n>, title or section>", "summary": "<what the code
@@ -637,10 +669,15 @@ AC<k>), the metric, or the named check>", "severity": "<critical|high|medium|low
 "<what is wrong>", "files": ["<path>", ...], "deferred": "<the missing part of the criterion>" |
 null }`. `deferred` is set only as §2.7 allows. One entry per **confirmed stub**: `{ "path":
 "<stub>", "choice": "<what was chosen>", "reason": "<why>", "refuted": "<the alternative not
-taken, or none>" }`.
+taken, or none>" }`. Every departure and finding also carries `"fix": "<one sentence: what to change in the code to
+resolve it>"` and, when it has files, `"location": { "file": "<path>", "line": <n> }` — the one
+place at the analyzed head where it shows, which the verdict links at that commit (epic #923, D9,
+D10). Add `"scopeDrift": ["<unplanned behaviour>", ...]` (§2.4) and `"notes":
+["<stories still open, ...>", ...]` when there are any; the judgments block carries both, so a
+recording run shows them again.
 Cite the same element, or name the same thing judged, and the files it was judged on each run: two
 items are the same when they name the same thing and share a file. The step prints `{ registry,
-items, findings, results, open, answers }` and writes the judgments block to `--out`. Each
+items, findings, results, open, answers }` and writes the whole verdict body to `--out`. Each
 departure carries its `DV<n>` ID and each finding its `F<n>` ID, with its severity and its answer; one the last
 verdict listed and this run did not find again comes back with `found: false` and its answer, and
 is reported as **no longer found** — never dropped. A non-zero exit stops the publish: report the
@@ -662,7 +699,9 @@ criterion of §2.1, per guarantee or invariant of §2.2, and per success metric 
 "epicLevel": "<Phase 0.7's epicLevel>"
 ```
 
-List the files each judgment actually read. An empty list counts as affected by any change, so it
+Give each result `"evidence": "<where the judgment rests, as locations: file:line, a diff hunk
+or D<n>>"` — the verdict shows it in the collapsed evidence section, and the judgments block
+carries it for a recording run. List the files each judgment actually read. An empty list counts as affected by any change, so it
 is safe but costly; a list that leaves out a file the result depends on can carry a stale result
 across a moved head (record #871, R5). Write `looked` and `confirmBy` on an `unconfirmed` result
 only; the step refuses an unconfirmed result without them. A criterion's `unverifiable` in a
@@ -700,17 +739,21 @@ answers it applied under `answers.applied`, and every answer line that applied n
 - `no-reason` — an accepted or waived answer gave no reason.
 - `not-waivable` — only a critical or high finding can be waived.
 
-**Name every unapplied answer in the verdict**, on the `Answers not applied:` line, with its
-comment's author and link — never drop one, and never apply one by judgment. A decision stub
+**The ID step names every unapplied answer in the published verdict**, with its comment's author
+and link, under the item it names — never drop one from the terminal report, and never apply one by
+judgment. A decision stub
 explains a departure and answers nothing; a freely worded reply answers nothing either.
 
 **The severity counts are the open counts** (D4). An item is open while it is found and
-unanswered: an accepted departure and a waived finding count nothing. Write the counts the step
-printed as `open` into the `Severity:` line and the machine block's `findings:` — never totals, and
-never a count of your own. List each answered item separately, with who answered and the link.
-A comment that carries a verdict is never read as an answer, so write the item listing exactly in
-the form Phase 3 shows: an answered item reads `DV<n> (<severity>) accepted by @<who> ...`, never
-in the answer form.
+unanswered: an accepted departure and a waived finding count nothing. The ID step writes the `open` counts into the published verdict's headline and the machine
+block's `findings:` — never totals. It lists each answered item separately, with who answered and
+the link. You write none of this into the published verdict yourself (epic #923, D1); the terminal
+report carries the same `open` counts on its `Severity:` line, never a count of your own.
+A comment that carries a verdict is never read as an answer. So the published verdict prints, under
+each answerable open item, the exact line to paste in its own code block — `DV<n> — accepted:`,
+`F<n> — waived:`, and `DS<n> — approved:` only on the item that proposal settles — and the command
+to run afterwards (epic #923, D9). The accepted and waived lines stop after the colon: pasted
+unedited they give no reason and apply nothing, and the next verdict names them as `no-reason`.
 
 ## 2.7 What the verdict carries for close (`--pr` mode)
 
@@ -756,8 +799,11 @@ block existed reads as having no judgments, never as an error, for close and the
 
 # Phase 3 — Report, and on a pull request publish the verdict
 
-Return a concise summary, in the run-discipline skill's layout. It is the terminal report and,
-in `--pr` mode, the review body too: one layout for both.
+Return a concise summary, in the run-discipline skill's layout. Without a pull request it is the
+whole terminal report, in the layout below. **In `--pr` mode the two separate** (epic #923, record
+#949, D12): the ID step already wrote the published verdict (§2.5), so the terminal report is the
+run-discipline completion report — short, naming the open counts and `blocked` the step printed,
+and linking to the published verdict. Write no part of the published body yourself.
 
 ```
 Conformance: <epic title> (<queue-entry-or-path>)  ·  epic <epic-ref>
@@ -831,7 +877,8 @@ A broken guarantee appears on the `Departures:` line with its `G<n>` ID (an inva
 and nowhere else among the results; Blocked on me names it by its `DV<n>` ID only. Write the `DV<n>` and `F<n>` IDs `nexus verdict-items` printed, in `--pr` mode;
 locally, list the departures and findings without IDs. In `--pr` mode the `Severity:` line is the
 step's `open` counts (§2.6), plus the number of `unconfirmed` results it printed; an answered item is listed, never counted. Never write a listed item
-as `<ID> — <verb>:` — that is the answer form, and a verdict never holds an answer.
+as `<ID> — <verb>:` — that is the answer form, and this report never holds an answer. Only the
+published verdict's paste lines, which the ID step writes, take that form (§2.6).
 
 `<epic-ref>`, `<record-ref>` and every `<story-ref>` are written under the **`nxs-issue-reference`**
 skill loaded in Phase 0.5. Without a pull request the summary is a terminal report: qualify a
@@ -886,8 +933,10 @@ In `--pr` mode the result is published on the PR, where `nexus close` reads it; 
 file is written here either, and the worktree is removed after this phase. A **blocked** run
 (Phase 0.5) publishes nothing here either — no review, no comment.
 
-1. Write the review body to `<run>/analyze-review.md`: the summary block above **verbatim**, then a machine
-   block `/nxs.close` parses back out (the `<!-- nexus:analyze-receipt -->` marker anchors it):
+1. The review body is `<run>/analyze-review.md`, which the ID step wrote in §2.5 (or Phase 0.8)
+   from the judgments and the run facts. **Never write or edit it by hand.** It ends with the
+   machine block `/nxs.close` parses back out (the `<!-- nexus:analyze-receipt -->` marker anchors
+   it), which the step stamps from the run facts in this form:
 
     `````markdown
     <!-- nexus:analyze-receipt -->
@@ -952,8 +1001,7 @@ file is written here either, and the worktree is removed after this phase. A **b
     departure or a waived finding stops blocking them with no change to how they read a verdict.
     An unconfirmed result is never in them: the judgments block carries it with its results.
 
-    Then append the **judgments block** — the file `nexus verdict-items` wrote to `--out` in §2.5,
-    verbatim, **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`
+    The step writes the **judgments block** **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`
     marker and carries every departure, finding and deferred-scope proposal with its ID and its
     answer, each answer with who gave it and the link to the comment, the key decisions (§2.7) and
     each result's file list. The marker is followed by one HTML comment that holds the judgments
@@ -973,22 +1021,19 @@ file is written here either, and the worktree is removed after this phase. A **b
     **itself** — you hand it neither — parses the body with the same parser every reader uses, and
     prints `{ issuesRepo, repo }` when the body names the repository its story numbers resolve
     against. A non-zero exit is a **failure of the publish step**: publish nothing, report the
-    diagnostic verbatim, and do not report the run as successful. Three refusals have a mechanical
-    correction. `issues-repo-missing` and `issues-repo-mismatch` name the issues repository the
-    block should have carried, so rewrite the block with that value and run the check again.
-    `story-text-recorded` means the block still has a `story_fingerprints` line; drop it and run
-    the check again. `judgments-missing` means the judgments block was not appended: run §2.5's
-    ID step and append its output. `counts-not-open` means the severity counts are not the open
-    counts — they leave out an unanswered item, or count an answered or unlisted one: write the
-    `open` counts the ID step printed, and list every finding through it, then check again. `judgments-malformed` means the judgments block
-    was edited or misplaced: append the ID step's output again, unedited, after the verdict block.
-    `marker-repeated` means text copied into the summary — an answer's reason, most often —
-    carries a verdict marker: write its `<!--` as `&lt;!--` in the summary and check again.
-    `key-decisions-missing` and `key-decisions-stale` mean the ID step ran without the record body
-    and digest, or with a digest other than the one the verdict block stamps: run it again with
-    `--record-body` and `--record-hash "$RECORD_HASH"`. `deferred-scope-sibling` means a proposal
-    settles a criterion of a story this pull request does not cover: drop its `deferred`, run the
-    ID step again and check again.
+    diagnostic verbatim, and do not report the run as successful. Every correction goes through the
+    ID step, never through the body (epic #923, record #949, G3): fix the draft or `facts.json`, run
+    §2.5's ID step again, and check the body it writes. `issues-repo-missing` and
+    `issues-repo-mismatch` name the issues repository the block should have carried: set
+    `issuesRepo` in `facts.json` to that value. `key-decisions-missing` and `key-decisions-stale`
+    mean the ID step ran without the record body and digest, or with a digest other than the one the
+    verdict block stamps: run it again with `--record-body` and `--record-hash "$RECORD_HASH"`.
+    `deferred-scope-sibling` means a proposal settles a criterion of a story this pull request does
+    not cover: drop its `deferred` from the draft. `marker-repeated` means text copied into the summary
+    carries a verdict marker; the ID step escapes the text it writes, so the copy was made after it.
+    That refusal, `block-missing`, `story-text-recorded`, `judgments-missing`, `judgments-malformed`
+    and `counts-not-open` mean the body is not the one the ID step wrote — it was edited after the
+    step, or not written by it: run the step again and check its body unedited.
 
     **The size budget** (D5). The platform takes at most 65,536 characters. When the body is over,
     the check drops the results' file lists, puts a line saying so above the verdict block, records
@@ -997,16 +1042,17 @@ file is written here either, and the worktree is removed after this phase. A **b
     to publish, and it prints `filesDropped: true` and the `size`. It never drops a departure's or a
     finding's file list: the next full run gives an item found again its ID by that list, so the
     items keep their IDs and answers. If the body is still too large, it exits 1 with
-    `verdict-too-large`, naming the size: **publish nothing**, report the size, and shorten the
-    summary prose before checking again. This runs on the review path and the comment fallback path
+    `verdict-too-large`, naming the size and the longest draft fields by item ID (epic #923, D13):
+    **publish nothing**, report the size, shorten those fields in the draft, and run the ID step
+    and the check again. This runs on the review path and the comment fallback path
     alike; the body it approves is the exact body that goes on the wire.
 
 3. Publish it as a **PR review**, so the verdict lands in the merge box:
 
     ```bash
-    # clean — no open critical/high item (the `open` counts):
+    # clean — the ID step printed blocked: false:
     gh pr review <N> -R <repoIdentity> --approve --body-file "<run>/analyze-review.md"
-    # an open critical or high item:
+    # the ID step printed blocked: true:
     gh pr review <N> -R <repoIdentity> --request-changes --body-file "<run>/analyze-review.md"
     ```
 

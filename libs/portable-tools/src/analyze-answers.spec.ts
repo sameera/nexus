@@ -41,7 +41,7 @@ describe("analyze applies the answers on the pull request through the toolkit (D
 
     it("names every answer that applied nothing, with why, and an untrusted one accepts nothing (G10, G11)", () => {
         for (const why of ["untrusted", "unknown-id", "wrong-verb", "no-reason", "not-waivable"]) expect(ANSWERS()).toContain(`\`${why}\``);
-        expect(ANSWERS()).toMatch(/\*\*Name every unapplied answer in the verdict\*\*/);
+        expect(ANSWERS()).toMatch(/\*\*The ID step names every unapplied answer in the published verdict\*\*/);
         expect(ANALYZE).toMatch(/Answers not applied:/);
     });
 
@@ -56,14 +56,15 @@ describe("analyze applies the answers on the pull request through the toolkit (D
 });
 
 describe("the counts cover only open items, and the review follows them (D4; G14–G16)", () => {
-    it("writes the open counts the ID step printed into the Severity line and the machine block", () => {
+    it("has the ID step write the open counts into the verdict's headline and the machine block", () => {
         expect(ANSWERS()).toMatch(/\*\*The severity counts are the open counts\*\*/);
         expect(ANSWERS()).toMatch(/never totals/);
+        expect(ANSWERS()).toMatch(/The ID step writes the `open` counts into the published verdict's headline and the machine\s+block's `findings:`/);
         expect(between(ANALYZE, "## PR mode — publish a review", "2. **Check the drafted body")).toMatch(/`findings:` is the `open` counts/);
     });
 
     it("approves or requests changes from the open counts", () => {
-        expect(between(ANALYZE, "3. Publish it as a **PR review**", "**Fallback:**")).toMatch(/no open critical\/high item/);
+        expect(between(ANALYZE, "3. Publish it as a **PR review**", "**Fallback:**")).toMatch(/blocked: false[\s\S]*blocked: true/);
     });
 
     it("hands every finding to the ID step, so each has an F ID that can be waived", () => {
@@ -78,6 +79,19 @@ describe("the verdict's own listing never reads as an answer (G12)", () => {
         const concrete = template.replace(/DV<n>/g, "DV1").replace(/F<n>/g, "F1").replace(/<ID>/g, "DV1");
         expect(concrete).toMatch(/DV1 \(/);
         expect(parseAnswerLines(concrete)).toEqual([]);
+    });
+});
+
+describe("analyze writes no part of the published verdict itself (epic #923, D1; G3)", () => {
+    it("never asks the model to write counts or unapplied answers into the verdict", () => {
+        expect(ANSWERS()).not.toMatch(/Write the counts the step printed/);
+        expect(ANSWERS()).not.toMatch(/on the `Answers not applied:` line/);
+        expect(ANSWERS()).toMatch(/You write none of this into the published verdict yourself/);
+    });
+
+    it("keeps the answer form out of the terminal report only; the toolkit writes the paste lines", () => {
+        expect(ANALYZE).not.toMatch(/a verdict never holds an answer/);
+        expect(ANALYZE).toMatch(/this report never holds an answer/);
     });
 });
 

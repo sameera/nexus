@@ -85,7 +85,7 @@ describe("the judgments block is the one place the verdict carries it, and it is
         expect(PUBLISH()).toMatch(/keep their IDs\s+and answers/);
         expect(PUBLISH()).toMatch(/never drops a departure's or a\s+finding's file list/);
         expect(PUBLISH()).toMatch(/\*\*writes the result back to the body file\*\*: those are the bytes\s+to publish/);
-        expect(PUBLISH()).toMatch(/`verdict-too-large`, naming the size: \*\*publish nothing\*\*/);
+        expect(PUBLISH()).toMatch(/`verdict-too-large`, naming the size and the longest draft fields by item ID[\s\S]*\*\*publish nothing\*\*/);
     });
 
     it("refuses key decisions tied to another record revision, naming the fix", () => {

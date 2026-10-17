@@ -32,11 +32,13 @@ import {
     type EpicLevel,
     type Finding,
     type ItemAnswer,
+    type ItemLocation,
     type Judgments,
     type RecordKeyDecisions,
     type Result,
     openItems,
     parseJudgmentsBlock,
+    readFixAndLocation,
     readResults,
     splitItemId,
 } from "@nexus/pr-acceptance/judgments-block";
@@ -56,6 +58,10 @@ export interface DepartureDraft {
     supersedes: { decision: string; instead: string } | null;
     /** Record scope the delivered stories leave out, proposed for deferral (D7); absent when none. */
     deferred?: string | null;
+    /** What to change in the code to resolve it (epic #923, D9). */
+    fix?: string;
+    /** Where it shows, at the analyzed head (epic #923, D10). */
+    location?: ItemLocation;
 }
 
 /** One finding as analyze judged it, before it has an ID. */
@@ -67,6 +73,8 @@ export interface FindingDraft {
     files: string[];
     /** The missing part of an unmet or partial criterion, proposed for deferral (D7); absent when none. */
     deferred?: string | null;
+    fix?: string;
+    location?: ItemLocation;
 }
 
 export type ParsedDraft =
@@ -79,6 +87,10 @@ export type ParsedDraft =
           epicLevel?: EpicLevel;
           /** The decision stubs the diff confirms (D6); absent when the draft names none. */
           stubs?: ConfirmedStub[];
+          /** Material behaviour no story called for (epic #923, D3); absent when the draft names none. */
+          scopeDrift?: string[];
+          /** The run's notes (epic #923, D3); absent when the draft names none. */
+          notes?: string[];
       }
     | { ok: false; message: string };
 
@@ -132,6 +144,12 @@ export function parseItemDraft(text: string): ParsedDraft {
         }
         parsed.stubs = stubs;
     }
+    for (const key of ["scopeDrift", "notes"] as const) {
+        if (doc[key] === undefined) continue;
+        const list = doc[key];
+        if (!Array.isArray(list) || !list.every(nonEmpty)) return { ok: false, message: `the draft's ${key} is not a list of text` };
+        parsed[key] = list;
+    }
     return parsed;
 }
 
@@ -149,11 +167,13 @@ function readFindingDraft(raw: unknown): FindingDraft | string {
     const { about, severity, summary, files } = raw;
     if (!nonEmpty(about)) return "names nothing it judges (about)";
     if (typeof severity !== "string" || !SEVERITIES.includes(severity)) return "has no severity of critical, high, medium or low (severity)";
-    if (!nonEmpty(summary)) return "says nothing about what is wrong (summary)";
+    if (summary !== undefined && typeof summary !== "string") return "has a summary that is not text (summary)";
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
     const deferred = readDeferral(raw);
     if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
-    return { about, severity: severity as Finding["severity"], summary, files: files as string[], ...(deferred === null ? {} : { deferred }) };
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
+    return { ...extra, about, severity: severity as Finding["severity"], summary: (summary as string | undefined) ?? "", files: files as string[], ...(deferred === null ? {} : { deferred }) };
 }
 
 function readDraft(raw: unknown): DepartureDraft | string {
@@ -162,7 +182,7 @@ function readDraft(raw: unknown): DepartureDraft | string {
     const stub = raw["stub"] ?? null;
     const supersedes = raw["supersedes"] ?? null;
     if (!nonEmpty(departsFrom)) return "names nothing it departs from (departsFrom)";
-    if (!nonEmpty(summary)) return "says nothing about what the code does (summary)";
+    if (summary !== undefined && typeof summary !== "string") return "has a summary that is not text (summary)";
     if (typeof breaksGuarantee !== "boolean") return "does not say whether it breaks a guarantee or an invariant (breaksGuarantee)";
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
     if (stub !== null && !(isRecord(stub) && nonEmpty(stub["path"]) && nonEmpty(stub["reason"]))) {
@@ -173,10 +193,13 @@ function readDraft(raw: unknown): DepartureDraft | string {
     }
     const deferred = readDeferral(raw);
     if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
+    const extra = readFixAndLocation(raw);
+    if (typeof extra === "string") return extra;
     return {
+        ...extra,
         ...(deferred === null ? {} : { deferred }),
         departsFrom,
-        summary,
+        summary: (summary as string | undefined) ?? "",
         breaksGuarantee,
         files: files as string[],
         stub: stub === null ? null : { path: stub["path"] as string, reason: stub["reason"] as string },
@@ -222,6 +245,7 @@ export function assignItemIds(
                 stub: draft.stub,
                 supersedes: draft.supersedes,
                 answer: match?.answer ?? null,
+                ...fixAndLocation(draft),
             };
         },
     );
@@ -243,10 +267,16 @@ export function assignItemIds(
                 files: draft.files,
                 // A waiver holds only while the finding can be waived (G13).
                 answer: draft.severity === "critical" || draft.severity === "high" ? (match?.answer ?? null) : null,
+                ...fixAndLocation(draft),
             };
         },
     );
     return { items, findings: judgedFindings, deferred: numberDeferrals(registry, proposals, rejudge) };
+}
+
+/** The draft's fix and location, when it gives them (epic #923, D3). */
+function fixAndLocation(draft: { fix?: string; location?: ItemLocation }): { fix?: string; location?: ItemLocation } {
+    return { ...(draft.fix === undefined ? {} : { fix: draft.fix }), ...(draft.location === undefined ? {} : { location: draft.location }) };
 }
 
 /**

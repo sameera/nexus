@@ -201,7 +201,7 @@ describe("the stages' working files moved into the run folder", () => {
     });
 
     it("puts analyze's record body, scope, judgments and review body in the run folder", () => {
-        for (const file of ["record-body.md", "scope.json", "items.json", "judgments.md", "analyze-review.md"]) {
+        for (const file of ["record-body.md", "scope.json", "items.json", "facts.json", "analyze-review.md"]) {
             expect(ANALYZE, file).toContain(`<run>/${file}`);
         }
     });

@@ -50,6 +50,7 @@ import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry, recordKeyDecisions } from "@nexus/epic-verdicts/verdict-items";
+import { type VerdictFacts, missingFields, parseVerdictFacts, renderVerdict } from "@nexus/epic-verdicts/verdict-render";
 import { type Judgments, type RecordKeyDecisions, deferredScopeStatus, parseJudgmentsBlock, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { answerScopeDeps, mergeAnswerRun, parseAnswerScope, planAnswerRun, readEarlierVerdict } from "@nexus/epic-verdicts/answer-scope";
 import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
@@ -415,10 +416,18 @@ const REGISTRY: Record<string, VerbEntry> = {
     "verdict-items": {
         summary: "Number a pull request's departures and findings, apply the answers posted on it, and write the judgments block.",
         usage: [
-            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path>",
+            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --facts <path> --out <path>",
             "                      [--record-body <path> --record-hash <digest>] [--dir <startDir>]",
-            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --scope <path> [--draft <path>] --out <path>",
+            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --scope <path> [--draft <path>] --facts <path> --out <path>",
             "                      [--record-body <path> --record-hash <digest>] [--dir <startDir>]",
+            "      --facts is the run facts ({ epic: { ref, title }, pr, repo, issuesRepo, stories: [{ number,",
+            "      ref, title }], head, date, nexusVersion, record: { ref, hash } | null, epicLevel: { state,",
+            "      lines }, concepts: { pages, checked, notFound } }). With it the step writes the whole verdict",
+            "      body to --out — the visible text, the receipt block and the judgments block — and prints",
+            "      blocked: true exactly when a critical or high item is open. The model writes no verdict text.",
+            "      An open item judged in this run that lacks a field the verdict shows is refused",
+            "      (item-incomplete), naming its ID, its subject and the field; nothing is written then.",
+            "      The draft may carry scopeDrift and notes, each a list of text; the block carries both.",
             "      --record-body and --record-hash (the record issue body and the digest the verdict stamps)",
             "      give the key decisions their record half: every decision by ID (by title in an old-format",
             "      record), tied to the digest, or a record in neither format in full. Omit both only when",
@@ -2103,10 +2112,11 @@ function runVerdictJudgments(argv: string[], io: CliIo): number {
  */
 function runVerdictItems(argv: string[], io: CliIo): number {
     const usage =
-        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> [--scope <path>] --draft <path> --out <path> [--record-body <path> --record-hash <digest>] [--dir <startDir>]";
-    const flags: { pr?: number; repo?: string; draft?: string; scope?: string; out?: string; dir?: string; recordBody?: string; recordHash?: string } = {};
+        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> [--scope <path>] --draft <path> --facts <path> --out <path> [--record-body <path> --record-hash <digest>] [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; draft?: string; scope?: string; out?: string; dir?: string; recordBody?: string; recordHash?: string; facts?: string } = {};
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--facts") flags.facts = argv[++i];
         else if (argv[i] === "--record-body") flags.recordBody = argv[++i];
         else if (argv[i] === "--record-hash") flags.recordHash = argv[++i];
         else if (argv[i] === "--repo") flags.repo = argv[++i];
@@ -2139,7 +2149,23 @@ function runVerdictItems(argv: string[], io: CliIo): number {
         const sections = recordSections(body);
         record = recordKeyDecisions({ digest: (flags.recordHash as string).trim(), format: sections.format, decisions: sections.decisions, body });
     }
-    if (flags.scope !== undefined) return runVerdictItemsScoped({ ...(flags as typeof flags & { pr: number; repo: string; scope: string }), record }, usage, io);
+    let facts: VerdictFacts | undefined;
+    if (flags.facts !== undefined) {
+        let factsText: string;
+        try {
+            factsText = fs.readFileSync(flags.facts, "utf8");
+        } catch (e) {
+            io.stderr(`verdict-items facts-malformed: ${flags.facts} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+            return 1;
+        }
+        const parsedFacts = parseVerdictFacts(factsText);
+        if (!parsedFacts.ok) {
+            io.stderr(`verdict-items facts-malformed: ${parsedFacts.message}.`);
+            return 1;
+        }
+        facts = parsedFacts.facts;
+    }
+    if (flags.scope !== undefined) return runVerdictItemsScoped({ ...(flags as typeof flags & { pr: number; repo: string; scope: string }), record, facts }, usage, io);
     if (flags.draft === undefined || flags.out === undefined) {
         io.stderr(`${usage}\n--draft is the departures analyze judged; --out is where the judgments block is written.`);
         return 2;
@@ -2179,19 +2205,30 @@ function runVerdictItems(argv: string[], io: CliIo): number {
     if (draft.results !== undefined) judged.results = draft.results;
     if (draft.epicLevel !== undefined) judged.epicLevel = draft.epicLevel;
     judged.keyDecisions = { record: record ?? null, stubs: draft.stubs ?? [] };
-    return writeJudgments(judged, comments.value.answers, { pr: flags.pr, out: flags.out, registry: registry.source }, io);
+    if (draft.scopeDrift !== undefined) judged.scopeDrift = draft.scopeDrift;
+    if (draft.notes !== undefined) judged.notes = draft.notes;
+    const judgedIds = new Set([...judged.items, ...judged.findings].filter((x) => x.found).map((x) => x.id));
+    return writeJudgments(judged, comments.value.answers, { pr: flags.pr, out: flags.out, registry: registry.source, facts, judgedIds }, io);
 }
 
 /** Apply the answers to `judged`, write the judgments block and print what the stage reports. */
 function writeJudgments(
     judged: Judgments,
     answers: Parameters<typeof applyAnswers>[1],
-    run: { pr: number; out: string; registry: string; scope?: string },
+    run: { pr: number; out: string; registry: string; scope?: string; facts?: VerdictFacts; judgedIds: ReadonlySet<string> },
     io: CliIo,
 ): number {
     const answered = applyAnswers(judged, answers);
     const judgments = answered.judgments;
-    fs.writeFileSync(run.out, renderJudgmentsBlock(judgments));
+    // An open item judged in this run must carry every field the verdict shows (epic #923, D4).
+    const missing = missingFields(judgments, run.judgedIds);
+    if (missing.length > 0) {
+        const named = missing.map((m) => `${m.id} (${m.subject.trim() || "no subject"}) has no ${m.field}`).join("; ");
+        io.stderr(`verdict-items item-incomplete: ${named}. Add each to the draft and run the ID step again; nothing was written.`);
+        return 1;
+    }
+    const rendered = run.facts === undefined ? null : renderVerdict({ judgments, facts: run.facts, unapplied: answered.unapplied });
+    fs.writeFileSync(run.out, rendered === null ? renderJudgmentsBlock(judgments) : rendered.body);
     io.stdout(
         JSON.stringify({
             command: "verdict-items",
@@ -2204,6 +2241,7 @@ function writeJudgments(
             keyDecisions: judgments.keyDecisions ?? null,
             results: judgments.results ?? null,
             open: openCounts(judgments),
+            ...(rendered === null ? {} : { blocked: rendered.blocked }),
             answers: { applied: answered.applied, unapplied: answered.unapplied },
         }),
     );
@@ -2216,7 +2254,7 @@ function writeJudgments(
  * rest of the newest verdict is carried forward here, so the new verdict is complete (G24).
  */
 function runVerdictItemsScoped(
-    flags: { pr: number; repo: string; scope: string; draft?: string; out?: string; dir?: string; record: RecordKeyDecisions | null | undefined },
+    flags: { pr: number; repo: string; scope: string; draft?: string; out?: string; dir?: string; record: RecordKeyDecisions | null | undefined; facts?: VerdictFacts },
     usage: string,
     io: CliIo,
 ): number {
@@ -2284,7 +2322,20 @@ function runVerdictItemsScoped(
     }
     // The record is unchanged, or the scope would be a full run; given again, its key decisions are rebuilt from it.
     if (flags.record !== undefined) merged.judgments.keyDecisions = { record: flags.record, stubs: merged.judgments.keyDecisions?.stubs ?? [] };
-    return writeJudgments(merged.judgments, comments.value.answers, { pr: flags.pr, out: flags.out, registry: "verdict", scope: scope.scope.mode }, io);
+    // Scope drift and notes travel with the verdict unless this run judged them again (epic #923, D3).
+    const rejudged = draft !== null && draft.ok ? draft : null;
+    const scopeDrift = rejudged?.scopeDrift ?? earlier.judgments.scopeDrift;
+    const notes = rejudged?.notes ?? earlier.judgments.notes;
+    if (scopeDrift !== undefined) merged.judgments.scopeDrift = scopeDrift;
+    if (notes !== undefined) merged.judgments.notes = notes;
+    // Only what this run judged again can be refused for a missing field; a carried item is shown as it was (D4).
+    const carried = new Set([...earlier.judgments.items, ...earlier.judgments.findings].map((x) => x.id).filter((id) => !scope.scope.rejudge.items.includes(id)));
+    const judgedIds =
+        scope.scope.mode === "unchanged"
+            ? new Set<string>()
+            : new Set([...merged.judgments.items, ...merged.judgments.findings].filter((x) => x.found && !carried.has(x.id)).map((x) => x.id));
+    const facts = flags.facts === undefined ? undefined : { ...flags.facts, recorded: scope.scope.lines };
+    return writeJudgments(merged.judgments, comments.value.answers, { pr: flags.pr, out: flags.out, registry: "verdict", scope: scope.scope.mode, facts, judgedIds }, io);
 }
 
 /**
