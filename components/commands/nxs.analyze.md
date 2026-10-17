@@ -644,7 +644,11 @@ facts** in `--facts`. You hand it only what the run knows that is not a judgment
 (Phase 3). The published verdict reads top down (D7, D8): its first line says **Blocked** exactly
 when a critical or high item is open, else **Clear to merge**, then the open count per severity
 and the checks to make by hand, which never block. Then come the items in four sections: needs
-action, worth a look, already answered, and no longer found. The step prints `blocked`: true exactly when a critical or high item is open, and the
+action, worth a look, already answered, and no longer found. Below them sit the stories table with
+counts only, the evidence per criterion in a collapsed section, one epic-level table with one row
+per check, and a collapsed run-details section holding the mode, the record and its full hash, the
+head, the key decisions and the concept-invariant sentence, and then the receipt and judgments
+blocks (epic #923, D11). A section with nothing to report is left out. The step prints `blocked`: true exactly when a critical or high item is open, and the
 review event follows it (Phase 3). Text you put in the draft is written as plain inline text, so a
 line break, a heading or a marker in it changes nothing about the verdict's structure (D6).
 
@@ -695,7 +699,9 @@ criterion of §2.1, per guarantee or invariant of §2.2, and per success metric 
 "epicLevel": "<Phase 0.7's epicLevel>"
 ```
 
-List the files each judgment actually read. An empty list counts as affected by any change, so it
+Give each result `"evidence": "<where the judgment rests, as locations: file:line, a diff hunk
+or D<n>>"` — the verdict shows it in the collapsed evidence section, and the judgments block
+carries it for a recording run. List the files each judgment actually read. An empty list counts as affected by any change, so it
 is safe but costly; a list that leaves out a file the result depends on can carry a stale result
 across a moved head (record #871, R5). Write `looked` and `confirmBy` on an `unconfirmed` result
 only; the step refuses an unconfirmed result without them. A criterion's `unverifiable` in a

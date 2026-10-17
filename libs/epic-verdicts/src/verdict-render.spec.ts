@@ -110,7 +110,11 @@ describe("two verdicts over different epics share one structure (G2)", () => {
             facts: facts({ epic: { ref: "#5", title: "Other" }, record: null, stories: [{ number: 6, ref: "#6", title: "S" }] }),
             unapplied: [],
         }).body;
-        expect(headings(one).slice(1)).toEqual(headings(other).slice(1));
+        const canonical = ["### Needs action", "### Worth a look", "### Already answered", "### No longer found", "### Stories", "### Epic level"];
+        for (const body of [one, other]) {
+            const shown = headings(body).slice(1);
+            expect(shown).toEqual(canonical.filter((h) => shown.includes(h)));
+        }
     });
 });
 
@@ -269,6 +273,68 @@ describe("the verdict shows what blocks first, and how to resolve each item (epi
         const needs = body.slice(body.indexOf("### Needs action"), body.indexOf("### Worth a look"));
         expect(needs).toContain("Answer not applied: @guest on DV1 ([comment](https://x/1)): untrusted");
         expect(needs).toContain("Answer not applied: @lead on F9 ([comment](https://x/2)): unknown-id");
+    });
+});
+
+describe("supporting detail is collapsed so the issues stay on top (epic #923, story #926)", () => {
+    const render = (j: Judgments = judgments(), f: VerdictFacts = facts()): string => renderVerdict({ judgments: j, facts: f, unapplied: [] }).body;
+    const between = (body: string, from: string, to: string): string => body.slice(body.indexOf(from), body.indexOf(to, body.indexOf(from)));
+
+    it("shows counts only in the stories table, and the evidence per criterion in a collapsed section (D11; G17)", () => {
+        const j = judgments();
+        j.results = j.results!.map((r) => (r.about === "#924 AC1" ? { ...r, evidence: "src/a.ts:4" } : r));
+        const body = render(j);
+        expect(between(body, "### Stories", "<details>")).not.toContain("src/a.ts");
+        expect(between(body, "| Story |", "\n\n")).toContain("| #924 Same structure | 1/3 | 1 | 0 | 0 | 1 |");
+        const evidence = between(body, "<summary>Evidence</summary>", "</details>");
+        expect(body.indexOf("<details>\n<summary>Evidence</summary>")).toBeGreaterThan(0);
+        expect(evidence).toContain("| #924 AC1 | met | src/a.ts:4 |");
+    });
+
+    it("shows the epic-level results in one table, one row per check (G18)", () => {
+        const j = judgments();
+        j.results = [...j.results!, { kind: "metric", about: "verdicts lead with blockers", verdict: "met", files: [] }];
+        const body = render(j, facts({ epicLevel: { state: "judge", lines: [] } }));
+        const table = between(body, "### Epic level", "<details>\n<summary>Run details");
+        expect(table).toContain("| Check | Result |");
+        expect(table).toContain("| G1 | held |");
+        expect(table).toContain("| verdicts lead with blockers | met |");
+        expect(table.match(/^###/gm)).toHaveLength(1);
+        expect(render(j, facts({ epicLevel: { state: "not-run", lines: ["update the branch"] } }))).toMatch(/\| Epic-level check \| not run: update the branch \|/);
+        expect(render(j)).not.toContain("### Epic level");
+    });
+
+    it("leaves out a section with nothing to report (G19)", () => {
+        const body = render({ items: [], findings: [], deferred: [], keyDecisions: { record: null, stubs: [] } }, facts({ record: null }));
+        for (const h of ["### Needs action", "### Worth a look", "### Already answered", "### No longer found", "<summary>Evidence</summary>", "### Epic level"]) {
+            expect(body).not.toContain(h);
+        }
+        expect(body).not.toContain("None.");
+    });
+
+    it("puts the mode, the record and its full hash, the head and the key decisions in a collapsed run-details section, ending with both blocks (G20, G21, G24)", () => {
+        const body = render();
+        const details = body.slice(body.indexOf("<details>\n<summary>Run details</summary>"));
+        expect(details).toContain("- Mode: full");
+        expect(details).toContain(`- Record: #949 @ ${HASH}`);
+        expect(details).toContain(`- Head: ${HEAD}`);
+        expect(details).toContain(`- Key decisions: D1, D2 @ ${HASH}`);
+        expect(details.indexOf(RECEIPT_MARKER)).toBeGreaterThan(details.indexOf("- Key decisions"));
+        expect(details.indexOf(JUDGMENTS_MARKER)).toBeGreaterThan(details.indexOf(RECEIPT_MARKER));
+        expect(details.trimEnd().endsWith("</details>")).toBe(true);
+        expect(body.slice(0, body.indexOf("<summary>Run details"))).not.toContain(RECEIPT_MARKER);
+    });
+
+    it("says no concept invariants were checked when the epic lists no concept pages (G22)", () => {
+        expect(render()).toContain("No concept invariants were checked: the epic lists no concept pages.");
+        expect(render(judgments(), facts({ concepts: { pages: ["record-digest"], checked: 3, notFound: [] } }))).toContain("3 concept invariants checked, from record-digest.");
+    });
+
+    it("carries each result's evidence in the judgments block for a later recording run (D3)", () => {
+        const j = judgments();
+        j.results = j.results!.map((r) => ({ ...r, evidence: `${r.about} at src/x.ts:1` }));
+        const parsed = parseJudgmentsBlock(render(j));
+        expect(parsed.ok && parsed.judgments?.results?.[0].evidence).toBe("#924 AC1 at src/x.ts:1");
     });
 });
 

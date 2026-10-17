@@ -21,6 +21,11 @@ behaviour says so.
   request also shows the exact answer line to paste and the `--resolve` command to run afterwards.
   The accept and waive lines stop after the colon, so you must write a reason before they apply.
   Draft every departure and finding with a `fix`, and a `location` when it has files.
+- **Supporting detail is folded away.** The stories table shows counts only. The evidence per
+  criterion sits in a collapsed section; draft it as each result's `evidence`. The epic-level
+  results are one table with one row per check. The mode, the record and its hash, the head commit,
+  the key decisions and the machine blocks sit in a collapsed run-details section. A section with
+  nothing to report is not shown.
 - **An open item judged in a run must carry what the verdict shows.** One that lacks a field is
   refused with `item-incomplete`, naming its ID, its subject and the field, and nothing is
   published. Items carried over from a verdict published before this release are shown without
