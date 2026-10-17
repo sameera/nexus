@@ -1,8 +1,8 @@
 ---
 title: "Component Mirror"
 aliases: ["component-mirror primitive", "convergent mirror", "declared empty payload", "empty payload mode", "namespace predicate", "removable veto", "one primitive three call sites"]
-touches: ["install-location", "component-migration", "nexus-setup-cli"]
-last_updated_by: "#253"
+touches: ["install-location", "component-migration", "nexus-setup-cli", "ranked-review"]
+last_updated_by: "#918"
 status: active
 verification: verified
 ---
@@ -35,9 +35,14 @@ A caller may veto individual removals. Vetoed files come back reported as retain
 - [install-location](install-location.md) — the account-scoped component root this operation writes into and empties.
 - [component-migration](component-migration.md) — a caller supplying an empty payload against a repository and vetoing every removal git does not track.
 - [nexus-setup-cli](nexus-setup-cli.md) — exposes this one operation as the install, removal and migration verbs.
+- [ranked-review](ranked-review.md) — its skill name is in the Nexus-owned namespace, so installing replaces a personal skill of the same name.
 
 ## Decision Log
 
 ### 2026-08-27 — #253 — Emptiness is declared, never inferred
 
 Removal tells the mirror it is deliberately empty rather than handing it a payload location that happens to contain nothing. The abort on an unresolvable payload is the only thing standing between "the release could not find what it ships" and "delete every component this account has"; conflating the two at the boundary would turn any later regression in payload resolution into a silent uninstall. Refuted: create a temporary empty location and run the ordinary path — the smallest possible change, needing no edit to a tested operation; it loses on exactly that conflation, and it makes removal depend on scratch creation succeeding.
+
+### 2026-10-16 — #918 — Reciprocal link from ranked-review
+
+The ranked-review skill ships under a name in the Nexus-owned namespace. Installing therefore replaces a personal skill an account already holds under that name, by this operation's existing ownership rule.

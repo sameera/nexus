@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 115 active concepts. Each links to its full page
+Orientation map of the concept store — 117 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -80,6 +80,7 @@ Orientation map of the concept store — 115 active concepts. Each links to its 
 - [Template Seeding](../.nexus/concepts/template-seeding.md) — Three pipeline stages read a tool-agnostic template out of the project's own configuration, and template seeding is how those templates get there: a repo-bound step placing a first copy from masters that travel inside the release.
 - [Citation Check](../.nexus/concepts/citation-check.md) — An `asked` label carries a fragment quoted from what the lead actually said, and the check compares that fragment against one materialized copy of the lead's own words.
 - [Code Anchors](../.nexus/concepts/code-anchors.md) — Code anchors are derived sidecar files that map a concept to the source that implements it.
+- [Component Mirror](../.nexus/concepts/component-mirror.md) — One convergent operation places a component payload at a component root and drops the Nexus-owned files that payload no longer carries; it is the only thing in Nexus that writes or deletes a component.
 - [Concept Page Capacity](../.nexus/concepts/concept-page-capacity.md) — The 400-word cap on a concept page measures the page's own content — its summary, its behavior section and its invariants — and never its neighbour list.
 - [Discovery Graduation](../.nexus/concepts/discovery-graduation.md) — A finished discovery becomes issues only through the epic stage, which reads the discovery document as its intent and files through the emission path it already owns.
 - [Epic Issue Filing](../.nexus/concepts/epic-issue-filing.md) — Filing a single epic is a create-or-promote operation, never inferred from remote state: creation makes a new issue and promotion edits an existing one in place, clearing its unplanned marker.
@@ -94,7 +95,6 @@ Orientation map of the concept store — 115 active concepts. Each links to its 
 - [Borrowed Reader Access](../.nexus/concepts/borrowed-reader-access.md) — The renderer answers no question about who may see a mockup.
 - [Checkout-Only Path Gate](../.nexus/concepts/checkout-only-path-gate.md) — No shipped component body may send a stage to a location that resolves only inside the Nexus source checkout.
 - [Component Migration](../.nexus/concepts/component-migration.md) — A repository that still carries a committed component set is emptied of it by a gated verb — never automatically, and never as a side effect of another command.
-- [Component Mirror](../.nexus/concepts/component-mirror.md) — One convergent operation places a component payload at a component root and drops the Nexus-owned files that payload no longer carries; it is the only thing in Nexus that writes or deletes a component.
 - [Cookie-Carried Session](../.nexus/concepts/cookie-carried-session.md) — The reader's credential is sealed into a cookie in the reader's own browser and kept nowhere else.
 - [Drain Invocation](../.nexus/concepts/drain-invocation.md) — A drain starts only when the lead asks for it, directly or through the close-and-distill command right after an approved close.
 - [Epic Coverage Run](../.nexus/concepts/epic-coverage-run.md) — Analyze, addressed at an epic, reports each story as shipped, unrecorded, unshipped or excluded, read from the records on the epic issue.
@@ -112,6 +112,7 @@ Orientation map of the concept store — 115 active concepts. Each links to its 
 - [Domain Taxonomy](../.nexus/concepts/domain-taxonomy.md) — Domain taxonomy is a curated, two-level grouping for concept pages — domains and optional subdomains — authored in a registry that lives beside the atlas.
 - [Issue Absence as a Fact](../.nexus/concepts/issue-absence-fact.md) — A number that names no issue is a fact the lookup reports, not a failure it raises.
 - [Navigation-Marked Credential](../.nexus/concepts/navigation-marked-credential.md) — An endpoint of the renderer reads a reader's credential only when the browser's own markers say the request is a top-level document navigation.
+- [Ranked Pull Request Review](../.nexus/concepts/ranked-review.md) — The code-review skill takes the findings of Claude Code's own review of a pull request and ranks them, so the author can tell which findings to fix in this pull request and which can wait.
 - [Rebuilt Return Address](../.nexus/concepts/rebuilt-return-address.md) — The renderer never redirects a reader to an address taken from a request.
 - [Registry Seeding](../.nexus/concepts/registry-seeding.md) — Registry seeding is a one-time adoption tool for a store that has no domain registry yet.
 - [Release Changelog](../.nexus/concepts/release-changelog.md) — Once the components leave every repository, an adopter no longer sees a component change in their own diff, and the changelog is what replaces that review surface.
@@ -123,6 +124,7 @@ Orientation map of the concept store — 115 active concepts. Each links to its 
 - [Epic Completion Judgment](../.nexus/concepts/epic-completion-judgment.md) — The conformance gate judges an epic's success metrics and its cross-story guarantees on the pull request that completes the epic.
 - [Non-Disclosing Refusal](../.nexus/concepts/non-disclosing-refusal.md) — A mockup the renderer will not serve gets one answer, whether the file is missing or the reader simply cannot reach it.
 - [On-Demand Stage Contract](../.nexus/concepts/on-demand-stage-contract.md) — A stage whose behaviour varies by run shape states each exceptional path's rules in a contract of its own, and reads a contract only once the run has resolved that it needs it.
+- [Review Posting Gate](../.nexus/concepts/review-posting-gate.md) — A ranked review reaches the pull request only after the lead chooses request changes, comment or approve in the same run.
 - [Claim of Scope](../.nexus/concepts/scope-claim.md) — A number appearing in a pull request is a mention; it counts as work the pull request takes on only when something claims it.
 
 ## Standalone
