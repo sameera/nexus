@@ -352,6 +352,19 @@ describe("nexus verdict-items (epic #829, story #858 — the numbering rule is c
     });
 });
 
+describe("nexus verdict-items --facts (epic #923, story #924)", () => {
+    it("refuses run facts it cannot read, naming the field, before reading the pull request", async () => {
+        const dir = makeTmpDir("cli-verdict-items-facts-");
+        fs.writeFileSync(path.join(dir, "draft.json"), JSON.stringify({ departures: [] }));
+        fs.writeFileSync(path.join(dir, "facts.json"), JSON.stringify({ epic: { ref: "#1", title: "E" }, pr: 7 }));
+        const io: CapturedIo = makeIo(dir);
+        const args = ["verdict-items", "--pr", "7", "--repo", "acme/widget", "--draft", path.join(dir, "draft.json"), "--facts", path.join(dir, "facts.json"), "--out", path.join(dir, "review.md")];
+        expect(await runNexusCli(args, io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/facts-malformed: .*repo/);
+        expect(fs.existsSync(path.join(dir, "review.md"))).toBe(false);
+    });
+});
+
 describe("nexus verdict-items — the key decisions' record half (epic #829, story #862)", () => {
     const base = (dir: string) => ["verdict-items", "--pr", "7", "--repo", "acme/widget", "--draft", path.join(dir, "draft.json"), "--out", path.join(dir, "block.md")];
 

@@ -52,7 +52,7 @@ describe("it follows the mode the toolkit printed (D8)", () => {
     it("reads no code on an unchanged head and records the answers through the ID step's scope (G18)", () => {
         expect(RESOLVE()).toMatch(/\*\*`unchanged`\*\*/);
         expect(RESOLVE()).toMatch(/\*\*Read no code\*\*/);
-        expect(RESOLVE()).toMatch(/nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>\/scope\.json" --out "<run>\/judgments\.md"/);
+        expect(RESOLVE()).toMatch(/nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<run>\/scope\.json" --facts "<run>\/facts\.json" --out "<run>\/analyze-review\.md"/);
     });
 
     it("on a moved head judges again only what the scope names, checks unlisted files against every guarantee, and carries the rest (G19, G20)", () => {

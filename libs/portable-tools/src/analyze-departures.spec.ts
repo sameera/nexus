@@ -70,7 +70,7 @@ describe("what a departure says", () => {
 
 describe("IDs come from the toolkit's registry, never from the stage (D2; G6–G8)", () => {
     it("hands the departures to the ID step, which reads the newest trusted verdict as the registry", () => {
-        expect(DEPARTURES()).toContain('nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<run>/items.json" --out "<run>/judgments.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"');
+        expect(DEPARTURES()).toContain('nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<run>/items.json" --facts "<run>/facts.json" --out "<run>/analyze-review.md" --record-body "<run>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"');
         expect(DEPARTURES()).toMatch(/never by you/);
     });
 

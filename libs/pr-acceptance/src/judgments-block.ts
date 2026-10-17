@@ -201,6 +201,10 @@ export interface Judgments {
     filesDropped?: boolean;
     /** The key decisions (D5, D6); absent in a block written before they were carried. */
     keyDecisions?: KeyDecisions;
+    /** Material behaviour no story called for (epic #923, D3); absent in a block written before it was carried. */
+    scopeDrift?: string[];
+    /** The run's notes, such as stories still open (epic #923, D3); absent in a block written before they were carried. */
+    notes?: string[];
 }
 
 export type ParsedJudgments = { ok: true; judgments: Judgments | null } | { ok: false; message: string };
@@ -220,12 +224,16 @@ export function renderJudgmentsBlock(judgments: {
     epicLevel?: EpicLevel;
     filesDropped?: boolean;
     keyDecisions?: KeyDecisions;
+    scopeDrift?: readonly string[];
+    notes?: readonly string[];
 }): string {
     const doc: Record<string, unknown> = { schema: SCHEMA, items: [...judgments.items, ...(judgments.findings ?? []), ...(judgments.deferred ?? [])] };
     if (judgments.keyDecisions !== undefined) doc["keyDecisions"] = judgments.keyDecisions;
     if (judgments.results !== undefined) doc["results"] = judgments.results;
     if (judgments.epicLevel !== undefined) doc["epicLevel"] = judgments.epicLevel;
     if (judgments.filesDropped === true) doc["filesDropped"] = true;
+    if (judgments.scopeDrift !== undefined) doc["scopeDrift"] = judgments.scopeDrift;
+    if (judgments.notes !== undefined) doc["notes"] = judgments.notes;
     return `${JUDGMENTS_MARKER}\n${ENCODED_OPEN}${deflateRawSync(JSON.stringify(doc)).toString("base64")} -->\n`;
 }
 
@@ -303,6 +311,13 @@ export function parseJudgmentsBlock(body: string): ParsedJudgments {
     if (doc["filesDropped"] !== undefined) {
         if (typeof doc["filesDropped"] !== "boolean") return fail("the judgments block's filesDropped is not true or false");
         judgments.filesDropped = doc["filesDropped"];
+    }
+    // Optional fields a later release added (epic #923, D3): a reader from an earlier release ignores them.
+    for (const key of ["scopeDrift", "notes"] as const) {
+        if (doc[key] === undefined) continue;
+        const list = doc[key];
+        if (!Array.isArray(list) || !list.every((x) => typeof x === "string")) return fail(`the judgments block's ${key} is not a list of text`);
+        judgments[key] = list as string[];
     }
     return { ok: true, judgments };
 }

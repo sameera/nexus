@@ -133,8 +133,37 @@ function fitToPlatform(body: string, judgments: Judgments, repos: VerdictRepos):
     if (size <= VERDICT_SIZE_LIMIT) return { ok: true, repos, body: fitted, filesDropped: true, size };
     return refuse(
         "verdict-too-large",
-        `the drafted verdict is ${drafted} characters, and still ${size} with its results' file lists dropped — over the platform's limit of ${VERDICT_SIZE_LIMIT}. Nothing may be published. A departure's or a finding's file list is never dropped, because the next run reuses its ID by that list. Shorten the summary prose above the verdict block (the judgments block carries every item in full) and check again.`,
+        `the drafted verdict is ${drafted} characters, and still ${size} with its results' file lists dropped — over the platform's limit of ${VERDICT_SIZE_LIMIT}. Nothing may be published. A departure's or a finding's file list is never dropped, because the next run reuses its ID by that list. Shorten the longest draft fields and run the ID step again: ${longestFields(judgments).join("; ")}.`,
     );
+}
+
+/**
+ * The longest text the draft supplied, by item ID or by what a result judges (epic #923, D13). The
+ * model no longer writes summary prose, so the draft's own fields are the only text of variable
+ * length a verdict over the limit can shorten.
+ */
+export function longestFields(judgments: Judgments, count = 3): string[] {
+    const fields: Array<{ name: string; length: number }> = [];
+    const add = (owner: string, field: string, text: string | undefined | null): void => {
+        if (typeof text === "string" && text.length > 0) fields.push({ name: `${owner} ${field}`, length: [...text].length });
+    };
+    for (const item of [...judgments.items, ...judgments.findings]) {
+        add(item.id, "summary", item.summary);
+        add(item.id, item.kind === "departure" ? "departsFrom" : "about", item.kind === "departure" ? item.departsFrom : item.about);
+    }
+    for (const ds of judgments.deferred) add(ds.id, "summary", ds.summary);
+    for (const r of judgments.results ?? []) {
+        add(r.about, "looked", r.looked);
+        add(r.about, "confirmBy", r.confirmBy);
+    }
+    (judgments.scopeDrift ?? []).forEach((t, i) => add(`scopeDrift ${i + 1}`, "text", t));
+    (judgments.notes ?? []).forEach((t, i) => add(`notes ${i + 1}`, "text", t));
+    // Longest first; a tie keeps the order above, so the refusal names the same fields every time.
+    return fields
+        .map((f, i) => ({ ...f, i }))
+        .sort((a, b) => b.length - a.length || a.i - b.i)
+        .slice(0, count)
+        .map((f) => `${f.name} (${f.length} characters)`);
 }
 
 /**

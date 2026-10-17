@@ -74,6 +74,11 @@
       "import": "./src/verdict-items.ts",
       "default": "./src/verdict-items.ts"
     },
+    "./verdict-render": {
+      "types": "./src/verdict-render.ts",
+      "import": "./src/verdict-render.ts",
+      "default": "./src/verdict-render.ts"
+    },
     "./answer-scope": {
       "types": "./src/answer-scope.ts",
       "import": "./src/answer-scope.ts",
