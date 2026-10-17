@@ -79,6 +79,10 @@ export type ParsedDraft =
           epicLevel?: EpicLevel;
           /** The decision stubs the diff confirms (D6); absent when the draft names none. */
           stubs?: ConfirmedStub[];
+          /** Material behaviour no story called for (epic #923, D3); absent when the draft names none. */
+          scopeDrift?: string[];
+          /** The run's notes (epic #923, D3); absent when the draft names none. */
+          notes?: string[];
       }
     | { ok: false; message: string };
 
@@ -132,6 +136,12 @@ export function parseItemDraft(text: string): ParsedDraft {
         }
         parsed.stubs = stubs;
     }
+    for (const key of ["scopeDrift", "notes"] as const) {
+        if (doc[key] === undefined) continue;
+        const list = doc[key];
+        if (!Array.isArray(list) || !list.every(nonEmpty)) return { ok: false, message: `the draft's ${key} is not a list of text` };
+        parsed[key] = list;
+    }
     return parsed;
 }
 
@@ -149,11 +159,11 @@ function readFindingDraft(raw: unknown): FindingDraft | string {
     const { about, severity, summary, files } = raw;
     if (!nonEmpty(about)) return "names nothing it judges (about)";
     if (typeof severity !== "string" || !SEVERITIES.includes(severity)) return "has no severity of critical, high, medium or low (severity)";
-    if (!nonEmpty(summary)) return "says nothing about what is wrong (summary)";
+    if (summary !== undefined && typeof summary !== "string") return "has a summary that is not text (summary)";
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
     const deferred = readDeferral(raw);
     if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
-    return { about, severity: severity as Finding["severity"], summary, files: files as string[], ...(deferred === null ? {} : { deferred }) };
+    return { about, severity: severity as Finding["severity"], summary: (summary as string | undefined) ?? "", files: files as string[], ...(deferred === null ? {} : { deferred }) };
 }
 
 function readDraft(raw: unknown): DepartureDraft | string {
@@ -162,7 +172,7 @@ function readDraft(raw: unknown): DepartureDraft | string {
     const stub = raw["stub"] ?? null;
     const supersedes = raw["supersedes"] ?? null;
     if (!nonEmpty(departsFrom)) return "names nothing it departs from (departsFrom)";
-    if (!nonEmpty(summary)) return "says nothing about what the code does (summary)";
+    if (summary !== undefined && typeof summary !== "string") return "has a summary that is not text (summary)";
     if (typeof breaksGuarantee !== "boolean") return "does not say whether it breaks a guarantee or an invariant (breaksGuarantee)";
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
     if (stub !== null && !(isRecord(stub) && nonEmpty(stub["path"]) && nonEmpty(stub["reason"]))) {
@@ -176,7 +186,7 @@ function readDraft(raw: unknown): DepartureDraft | string {
     return {
         ...(deferred === null ? {} : { deferred }),
         departsFrom,
-        summary,
+        summary: (summary as string | undefined) ?? "",
         breaksGuarantee,
         files: files as string[],
         stub: stub === null ? null : { path: stub["path"] as string, reason: stub["reason"] as string },

@@ -5,6 +5,26 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.116.0
+
+- **`/nxs.analyze --pr` writes no verdict text of its own any more; the toolkit writes the whole
+  published verdict.** The ID step (`nexus verdict-items --facts`) takes the run's judgments and
+  facts and writes the visible text, the receipt and the judgments block in one step. The counts
+  in the text, in the receipt and in the hidden data always agree, and the same judgments always
+  give the same verdict, byte for byte. The review requests changes exactly when the step prints
+  `blocked: true`.
+- **An open item judged in a run must carry what the verdict shows.** One that lacks a field is
+  refused with `item-incomplete`, naming its ID, its subject and the field, and nothing is
+  published. Items carried over from a verdict published before this release are shown without
+  the fields they never had.
+- **Text from the draft or from an answer can no longer change a verdict's structure.** Line
+  breaks fold to spaces and markup is escaped.
+- **A verdict over the platform's size limit names the longest draft fields to shorten**, by item
+  ID, instead of asking you to shorten summary prose.
+- **The terminal report of `/nxs.analyze --pr` is the short completion report.** It links to the
+  published verdict. A run without a pull request keeps its report and its result line.
+- Verdicts already published keep working with `nexus close` and the merge pre-check.
+
 ## 0.115.0
 
 - **`nexus distill` never reports success for a session that did not start.** If a distillation

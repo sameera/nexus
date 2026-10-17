@@ -63,7 +63,7 @@ describe("the counts cover only open items, and the review follows them (D4; G14
     });
 
     it("approves or requests changes from the open counts", () => {
-        expect(between(ANALYZE, "3. Publish it as a **PR review**", "**Fallback:**")).toMatch(/no open critical\/high item/);
+        expect(between(ANALYZE, "3. Publish it as a **PR review**", "**Fallback:**")).toMatch(/blocked: false[\s\S]*blocked: true/);
     });
 
     it("hands every finding to the ID step, so each has an F ID that can be waived", () => {
