@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.112.0
+
+- **`nexus distill` refuses to start when close's result does not hold.** Before any session
+  starts, it refuses a hub or member checkout and names `/nxs.distill <worktree-path>` as the
+  manual route. It refuses when the epic is still open, or when the distillation branch or the
+  worktree on it is missing, and names `nexus close --pr <N>`. It refuses when the branch is not
+  pushed, naming the branch, and when a distillation pull request from it is already open,
+  printing that pull request's URL. A refusal changes nothing and exits non-zero.
+
 ## 0.111.0
 
 - **New `nexus distill --pr <N>` distills a closed epic with one command.** After `nexus close`,

@@ -89,6 +89,10 @@ export interface DistillDeps {
     epicOfPr(repoRoot: string, pr: ParsedPrReference, rerun: string): { ok: true; epic: number; issuesRepo: string } | { ok: false; stop: CloseStop };
     /** The newest distillation branch close cut for the epic, through close's own finder. */
     findBranch(repoRoot: string, epic: number): EpicDistillBranchResult;
+    /** Whether the epic issue is closed. */
+    epicClosed(repoRoot: string, issuesRepo: string, epic: number): { ok: true; closed: boolean } | { ok: false; message: string };
+    /** Whether `branch` is on the push remote close pushes it to. */
+    branchPushed(repoRoot: string, branch: string): { ok: true; pushed: boolean } | { ok: false; message: string };
     /** The worktree git has registered on `branch`, or null. */
     worktreeOn(repoRoot: string, branch: string): string | null;
     /** The repository's main checkout, whichever checkout the command ran from. */
@@ -153,24 +157,60 @@ export interface DistillPlan {
     permissionMode: string;
 }
 
-/** The checks before any session exists. A refusal names its remedy and changes nothing. */
+/**
+ * The checks before any session exists, cheapest first, in the Mechanism's order (D3). A refusal
+ * names its remedy and changes nothing (G7).
+ */
 export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; plan: DistillPlan } | { ok: false; refusal: DistillRefusal } {
     const refuse = (reason: string, remedy: string): { ok: false; refusal: DistillRefusal } => ({ ok: false, refusal: { reason, remedy } });
     const closeRerun = `nexus close --pr ${prArg(input.pr)}`;
 
+    const rerun = `nexus distill --pr ${prArg(input.pr)}`;
+
+    // 1. Single-repo checkouts only: the hub and member rules stay where /nxs.distill keeps them (G1).
     const role = deps.role(input.cwd);
     if (!role.ok) return refuse(role.error.message, "run nexus distill from inside a single-repo checkout");
     const { repoRoot } = role.preflight;
+    if (role.preflight.role !== "single-repo") {
+        return refuse(
+            `this checkout is a workspace ${role.preflight.role}; nexus distill runs only in a single-repo checkout`,
+            "distill by hand: run /nxs.distill <worktree-path> from your session, or /nxs.distill inside the worktree nexus close prepared",
+        );
+    }
 
+    // 2. The epic, through close's own resolution: the pull request must have merged (D2, G2).
     const found = deps.epicOfPr(repoRoot, input.pr, closeRerun);
     if (!found.ok) return refuse(found.stop.reason, found.stop.remedy);
     const { epic, issuesRepo } = found;
+    const epicRef = `${issuesRepo}#${epic}`;
 
+    // 3. Close has finished only once the epic issue is closed (G2).
+    const state = deps.epicClosed(repoRoot, issuesRepo, epic);
+    if (!state.ok) return refuse(`the state of epic ${epicRef} could not be read: ${state.message}`, `re-run ${rerun} once the read succeeds`);
+    if (!state.closed) return refuse(`epic ${epicRef} is still open, so nexus close has not finished`, `run ${closeRerun}`);
+
+    // 4. Close's distillation branch, and the worktree on it, named apart (D2, G3).
     const branch = deps.findBranch(repoRoot, epic);
-    if (!branch.ok) return refuse(branch.error.message, "re-run nexus distill once the cause above is fixed");
-    if (branch.branch === null) return refuse(`no distillation branch was found for epic ${issuesRepo}#${epic}`, `run ${closeRerun}`);
+    if (!branch.ok) return refuse(branch.error.message, `re-run ${rerun} once the cause above is fixed`);
+    if (branch.branch === null) {
+        return refuse(`no distillation branch exists for epic ${epicRef}, locally or on the push remote`, `run ${closeRerun}, which cuts it and opens its worktree`);
+    }
     const wtPath = deps.worktreeOn(repoRoot, branch.branch);
-    if (wtPath === null) return refuse(`no worktree is checked out on the distillation branch ${branch.branch}`, `run ${closeRerun}`);
+    if (wtPath === null) {
+        return refuse(`no worktree is registered on the distillation branch ${branch.branch}`, `run ${closeRerun}, which reopens the worktree on the same branch`);
+    }
+
+    // 5. The distillation pushes to a branch that is already on the push remote (G4).
+    const pushed = deps.branchPushed(repoRoot, branch.branch);
+    if (!pushed.ok) return refuse(`the push remote could not be read for ${branch.branch}: ${pushed.message}`, `re-run ${rerun} once the remote can be read`);
+    if (!pushed.pushed) return refuse(`the distillation branch ${branch.branch} is not pushed`, `run ${closeRerun}, which pushes ${branch.branch}`);
+
+    // 6. A pull request already open would be read as this run's success (D4, G5).
+    const open = deps.openPr(wtPath, branch.branch);
+    if (!open.ok) return refuse(`GitHub could not be read for a pull request from ${branch.branch}: ${open.message}`, `re-run ${rerun} once GitHub can be read`);
+    if (open.url !== null) {
+        return refuse(`a distillation pull request from ${branch.branch} is already open: ${open.url}`, `review that pull request; to distill again, close it first, then re-run ${rerun}`);
+    }
 
     const command = input.harness;
     if (!deps.onPath(command)) return refuse(`the ${command} command is not on the PATH, so no session can start`, `install and sign in to ${command}, then re-run nexus distill`);
@@ -447,6 +487,18 @@ export function distillDeps(run: Runner): DistillDeps {
     return {
         role: (cwd) => closePreflight(cwd, run),
         epicOfPr: (repoRoot, pr, rerun) => resolveEpicOfPr(close, repoRoot, pr, rerun, "pass a merged pull request that closes one of the epic's story issues"),
+        epicClosed: (repoRoot, issuesRepo, epic) => {
+            const r = run("gh", ["issue", "view", String(epic), "--repo", issuesRepo, "--json", "state", "--jq", ".state"], { cwd: repoRoot });
+            if (r.status !== 0) return { ok: false, message: r.stderr.trim() || `gh exited ${r.status}` };
+            return { ok: true, closed: r.stdout.trim().toUpperCase() === "CLOSED" };
+        },
+        branchPushed: (repoRoot, branch) => {
+            // --exit-code: 2 means the remote was read and has no such branch.
+            const r = run("git", ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`], { cwd: repoRoot });
+            if (r.status === 0) return { ok: true, pushed: true };
+            if (r.status === 2) return { ok: true, pushed: false };
+            return { ok: false, message: r.stderr.trim() || `git exited ${r.status}` };
+        },
         findBranch: (repoRoot, epic) => findEpicDistillBranch(run, repoRoot, epic),
         worktreeOn: (repoRoot, branch) => worktreeOnBranch(git(run, repoRoot, "worktree", "list", "--porcelain") ?? "", branch),
         mainCheckout: (repoRoot) => {

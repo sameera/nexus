@@ -12,3 +12,8 @@
 - **Choice:** The script `exec`s `nexus distill`, so a stopped distillation now exits non-zero; under `--background` it detaches `nexus distill` itself until the command gains `--background`.
 - **Why:** The outcome rule belongs to the command (D4, D13), and the exit status is part of it.
 - **Refuted alternative:** Keeping the script's exit 0 on a stop, which would report success the command does not.
+
+## 2026-10-17 — The already-open pull request check reads GitHub from the worktree
+- **Choice:** The pre-start open-PR check uses the same `gh pr list --head <branch>` read from the worktree as the outcome check.
+- **Why:** D4 needs the start refusal and the success read to ask the same repository, or a PR seen by one could be missed by the other.
+- **Refuted alternative:** Asking the issues repository, which in a split-repo setup is not where the distillation opens its pull request.
