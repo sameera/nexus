@@ -157,6 +157,14 @@ describe("nexus distill — success is read from GitHub only (AC2, AC3, D4, G12,
         expect(out).toContain("could not start");
     });
 
+    it("reports a session that could not start as a stop, even when a pull request is open by then (G13)", async () => {
+        const h = harness({ openPr: afterSession({ ok: true, url: URL }) }, { started: false, exitCode: null, error: "spawn claude ENOENT", finalMessage: null });
+        const { code, out } = await run(h);
+        expect(code).not.toBe(0);
+        expect(out).toContain("could not start");
+        expect(out).not.toMatch(/after the pull request opened/);
+    });
+
     it("reports success, noting the error, when the session opened the pull request and then failed", async () => {
         const h = harness({ openPr: afterSession({ ok: true, url: URL }) }, { started: true, exitCode: 1, error: "crashed", finalMessage: null });
         const { code, out } = await run(h);
@@ -329,6 +337,22 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         expect(err).toMatch(/still in progress/);
         expect(err).toContain(files.outcome);
         expect(h.sessions).toHaveLength(0);
+    });
+
+    it("refuses a start that loses the race for the marker to another run started at the same instant (G6)", async () => {
+        const h = harness({ alive: (pid) => pid === 4242 });
+        const files = runFiles(h.mainRoot, PR);
+        const onPath = h.deps.onPath;
+        h.deps.onPath = (command) => {
+            fs.mkdirSync(files.dir, { recursive: true });
+            fs.writeFileSync(files.marker, "4242\n");
+            return onPath(command);
+        };
+        const { code, err } = await run(h);
+        expect(code).not.toBe(0);
+        expect(err).toMatch(/still in progress/);
+        expect(h.sessions).toHaveLength(0);
+        expect(fs.readFileSync(files.marker, "utf8").trim()).toBe("4242");
     });
 
     it("is not blocked by a marker whose process no longer exists (G6)", async () => {

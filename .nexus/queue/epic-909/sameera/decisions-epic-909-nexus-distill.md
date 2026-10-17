@@ -27,3 +27,18 @@
 - **Choice:** The base stage classifies a path argument and resolves a close worktree as run mode `continuation`; the existing continuation row loads the worktree rules, with no new selection row.
 - **Why:** The selection table keeps one row per contract named once outside it, and the ordinary-load ceiling left about 1 KB for the base stage.
 - **Refuted alternative:** A second row that loads the continuation contract at run-shape resolution, which breaks the one-row-per-contract rule.
+
+## 2026-10-17 — A session that never started, with a pull request open, is a stop that names the pull request
+- **Choice:** `decideOutcome` reports success only when the session started; otherwise an open pull request is named in a stop line saying this run did not open it.
+- **Why:** G13 forbids success for a session that could not start, and the existing stop line ("no distillation pull request was opened") would be false with one open.
+- **Refuted alternative:** Reporting it as unconfirmed, which G13 also allows but which reads as a GitHub read failure when GitHub was read fine.
+
+## 2026-10-17 — The live-run marker is taken with an exclusive create
+- **Choice:** `claimRun` creates the marker with the `wx` flag; on a clash it refuses if the owner is alive, else removes the stale marker and retries once.
+- **Why:** Two starts at the same instant could both pass the G6 liveness check before either wrote the marker.
+- **Refuted alternative:** A lock directory via `mkdir`, which is equally atomic but leaves a second artifact to clean up beside the pid file.
+
+## 2026-10-17 — The worktree-form fixes in the base stage are three short clauses, not a new contract row
+- **Choice:** Step 0 states the run folder lies inside the worktree and the other-checkout refusal; entry discovery steps 1 and 6 name the worktree's one entry and `$WT/.nexus/tmp/runs/`.
+- **Why:** These rules must hold before the continuation contract loads after the entry list, and they fit the ordinary-load ceiling (65,902 of 66,000 bytes).
+- **Refuted alternative:** Loading the continuation contract at run-shape resolution for the worktree form, which adds a second selection row for one contract.

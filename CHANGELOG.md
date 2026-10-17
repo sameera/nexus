@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.115.0
+
+- **`nexus distill` never reports success for a session that did not start.** If a distillation
+  pull request is open by the time it checks, it now stops, names that pull request, and says this
+  run did not open it.
+- **Two `nexus distill` runs for the same pull request started at the same instant can no longer
+  both proceed.** The second refuses, as it does when the first is already running.
+- **`/nxs.distill <worktree-path>` keeps its run folder in the worktree from the first write.**
+  Your own checkout gets no scratch files from the run.
+- **`/nxs.distill` refuses a queue-entry path that lies inside another checkout by naming that
+  checkout's root**, the path to pass instead.
+
 ## 0.114.0
 
 - **`/nxs.distill <worktree-path>` runs an attended distillation of a close worktree from the

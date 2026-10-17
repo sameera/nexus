@@ -274,9 +274,27 @@ function liveRun(deps: Pick<DistillDeps, "alive">, files: RunFiles): number | nu
     return Number.isInteger(pid) && pid > 0 && deps.alive(pid) ? pid : null;
 }
 
-/** Write the marker naming `pid`. */
-function claimRun(files: RunFiles, pid: number): void {
+/**
+ * Create the marker naming `pid` only if no live run holds it, in one exclusive create, so two
+ * starts at the same instant cannot both pass (G6). Returns the live owner when the claim is lost.
+ */
+function claimRun(deps: Pick<DistillDeps, "alive">, files: RunFiles, pid: number): number | null {
     fs.mkdirSync(files.dir, { recursive: true });
+    for (let attempt = 0; ; attempt++) {
+        try {
+            fs.writeFileSync(files.marker, `${pid}\n`, { flag: "wx" });
+            return null;
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+        }
+        const owner = liveRun(deps, files);
+        if (owner !== null || attempt > 0) return owner ?? -1;
+        fs.rmSync(files.marker, { force: true });
+    }
+}
+
+/** Hand the marker this process holds to `pid`. */
+function handOverRun(files: RunFiles, pid: number): void {
     fs.writeFileSync(files.marker, `${pid}\n`);
 }
 
@@ -313,7 +331,7 @@ export function decideOutcome(plan: Pick<DistillPlan, "wtPath" | "branch" | "fil
             ? `the session exited ${end.exitCode === null ? "without an exit code" : end.exitCode}`
             : null;
     const final = end.finalMessage !== null && end.finalMessage.trim() !== "" ? end.finalMessage.trim().split("\n") : [`(none — see ${plan.files.log})`];
-    if (read.ok && read.url !== null) {
+    if (end.started && read.ok && read.url !== null) {
         return {
             success: true,
             text: [`distillation pull request: ${read.url}`, ...(sessionTrouble === null ? [] : [`note: ${sessionTrouble}, after the pull request opened`]), "", cleanup],
@@ -338,7 +356,9 @@ export function decideOutcome(plan: Pick<DistillPlan, "wtPath" | "branch" | "fil
     return {
         success: false,
         text: [
-            `stopped — no distillation pull request was opened from ${plan.branch}.`,
+            read.url === null
+                ? `stopped — no distillation pull request was opened from ${plan.branch}.`
+                : `stopped — ${read.url} is open from ${plan.branch}, but this run's session never started, so it did not open it.`,
             ...(sessionTrouble === null ? [] : [`note: ${sessionTrouble}`]),
             "",
             "Distill's final message:",
@@ -383,7 +403,12 @@ export async function runDistillCommand(deps: DistillDeps, input: DistillInput, 
     }
     const { plan } = checked;
     io.stderr(permissionLine(input.harness, plan.permissionMode, input.permissionMode !== null));
-    claimRun(plan.files, process.pid);
+    const owner = claimRun(deps, plan.files, process.pid);
+    if (owner !== null) {
+        const held = owner > 0 ? ` (process ${owner})` : "";
+        for (const line of renderRefusal({ reason: `a run for this pull request is still in progress${held}; its outcome will be written to ${plan.files.outcome}`, remedy: `wait for it to end and read ${plan.files.outcome}` })) io.stderr(line);
+        return 1;
+    }
     if (input.background === true) {
         const started = await deps.detach(plan);
         if (!started.ok) {
@@ -391,7 +416,7 @@ export async function runDistillCommand(deps: DistillDeps, input: DistillInput, 
             io.stderr(`nexus distill stopped: the background run could not start: ${started.message}. No session was started.`);
             return 1;
         }
-        claimRun(plan.files, started.pid);
+        handOverRun(plan.files, started.pid);
         io.stdout(`Distilling epic ${plan.issuesRepo}#${plan.epic} in the background (process ${started.pid}), in ${plan.wtPath}.`);
         io.stdout(`Log:     ${plan.files.log}`);
         io.stdout(`Outcome: ${plan.files.outcome} (written when the run ends)`);
