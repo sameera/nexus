@@ -22,3 +22,8 @@
 - **Choice:** Added a line to the unreleased 0.116.0 CHANGELOG entry; no new version.
 - **Why:** G6 holds the pull request to one bump and one CHANGELOG entry.
 - **Refuted alternative:** Bump to 0.117.0 for the follow-up commit.
+
+## 2026-10-17 — §2.6 departure fix rides the unreleased 0.116.0 entry
+- **Choice:** reword §2.6 and Phase 3 so the ID step, not the model, writes counts and unapplied answers into the verdict; no new version bump.
+- **Why:** 0.116.0 is untagged and its first bullet already states the toolkit writes the whole verdict, so this only aligns the instructions with it.
+- **Refuted alternative:** bump to 0.117.0 with its own entry.

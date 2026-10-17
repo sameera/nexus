@@ -739,14 +739,16 @@ answers it applied under `answers.applied`, and every answer line that applied n
 - `no-reason` — an accepted or waived answer gave no reason.
 - `not-waivable` — only a critical or high finding can be waived.
 
-**Name every unapplied answer in the verdict**, on the `Answers not applied:` line, with its
-comment's author and link — never drop one, and never apply one by judgment. A decision stub
+**The ID step names every unapplied answer in the published verdict**, with its comment's author
+and link, under the item it names — never drop one from the terminal report, and never apply one by
+judgment. A decision stub
 explains a departure and answers nothing; a freely worded reply answers nothing either.
 
 **The severity counts are the open counts** (D4). An item is open while it is found and
-unanswered: an accepted departure and a waived finding count nothing. Write the counts the step
-printed as `open` into the `Severity:` line and the machine block's `findings:` — never totals, and
-never a count of your own. List each answered item separately, with who answered and the link.
+unanswered: an accepted departure and a waived finding count nothing. The ID step writes the `open` counts into the published verdict's headline and the machine
+block's `findings:` — never totals. It lists each answered item separately, with who answered and
+the link. You write none of this into the published verdict yourself (epic #923, D1); the terminal
+report carries the same `open` counts on its `Severity:` line, never a count of your own.
 A comment that carries a verdict is never read as an answer. So the published verdict prints, under
 each answerable open item, the exact line to paste in its own code block — `DV<n> — accepted:`,
 `F<n> — waived:`, and `DS<n> — approved:` only on the item that proposal settles — and the command
@@ -875,7 +877,8 @@ A broken guarantee appears on the `Departures:` line with its `G<n>` ID (an inva
 and nowhere else among the results; Blocked on me names it by its `DV<n>` ID only. Write the `DV<n>` and `F<n>` IDs `nexus verdict-items` printed, in `--pr` mode;
 locally, list the departures and findings without IDs. In `--pr` mode the `Severity:` line is the
 step's `open` counts (§2.6), plus the number of `unconfirmed` results it printed; an answered item is listed, never counted. Never write a listed item
-as `<ID> — <verb>:` — that is the answer form, and a verdict never holds an answer.
+as `<ID> — <verb>:` — that is the answer form, and this report never holds an answer. Only the
+published verdict's paste lines, which the ID step writes, take that form (§2.6).
 
 `<epic-ref>`, `<record-ref>` and every `<story-ref>` are written under the **`nxs-issue-reference`**
 skill loaded in Phase 0.5. Without a pull request the summary is a terminal report: qualify a
