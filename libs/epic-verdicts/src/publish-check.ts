@@ -155,6 +155,7 @@ export function longestFields(judgments: Judgments, count = 3): string[] {
     for (const r of judgments.results ?? []) {
         add(r.about, "looked", r.looked);
         add(r.about, "confirmBy", r.confirmBy);
+        add(r.about, "evidence", r.evidence);
     }
     (judgments.scopeDrift ?? []).forEach((t, i) => add(`scopeDrift ${i + 1}`, "text", t));
     (judgments.notes ?? []).forEach((t, i) => add(`notes ${i + 1}`, "text", t));

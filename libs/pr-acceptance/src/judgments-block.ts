@@ -196,6 +196,8 @@ export interface Result {
     looked?: string;
     /** Unconfirmed only: what would confirm it. */
     confirmBy?: string;
+    /** Where the judgment rests, as locations (epic #923, D3); absent on a result judged before it was carried. */
+    evidence?: string;
 }
 
 /** Phase 0.7's answer for the pull request: judge the epic level, report it not run, or skip it. */
@@ -463,11 +465,14 @@ export function readResult(raw: unknown): Result | string {
         return `has no ${kind} verdict of ${RESULT_VERDICTS[kind].join(", ")} (verdict)`;
     }
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
-    if (verdict !== "unconfirmed") return { kind, about, verdict, files: files as string[] };
+    const evidence = raw["evidence"] ?? null;
+    if (evidence !== null && !nonEmpty(evidence)) return "carries evidence that is not text (evidence)";
+    const extra = evidence === null ? {} : { evidence };
+    if (verdict !== "unconfirmed") return { kind, about, verdict, files: files as string[], ...extra };
     const { looked, confirmBy } = raw;
     if (!nonEmpty(looked)) return "is unconfirmed but does not say where analyze looked, by file or by surface (looked)";
     if (!nonEmpty(confirmBy)) return "is unconfirmed but does not say what would confirm it (confirmBy)";
-    return { kind, about, verdict, files: files as string[], looked, confirmBy };
+    return { kind, about, verdict, files: files as string[], looked, confirmBy, ...extra };
 }
 
 /** Read a results list, refusing an unreadable entry or two results judging the same thing. */

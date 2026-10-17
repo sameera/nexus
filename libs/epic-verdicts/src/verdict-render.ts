@@ -180,19 +180,19 @@ export function renderVerdict(input: VerdictInput): RenderedVerdict {
     const { judgments, facts } = input;
     const open = openCounts(judgments);
     const blocked = open.critical + open.high > 0;
-    const sections: string[] = [
+    const sections: Array<string | null> = [
         headline(facts, open, judgments),
         needsActionSection(input),
         worthALookSection(input),
         alreadyAnsweredSection(input),
         noLongerFoundSection(input),
         storiesSection(facts, judgments.results ?? []),
-        resultsSection(judgments.results ?? []),
-        epicLevelSection(facts),
-        conceptsSection(facts),
+        evidenceSection(judgments),
+        epicLevelSection(facts, judgments.results ?? []),
         runDetailsSection(input, open),
     ];
-    const body = `${sections.join("\n\n")}\n`;
+    // A section with nothing to report is left out (D11; G19).
+    const body = `${sections.filter((x): x is string => x !== null).join("\n\n")}\n`;
     return { body, open, blocked };
 }
 
@@ -211,19 +211,19 @@ function headline(facts: VerdictFacts, open: OpenCounts, judgments: Judgments): 
 }
 
 /** Needs action (D8; G10, G15): the blocking items, then the answers that applied nothing and name no blocking item. */
-function needsActionSection(input: VerdictInput): string {
+function needsActionSection(input: VerdictInput): string | null {
     const { judgments } = input;
     const blocking = sortedItems(judgments).filter((x) => isOpen(judgments, x) && (x.severity === "critical" || x.severity === "high"));
     const shown = new Set(blocking.map((x) => x.id));
     const lines: string[] = ["### Needs action", ""];
     for (const item of blocking) lines.push(...openItemLines(item, input, true), "");
     for (const a of input.unapplied.filter((u) => !shown.has(u.id))) lines.push(`- ${unappliedText(a)}`);
-    if (lines.length === 2) lines.push("None.");
+    if (lines.length === 2) return null;
     return trimBlank(lines).join("\n");
 }
 
 /** Worth a look (D8): open medium and low findings, the checks to make by hand, scope drift and notes. */
-function worthALookSection(input: VerdictInput): string {
+function worthALookSection(input: VerdictInput): string | null {
     const { judgments } = input;
     const lines: string[] = ["### Worth a look", ""];
     for (const item of sortedItems(judgments).filter((x) => isOpen(judgments, x) && (x.severity === "medium" || x.severity === "low"))) {
@@ -234,7 +234,7 @@ function worthALookSection(input: VerdictInput): string {
     }
     for (const s of judgments.scopeDrift ?? []) lines.push(`- Scope drift: ${inlineText(s)}`);
     for (const n of judgments.notes ?? []) lines.push(`- Note: ${inlineText(n)}`);
-    if (lines.length === 2) lines.push("None.");
+    if (lines.length === 2) return null;
     return trimBlank(lines).join("\n");
 }
 
@@ -276,7 +276,7 @@ function unappliedText(a: UnappliedAnswer): string {
 }
 
 /** Already answered (D8; G13): the subject first, then the answer, who gave it with a link, the reason, and the ID. */
-function alreadyAnsweredSection(input: VerdictInput): string {
+function alreadyAnsweredSection(input: VerdictInput): string | null {
     const { judgments } = input;
     const lines: string[] = ["### Already answered", ""];
     for (const item of sortedItems(judgments).filter((x) => x.found && !isOpen(judgments, x))) {
@@ -294,12 +294,12 @@ function alreadyAnsweredSection(input: VerdictInput): string {
             lines.push(`- Deferred scope ${ds.id}: ${inlineText(ds.summary)} — not filed: ${ds.settles} was ${inlineText(ds.settledBy.verb)} by @${inlineText(ds.settledBy.author)} without approving it`);
         }
     }
-    if (lines.length === 2) lines.push("None.");
+    if (lines.length === 2) return null;
     return lines.join("\n");
 }
 
 /** No longer found (D8; G14): each item the run did not find again, with its answer, never dropped. */
-function noLongerFoundSection(input: VerdictInput): string {
+function noLongerFoundSection(input: VerdictInput): string | null {
     const { judgments } = input;
     const lines: string[] = ["### No longer found", ""];
     for (const item of sortedItems(judgments).filter((x) => !x.found)) {
@@ -308,7 +308,7 @@ function noLongerFoundSection(input: VerdictInput): string {
     for (const ds of judgments.deferred.filter((d) => !d.found)) {
         lines.push(`- Deferred scope: ${inlineText(ds.summary)} · ${ds.id} · ${ds.answer === null ? "unanswered" : answerText(ds.answer)}`);
     }
-    if (lines.length === 2) lines.push("None.");
+    if (lines.length === 2) return null;
     return lines.join("\n");
 }
 
@@ -334,6 +334,7 @@ function trimBlank(lines: string[]): string[] {
     return lines;
 }
 
+/** The stories table: counts only (D11; G17). */
 function storiesSection(facts: VerdictFacts, results: readonly Result[]): string {
     const lines = ["### Stories", "", "| Story | Met | Partial | Unmet | Contradicted | Unconfirmed |", "|---|---|---|---|---|---|"];
     for (const story of facts.stories) {
@@ -354,22 +355,38 @@ function storyCounts(story: number, results: readonly Result[]): Record<"met" | 
     return c;
 }
 
-function resultsSection(results: readonly Result[]): string {
-    const lines = ["### Guarantees and metrics", ""];
-    for (const r of results.filter((x) => x.kind !== "criterion")) lines.push(`- ${inlineText(r.about)} · ${r.verdict}`);
-    if (lines.length === 2) lines.push("None.");
-    return lines.join("\n");
+/** A section GitHub shows folded until the reader opens it. */
+function collapsed(summary: string, content: string[]): string {
+    return ["<details>", `<summary>${summary}</summary>`, "", ...content, "", "</details>"].join("\n");
 }
 
-function epicLevelSection(facts: VerdictFacts): string {
-    const lines = ["### Epic level", ""];
-    for (const l of facts.epicLevel.lines) lines.push(`- ${inlineText(l)}`);
-    if (lines.length === 2) lines.push("None.");
-    return lines.join("\n");
+/**
+ * The evidence for each criterion and guarantee, collapsed (D11; G17): where each judgment rests,
+ * or the files it was judged on when the result was recorded before evidence was carried.
+ */
+function evidenceSection(judgments: Judgments): string | null {
+    const rows = (judgments.results ?? []).filter((r) => r.kind !== "metric");
+    if (rows.length === 0) return null;
+    const table = ["| Check | Result | Evidence |", "|---|---|---|"];
+    for (const r of rows) table.push(`| ${inlineText(r.about)} | ${r.verdict} | ${inlineText(r.evidence ?? r.files.join(", "))} |`);
+    return collapsed("Evidence", table);
 }
 
-function conceptsSection(facts: VerdictFacts): string {
-    return ["### Concept invariants", "", conceptSentence(facts)].join("\n");
+/**
+ * The epic-level results: one table, one row per check (D11; G18). A run that did not judge the
+ * epic level shows one row saying so; a pull request that does not complete the epic shows none.
+ */
+function epicLevelSection(facts: VerdictFacts, results: readonly Result[]): string | null {
+    if (facts.epicLevel.state === "skip") return null;
+    const lines = ["### Epic level", "", "| Check | Result |", "|---|---|"];
+    if (facts.epicLevel.state === "not-run") {
+        lines.push(`| Epic-level check | not run: ${inlineText(facts.epicLevel.lines.join(" ")) || "the head does not contain every merged sibling"} |`);
+        return lines.join("\n");
+    }
+    const checks = results.filter((r) => r.kind === "metric" || r.kind === "guarantee");
+    for (const r of checks) lines.push(`| ${inlineText(r.about)} | ${r.verdict} |`);
+    if (checks.length === 0) lines.push("| Epic-level checks | none recorded |");
+    return lines.join("\n");
 }
 
 /** The concept-invariant sentence: how many were checked and from which pages, or that none were (G22). */
@@ -382,9 +399,14 @@ export function conceptSentence(facts: VerdictFacts): string {
     return notFound.length === 0 ? head : `${head} Listed but not found: ${notFound.map(inlineText).join(", ")}.`;
 }
 
+/**
+ * Run details, collapsed (D11; G20, G21, G24): the mode, the record and its full hash, the head, the
+ * key decisions, the concept-invariant sentence and the recorded scope, then the receipt block —
+ * its marker directly followed by its fence — and the judgments block after it.
+ */
 function runDetailsSection(input: VerdictInput, open: OpenCounts): string {
     const { facts, judgments } = input;
-    const lines = ["### Run details", ""];
+    const lines: string[] = [];
     lines.push(`- Mode: ${facts.record === null ? "downgraded (the epic has no decision record)" : "full"}`);
     if (facts.record !== null) lines.push(`- Record: ${inlineText(facts.record.ref)} @ ${inlineText(facts.record.hash)}`);
     lines.push(`- Head: ${inlineText(facts.head)}`);
@@ -392,8 +414,9 @@ function runDetailsSection(input: VerdictInput, open: OpenCounts): string {
     for (const s of judgments.keyDecisions?.stubs ?? []) {
         lines.push(`- Stub \`${inlineText(s.path)}\`: ${inlineText(s.choice)} — ${inlineText(s.reason)} (refuted: ${inlineText(s.refuted)})`);
     }
+    lines.push(`- Concept invariants: ${conceptSentence(facts)}`);
     for (const r of facts.recorded) lines.push(`- Recorded: ${inlineText(r)}`);
-    return [...lines, "", receiptBlock(facts, open), renderJudgmentsBlock(judgments).trimEnd()].join("\n");
+    return collapsed("Run details", [...lines, "", receiptBlock(facts, open), renderJudgmentsBlock(judgments).trimEnd()]);
 }
 
 function keyDecisionsText(judgments: Judgments): string {
