@@ -73,6 +73,13 @@ Resolve the run's shape before anything is reported, refused or written, then re
 contracts that shape names. Each value below is resolved **once**, here, and every later phase reads
 the resolved value instead of re-deriving it.
 
+0. **A path argument** is classified first. A queue entry in this checkout drains as Entry
+   discovery step 1 states. The root of a worktree that shares this checkout's git folder, on a
+   `distill/*` branch passing the continuation test below, is the **worktree form**: run mode is
+   **continuation**, and every value below is resolved against that worktree, named in every
+   command. Anything else is refused before any entry is read, naming what was found: no such
+   directory, not a worktree, another repository's worktree, not a distillation branch, or
+   commits beyond close's.
 1. **Run mode.**
     - **recovery** — `$ARGUMENTS` contains `--recover <epic-issue>`.
     - **continuation** — the current branch matches `distill/*`, the working tree is clean, and the
@@ -849,6 +856,8 @@ Entries blocked (diff underivable): <list with age, drain-SLO flag, the class to
 /nxs.distill .nexus/tmp/epic-118/            # drain one specific ephemeral entry
 /nxs.distill --recover 118                   # rebuild epic #118's entry from its issue's close
                                              #  comment (local copy gone) and drain it
+/nxs.distill /tmp/nexus-worktrees/distill-x   # a close worktree, from another checkout: drains its
+                                             #  one entry there; your checkout is untouched
 /nxs.distill                                 # (on a close-prepared distill/* branch, inside the
                                              #  close worktree) continuation mode — drains that
                                              #  branch's one entry and opens its distillation-PR

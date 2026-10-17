@@ -1,6 +1,6 @@
 ---
 name: nxs-distill-continuation
-description: The continuation-mode contract of /nxs.distill. Read it only when that stage has resolved its run mode as continuation, the hand-off from a `nexus close` run that already prepared the branch.
+description: The continuation-mode contract of /nxs.distill. Read it only when that stage has resolved its run mode as continuation, the hand-off from a `nexus close` run that already prepared the branch, or a path argument as a close worktree.
 ---
 
 # nxs-distill-continuation
@@ -16,6 +16,50 @@ not name runs exactly as the base stage states it.
 
 Nothing here writes to GitHub, the concept store, the queue or a branch on its own. Branch creation,
 the checkpoint stop and the pull-request opening stay in the base stage.
+
+## The worktree form — `/nxs.distill <worktree-path>`
+
+The lead can name the close worktree from another checkout of the same repository, so an attended
+run starts from the session they already have open. The run then drains that worktree's one entry
+exactly as a run started inside it does.
+
+**How the path was classified.** The base stage classifies a path argument at run-shape
+resolution, before any entry is read. These are the reads it means, each naming the path:
+
+```bash
+WT="$(realpath -e "<path>")"                                   # fails: no such directory
+git -C "$WT" rev-parse --path-format=absolute --show-toplevel  # fails: not a worktree
+git -C "$WT" rev-parse --path-format=absolute --git-common-dir # compare with this checkout's
+git -C "$WT" branch --show-current                             # must match distill/*
+```
+
+It is the worktree form only when all of these hold: the path is the worktree's root (the
+top-level equals `$WT`); its git folder is this checkout's git folder; its branch matches
+`distill/*`; and that branch passes the continuation test of the base stage's run mode, read in the
+worktree. Otherwise refuse before reading any entry, and name what was found: no such directory,
+not a worktree (or not its root), a worktree of another repository, a worktree on a branch that is
+not a distillation branch, or a branch with commits beyond close's. A queue-entry path that lies
+inside another checkout is refused too, naming that checkout's root as the path to pass instead.
+
+**Every run-shape value is resolved against the worktree**: run mode (continuation), workspace
+shape (`test -f "$WT/.nexus/config/workspace.yml"`, `test -f "$WT/.nexus/config/hub.yml"`) and
+entry kind. A member worktree is therefore refused by the member rule, as it is inside it.
+
+**The pinned root applies to every phase.** Claude Code resets the shell's directory when a command
+leaves the session's working directories, and the default worktree location is outside them. So a
+`cd` never lasts from one command to the next, and relying on one would send later writes and
+commits into the lead's checkout without any error.
+
+- Every git command names the worktree: `git -C "$WT" …`.
+- Every other command, `nexus` and `gh` included, runs as `(cd "$WT" && <command>)` in one shell
+  call.
+- Every file read or written is an absolute path inside `$WT`: the entry, the concept store, the
+  atlas, and the run folder `$WT/.nexus/tmp/runs/distill-<subject>/`.
+- Phase 0.2's clean-tree check is `git -C "$WT" status --porcelain`. The lead's own checkout may
+  carry uncommitted work; it is never checked, read for entries, or written.
+
+Tell the lead once, at the start, that adding the worktree as a working directory (`/add-dir
+"$WT"`) saves a permission prompt on each edit. Never add it for them.
 
 ## Input Resolution — drain one entry, not the queue
 
@@ -57,8 +101,9 @@ the deltas and commit on it directly.
 ## Phase 7 — push the existing branch, and stay on it
 
 The branch already exists and was pushed by the close (`--pr`); `git push` lands the new
-concept/anchor/atlas commits on it. **Do not run `git checkout -`**. You are inside the close
-worktree, which stays on this branch, and there is no prior branch to return to. The worktree is
+concept/anchor/atlas commits on it. **Do not run `git checkout -`**. The close worktree
+stays on this branch, whether the run is inside it or names it by path, and there is no prior
+branch to return to. The worktree is
 removed after the PR is dealt with (Phase 8).
 
 The entry's `close-record.md` was added by the close earlier on this same branch and is `git rm`'d
@@ -68,9 +113,9 @@ the reviewer can see the *why* without a dangling queue path.
 
 ## Phase 8 — the worktree-cleanup instruction, under Blocked on me
 
-`/nxs.distill` runs *inside* the close worktree, so it cannot remove that worktree itself; the lead
+The run never removes the close worktree, whether it ran inside it or named it by path: the lead
 removes it once done reviewing. Add this under the report's Blocked on me heading:
 
     Worktree: <wtPath> (the close/distill worktree, still checked out on this branch)
     CLEANUP (after the distillation-PR is merged or closed):
-        git worktree remove --force <wtPath>
+        nexus pr-worktree remove <wtPath>

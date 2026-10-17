@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.114.0
+
+- **`/nxs.distill <worktree-path>` runs an attended distillation of a close worktree from the
+  session you already have open.** Pass the worktree `nexus close` prepared, from another checkout
+  of the same repository. The run drains that worktree's one entry and opens its distillation pull
+  request, as a run started inside the worktree does, with every gate where it stops today. Every
+  write and commit lands in the worktree; your own checkout, including uncommitted work there, is
+  left alone. A path that is neither a close worktree nor a queue entry is refused before any entry
+  is read, naming what was found. Adding the worktree as a working directory saves a permission
+  prompt on each edit.
+- **The continuation report names `nexus pr-worktree remove <worktree>` as the cleanup command**,
+  in place of a raw `git worktree remove --force`.
+
 ## 0.113.0
 
 - **`nexus distill --background` returns at once and leaves the distillation running.** It names
