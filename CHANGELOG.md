@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.109.0
+
+- **New `/nxs.code-review` ranks a pull request's review findings before `analyze`.** It runs
+  Claude Code's own `/code-review` on the pull request, passing an optional effort level through
+  and never its posting or fixing options. It moves each finding to its line at the pull request's
+  head, rates it on probability, severity, fix effort and regression risk, and numbers it into
+  four groups by fixed rules: fix in this pull request, fix if the author agrees, optional, and
+  follow-up issues. A finding outside the changed lines is marked as body-only. When Claude Code's
+  review cannot be run, it names what is missing and reviews nothing itself. Installing replaces a
+  personal skill already installed under the same name.
+
 ## 0.108.0
 
 - **Accepted outside-epic dependencies no longer block this epic's implementation.** The approval

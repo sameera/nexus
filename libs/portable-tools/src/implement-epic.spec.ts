@@ -194,7 +194,8 @@ describe("the conformance loop reads analyze's terminal report", () => {
     it("keeps a report per run, and judges each round on that run's own result", () => {
         const run = conform(script, { reports: [result(1, 0), result(0, 0, "f".repeat(40))], rounds: 2 });
         expect(run.stderr).toContain(`conformance clean at ${"f".repeat(40)}`);
-        expect(fs.readdirSync(path.join(scratch, ".nexus", "tmp", "implement-epic-42")).length).toBe(2);
+        const reports: string[] = fs.readdirSync(path.join(scratch, ".nexus", "tmp", "implement-epic-42")).filter((f) => f.startsWith("analyze-"));
+        expect(reports.length).toBe(2);
     });
 
     it("reads the last result line when the report quotes the line's form earlier", () => {
