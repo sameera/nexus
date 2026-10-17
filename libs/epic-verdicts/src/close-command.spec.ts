@@ -2311,18 +2311,32 @@ describe("close writes in a fixed order and hands off only on full success (stor
         expect(stdout).toContain(`Hand-off note written: ${note}`);
     });
 
-    it("hands the next step to the close script, and names no drain to run by hand, when a hand-off was asked for (story #817)", () => {
-        const h = harness();
-        const { stdout } = closed(h, { handoff: path.join(h.repoRoot, "run", "handoff.txt") });
-        expect(stdout).toContain("utils/close-epic.sh continues from here");
-        expect(stdout).not.toContain("/nxs.distill");
-    });
-
-    it("ends by naming the drain in the worktree when no hand-off was asked for", () => {
+    it("names nexus distill with a merged pull request it read, and the attended route through the worktree, as the next step (epic #909, D14, G28)", () => {
         const h = harness();
         const { stdout } = closed(h);
-        expect(stdout).toContain(`cd ${h.wtPath} && /nxs.distill`);
+        expect(stdout).toContain(`nexus distill --pr ${PR}`);
+        expect(stdout).toContain(`/nxs.distill ${h.wtPath}`);
         expect(stdout).toMatch(/Epic issue: +acme\/app#830 — closed/);
+    });
+
+    it("names the pull request the lead passed when close was run with --pr (G28)", () => {
+        const h = harness();
+        const { stdout } = closed(h, viaPr(PR, ISSUES));
+        expect(stdout).toContain(`nexus distill --pr ${ISSUES}#${PR}`);
+    });
+
+    it("names a pull request in another repository by its repository (G28)", () => {
+        const h = harness({ ranges: () => ({ ok: true, ranges: ranges({ range: [{ repo: "acme/other", pr: 12, base: "b".repeat(40), head: "m".repeat(40) }] }), untrusted: [] }), trunkCheck: () => ({ ok: true }) });
+        const { stdout } = closed(h);
+        expect(stdout).toContain("nexus distill --pr acme/other#12");
+    });
+
+    it("still names both ways to distill when a hand-off note was asked for (G28)", () => {
+        const h = harness();
+        const { stdout } = closed(h, { handoff: path.join(h.repoRoot, "run", "handoff.txt") });
+        expect(stdout).toContain(`nexus distill --pr ${PR}`);
+        expect(stdout).toContain(`/nxs.distill ${h.wtPath}`);
+        expect(stdout).not.toContain("utils/close-epic.sh");
     });
 
     it("handles an epic issue that is already closed without error (G49)", () => {

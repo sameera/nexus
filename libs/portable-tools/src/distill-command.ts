@@ -1,0 +1,467 @@
+/**
+ * `nexus distill --pr <N>` — distill a closed epic with one command (epic #909, decision record #946).
+ *
+ * After `nexus close` has closed the epic and prepared its worktree, this command finds that
+ * worktree from a merged pull request of the epic, through close's own resolution (D2), and starts
+ * one harness session there that runs `/nxs.distill --unattended` (D1). It judges nothing about the
+ * distillation itself and never commits to, pushes, rebases or resets the distillation branch (G15).
+ *
+ * Success is read from GitHub, never from the session (D4): after the session ends, an open pull
+ * request whose head is the distillation branch is success; anything else is a stop. Every ending
+ * names `nexus pr-worktree remove <worktree>` (D10).
+ *
+ * The run folder holds the log, the outcome and the distillation's final message. It sits in the
+ * main checkout's ignored scratch area, one folder per pull request, under a name no drainable
+ * queue entry can have (D5, G18).
+ *
+ * Every platform read and the session itself are injected, so a spec stands in for GitHub, git and
+ * the harness.
+ */
+
+import { spawn } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as readline from "node:readline";
+import { closeCommandDeps, resolveEpicOfPr, type CloseStop } from "@nexus/epic-verdicts/close-command";
+import { prRepoName, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { findEpicDistillBranch, type EpicDistillBranchResult } from "@nexus/pr-worktree/worktree";
+import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
+import { resolveWorkspace } from "@nexus/workspace/resolve";
+import { git, type Runner } from "@nexus/workspace/run";
+
+export type DistillHarness = "claude" | "codex";
+
+/** The permission mode each harness runs under unless the lead names another for one run (D9). */
+export const DEFAULT_PERMISSION_MODE: Record<DistillHarness, string> = {
+    claude: "bypassPermissions",
+    codex: "workspace-write",
+};
+
+/**
+ * Appended to the session prompt so the model knows nobody can answer. It adds nothing to consent:
+ * the distillation learns it is unattended only from its `--unattended` flag (G8).
+ */
+export const UNATTENDED_CLAUSE =
+    "\n\nYou are running unattended inside a headless command. Nobody can answer a question, so never end by " +
+    "asking which option to take, and never wait for a decision. If the stage cannot proceed, state in " +
+    "your final message what blocked it and stop.";
+
+/** The fixed prompt every session gets (G9): nothing read from GitHub or the worktree goes into it. */
+export function sessionPrompt(harness: DistillHarness): string {
+    const stage = harness === "codex" ? "$nxs-distill" : "/nxs.distill";
+    return `${stage} --unattended${UNATTENDED_CLAUSE}`;
+}
+
+export interface DistillInput {
+    cwd: string;
+    pr: ParsedPrReference;
+    harness: DistillHarness;
+    /** A permission mode for this run only, or null for the harness default (G10). */
+    permissionMode: string | null;
+    /** Extra arguments for the harness, passed after `--`. They never reach the prompt. */
+    harnessArgs: string[];
+}
+
+/** One harness session, as the runner starts it. */
+export interface SessionSpec {
+    command: string;
+    args: string[];
+    cwd: string;
+}
+
+/** How a session ended. `started` is false when the harness could not be run at all. */
+export interface SessionEnd {
+    started: boolean;
+    /** The harness's exit code, or null when it was killed or never started. */
+    exitCode: number | null;
+    /** An error the session itself reported, or why it could not start. */
+    error: string | null;
+    /** The distillation's final message, word for word, when there was one. */
+    finalMessage: string | null;
+}
+
+export type OpenPrRead = { ok: true; url: string | null } | { ok: false; message: string };
+
+export interface DistillDeps {
+    /** The checkout's role, through close's own role gate. */
+    role(cwd: string): PreflightResult;
+    /** Close's own resolution of a pull request to its epic (D2). */
+    epicOfPr(repoRoot: string, pr: ParsedPrReference, rerun: string): { ok: true; epic: number; issuesRepo: string } | { ok: false; stop: CloseStop };
+    /** The newest distillation branch close cut for the epic, through close's own finder. */
+    findBranch(repoRoot: string, epic: number): EpicDistillBranchResult;
+    /** The worktree git has registered on `branch`, or null. */
+    worktreeOn(repoRoot: string, branch: string): string | null;
+    /** The repository's main checkout, whichever checkout the command ran from. */
+    mainCheckout(repoRoot: string): string;
+    /** The git folder every worktree of the repository shares. */
+    commonGitDir(repoRoot: string): string;
+    /** Whether git ignores `target` in the checkout at `root`. */
+    ignored(root: string, target: string): boolean;
+    /** Whether `command` resolves on the PATH. */
+    onPath(command: string): boolean;
+    /** The open pull request whose head is `branch`, asked of the repository the worktree pushes to (D4). */
+    openPr(wtPath: string, branch: string): OpenPrRead;
+    /** Run one session to its end, handing each condensed line to `line` as it arrives. */
+    session(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd>;
+}
+
+export interface DistillIo {
+    stdout: (line: string) => void;
+    stderr: (line: string) => void;
+}
+
+/** What a refusal before any session says: the reason and a remedy. Nothing was started or changed (G7). */
+export interface DistillRefusal {
+    reason: string;
+    remedy: string;
+}
+
+/** The files of one run, all in the run folder. */
+export interface RunFiles {
+    dir: string;
+    log: string;
+    outcome: string;
+    final: string;
+}
+
+/** The run folder for a pull request, in the main checkout's ignored scratch area (D5). */
+export function runFiles(mainRoot: string, pr: number): RunFiles {
+    // `distill-run-pr-<N>` can never be read as `epic-<n>`, `fix-<n>` or `intake-<n>`, the drainable entries (G18).
+    const dir = path.join(mainRoot, ".nexus", "tmp", `distill-run-pr-${pr}`);
+    return { dir, log: path.join(dir, "distill.log"), outcome: path.join(dir, "outcome.txt"), final: path.join(dir, "distill-final.txt") };
+}
+
+/** The pull request as `nexus close --pr` takes it back. */
+function prArg(pr: ParsedPrReference): string {
+    if (pr.repo === null) return `${pr.number}`;
+    return pr.host === undefined ? `${prRepoName(pr, null)}#${pr.number}` : `https://${pr.host}/${pr.repo}/pull/${pr.number}`;
+}
+
+function renderRefusal(r: DistillRefusal): string[] {
+    return ["nexus distill refused. No session was started and nothing was changed.", "", "REFUSED", `  reason: ${r.reason}`, `  remedy: ${r.remedy}`];
+}
+
+/** Everything a run needs once the checks pass. */
+export interface DistillPlan {
+    epic: number;
+    issuesRepo: string;
+    branch: string;
+    wtPath: string;
+    mainRoot: string;
+    files: RunFiles;
+    spec: SessionSpec;
+    permissionMode: string;
+}
+
+/** The checks before any session exists. A refusal names its remedy and changes nothing. */
+export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; plan: DistillPlan } | { ok: false; refusal: DistillRefusal } {
+    const refuse = (reason: string, remedy: string): { ok: false; refusal: DistillRefusal } => ({ ok: false, refusal: { reason, remedy } });
+    const closeRerun = `nexus close --pr ${prArg(input.pr)}`;
+
+    const role = deps.role(input.cwd);
+    if (!role.ok) return refuse(role.error.message, "run nexus distill from inside a single-repo checkout");
+    const { repoRoot } = role.preflight;
+
+    const found = deps.epicOfPr(repoRoot, input.pr, closeRerun);
+    if (!found.ok) return refuse(found.stop.reason, found.stop.remedy);
+    const { epic, issuesRepo } = found;
+
+    const branch = deps.findBranch(repoRoot, epic);
+    if (!branch.ok) return refuse(branch.error.message, "re-run nexus distill once the cause above is fixed");
+    if (branch.branch === null) return refuse(`no distillation branch was found for epic ${issuesRepo}#${epic}`, `run ${closeRerun}`);
+    const wtPath = deps.worktreeOn(repoRoot, branch.branch);
+    if (wtPath === null) return refuse(`no worktree is checked out on the distillation branch ${branch.branch}`, `run ${closeRerun}`);
+
+    const command = input.harness;
+    if (!deps.onPath(command)) return refuse(`the ${command} command is not on the PATH, so no session can start`, `install and sign in to ${command}, then re-run nexus distill`);
+
+    const mainRoot = deps.mainCheckout(repoRoot);
+    const files = runFiles(mainRoot, input.pr.number);
+    if (!deps.ignored(mainRoot, files.dir)) {
+        return refuse(`git does not ignore ${files.dir}, so the run's files would show as changes`, "add .nexus/tmp/ to .gitignore, then re-run nexus distill");
+    }
+
+    const permissionMode = input.permissionMode ?? DEFAULT_PERMISSION_MODE[input.harness];
+    const prompt = sessionPrompt(input.harness);
+    const spec: SessionSpec =
+        input.harness === "codex"
+            ? {
+                  command,
+                  // Distill commits in the worktree, and git writes those commits into the shared git folder (G27).
+                  args: ["exec", "--sandbox", permissionMode, "--json", "--add-dir", deps.commonGitDir(repoRoot), ...input.harnessArgs, "--", prompt],
+                  cwd: wtPath,
+              }
+            : { command, args: ["-p", prompt, "--permission-mode", permissionMode, "--output-format", "stream-json", "--verbose", ...input.harnessArgs], cwd: wtPath };
+    return { ok: true, plan: { epic, issuesRepo, branch: branch.branch, wtPath, mainRoot, files, spec, permissionMode } };
+}
+
+/** The line printed before every session (G10, R1). */
+export function permissionLine(harness: DistillHarness, mode: string, overridden: boolean): string {
+    const source = overridden ? "chosen for this run with --permission-mode" : `the ${harness} default for nexus distill`;
+    const risk = harness === "claude" && mode === "bypassPermissions" ? "; the session can run any command with your git and GitHub credentials" : "";
+    return `Permission mode: ${mode} (${source}${risk}). Choose another for one run with --permission-mode <mode>.`;
+}
+
+/** The outcome a run writes, and whether it is success. */
+export interface RunOutcome {
+    success: boolean;
+    text: string[];
+}
+
+/** Read the outcome from GitHub, never from the session (D4, G11–G13). */
+export function decideOutcome(plan: Pick<DistillPlan, "wtPath" | "branch" | "files">, end: SessionEnd, read: OpenPrRead): RunOutcome {
+    const cleanup = `Remove the worktree once you no longer need it: nexus pr-worktree remove ${plan.wtPath}`;
+    const sessionTrouble = !end.started
+        ? `the session could not start: ${end.error ?? "unknown cause"}`
+        : end.error !== null
+          ? `the session ended with an error: ${end.error}`
+          : end.exitCode !== 0
+            ? `the session exited ${end.exitCode === null ? "without an exit code" : end.exitCode}`
+            : null;
+    const final = end.finalMessage !== null && end.finalMessage.trim() !== "" ? end.finalMessage.trim().split("\n") : [`(none — see ${plan.files.log})`];
+    if (read.ok && read.url !== null) {
+        return {
+            success: true,
+            text: [`distillation pull request: ${read.url}`, ...(sessionTrouble === null ? [] : [`note: ${sessionTrouble}, after the pull request opened`]), "", cleanup],
+        };
+    }
+    if (!read.ok) {
+        return {
+            success: false,
+            text: [
+                `unconfirmed — GitHub could not be read to confirm a distillation pull request from ${plan.branch}: ${read.message}`,
+                `Check with: gh pr list --head ${plan.branch}`,
+                ...(sessionTrouble === null ? [] : [`note: ${sessionTrouble}`]),
+                "",
+                "Distill's final message:",
+                "",
+                ...final,
+                "",
+                cleanup,
+            ],
+        };
+    }
+    return {
+        success: false,
+        text: [
+            `stopped — no distillation pull request was opened from ${plan.branch}.`,
+            ...(sessionTrouble === null ? [] : [`note: ${sessionTrouble}`]),
+            "",
+            "Distill's final message:",
+            "",
+            ...final,
+            "",
+            cleanup,
+        ],
+    };
+}
+
+/**
+ * The runner (D5): start the session in the worktree, keep its condensed log and final message,
+ * then check GitHub and write the outcome. `mirror` receives each log line as it is written.
+ */
+export async function runSession(deps: Pick<DistillDeps, "session" | "openPr">, plan: DistillPlan, mirror: (line: string) => void): Promise<RunOutcome> {
+    fs.mkdirSync(plan.files.dir, { recursive: true });
+    for (const f of [plan.files.log, plan.files.outcome, plan.files.final]) fs.rmSync(f, { force: true });
+    const log = (text: string): void => {
+        fs.appendFileSync(plan.files.log, text + "\n");
+        mirror(text);
+    };
+    log(`>>> /nxs.distill --unattended in ${plan.wtPath} (${plan.spec.command}, permission mode ${plan.permissionMode})`);
+    let end: SessionEnd;
+    try {
+        end = await deps.session(plan.spec, log);
+    } catch (e) {
+        end = { started: false, exitCode: null, error: e instanceof Error ? e.message : String(e), finalMessage: null };
+    }
+    if (end.finalMessage !== null) fs.writeFileSync(plan.files.final, end.finalMessage.trim() + "\n");
+    const outcome = decideOutcome(plan, end, deps.openPr(plan.wtPath, plan.branch));
+    fs.writeFileSync(plan.files.outcome, outcome.text.join("\n") + "\n");
+    return outcome;
+}
+
+/** `nexus distill --pr <N>` in the foreground: checks, then the runner, then the outcome. */
+export async function runDistillCommand(deps: DistillDeps, input: DistillInput, io: DistillIo): Promise<number> {
+    const checked = preStart(deps, input);
+    if (!checked.ok) {
+        for (const line of renderRefusal(checked.refusal)) io.stderr(line);
+        return 1;
+    }
+    const { plan } = checked;
+    io.stderr(permissionLine(input.harness, plan.permissionMode, input.permissionMode !== null));
+    io.stderr(`Distilling epic ${plan.issuesRepo}#${plan.epic} in ${plan.wtPath} (branch ${plan.branch}). Log: ${plan.files.log}`);
+    const outcome = await runSession(deps, plan, (line) => io.stdout(line));
+    io.stdout("");
+    for (const line of outcome.text) io.stdout(line);
+    io.stdout(`Outcome written to ${plan.files.outcome}`);
+    return outcome.success ? 0 : 1;
+}
+
+/** One line of a harness's JSON event stream, condensed for the log. */
+export interface CondensedEvent {
+    lines: string[];
+    final?: string;
+    error?: string;
+}
+
+const clip = (s: unknown, n: number): string => {
+    const t = String(s).replace(/\s+/g, " ").trim();
+    return t.length > n ? t.slice(0, n) + "…" : t;
+};
+
+/** Condense one event of claude's stream-json or codex's --json output (the script's formatter, ported). */
+export function condenseEvent(line: string): CondensedEvent {
+    let ev: Record<string, unknown>;
+    try {
+        ev = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+        return { lines: line.trim() === "" ? [] : [line] };
+    }
+    const item = (ev["item"] ?? {}) as Record<string, unknown>;
+    const message = (ev["message"] ?? {}) as { content?: unknown[] };
+    const blocks = (Array.isArray(message.content) ? message.content : []) as Record<string, unknown>[];
+    switch (ev["type"]) {
+        case "thread.started":
+            return { lines: [`session ${String(ev["thread_id"])}`] };
+        case "item.started":
+            return { lines: item["type"] === "command_execution" ? [`  ● ${clip(item["command"], 120)}`] : [] };
+        case "item.completed":
+            if (item["type"] === "agent_message") return { lines: ["", String(item["text"] ?? "")], final: String(item["text"] ?? "") };
+            return { lines: item["aggregated_output"] ? [`    ⎿ ${clip(item["aggregated_output"], 200)}`] : [] };
+        case "turn.completed":
+            return { lines: ["", "=== Codex turn completed ==="] };
+        case "turn.failed": {
+            const msg = String(((ev["error"] ?? {}) as Record<string, unknown>)["message"] ?? "Codex turn failed");
+            return { lines: [msg], error: msg };
+        }
+        case "error": {
+            const msg = String(ev["message"] ?? "Codex stream error");
+            return { lines: [msg], error: msg };
+        }
+        case "system":
+            return { lines: ev["subtype"] === "init" ? [`session ${String(ev["session_id"])} | model ${String(ev["model"])}`] : [] };
+        case "assistant":
+            return {
+                lines: blocks.flatMap((b) => {
+                    if (b["type"] === "text" && String(b["text"] ?? "").trim()) return ["", String(b["text"]).trim()];
+                    if (b["type"] === "tool_use") {
+                        const i = (b["input"] ?? {}) as Record<string, unknown>;
+                        const detail = i["command"] ?? i["file_path"] ?? i["path"] ?? i["pattern"] ?? i["url"] ?? i["skill"] ?? i["description"] ?? "";
+                        return [`  ● ${String(b["name"])}(${clip(detail, 120)})`];
+                    }
+                    return [];
+                }),
+            };
+        case "user":
+            return {
+                lines: blocks.flatMap((b) => {
+                    if (b["type"] !== "tool_result") return [];
+                    const content = b["content"];
+                    const parts = Array.isArray(content)
+                        ? (content as Record<string, unknown>[]).filter((c) => c["type"] === "text").map((c) => String(c["text"]))
+                        : [String(content ?? "")];
+                    const text = parts.join(" ").trim();
+                    return text ? [`    ⎿ ${clip(text, 200)}`] : [];
+                }),
+            };
+        case "result": {
+            const mins = (Number(ev["duration_ms"] ?? 0) / 60000).toFixed(1);
+            const cost = typeof ev["total_cost_usd"] === "number" ? ` | $${(ev["total_cost_usd"] as number).toFixed(2)}` : "";
+            const result = typeof ev["result"] === "string" ? ev["result"] : "";
+            return {
+                lines: ["", `=== ${String(ev["subtype"])} | ${String(ev["num_turns"])} turns | ${mins} min${cost} ===`, ...(result ? [result] : [])],
+                ...(result ? { final: result } : {}),
+                ...(ev["is_error"] === true ? { error: result || "the session reported an error" } : {}),
+            };
+        }
+        default:
+            return { lines: [] };
+    }
+}
+
+/** Run a harness to its end, condensing its event stream line by line. */
+export function spawnSession(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd> {
+    return new Promise((resolve) => {
+        let final: string | null = null;
+        let error: string | null = null;
+        let child;
+        try {
+            child = spawn(spec.command, spec.args, { cwd: spec.cwd, stdio: ["ignore", "pipe", "pipe"] });
+        } catch (e) {
+            resolve({ started: false, exitCode: null, error: e instanceof Error ? e.message : String(e), finalMessage: null });
+            return;
+        }
+        let spawnError: string | null = null;
+        child.on("error", (e) => {
+            spawnError = e.message;
+        });
+        const out = readline.createInterface({ input: child.stdout });
+        out.on("line", (raw) => {
+            const ev = condenseEvent(raw);
+            for (const l of ev.lines) line(l);
+            if (ev.final !== undefined) final = ev.final;
+            if (ev.error !== undefined) error = ev.error;
+        });
+        const err = readline.createInterface({ input: child.stderr });
+        err.on("line", (raw) => line(raw));
+        child.on("close", (code) => {
+            if (spawnError !== null) resolve({ started: false, exitCode: null, error: spawnError, finalMessage: null });
+            else resolve({ started: true, exitCode: code, error, finalMessage: final });
+        });
+    });
+}
+
+/** Whether `command` resolves to an executable file on the PATH. */
+export function onPath(command: string, envPath: string = process.env["PATH"] ?? ""): boolean {
+    return envPath
+        .split(path.delimiter)
+        .filter((d) => d !== "")
+        .some((d) => {
+            try {
+                fs.accessSync(path.join(d, command), fs.constants.X_OK);
+                return true;
+            } catch {
+                return false;
+            }
+        });
+}
+
+/** The worktree registered on `branch`, from git's porcelain list. */
+export function worktreeOnBranch(porcelain: string, branch: string): string | null {
+    for (const block of porcelain.split(/\n\n+/)) {
+        const wt = /^worktree (.+)$/m.exec(block)?.[1];
+        const br = /^branch (.+)$/m.exec(block)?.[1];
+        if (wt !== undefined && br === `refs/heads/${branch}`) return wt;
+    }
+    return null;
+}
+
+/** The platform-backed deps, against the real git, gh and harness. */
+export function distillDeps(run: Runner): DistillDeps {
+    const close = closeCommandDeps(run, {
+        singleRepo: (root) => {
+            const ws = resolveWorkspace(root);
+            return ws.ok && ws.workspace.mode === "single-repo";
+        },
+    });
+    return {
+        role: (cwd) => closePreflight(cwd, run),
+        epicOfPr: (repoRoot, pr, rerun) => resolveEpicOfPr(close, repoRoot, pr, rerun, "pass a merged pull request that closes one of the epic's story issues"),
+        findBranch: (repoRoot, epic) => findEpicDistillBranch(run, repoRoot, epic),
+        worktreeOn: (repoRoot, branch) => worktreeOnBranch(git(run, repoRoot, "worktree", "list", "--porcelain") ?? "", branch),
+        mainCheckout: (repoRoot) => {
+            const common = git(run, repoRoot, "rev-parse", "--path-format=absolute", "--git-common-dir");
+            return common === null ? repoRoot : path.dirname(common);
+        },
+        commonGitDir: (repoRoot) => git(run, repoRoot, "rev-parse", "--path-format=absolute", "--git-common-dir") ?? path.join(repoRoot, ".git"),
+        ignored: (root, target) => run("git", ["check-ignore", "-q", "--no-index", target], { cwd: root }).status === 0,
+        onPath: (command) => onPath(command),
+        openPr: (wtPath, branch) => {
+            const r = run("gh", ["pr", "list", "--head", branch, "--state", "open", "--json", "url", "--jq", ".[0].url // empty"], { cwd: wtPath });
+            if (r.status !== 0) return { ok: false, message: r.stderr.trim() || `gh exited ${r.status}` };
+            const url = r.stdout.trim();
+            return { ok: true, url: url === "" ? null : url };
+        },
+        session: spawnSession,
+    };
+}

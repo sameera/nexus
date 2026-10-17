@@ -105,6 +105,7 @@ import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from 
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
+import { distillDeps, runDistillCommand, type DistillHarness } from "./distill-command.js";
 import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
@@ -163,6 +164,15 @@ const PLANNING_DIR_SUBVERBS: readonly string[] = ["ensure", "list", "remove"];
  * rather than copied here — the gate composes this verb's two-token dispatch names from it.
  */
 const CONFIG_SUBVERBS: readonly string[] = Object.keys(CONFIG_COMMANDS);
+
+const DISTILL_USAGE: string = [
+    "  nexus distill --pr <ref> [--harness claude|codex] [--permission-mode <mode>] [-- <harness args>...]",
+    "      After nexus close has closed the epic of merged pull request <ref> (N, owner/repo#N or a URL),",
+    "      run /nxs.distill --unattended in the worktree close prepared, asking nothing. Success is an",
+    "      open distillation pull request on GitHub; the command prints its URL, or the stop and the",
+    "      distillation's final message. The permission mode defaults to bypassPermissions for claude",
+    "      and workspace-write for codex, and is printed before the session starts.",
+].join("\n");
 
 const REGISTRY: Record<string, VerbEntry> = {
     deploy: {
@@ -792,6 +802,11 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         subverbs: CONFIG_SUBVERBS,
         run: (argv, io) => Promise.resolve(runConfig(argv, io)),
+    },
+    distill: {
+        summary: "Distill a closed epic with one command, in the worktree nexus close prepared.",
+        usage: DISTILL_USAGE,
+        run: runDistill,
     },
     "create-epic": {
         summary: "File a GitHub issue from an epic document.",
@@ -3234,6 +3249,42 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     for (const line of rendered.stdout) io.stdout(line);
     for (const line of rendered.stderr) io.stderr(line);
     return rendered.exitCode;
+}
+
+
+/** `nexus distill` — distill a closed epic with one command (epic #909, decision record #946). */
+async function runDistill(argv: string[], io: CliIo): Promise<number> {
+    const refuse = (message: string): number => {
+        io.stderr(`distill: ${message}\n${DISTILL_USAGE}`);
+        return 2;
+    };
+    const dashes = argv.indexOf("--");
+    const own = dashes === -1 ? argv : argv.slice(0, dashes);
+    const harnessArgs = dashes === -1 ? [] : argv.slice(dashes + 1);
+    let pr: ParsedPrReference | null = null;
+    let harness: DistillHarness = "claude";
+    let permissionMode: string | null = null;
+    for (let i = 0; i < own.length; i++) {
+        const a = own[i];
+        const value = own[i + 1];
+        if (a === "--pr") {
+            const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
+            if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${value === undefined ? "nothing" : `'${value}'`}.`);
+            if (ref.port !== undefined) return refuse(`--pr cannot read a pull-request URL with a port through gh; got '${value}'.`);
+            pr = ref;
+            i++;
+        } else if (a === "--harness") {
+            if (value !== "claude" && value !== "codex") return refuse(`--harness must be claude or codex; got ${value === undefined ? "nothing" : `'${value}'`}.`);
+            harness = value;
+            i++;
+        } else if (a === "--permission-mode") {
+            if (value === undefined || value === "" || value.startsWith("--")) return refuse("--permission-mode takes the mode to run this one session under.");
+            permissionMode = value;
+            i++;
+        } else return refuse(`unknown argument ${a}`);
+    }
+    if (pr === null) return refuse("distill needs a merged pull request of the closed epic: --pr <ref>.");
+    return runDistillCommand(distillDeps(closeMigrationRunner), { cwd: io.cwd, pr, harness, permissionMode, harnessArgs }, io);
 }
 
 /**

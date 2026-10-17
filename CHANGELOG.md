@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.111.0
+
+- **New `nexus distill --pr <N>` distills a closed epic with one command.** After `nexus close`,
+  it finds the worktree close prepared from any merged pull request of the epic, and runs
+  `/nxs.distill --unattended` there with nobody answering questions. It reports success only when
+  GitHub shows an open distillation pull request, and prints its URL. Otherwise it prints the stop
+  and the distillation's final message, and exits non-zero. Every ending names
+  `nexus pr-worktree remove <worktree>`. The log and outcome are kept in
+  `.nexus/tmp/distill-run-pr-<N>/` of the main checkout. `--harness codex` runs it under Codex.
+- **The unattended claude session bypasses permission checks by default.** The command prints the
+  mode before every session, and `--permission-mode <mode>` chooses another for one run. Under
+  Codex the default is the `workspace-write` sandbox.
+- **`nexus close` now names the next step as `nexus distill --pr <N>`, or `/nxs.distill <worktree>`
+  for an attended run.**
+
 ## 0.110.0
 
 - **`/nxs.code-review` now posts the approved ranking as one pull request review, ahead of
