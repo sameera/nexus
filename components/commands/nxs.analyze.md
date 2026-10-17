@@ -641,7 +641,10 @@ facts** in `--facts`. You hand it only what the run knows that is not a judgment
 ```
 
 `record` is null only in degraded mode; the references follow the `nxs-issue-reference` rule
-(Phase 3). The step prints `blocked`: true exactly when a critical or high item is open, and the
+(Phase 3). The published verdict reads top down (D7, D8): its first line says **Blocked** exactly
+when a critical or high item is open, else **Clear to merge**, then the open count per severity
+and the checks to make by hand, which never block. Then come the items in four sections: needs
+action, worth a look, already answered, and no longer found. The step prints `blocked`: true exactly when a critical or high item is open, and the
 review event follows it (Phase 3). Text you put in the draft is written as plain inline text, so a
 line break, a heading or a marker in it changes nothing about the verdict's structure (D6).
 
@@ -662,7 +665,10 @@ AC<k>), the metric, or the named check>", "severity": "<critical|high|medium|low
 "<what is wrong>", "files": ["<path>", ...], "deferred": "<the missing part of the criterion>" |
 null }`. `deferred` is set only as §2.7 allows. One entry per **confirmed stub**: `{ "path":
 "<stub>", "choice": "<what was chosen>", "reason": "<why>", "refuted": "<the alternative not
-taken, or none>" }`. Add `"scopeDrift": ["<unplanned behaviour>", ...]` (§2.4) and `"notes":
+taken, or none>" }`. Every departure and finding also carries `"fix": "<one sentence: what to change in the code to
+resolve it>"` and, when it has files, `"location": { "file": "<path>", "line": <n> }` — the one
+place at the analyzed head where it shows, which the verdict links at that commit (epic #923, D9,
+D10). Add `"scopeDrift": ["<unplanned behaviour>", ...]` (§2.4) and `"notes":
 ["<stories still open, ...>", ...]` when there are any; the judgments block carries both, so a
 recording run shows them again.
 Cite the same element, or name the same thing judged, and the files it was judged on each run: two
@@ -735,9 +741,11 @@ explains a departure and answers nothing; a freely worded reply answers nothing 
 unanswered: an accepted departure and a waived finding count nothing. Write the counts the step
 printed as `open` into the `Severity:` line and the machine block's `findings:` — never totals, and
 never a count of your own. List each answered item separately, with who answered and the link.
-A comment that carries a verdict is never read as an answer, so write the item listing exactly in
-the form Phase 3 shows: an answered item reads `DV<n> (<severity>) accepted by @<who> ...`, never
-in the answer form.
+A comment that carries a verdict is never read as an answer. So the published verdict prints, under
+each answerable open item, the exact line to paste in its own code block — `DV<n> — accepted:`,
+`F<n> — waived:`, and `DS<n> — approved:` only on the item that proposal settles — and the command
+to run afterwards (epic #923, D9). The accepted and waived lines stop after the colon: pasted
+unedited they give no reason and apply nothing, and the next verdict names them as `no-reason`.
 
 ## 2.7 What the verdict carries for close (`--pr` mode)
 

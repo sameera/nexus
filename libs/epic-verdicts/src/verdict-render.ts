@@ -152,6 +152,8 @@ export function missingFields(judgments: Judgments, judged: ReadonlySet<string>)
         const subject = subjectOf(item);
         if (subject.trim().length === 0) missing.push({ id: item.id, subject, field: item.kind === "departure" ? "departsFrom" : "about" });
         if (item.summary.trim().length === 0) missing.push({ id: item.id, subject, field: "summary" });
+        if ((item.fix ?? "").trim().length === 0) missing.push({ id: item.id, subject, field: "fix" });
+        if (item.files.length > 0 && item.location === undefined) missing.push({ id: item.id, subject, field: "location" });
     }
     return missing;
 }
@@ -180,7 +182,10 @@ export function renderVerdict(input: VerdictInput): RenderedVerdict {
     const blocked = open.critical + open.high > 0;
     const sections: string[] = [
         headline(facts, open, judgments),
-        itemsSection(input),
+        needsActionSection(input),
+        worthALookSection(input),
+        alreadyAnsweredSection(input),
+        noLongerFoundSection(input),
         storiesSection(facts, judgments.results ?? []),
         resultsSection(judgments.results ?? []),
         epicLevelSection(facts),
@@ -191,49 +196,142 @@ export function renderVerdict(input: VerdictInput): RenderedVerdict {
     return { body, open, blocked };
 }
 
+/**
+ * The first line (D7; G9): "Blocked" exactly when a critical or high item is open, else "Clear to
+ * merge", then the open count per severity — the receipt's counts — then the checks to make by hand,
+ * which never block.
+ */
 function headline(facts: VerdictFacts, open: OpenCounts, judgments: Judgments): string {
+    const state = open.critical + open.high > 0 ? "Blocked" : "Clear to merge";
     return [
-        `## Conformance: ${inlineText(facts.epic.title)} · epic ${inlineText(facts.epic.ref)}`,
+        `## ${state} · critical ${open.critical} · high ${open.high} · medium ${open.medium} · low ${open.low} · checks by hand ${unconfirmed(judgments.results ?? []).length}`,
         "",
-        `Open: critical ${open.critical} · high ${open.high} · medium ${open.medium} · low ${open.low} · checks by hand ${unconfirmed(judgments.results ?? []).length}`,
+        `Conformance of epic ${inlineText(facts.epic.ref)} ${inlineText(facts.epic.title)}, on pull request #${facts.pr}.`,
     ].join("\n");
 }
 
-function itemsSection(input: VerdictInput): string {
+/** Needs action (D8; G10, G15): the blocking items, then the answers that applied nothing and name no blocking item. */
+function needsActionSection(input: VerdictInput): string {
     const { judgments } = input;
-    const lines: string[] = ["### Items", ""];
-    const items = sortedItems(judgments);
-    for (const item of items) lines.push(itemLine(item, judgments));
-    for (const ds of deferredScopeStatus(judgments)) lines.push(deferredLine(ds));
+    const blocking = sortedItems(judgments).filter((x) => isOpen(judgments, x) && (x.severity === "critical" || x.severity === "high"));
+    const shown = new Set(blocking.map((x) => x.id));
+    const lines: string[] = ["### Needs action", ""];
+    for (const item of blocking) lines.push(...openItemLines(item, input, true), "");
+    for (const a of input.unapplied.filter((u) => !shown.has(u.id))) lines.push(`- ${unappliedText(a)}`);
+    if (lines.length === 2) lines.push("None.");
+    return trimBlank(lines).join("\n");
+}
+
+/** Worth a look (D8): open medium and low findings, the checks to make by hand, scope drift and notes. */
+function worthALookSection(input: VerdictInput): string {
+    const { judgments } = input;
+    const lines: string[] = ["### Worth a look", ""];
+    for (const item of sortedItems(judgments).filter((x) => isOpen(judgments, x) && (x.severity === "medium" || x.severity === "low"))) {
+        lines.push(...openItemLines(item, input, false), "");
+    }
     for (const r of unconfirmed(judgments.results ?? [])) {
         lines.push(`- Check by hand: ${inlineText(r.about)} · looked: ${inlineText(r.looked ?? "")} · confirm by: ${inlineText(r.confirmBy ?? "")}`);
     }
-    for (const a of input.unapplied) lines.push(`- Answer not applied: @${inlineText(a.author)} on ${inlineText(a.id)} ([comment](${safeUrl(a.url)})): ${a.why}`);
     for (const s of judgments.scopeDrift ?? []) lines.push(`- Scope drift: ${inlineText(s)}`);
     for (const n of judgments.notes ?? []) lines.push(`- Note: ${inlineText(n)}`);
+    if (lines.length === 2) lines.push("None.");
+    return trimBlank(lines).join("\n");
+}
+
+/**
+ * An open item (G11, G12): its ID, severity and subject; then what is wrong, a link to the location,
+ * and how to resolve it — the fix, and for an answerable item the paste line in its own code block,
+ * the deferral approval line when a proposal settles it, and the command to run afterwards (D9).
+ * An item carried from before this release shows only the fields it has.
+ */
+function openItemLines(item: Departure | Finding, input: VerdictInput, answerable: boolean): string[] {
+    const { judgments, facts } = input;
+    const lines = [`**${item.id}** · ${item.severity} · ${inlineText(subjectOf(item))}`, ""];
+    let wrong = `- What is wrong: ${inlineText(item.summary)}`;
+    if (item.kind === "departure" && item.stub !== null) wrong += ` Stub \`${inlineText(item.stub.path)}\` says: ${inlineText(item.stub.reason)}`;
+    if (item.kind === "departure" && item.supersedes !== null) wrong += ` Supersedes ${inlineText(item.supersedes.decision)}: ${inlineText(item.supersedes.instead)}`;
+    lines.push(wrong);
+    if (item.location !== undefined) lines.push(`- Location: ${locationLink(facts, item.location)}`);
+    if (item.fix !== undefined) lines.push(`- Fix: ${inlineText(item.fix)}`);
+    if (answerable) {
+        const verb = item.kind === "departure" ? "accepted" : "waived";
+        lines.push("- Or answer it on the pull request. Write your reason after the colon; the line applies nothing without one:", "", ...pasteLine(`${item.id} — ${verb}:`));
+        const proposal = judgments.deferred.find((ds) => ds.found && ds.settles === item.id && ds.answer === null);
+        if (proposal !== undefined) {
+            lines.push(`- Or approve deferring ${proposal.id}, the scope it leaves out: ${inlineText(proposal.summary)}`, "", ...pasteLine(`${proposal.id} — approved:`));
+        }
+        lines.push(`- Then run \`/nxs.analyze --pr ${facts.pr} --resolve\`.`);
+    }
+    for (const a of input.unapplied.filter((u) => u.id === item.id)) lines.push(`- ${unappliedText(a)}`);
+    return lines;
+}
+
+/** A paste line in its own code block, inside the item's list (R2). */
+function pasteLine(line: string): string[] {
+    return ["  ```text", `  ${line}`, "  ```", ""];
+}
+
+function unappliedText(a: UnappliedAnswer): string {
+    return `Answer not applied: @${inlineText(a.author)} on ${inlineText(a.id)} ([comment](${safeUrl(a.url)})): ${a.why}`;
+}
+
+/** Already answered (D8; G13): the subject first, then the answer, who gave it with a link, the reason, and the ID. */
+function alreadyAnsweredSection(input: VerdictInput): string {
+    const { judgments } = input;
+    const lines: string[] = ["### Already answered", ""];
+    for (const item of sortedItems(judgments).filter((x) => x.found && !isOpen(judgments, x))) {
+        if (item.answer !== null) {
+            lines.push(`- ${inlineText(subjectOf(item))} — ${answerText(item.answer)} · ${item.id}`);
+            continue;
+        }
+        const approval = judgments.deferred.find((ds) => ds.found && ds.settles === item.id && ds.answer?.verb === "approved");
+        if (approval?.answer) lines.push(`- ${inlineText(subjectOf(item))} — deferral ${approval.id} ${answerText(approval.answer)} · ${item.id}`);
+    }
+    for (const ds of deferredScopeStatus(judgments)) {
+        if (ds.state === "to-file" && ds.approvedBy !== null) {
+            lines.push(`- Deferred scope ${ds.id}: ${inlineText(ds.summary)} — to file, approved by @${inlineText(ds.approvedBy.author)} ([comment](${safeUrl(ds.approvedBy.link)})) · settles ${ds.settles}`);
+        } else if (ds.state === "not-filed" && ds.settledBy !== null) {
+            lines.push(`- Deferred scope ${ds.id}: ${inlineText(ds.summary)} — not filed: ${ds.settles} was ${inlineText(ds.settledBy.verb)} by @${inlineText(ds.settledBy.author)} without approving it`);
+        }
+    }
     if (lines.length === 2) lines.push("None.");
     return lines.join("\n");
 }
 
-function itemLine(item: Departure | Finding, judgments: Judgments): string {
-    const head = `- **${item.id}** · ${item.found ? item.severity : "no longer found"} · ${inlineText(subjectOf(item))}`;
-    if (item.answer !== null) {
-        return `${head} · ${inlineText(item.answer.verb)} by @${inlineText(item.answer.author)} ([comment](${safeUrl(item.answer.link)})): ${inlineText(item.answer.reason)}`;
+/** No longer found (D8; G14): each item the run did not find again, with its answer, never dropped. */
+function noLongerFoundSection(input: VerdictInput): string {
+    const { judgments } = input;
+    const lines: string[] = ["### No longer found", ""];
+    for (const item of sortedItems(judgments).filter((x) => !x.found)) {
+        lines.push(`- ${inlineText(subjectOf(item))} · ${item.id} · ${item.answer === null ? "unanswered" : answerText(item.answer)}`);
     }
-    const parts = [`${head}: ${inlineText(item.summary)}`];
-    if (item.kind === "departure" && item.stub !== null) parts.push(`Stub \`${inlineText(item.stub.path)}\` says: ${inlineText(item.stub.reason)}`);
-    if (item.kind === "departure" && item.supersedes !== null) parts.push(`Supersedes ${inlineText(item.supersedes.decision)}: ${inlineText(item.supersedes.instead)}`);
-    if (item.found && !isOpen(judgments, item)) parts.push("Its deferral is approved.");
-    return parts.join(" · ");
+    for (const ds of judgments.deferred.filter((d) => !d.found)) {
+        lines.push(`- Deferred scope: ${inlineText(ds.summary)} · ${ds.id} · ${ds.answer === null ? "unanswered" : answerText(ds.answer)}`);
+    }
+    if (lines.length === 2) lines.push("None.");
+    return lines.join("\n");
 }
 
-function deferredLine(ds: ReturnType<typeof deferredScopeStatus>[number]): string {
-    const head = `- **${ds.id}** settles ${ds.settles} · ${inlineText(ds.summary)}`;
-    if (ds.state === "to-file" && ds.approvedBy !== null) return `${head} · to file, approved by @${inlineText(ds.approvedBy.author)} ([comment](${safeUrl(ds.approvedBy.link)}))`;
-    if (ds.state === "not-filed" && ds.settledBy !== null) {
-        return `${head} · not filed: ${ds.settles} was ${inlineText(ds.settledBy.verb)} by @${inlineText(ds.settledBy.author)} without approving it`;
-    }
-    return `${head} · ${ds.state === "no-longer-found" ? "no longer found" : "proposed"}`;
+function answerText(answer: { verb: string; author: string; link: string; reason: string }): string {
+    const reason = answer.reason.trim().length === 0 ? "" : `: ${inlineText(answer.reason)}`;
+    return `${inlineText(answer.verb)} by @${inlineText(answer.author)} ([comment](${safeUrl(answer.link)}))${reason}`;
+}
+
+/**
+ * A link to the file and line at the analyzed head, in the pull request's code repository, built
+ * from the repository identity the receipt stamps, host included (D10; G16).
+ */
+export function locationLink(facts: Pick<VerdictFacts, "repo" | "head">, location: { file: string; line: number }): string {
+    const parts = facts.repo.replace(/^https?:\/\//, "").replace(/\.git$/, "").split("/").filter((p) => p.length > 0);
+    const base = parts.length >= 3 ? parts.join("/") : `github.com/${parts.join("/")}`;
+    const file = location.file.replace(/^\.\//, "");
+    const url = `https://${base}/blob/${facts.head}/${file.split("/").map(encodeURIComponent).join("/")}#L${location.line}`;
+    return `[${inlineText(file)}:${location.line}](${safeUrl(url)})`;
+}
+
+function trimBlank(lines: string[]): string[] {
+    while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+    return lines;
 }
 
 function storiesSection(facts: VerdictFacts, results: readonly Result[]): string {
