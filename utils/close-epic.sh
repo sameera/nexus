@@ -36,9 +36,8 @@
 # words. Without --merge, an open pull request is refused — this command never merges without being
 # asked to.
 #
-# --background detaches the distill stage once close succeeds: this command returns at once, and
-# the stage's output lands in the run folder this command names (.nexus/tmp/close-epic-<PR>/),
-# which is gitignored and never looks like a queue entry.
+# --background is passed on to nexus distill once close succeeds: it returns at once and names
+# where the log and outcome will be written.
 #
 # Single-repo checkouts only (decision record #818, D10) — a hub or member checkout is refused
 # before anything else runs, through the same role check close itself uses.
@@ -151,8 +150,7 @@ git fetch "$(nexus trunk --form remote)" "$BASE"
 RUN_DIR="${PWD}/.nexus/tmp/close-epic-${PR}"
 mkdir -p "$RUN_DIR"
 CLOSE_ERR="${RUN_DIR}/close.err"
-LOG="${RUN_DIR}/distill.log"
-rm -f "$CLOSE_ERR" "$LOG"
+rm -f "$CLOSE_ERR"
 
 # --- Phase 3: close, unattended — the plain command, read through its exit status (#872, D16) -----
 # Close's output streams to the terminal as it runs; its error stream is also kept in the run
@@ -179,21 +177,16 @@ fi
 # nexus distill finds the worktree close prepared from the pull request, checks close's result
 # still holds, runs /nxs.distill --unattended there and reads success from GitHub.
 DISTILL=(nexus distill --pr "$PR")
+# Options go before `--`; the harness arguments after it.
 if [[ "$HARNESS" == "codex" ]]; then
     DISTILL+=(--harness codex)
     if [[ -n "${CODEX_SANDBOX:-}" ]]; then DISTILL+=(--permission-mode "$CODEX_SANDBOX"); fi
 elif [[ -n "${PERMISSION_MODE:-}" ]]; then
     DISTILL+=(--permission-mode "$PERMISSION_MODE")
 fi
+if [[ "$BACKGROUND" == "1" ]]; then DISTILL+=(--background); fi
 if [[ ${#ARGS[@]} -gt 0 ]]; then DISTILL+=(-- "${ARGS[@]}"); fi
 
 echo "" >&2
-if [[ "$BACKGROUND" == "1" ]]; then
-    echo ">>> stage 2: ${DISTILL[*]}, in the background (log: ${LOG})" >&2
-    ( "${DISTILL[@]}" ) >"$LOG" 2>&1 </dev/null &
-    disown
-    echo ">>> close-epic.sh returns now; the outcome will be at the end of ${LOG}" >&2
-    exit 0
-fi
 echo ">>> stage 2: ${DISTILL[*]}" >&2
 exec "${DISTILL[@]}"

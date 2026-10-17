@@ -10,7 +10,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { condenseEvent, distillDeps, runDistillCommand, spawnSession, type DistillDeps, type DistillInput, type SessionEnd, type SessionSpec } from "./distill-command.js";
+import { spawn, spawnSync } from "node:child_process";
+import { condenseEvent, detachRunner, distillDeps, PLAN_ENV, runDetached, runDistillCommand, runFiles, spawnSession, type DistillDeps, type DistillInput, type DistillPlan, type SessionEnd, type SessionSpec } from "./distill-command.js";
 import { runNexusCli } from "./nexus-cli.js";
 
 const tmp: string[] = [];
@@ -53,6 +54,8 @@ function harness(over: Partial<DistillDeps> = {}, end: SessionEnd = { started: t
         ignored: () => true,
         onPath: () => true,
         openPr: () => ({ ok: true, url: opened ? URL : null }),
+        alive: (pid) => pid === process.pid,
+        detach: async () => ({ ok: true, pid: 4242 }),
         session: async (spec, line) => {
             h.sessions.push(spec);
             line("working");
@@ -285,6 +288,143 @@ describe("nexus distill — refusals before a session starts (story #911, D2, D3
         expect(deps.branchPushed("/r", BRANCH)).toEqual({ ok: true, pushed: false });
         expect(calls[0]).toEqual(expect.arrayContaining(["gh", "issue", "view", String(EPIC), "--repo", "acme/app"]));
         expect(calls[1]).toEqual(expect.arrayContaining(["git", "ls-remote", `refs/heads/${BRANCH}`]));
+    });
+});
+
+describe("nexus distill --background (story #912, D5, D6, D7)", () => {
+    function plan(h: Harness): DistillPlan {
+        return {
+            pr: PR,
+            epic: EPIC,
+            issuesRepo: "acme/app",
+            branch: BRANCH,
+            wtPath: h.wtPath,
+            mainRoot: h.mainRoot,
+            files: runFiles(h.mainRoot, PR),
+            spec: { command: "claude", args: [], cwd: h.wtPath },
+            permissionMode: "bypassPermissions",
+        };
+    }
+
+    it("returns once the detached runner has started, naming where the log and the outcome will be written (AC1, G16)", async () => {
+        let detached: DistillPlan | null = null;
+        const h = harness({ detach: async (p) => ((detached = p), { ok: true, pid: 4242 }) });
+        const { code, out } = await run(h, { background: true });
+        expect(code).toBe(0);
+        expect(h.sessions).toHaveLength(0);
+        const files = runFiles(h.mainRoot, PR);
+        expect(out).toContain(files.log);
+        expect(out).toContain(files.outcome);
+        expect(detached).not.toBeNull();
+        expect(fs.readFileSync(files.marker, "utf8").trim()).toBe("4242");
+    });
+
+    it("refuses a second start while a run for the same pull request is in progress, naming where its outcome will be written (G6)", async () => {
+        const h = harness({ alive: () => true });
+        const files = runFiles(h.mainRoot, PR);
+        fs.mkdirSync(files.dir, { recursive: true });
+        fs.writeFileSync(files.marker, "4242\n");
+        const { code, err } = await run(h);
+        expect(code).not.toBe(0);
+        expect(err).toMatch(/still in progress/);
+        expect(err).toContain(files.outcome);
+        expect(h.sessions).toHaveLength(0);
+    });
+
+    it("is not blocked by a marker whose process no longer exists (G6)", async () => {
+        const h = harness({ alive: () => false });
+        const files = runFiles(h.mainRoot, PR);
+        fs.mkdirSync(files.dir, { recursive: true });
+        fs.writeFileSync(files.marker, "4242\n");
+        const { code } = await run(h);
+        expect(code).toBe(0);
+        expect(fs.existsSync(files.marker)).toBe(false);
+    });
+
+    it("writes the same outcome in the background as in the foreground (AC2, G17, G21)", async () => {
+        const fg = harness();
+        await run(fg);
+        const bg = harness();
+        await runDetached(bg.deps, plan(bg), () => undefined, 60_000);
+        const read = (h: Harness): string => fs.readFileSync(runFiles(h.mainRoot, PR).outcome, "utf8").replaceAll(h.wtPath, "<wt>");
+        expect(read(bg)).toBe(read(fg));
+        expect(read(bg)).toContain(URL);
+        expect(read(bg)).toContain("nexus pr-worktree remove <wt>");
+    });
+
+    it("states the stop and the final message when a background run opens no pull request (AC2, G17)", async () => {
+        const h = harness({}, { started: true, exitCode: 0, error: null, finalMessage: "BLOCKED: hash mismatch" });
+        const lines: string[] = [];
+        const outcome = await runDetached(h.deps, plan(h), (l) => lines.push(l), 60_000);
+        expect(outcome.success).toBe(false);
+        expect(fs.readFileSync(runFiles(h.mainRoot, PR).outcome, "utf8")).toContain("BLOCKED: hash mismatch");
+        expect(lines[lines.length - 1]).toMatch(/stopped/);
+    });
+
+    it("sends the terminal a status line at each interval and a final line when the run ends (AC4, G19)", async () => {
+        const h = harness({
+            session: async () => {
+                await new Promise((r) => setTimeout(r, 120));
+                return { started: true, exitCode: 0, error: null, finalMessage: "opened it" };
+            },
+            openPr: afterSession({ ok: true, url: URL }),
+        });
+        h.deps.openPr({} as never, BRANCH);
+        const lines: string[] = [];
+        await runDetached(h.deps, plan(h), (l) => lines.push(l), 25);
+        expect(lines.filter((l) => /still running/.test(l)).length).toBeGreaterThanOrEqual(2);
+        expect(lines[lines.length - 1]).toContain(URL);
+    });
+
+    it("keeps running and writes its outcome when the terminal can no longer be written to (G20)", async () => {
+        const h = harness({
+            session: async () => {
+                await new Promise((r) => setTimeout(r, 80));
+                return { started: true, exitCode: 0, error: null, finalMessage: "x" };
+            },
+        });
+        let writes = 0;
+        const outcome = await runDetached(h.deps, plan(h), () => {
+            writes += 1;
+            throw new Error("EIO");
+        }, 10);
+        expect(writes).toBe(1);
+        expect(outcome.success).toBe(false);
+        expect(fs.existsSync(runFiles(h.mainRoot, PR).outcome)).toBe(true);
+    });
+
+    it("writes nothing git reports as a change, in the main checkout or the worktree (AC3, G18)", async () => {
+        const repo = makeDir();
+        const g = (...args: string[]): string => spawnSync("git", args, { cwd: repo, encoding: "utf8" }).stdout;
+        g("init", "-q");
+        fs.writeFileSync(path.join(repo, ".gitignore"), ".nexus/tmp/\n");
+        g("add", ".gitignore");
+        g("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init");
+        const wt = path.join(makeDir(), "wt");
+        g("worktree", "add", "-q", "-b", BRANCH, wt);
+        const real = distillDeps((cmd, args, opts) => {
+            const r = spawnSync(cmd, args, { cwd: opts.cwd, encoding: "utf8" });
+            return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+        });
+        const h = harness({ mainCheckout: () => real.mainCheckout(wt), ignored: real.ignored, worktreeOn: () => wt });
+        await runDetached(h.deps, { ...plan(h), mainRoot: real.mainCheckout(wt), wtPath: wt, files: runFiles(real.mainCheckout(wt), PR) }, () => undefined, 60_000);
+        expect(fs.existsSync(path.join(fs.realpathSync(repo), ".nexus", "tmp", `distill-run-pr-${PR}`, "outcome.txt"))).toBe(true);
+        expect(g("status", "--porcelain")).toBe("");
+        expect(spawnSync("git", ["status", "--porcelain"], { cwd: wt, encoding: "utf8" }).stdout).toBe("");
+    });
+
+    it("starts a detached runner that outlives its parent and receives the plan", async () => {
+        const dir = makeDir();
+        const out = path.join(dir, "got.json");
+        const script = path.join(dir, "runner.cjs");
+        fs.writeFileSync(script, `require("fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify({ args: process.argv.slice(2), plan: JSON.parse(process.env.${PLAN_ENV}) }));`);
+        const h = harness();
+        const started = await detachRunner(plan(h), { command: process.execPath, args: [script] });
+        expect(started.ok).toBe(true);
+        for (let i = 0; i < 100 && !fs.existsSync(out); i++) await new Promise((r) => setTimeout(r, 20));
+        const got = JSON.parse(fs.readFileSync(out, "utf8")) as { args: string[]; plan: DistillPlan };
+        expect(got.args).toEqual(["distill", "--detached-runner"]);
+        expect(got.plan.pr).toBe(PR);
     });
 });
 

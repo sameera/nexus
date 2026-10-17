@@ -17,3 +17,8 @@
 - **Choice:** The pre-start open-PR check uses the same `gh pr list --head <branch>` read from the worktree as the outcome check.
 - **Why:** D4 needs the start refusal and the success read to ask the same repository, or a PR seen by one could be missed by the other.
 - **Refuted alternative:** Asking the issues repository, which in a split-repo setup is not where the distillation opens its pull request.
+
+## 2026-10-17 — The detached runner gets its plan through the environment
+- **Choice:** The background run starts this same executable as `distill --detached-runner`, with the checked plan as JSON in `NEXUS_DISTILL_PLAN`.
+- **Why:** The checks already passed in the parent; re-running them in the child would repeat the GitHub reads and trip over the parent's own live-run marker.
+- **Refuted alternative:** Re-invoking `distill --pr <N>` in the child, which re-checks everything and cannot tell its own marker from another run's.
