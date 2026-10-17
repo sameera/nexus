@@ -1,8 +1,8 @@
 ---
 title: "Close-and-Distill Command"
-aliases: ["close-epic command", "one-command close", "close and distill in one command", "hand-off note", "close-epic run folder", "outcome record"]
-touches: ["pr-driven-flow", "drain-invocation", "conformance-gate", "shipped-ledger", "published-verdict-selection", "epic-coverage-run"]
-last_updated_by: "#827"
+aliases: ["close-epic command", "one-command close", "close and distill in one command", "hand-off note", "close-epic run folder"]
+touches: ["pr-driven-flow", "drain-invocation", "conformance-gate", "shipped-ledger", "published-verdict-selection", "epic-coverage-run", "distill-command"]
+last_updated_by: "#909"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The close-and-distill command takes a merged epic pull request to a closed epic 
 
 ## How It Works
 
-The command first checks the pull request. A merged pull request goes ahead. An open pull request goes ahead only when the lead asked the command to merge it, and only when it is not a draft, the platform reports it mergeable, and it carries a clean conformance verdict. Every other state is refused before any stage starts, and the refusal names the state. The command then runs the post-merge conformance run with nobody watching. It reads that run's outcome from the platform: a published verdict on the pull request and this pull request's shipped record on the epic issue. Close then runs interactively. When close has closed the epic issue and pushed the distillation branch, it writes a short hand-off note. The command checks the note against the platform and git before it starts distill. Distill runs with the unattended flag. When distill exits, the command writes an outcome record to a run folder in the lead's checkout. The outcome record reads success from the platform, never from distill's own words. In the background, distill's log goes to the same folder and the command returns at once.
+The command first checks the pull request. A merged pull request goes ahead. An open pull request goes ahead only when the lead asked the command to merge it, and only when it is not a draft, the platform reports it mergeable, and it carries a clean conformance verdict. Every other state is refused before any stage starts, and the refusal names the state. The command then runs the post-merge conformance run with nobody watching. It reads that run's outcome from the platform: a published verdict on the pull request and this pull request's shipped record on the epic issue. Close then runs interactively. When close succeeds, the command hands the distill stage to the shipped distill command, passing the background option, the harness and its permission mode on. That command checks close's result from the pull request, runs distill with the unattended flag, and writes the outcome. This command keeps no copy of those checks or that outcome, so a stopped distillation makes this command exit with a failure.
 
 ## Key Invariants
 
@@ -21,7 +21,7 @@ The command first checks the pull request. A merged pull request goes ahead. An 
 2. A stage's exit status is never read as its outcome; every outcome is read from the platform or git.
 3. The command merges a pull request only when asked to, and only when it is open, not a draft, mergeable, and carries a clean conformance verdict.
 4. Close starts only after the post-merge conformance run succeeded.
-5. Distill starts only when the hand-off note exists, the epic issue it names is closed, the worktree it names is registered on the named branch, and that branch is pushed.
+5. ~~Distill starts only when the hand-off note exists, the epic issue it names is closed, the worktree it names is registered on the named branch, and that branch is pushed.~~ Distill starts only through the shipped distill command, whose checks decide whether it starts.
 6. The lead never changes directory between close and distill.
 7. It runs only in a single-repo checkout; a hub or member checkout is refused before any stage starts.
 
@@ -33,6 +33,7 @@ The command first checks the pull request. A merged pull request goes ahead. An 
 - [shipped-ledger](shipped-ledger.md) — the record it requires on the epic issue before close starts.
 - [published-verdict-selection](published-verdict-selection.md) — the rule that picks the clean verdict its merge option requires.
 - [epic-coverage-run](epic-coverage-run.md) — the run whose error on a failed story read stops this command before close starts.
+- [distill-command](distill-command.md) — the shipped command this command's distill stage runs through, with its checks and outcome.
 
 ## Decision Log
 
@@ -43,3 +44,7 @@ After a merge the lead ran close, changed into the worktree close opened, and ra
 ### 2026-10-01 — #827 — Reciprocal link from epic-coverage-run
 
 Mechanical reciprocity fan-out: when the epic coverage run cannot read a story's pull requests, it exits with an error and prints no coverage, and this command stops before it starts close.
+
+### 2026-10-17 — #909 — The distill stage runs through the shipped distill command
+
+The command's own hand-off check, event formatter and outcome writer are removed, and its distill stage now runs the shipped distill command. Two copies of the distill logic would let one go stale. The merge pre-check and the close stage are unchanged. The outcome rule, exit status included, now belongs to the distill command, so a stopped distillation makes this command exit with a failure instead of success. Refuted alternative: keep this command's own success exit on a stop. It would report a run with no pull request as a success.
