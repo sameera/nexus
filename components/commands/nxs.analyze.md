@@ -677,7 +677,7 @@ D10). Add `"scopeDrift": ["<unplanned behaviour>", ...]` (§2.4) and `"notes":
 recording run shows them again.
 Cite the same element, or name the same thing judged, and the files it was judged on each run: two
 items are the same when they name the same thing and share a file. The step prints `{ registry,
-items, findings, results, open, answers }` and writes the judgments block to `--out`. Each
+items, findings, results, open, answers }` and writes the whole verdict body to `--out`. Each
 departure carries its `DV<n>` ID and each finding its `F<n>` ID, with its severity and its answer; one the last
 verdict listed and this run did not find again comes back with `found: false` and its answer, and
 is reported as **no longer found** — never dropped. A non-zero exit stops the publish: report the
@@ -1018,22 +1018,19 @@ file is written here either, and the worktree is removed after this phase. A **b
     **itself** — you hand it neither — parses the body with the same parser every reader uses, and
     prints `{ issuesRepo, repo }` when the body names the repository its story numbers resolve
     against. A non-zero exit is a **failure of the publish step**: publish nothing, report the
-    diagnostic verbatim, and do not report the run as successful. Three refusals have a mechanical
-    correction. `issues-repo-missing` and `issues-repo-mismatch` name the issues repository the
-    block should have carried, so rewrite the block with that value and run the check again.
-    `story-text-recorded` means the block still has a `story_fingerprints` line; drop it and run
-    the check again. `judgments-missing` means the body was not written by the ID step: run §2.5's
-    ID step again and check the body it writes. `counts-not-open` means the severity counts are not the open
-    counts — they leave out an unanswered item, or count an answered or unlisted one: write the
-    `open` counts the ID step printed, and list every finding through it, then check again. `judgments-malformed` means the judgments block
-    was edited or misplaced: append the ID step's output again, unedited, after the verdict block.
-    `marker-repeated` means text copied into the summary — an answer's reason, most often —
-    carries a verdict marker: write its `<!--` as `&lt;!--` in the summary and check again.
-    `key-decisions-missing` and `key-decisions-stale` mean the ID step ran without the record body
-    and digest, or with a digest other than the one the verdict block stamps: run it again with
-    `--record-body` and `--record-hash "$RECORD_HASH"`. `deferred-scope-sibling` means a proposal
-    settles a criterion of a story this pull request does not cover: drop its `deferred`, run the
-    ID step again and check again.
+    diagnostic verbatim, and do not report the run as successful. Every correction goes through the
+    ID step, never through the body (epic #923, record #949, G3): fix the draft or `facts.json`, run
+    §2.5's ID step again, and check the body it writes. `issues-repo-missing` and
+    `issues-repo-mismatch` name the issues repository the block should have carried: set
+    `issuesRepo` in `facts.json` to that value. `key-decisions-missing` and `key-decisions-stale`
+    mean the ID step ran without the record body and digest, or with a digest other than the one the
+    verdict block stamps: run it again with `--record-body` and `--record-hash "$RECORD_HASH"`.
+    `deferred-scope-sibling` means a proposal settles a criterion of a story this pull request does
+    not cover: drop its `deferred` from the draft. `marker-repeated` means text copied into the summary
+    carries a verdict marker; the ID step escapes the text it writes, so the copy was made after it.
+    That refusal, `block-missing`, `story-text-recorded`, `judgments-missing`, `judgments-malformed`
+    and `counts-not-open` mean the body is not the one the ID step wrote — it was edited after the
+    step, or not written by it: run the step again and check its body unedited.
 
     **The size budget** (D5). The platform takes at most 65,536 characters. When the body is over,
     the check drops the results' file lists, puts a line saying so above the verdict block, records

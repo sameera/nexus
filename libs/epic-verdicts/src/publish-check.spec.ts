@@ -38,6 +38,16 @@ import { assignItemIds } from "./verdict-items.js";
 
 const made: string[] = [];
 
+/**
+ * The model writes no byte of the published verdict (epic #923, record #949, G3), so a refusal's
+ * remedy sends it back to the ID step — a corrected draft or run fact, then `nexus verdict-items`
+ * again — and never to an edit of the drafted body.
+ */
+function expectToolkitRemedy(message: string): void {
+    expect(message).toContain("nexus verdict-items");
+    expect(message).not.toMatch(/drop that line|rewrite the block|\bappend\b|write its `<!--`|write the counts/i);
+}
+
 /** A drafted verdict as analyze now writes it: the verdict block, then a judgments block (epic #829). */
 /** The key decisions every verdict now carries, tied to the digest the fixture's verdict block stamps (story #862). */
 const KEY: KeyDecisions = { record: { digest: TWO_VERDICT_RECORD_HASH, format: "new", decisions: [{ id: "D1" }] }, stubs: [] };
@@ -77,6 +87,8 @@ describe("checkVerdictPublish — the drafted verdict names the repository its s
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("issues-repo-missing");
+        expectToolkitRemedy(r.error.message);
+        expect(r.error.message).toContain("issuesRepo");
     });
 
     it("names the value the refused block should have carried, so correcting it is mechanical", () => {
@@ -99,6 +111,8 @@ describe("checkVerdictPublish — the drafted verdict names the repository its s
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("issues-repo-missing");
+        expectToolkitRemedy(r.error.message);
+        expect(r.error.message).toContain("issuesRepo");
         expect(r.error.message).toContain("geo-nexus/giccp");
     });
 
@@ -120,6 +134,8 @@ describe("checkVerdictPublish — the drafted verdict names the repository its s
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("issues-repo-mismatch");
+        expectToolkitRemedy(r.error.message);
+        expect(r.error.message).toContain("issuesRepo");
         expect(r.error.message).toContain("geo-nexus/docs");
     });
 
@@ -128,6 +144,7 @@ describe("checkVerdictPublish — the drafted verdict names the repository its s
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("block-missing");
+        expectToolkitRemedy(r.error.message);
     });
 });
 
@@ -146,6 +163,7 @@ describe("checkVerdictPublish — a published receipt records no story text (epi
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("story-text-recorded");
+        expectToolkitRemedy(r.error.message);
         expect(r.error.message).toContain("story_fingerprints");
     });
 });
@@ -172,6 +190,7 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("judgments-missing");
+        expectToolkitRemedy(r.error.message);
         expect(r.error.message).toContain("nexus verdict-items");
     });
 
@@ -180,6 +199,7 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("judgments-malformed");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("refuses one ID naming two departures (G7)", () => {
@@ -187,6 +207,7 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("judgments-malformed");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("refuses a judgments block placed before the verdict block", () => {
@@ -195,6 +216,7 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("judgments-malformed");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("refuses severity counts that leave out an unanswered departure, which blocks (G14)", () => {
@@ -202,6 +224,7 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("counts-not-open");
+        expectToolkitRemedy(r.error.message);
         expect(r.error.message).toContain("DV1");
     });
 
@@ -211,6 +234,7 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("counts-not-open");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("approves counts of zero once every blocking item is answered (G15, G16)", () => {
@@ -266,6 +290,7 @@ describe("checkVerdictPublish — the verdict carries what close writes into its
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("key-decisions-missing");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("refuses key decisions tied to a record revision other than the one the verdict stamps (D5)", () => {
@@ -274,6 +299,7 @@ describe("checkVerdictPublish — the verdict carries what close writes into its
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("key-decisions-stale");
+        expectToolkitRemedy(r.error.message);
         expect(r.error.message).toContain(TWO_VERDICT_RECORD_HASH);
     });
 
@@ -285,6 +311,7 @@ describe("checkVerdictPublish — the verdict carries what close writes into its
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("counts-not-open");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("refuses a proposal settling a criterion of a story this verdict does not cover (G27)", () => {
@@ -293,6 +320,7 @@ describe("checkVerdictPublish — the verdict carries what close writes into its
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("deferred-scope-sibling");
+        expectToolkitRemedy(r.error.message);
         expect(r.error.message).toContain("#999 AC1");
     });
 
@@ -308,6 +336,7 @@ describe("checkVerdictPublish — the verdict carries what close writes into its
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("marker-repeated");
+        expectToolkitRemedy(r.error.message);
     });
 
     it("approves hostile answer text inside the judgments block, and both blocks parse as without it (G28)", () => {

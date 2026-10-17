@@ -34,6 +34,9 @@ behaviour says so.
   breaks fold to spaces and markup is escaped.
 - **A verdict over the platform's size limit names the longest draft fields to shorten**, by item
   ID, instead of asking you to shorten summary prose.
+- **Every refusal of `nexus verdict-check` is corrected through the ID step.** Its remedy names
+  the draft or the `facts.json` field to fix, then says to run `nexus verdict-items` again and
+  check the body it writes. No remedy asks for a hand edit of the body any more.
 - **The terminal report of `/nxs.analyze --pr` is the short completion report.** It links to the
   published verdict. A run without a pull request keeps its report and its result line.
 - Verdicts already published keep working with `nexus close` and the merge pre-check.
