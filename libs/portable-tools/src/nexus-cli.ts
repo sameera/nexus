@@ -106,6 +106,7 @@ import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from 
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
+import { cleanupDeps, runDistillCleanup } from "./distill-cleanup.js";
 import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness, type DistillTarget } from "./distill-command.js";
 import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
@@ -176,6 +177,9 @@ const DISTILL_USAGE: string = [
     "      and workspace-write for codex, and is printed before the session starts. --background returns",
     "      at once, names where the log and outcome will be written, and prints a status line to this",
     "      terminal every few minutes until the run ends.",
+    "  nexus distill cleanup <N>",
+    "      Remove the distill worktree of epic N, on any of its distillation branches, and the epic's run",
+    "      record. Refuses while a run for the epic is live. Deletes no branch and no pull request.",
 ].join("\n");
 
 const REGISTRY: Record<string, VerbEntry> = {
@@ -3322,6 +3326,7 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
     let background = false;
     // The detached copy a --background run starts; its plan comes from the environment (D6).
     if (own.length === 1 && own[0] === "--detached-runner") return runDetachedFromEnv(distillDeps(closeMigrationRunner));
+    if (own[0] === "cleanup") return runDistillCleanupCommand(own.slice(1), io);
     for (let i = 0; i < own.length; i++) {
         const a = own[i];
         const value = own[i + 1];
@@ -3361,6 +3366,16 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
 
 /** A bare epic number, with or without its `#`. */
 const EPIC_NUMBER = /^#?\d+$/;
+
+/** `nexus distill cleanup <epic>` — the worktrees and run record of one epic (decision record #956, D5). */
+function runDistillCleanupCommand(argv: string[], io: CliIo): number {
+    const word = argv.length === 1 ? argv[0] : undefined;
+    if (word === undefined || !EPIC_NUMBER.test(word) || Number(word.replace(/^#/, "")) <= 0) {
+        io.stderr(`distill cleanup: takes one epic number, N or #N; got ${argv.length === 0 ? "nothing" : `'${argv.join(" ")}'`}.\n${DISTILL_USAGE}`);
+        return 2;
+    }
+    return runDistillCleanup(cleanupDeps(closeMigrationRunner), Number(word.replace(/^#/, "")), io.cwd, io);
+}
 
 /**
  * `nexus close-role` — the role-gate half of the retired `close-migration preflight` (epic #215):

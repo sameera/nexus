@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.118.0
+
+- **`nexus distill cleanup N` removes an epic's distill worktree.** It removes every worktree on the epic's
+  distillation branches, whatever their date, prints each path, and then deletes the epic's distill run
+  record. It refuses while a distill run for the epic is still running, names the process, and removes nothing
+  then. It deletes no branch and no pull request, works from inside the worktree, and reads nothing from the
+  network. With nothing to remove it says so and exits 0.
+
 ## 0.117.0
 
 - **`nexus distill` takes a closed epic by its number.** The distill stage starts with `nexus distill N`,
