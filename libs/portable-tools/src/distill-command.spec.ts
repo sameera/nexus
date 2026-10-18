@@ -176,10 +176,10 @@ describe("nexus distill — success is read from GitHub only (AC2, AC3, D4, G12,
 });
 
 describe("nexus distill — the cleanup command and the permission mode (AC4, D9, D10, G10, G14)", () => {
-    it("names nexus pr-worktree remove <worktree> whether the run succeeded or stopped", async () => {
+    it("names nexus distill cleanup N whether the run succeeded or stopped", async () => {
         for (const h of [harness(), harness({ openPr: () => ({ ok: true, url: null }) })]) {
             const { out } = await run(h);
-            expect(out).toContain(`nexus pr-worktree remove ${h.wtPath}`);
+            expect(out).toContain(`nexus distill cleanup `);
         }
     });
 
@@ -374,7 +374,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         const read = (h: Harness): string => fs.readFileSync(runFiles(h.mainRoot, EPIC).outcome, "utf8").replaceAll(h.wtPath, "<wt>");
         expect(read(bg)).toBe(read(fg));
         expect(read(bg)).toContain(URL);
-        expect(read(bg)).toContain("nexus pr-worktree remove <wt>");
+        expect(read(bg)).toContain(`nexus distill cleanup `);
     });
 
     it("states the stop and the final message when a background run opens no pull request (AC2, G17)", async () => {
@@ -399,6 +399,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         await runDetached(h.deps, plan(h), (l) => lines.push(l), 25);
         expect(lines.filter((l) => /still running/.test(l)).length).toBeGreaterThanOrEqual(2);
         expect(lines[lines.length - 1]).toContain(URL);
+        expect(lines[lines.length - 1]).toContain(`nexus distill cleanup ${EPIC}`);
     });
 
     it("keeps running and writes its outcome when the terminal can no longer be written to (G20)", async () => {

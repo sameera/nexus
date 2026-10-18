@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.119.0
+
+- **The distill stage names `nexus distill cleanup N` in every ending, and in its own report.** Each distill
+  ending, success or stop, ends with the cleanup command for the epic, and a background run's final status
+  line carries it too. The distillation's report, which an attended run prints and every ending quotes, now
+  names the same command in place of the old worktree-removal command, with the epic's number filled in. The
+  analyze flow and its worktree removal are unchanged. Refusals still stop before any session and name no
+  cleanup, since no run started.
+
 ## 0.118.0
 
 - **`nexus distill cleanup N` removes an epic's distill worktree.** It removes every worktree on the epic's

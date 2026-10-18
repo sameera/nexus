@@ -118,4 +118,7 @@ removes it once done reviewing. Add this under the report's Blocked on me headin
 
     Worktree: <wtPath> (the close/distill worktree, still checked out on this branch)
     CLEANUP (after the distillation-PR is merged or closed):
-        nexus pr-worktree remove <wtPath>
+        nexus distill cleanup <epic>
+
+`<epic>` is the epic's issue number. The command finds the worktree itself, so the lead never copies
+`<wtPath>` into it.

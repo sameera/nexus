@@ -8,7 +8,7 @@
  *
  * Success is read from GitHub, never from the session (D4): after the session ends, an open pull
  * request whose head is the distillation branch is success; anything else is a stop. Every ending
- * names `nexus pr-worktree remove <worktree>` (D10).
+ * names `nexus distill cleanup <epic>` (decision record #956, D7, D8).
  *
  * The run folder holds the log, the outcome and the distillation's final message. It sits in the
  * main checkout's ignored scratch area, one folder per pull request, under a name no drainable
@@ -337,6 +337,11 @@ export function permissionLine(harness: DistillHarness, mode: string, overridden
     return `Permission mode: ${mode} (${source}${risk}). Choose another for one run with --permission-mode <mode>.`;
 }
 
+/** The line every ending names: the one command that removes this epic's worktree and run record (D7, D8). */
+export function cleanupLine(epic: number): string {
+    return `Remove the worktree once you no longer need it: nexus distill cleanup ${epic}`;
+}
+
 /** The outcome a run writes, and whether it is success. */
 export interface RunOutcome {
     success: boolean;
@@ -345,7 +350,7 @@ export interface RunOutcome {
 
 /** Read the outcome from GitHub, never from the session (D4, G11–G13). */
 export function decideOutcome(plan: Pick<DistillPlan, "wtPath" | "branch" | "files">, end: SessionEnd, read: OpenPrRead): RunOutcome {
-    const cleanup = `Remove the worktree once you no longer need it: nexus pr-worktree remove ${plan.wtPath}`;
+    const cleanup = cleanupLine(plan.epic);
     const sessionTrouble = !end.started
         ? `the session could not start: ${end.error ?? "unknown cause"}`
         : end.error !== null
@@ -491,7 +496,7 @@ export async function runDetached(
     }, intervalMs);
     try {
         const outcome = await runSession(deps, plan, () => undefined);
-        say(`${label}: ended — ${outcome.text[0]} Outcome: ${plan.files.outcome}`);
+        say(`${label}: ended — ${outcome.text[0]} Outcome: ${plan.files.outcome}. Cleanup: nexus distill cleanup ${plan.epic}`);
         return outcome;
     } finally {
         clearInterval(timer);
