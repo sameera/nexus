@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.117.0
+
+- **`nexus distill` takes a closed epic by its number.** The distill stage starts with `nexus distill N`,
+  `nexus distill --epic N` or `nexus distill --pr <ref>`. A shell drops an unquoted `#N` as a comment, so
+  quote it as `nexus distill '#N'`; the refusal says so. The epic form needs no pull request: the epic
+  must be closed and close must have prepared its worktree, as before. A run started by epic number and a
+  run started by a pull request of the same epic refuse each other while one is live. Re-run commands and
+  refusals repeat the form the lead used. `--pr` works as it did.
+
 ## 0.116.0
 
 - **`/nxs.analyze --pr` writes no verdict text of its own any more; the toolkit writes the whole
