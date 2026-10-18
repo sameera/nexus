@@ -53,3 +53,7 @@ A departure from a listed page's invariant has no record element to cite, so the
 ### 2026-10-18 — #923 — A paste line that is complete without a reason applies nothing
 
 An answerable item's resolution is a line to paste, and the reason is left for the engineer to type after the colon. Had the line carried a placeholder reason such as "<your reason>", an unedited paste would pass the reader's check, which only asks that a reason exists, and would accept the departure with junk text. The line stops after the colon, so an unedited paste gives no reason and is named in the next verdict as having none. Refuted alternative: a filled placeholder, which reads more clearly and passes the check.
+
+### 2026-10-18 — #923 — Reciprocal link from verdict-layout
+
+The verdict-layout page sets where each item's resolution and answer line appear in the published verdict, so this page mirrors it.

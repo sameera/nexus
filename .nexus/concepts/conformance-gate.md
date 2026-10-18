@@ -172,3 +172,7 @@ Before this change the gate never read the concept store, so code could break a 
 ### 2026-10-18 — #923 — The verdict's layout moved to its own page, which the gate now points to
 
 The rule for how a published verdict is laid out grew past this page's cap. The toolkit now writes the whole body from one set of judgments, and the headline and review event follow one rule, so that rule moved to the verdict-layout page. This page keeps the gate: it publishes only on a pull request, and a run without one writes nothing. The rule's content is unchanged. Refuted alternative: keep the layout rule here and trim other content, which would drop still-true content to make room.
+
+### 2026-10-18 — #923 — Reciprocal link from verdict-layout
+
+The verdict-layout page holds the rule that sets the review this gate publishes, so this page mirrors it.
