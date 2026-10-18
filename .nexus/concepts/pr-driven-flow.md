@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "distill-command"]
-last_updated_by: "#909"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "distill-command", "distill-run-record"]
+last_updated_by: "#952"
 status: active
 verification: verified
 ---
@@ -43,7 +43,8 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [published-verdict-selection](published-verdict-selection.md) — decides which of the verdicts this flow publishes on a pull request is the one a later stage reads.
 - [close-and-distill-command](close-and-distill-command.md) — runs this whole flow for a merged pull request with one command and one approval.
 - [pr-verdict-answers](pr-verdict-answers.md) — the answers an engineer posts on the open pull request, which the next conformance run records in a new verdict.
-- [distill-command](distill-command.md) — finds this flow's shared worktree from a merged pull request and drains in it, with nobody watching.
+- [distill-command](distill-command.md) — finds this flow's shared worktree from the epic's number or a merged pull request and drains in it, with nobody watching; its cleanup command removes that worktree by epic number.
+- [distill-run-record](distill-run-record.md) — the cleanup command that removes this flow's shared worktree by epic number.
 
 ## Decision Log
 
@@ -120,3 +121,7 @@ Mechanical reciprocity fan-out, two edges. The epic-wide receipt that collected 
 ### 2026-10-17 — #909 — Close names the distill command, and an attended drain can name the worktree
 
 A successful close now names two next steps: the distill command, and an attended distillation that passes the worktree path from the session the lead already has open. Leads forgot the old manual step, so close points at the new routes. In the attended form, every command names the worktree, because the session resets its directory when a command leaves its working directories, and a single change of directory would send later commits into the lead's checkout without an error. Refuted alternative: change into the worktree once at the start. It is the simplest instruction, but the reset makes it wrong in the default worktree location. A path that is neither such a worktree nor a queue entry is refused before any entry is read.
+
+### 2026-10-18 — #952 — The distill command finds and removes the shared worktree by epic number
+
+The distill command now finds this flow's shared worktree from the epic number as well as from a merged pull request, and a new cleanup command removes that worktree by epic number. The lead no longer copies a worktree path. Cleanup removes every local worktree on the epic's distillation branches and deletes no branch and no pull request. The analyze flow and its own worktree removal are unchanged. The new distill-run-record page, which holds the run record and the cleanup command, touches this page, so this page links back to it.
