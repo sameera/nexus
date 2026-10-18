@@ -117,4 +117,10 @@ describe("the report names the worktree and one cleanup command (D10, G26, decis
         const phase8 = CONTINUATION.slice(CONTINUATION.indexOf("## Phase 8"));
         expect(phase8).toMatch(/Replace `<epic>` with the number N of the closed queue entry folder `epic-<N>` this run drains/);
     });
+
+    it("leaves the cleanup line to the continuation contract, so an attended report names it once (G19)", () => {
+        // An ordinary run makes no worktree; the base report naming cleanup would duplicate the contract's line.
+        const basePhase8 = BASE_STAGE.slice(BASE_STAGE.indexOf("# Phase 8 — Report completion"), BASE_STAGE.indexOf("# Usage"));
+        expect(basePhase8).not.toContain("nexus distill cleanup");
+    });
 });

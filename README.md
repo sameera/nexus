@@ -400,8 +400,9 @@ with your git and GitHub credentials. Under Codex the default is the `workspace-
 command prints the mode before every session. To use another mode for one run, pass
 `--permission-mode <mode>`.
 
-The run's log and outcome are written to `.nexus/tmp/distill-run-pr-<N>/` in the main checkout. When
-you no longer need the worktree, remove it with `nexus pr-worktree remove <worktree>`.
+The run's log and outcome are written to `.nexus/tmp/distill-run-epic-<N>/` in the main checkout. When
+you no longer need the worktree, remove it with `nexus distill cleanup <N>`. That also deletes the
+run's log and outcome.
 
 ## Removing Nexus
 
