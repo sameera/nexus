@@ -27,7 +27,7 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
-import { closeCommandDeps, resolveEpicOfPr, type CloseStop } from "@nexus/epic-verdicts/close-command";
+import { closeCommandDeps, resolveEpicOfPr, resolveIssuesRepos, type CloseStop } from "@nexus/epic-verdicts/close-command";
 import { prRepoName, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { findEpicDistillBranch, type EpicDistillBranchResult } from "@nexus/pr-worktree/worktree";
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
@@ -57,9 +57,12 @@ export function sessionPrompt(harness: DistillHarness): string {
     return `${stage} --unattended${UNATTENDED_CLAUSE}`;
 }
 
+/** What the lead named: a merged pull request of the epic, or the epic's own number (decision record #956, D2). */
+export type DistillTarget = { kind: "pr"; pr: ParsedPrReference } | { kind: "epic"; epic: number };
+
 export interface DistillInput {
     cwd: string;
-    pr: ParsedPrReference;
+    target: DistillTarget;
     harness: DistillHarness;
     /** A permission mode for this run only, or null for the harness default (G10). */
     permissionMode: string | null;
@@ -94,6 +97,8 @@ export interface DistillDeps {
     role(cwd: string): PreflightResult;
     /** Close's own resolution of a pull request to its epic (D2). */
     epicOfPr(repoRoot: string, pr: ParsedPrReference, rerun: string): { ok: true; epic: number; issuesRepo: string } | { ok: false; stop: CloseStop };
+    /** The issues repository close reads its epics in, for an epic named by its number (D2). */
+    issuesRepo(repoRoot: string, rerun: string): { ok: true; issuesRepo: string } | { ok: false; stop: CloseStop };
     /** The newest distillation branch close cut for the epic, through close's own finder. */
     findBranch(repoRoot: string, epic: number): EpicDistillBranchResult;
     /** Whether the epic issue is closed. */
@@ -141,10 +146,10 @@ export interface RunFiles {
     marker: string;
 }
 
-/** The run folder for a pull request, in the main checkout's ignored scratch area (D5). */
-export function runFiles(mainRoot: string, pr: number): RunFiles {
-    // `distill-run-pr-<N>` can never be read as `epic-<n>`, `fix-<n>` or `intake-<n>`, the drainable entries (G18).
-    const dir = path.join(mainRoot, ".nexus", "tmp", `distill-run-pr-${pr}`);
+/** The run folder for an epic, in the main checkout's ignored scratch area (D1, D5). */
+export function runFiles(mainRoot: string, epic: number): RunFiles {
+    // `distill-run-epic-<N>` can never be read as `epic-<n>`, `fix-<n>` or `intake-<n>`, the drainable entries (G18).
+    const dir = path.join(mainRoot, ".nexus", "tmp", `distill-run-epic-${epic}`);
     return {
         dir,
         log: path.join(dir, "distill.log"),
@@ -166,7 +171,8 @@ function renderRefusal(r: DistillRefusal): string[] {
 
 /** Everything a run needs once the checks pass. */
 export interface DistillPlan {
-    pr: number;
+    /** The pull request the run was started with, or null when it was started by epic number. */
+    pr: number | null;
     epic: number;
     issuesRepo: string;
     branch: string;
@@ -183,9 +189,10 @@ export interface DistillPlan {
  */
 export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; plan: DistillPlan } | { ok: false; refusal: DistillRefusal } {
     const refuse = (reason: string, remedy: string): { ok: false; refusal: DistillRefusal } => ({ ok: false, refusal: { reason, remedy } });
-    const closeRerun = `nexus close --pr ${prArg(input.pr)}`;
-
-    const rerun = `nexus distill --pr ${prArg(input.pr)}`;
+    // The lead's own form repeats in every remedy: a pull request stays a pull request, an epic stays an epic (D4).
+    const byEpic = input.target.kind === "epic";
+    const closeRerun = input.target.kind === "pr" ? `nexus close --pr ${prArg(input.target.pr)}` : `nexus close --epic ${input.target.epic}`;
+    const rerun = input.target.kind === "pr" ? `nexus distill --pr ${prArg(input.target.pr)}` : `nexus distill --epic ${input.target.epic}`;
 
     // 1. Single-repo checkouts only: the hub and member rules stay where /nxs.distill keeps them (G1).
     const role = deps.role(input.cwd);
@@ -198,10 +205,20 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
         );
     }
 
-    // 2. The epic, through close's own resolution: the pull request must have merged (D2, G2).
-    const found = deps.epicOfPr(repoRoot, input.pr, closeRerun);
-    if (!found.ok) return refuse(found.stop.reason, found.stop.remedy);
-    const { epic, issuesRepo } = found;
+    // 2. The epic. A pull request is resolved through close's own resolution, which needs it merged (D2, G2).
+    //    An epic named by its number is read in the issues repository alone: no pull request is looked up (D2).
+    let epic: number;
+    let issuesRepo: string;
+    if (input.target.kind === "pr") {
+        const found = deps.epicOfPr(repoRoot, input.target.pr, closeRerun);
+        if (!found.ok) return refuse(found.stop.reason, found.stop.remedy);
+        ({ epic, issuesRepo } = found);
+    } else {
+        const repos = deps.issuesRepo(repoRoot, rerun);
+        if (!repos.ok) return refuse(repos.stop.reason, repos.stop.remedy);
+        epic = input.target.epic;
+        ({ issuesRepo } = repos);
+    }
     const epicRef = `${issuesRepo}#${epic}`;
 
     // 3. Close has finished only once the epic issue is closed (G2).
@@ -234,10 +251,10 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
 
     // 7. One run per pull request at a time. A marker whose process is gone is stale (D7, G6).
     const mainRoot = deps.mainCheckout(repoRoot);
-    const files = runFiles(mainRoot, input.pr.number);
+    const files = runFiles(mainRoot, epic);
     const owner = liveRun(deps, files);
     if (owner !== null) {
-        return refuse(`a run for this pull request is still in progress (process ${owner}); its outcome will be written to ${files.outcome}`, `wait for it to end and read ${files.outcome}`);
+        return refuse(`a run for ${runSubject(byEpic)} is still in progress (process ${owner}); its outcome will be written to ${files.outcome}`, `wait for it to end and read ${files.outcome}`);
     }
 
     // 8. The harness itself.
@@ -260,7 +277,13 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
                   cwd: wtPath,
               }
             : { command, args: ["-p", prompt, "--permission-mode", permissionMode, "--output-format", "stream-json", "--verbose", ...input.harnessArgs], cwd: wtPath };
-    return { ok: true, plan: { pr: input.pr.number, epic, issuesRepo, branch: branch.branch, wtPath, mainRoot, files, spec, permissionMode } };
+    const pr = input.target.kind === "pr" ? input.target.pr.number : null;
+    return { ok: true, plan: { pr, epic, issuesRepo, branch: branch.branch, wtPath, mainRoot, files, spec, permissionMode } };
+}
+
+/** What a refusal about a run names: the form the lead used, so each form reads as it always did (G8). */
+function runSubject(byEpic: boolean): string {
+    return byEpic ? "this epic" : "this pull request";
 }
 
 /** The process a live-run marker names, when that process still exists; null otherwise. */
@@ -406,7 +429,8 @@ export async function runDistillCommand(deps: DistillDeps, input: DistillInput, 
     const owner = claimRun(deps, plan.files, process.pid);
     if (owner !== null) {
         const held = owner > 0 ? ` (process ${owner})` : "";
-        for (const line of renderRefusal({ reason: `a run for this pull request is still in progress${held}; its outcome will be written to ${plan.files.outcome}`, remedy: `wait for it to end and read ${plan.files.outcome}` })) io.stderr(line);
+        const subject = runSubject(plan.pr === null);
+        for (const line of renderRefusal({ reason: `a run for ${subject} is still in progress${held}; its outcome will be written to ${plan.files.outcome}`, remedy: `wait for it to end and read ${plan.files.outcome}` })) io.stderr(line);
         return 1;
     }
     if (input.background === true) {
@@ -459,7 +483,7 @@ export async function runDetached(
             silent = true;
         }
     };
-    const label = `nexus distill (pull request ${plan.pr})`;
+    const label = plan.pr === null ? `nexus distill (epic ${plan.epic})` : `nexus distill (pull request ${plan.pr})`;
     const started = Date.now();
     const timer = setInterval(() => {
         const mins = Math.round((Date.now() - started) / 60_000);
@@ -663,6 +687,10 @@ export function distillDeps(run: Runner): DistillDeps {
     return {
         role: (cwd) => closePreflight(cwd, run),
         epicOfPr: (repoRoot, pr, rerun) => resolveEpicOfPr(close, repoRoot, pr, rerun, "pass a merged pull request that closes one of the epic's story issues"),
+        issuesRepo: (repoRoot, rerun) => {
+            const repos = resolveIssuesRepos(close, repoRoot, rerun);
+            return repos.ok ? { ok: true, issuesRepo: repos.issuesRepo } : { ok: false, stop: repos.stop };
+        },
         epicClosed: (repoRoot, issuesRepo, epic) => {
             const r = run("gh", ["issue", "view", String(epic), "--repo", issuesRepo, "--json", "state", "--jq", ".state"], { cwd: repoRoot });
             if (r.status !== 0) return { ok: false, message: r.stderr.trim() || `gh exited ${r.status}` };

@@ -413,7 +413,7 @@ type ResolvedRepos = { ok: true; issuesRepo: string; codeRepo: string } | { ok: 
  * Each branch resolves the issues repository once, at the point it needs it, so a pull request
  * that has not merged is answered before any repository read.
  */
-function resolveIssuesRepos(deps: Pick<CloseCommandDeps, "issuesRepo" | "checkoutRepo">, repoRoot: string, rerun: string): ResolvedRepos {
+export function resolveIssuesRepos(deps: Pick<CloseCommandDeps, "issuesRepo" | "checkoutRepo">, repoRoot: string, rerun: string): ResolvedRepos {
     const r = deps.issuesRepo(repoRoot);
     if (!r.ok) return { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
     // A host the configured form states is kept and every read of it goes there. A form that names

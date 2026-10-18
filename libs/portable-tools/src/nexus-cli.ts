@@ -106,7 +106,7 @@ import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from 
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
-import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness } from "./distill-command.js";
+import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness, type DistillTarget } from "./distill-command.js";
 import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
@@ -167,9 +167,10 @@ const PLANNING_DIR_SUBVERBS: readonly string[] = ["ensure", "list", "remove"];
 const CONFIG_SUBVERBS: readonly string[] = Object.keys(CONFIG_COMMANDS);
 
 const DISTILL_USAGE: string = [
-    "  nexus distill --pr <ref> [--background] [--harness claude|codex] [--permission-mode <mode>] [-- <harness args>...]",
-    "      After nexus close has closed the epic of merged pull request <ref> (N, owner/repo#N or a URL),",
-    "      run /nxs.distill --unattended in the worktree close prepared, asking nothing. Success is an",
+    "  nexus distill <N> | --epic <N> | --pr <ref> [--background] [--harness claude|codex] [--permission-mode <mode>] [-- <harness args>...]",
+    "      After nexus close has closed epic N (or the epic of merged pull request <ref>: N, owner/repo#N",
+    "      or a URL), run /nxs.distill --unattended in the worktree close prepared, asking nothing. A shell",
+    "      reads an unquoted #N as a comment, so quote it: nexus distill '#N'. Success is an",
     "      open distillation pull request on GitHub; the command prints its URL, or the stop and the",
     "      distillation's final message. The permission mode defaults to bypassPermissions for claude",
     "      and workspace-write for codex, and is printed before the session starts. --background returns",
@@ -3314,7 +3315,8 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
     const dashes = argv.indexOf("--");
     const own = dashes === -1 ? argv : argv.slice(0, dashes);
     const harnessArgs = dashes === -1 ? [] : argv.slice(dashes + 1);
-    let pr: ParsedPrReference | null = null;
+    let target: DistillTarget | null = null;
+    let namedTwice = false;
     let harness: DistillHarness = "claude";
     let permissionMode: string | null = null;
     let background = false;
@@ -3327,8 +3329,17 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
             const ref = value === undefined ? null : parsePrReference(value.replace(/^#(?=\d+$)/, ""));
             if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${value === undefined ? "nothing" : `'${value}'`}.`);
             if (ref.port !== undefined) return refuse(`--pr cannot read a pull-request URL with a port through gh; got '${value}'.`);
-            pr = ref;
+            namedTwice = namedTwice || target !== null;
+            target = { kind: "pr", pr: ref };
             i++;
+        } else if (a === "--epic" || EPIC_NUMBER.test(a)) {
+            // `--epic N`, or a bare `N` / `#N` in the same place (D2, D3). The value is the epic's number and nothing else.
+            const word = a === "--epic" ? value : a;
+            const epic = word === undefined || !EPIC_NUMBER.test(word) ? null : Number(word.replace(/^#/, ""));
+            if (epic === null || epic <= 0) return refuse(`--epic takes an epic number, N or #N; got ${word === undefined ? "nothing" : `'${word}'`}. Type nexus distill N, or quote '#N': a shell reads an unquoted #N as a comment.`);
+            namedTwice = namedTwice || target !== null;
+            target = { kind: "epic", epic };
+            if (a === "--epic") i++;
         } else if (a === "--background") {
             background = true;
         } else if (a === "--harness") {
@@ -3341,9 +3352,15 @@ async function runDistill(argv: string[], io: CliIo): Promise<number> {
             i++;
         } else return refuse(`unknown argument ${a}`);
     }
-    if (pr === null) return refuse("distill needs a merged pull request of the closed epic: --pr <ref>.");
-    return runDistillCommand(distillDeps(closeMigrationRunner), { cwd: io.cwd, pr, harness, permissionMode, harnessArgs, background }, io);
+    if (namedTwice) return refuse("name one target, not two: --pr <ref> or one epic number.");
+    if (target === null) {
+        return refuse("distill needs a target: nexus distill N for a closed epic, or nexus distill --pr <ref>. A shell reads an unquoted #N as a comment and never passes it on, so type nexus distill N, or quote '#N'.");
+    }
+    return runDistillCommand(distillDeps(closeMigrationRunner), { cwd: io.cwd, target, harness, permissionMode, harnessArgs, background }, io);
 }
+
+/** A bare epic number, with or without its `#`. */
+const EPIC_NUMBER = /^#?\d+$/;
 
 /**
  * `nexus close-role` — the role-gate half of the retired `close-migration preflight` (epic #215):
