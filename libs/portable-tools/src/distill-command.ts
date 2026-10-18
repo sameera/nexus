@@ -287,7 +287,7 @@ function runSubject(byEpic: boolean): string {
 }
 
 /** The process a live-run marker names, when that process still exists; null otherwise. */
-function liveRun(deps: Pick<DistillDeps, "alive">, files: RunFiles): number | null {
+export function liveRun(deps: Pick<DistillDeps, "alive">, files: RunFiles): number | null {
     let pid: number;
     try {
         pid = Number(fs.readFileSync(files.marker, "utf8").trim());
@@ -719,15 +719,18 @@ export function distillDeps(run: Runner): DistillDeps {
             return { ok: true, url: url === "" ? null : url };
         },
         session: spawnSession,
-        alive: (pid) => {
-            try {
-                process.kill(pid, 0);
-                return true;
-            } catch (e) {
-                // EPERM: it exists, owned by someone else.
-                return (e as NodeJS.ErrnoException).code === "EPERM";
-            }
-        },
+        alive: processAlive,
         detach: (plan) => detachRunner(plan, { command: process.execPath, args: [...process.execArgv, process.argv[1] ?? ""] }),
     };
+}
+
+/** Whether a process with this id exists. */
+export function processAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (e) {
+        // EPERM: it exists, owned by someone else.
+        return (e as NodeJS.ErrnoException).code === "EPERM";
+    }
 }

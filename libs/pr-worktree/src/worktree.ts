@@ -314,7 +314,7 @@ export function epicDistillBranch(epic: number, date: string): string {
     return `distill/${date}-epic-${epic}`;
 }
 
-function epicBranchPattern(epic: number): RegExp {
+export function epicBranchPattern(epic: number): RegExp {
     return new RegExp(`^distill/\\d{4}-\\d{2}-\\d{2}-epic-${epic}$`);
 }
 
