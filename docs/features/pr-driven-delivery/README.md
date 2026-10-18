@@ -19,6 +19,7 @@ Run conformance, closure, and distillation against a merged pull request instead
 - **Close the two low gaps analyze 0.91.0 left in its answer and registry reads** — [#875](https://github.com/sameera/nexus/issues/875)
 - **Distill a Closed Epic with One Nexus Command** — [#909](https://github.com/sameera/nexus/issues/909)
 - **The analyze verdict on a pull request shows what blocks and how to resolve it** — [#923](https://github.com/sameera/nexus/issues/923)
+- **Distill and Clean Up by Epic Number** — [#952](https://github.com/sameera/nexus/issues/952)
 
 ## Live acceptance
 
