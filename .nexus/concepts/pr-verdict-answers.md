@@ -1,8 +1,8 @@
 ---
 title: "Pull-Request Verdict Answers"
 aliases: ["verdict item IDs", "departure ID", "item registry", "answer line", "accepted departure", "waived finding", "approved deferred scope", "open-item counts"]
-touches: ["conformance-gate", "published-verdict-selection", "pr-driven-flow", "reading-list", "answer-recording-run"]
-last_updated_by: "#896"
+touches: ["conformance-gate", "published-verdict-selection", "pr-driven-flow", "reading-list", "answer-recording-run", "verdict-layout"]
+last_updated_by: "#923"
 status: active
 verification: verified
 ---
@@ -16,6 +16,8 @@ Every departure, finding and deferred-scope proposal a pull request's verdict li
 The items sit in a second machine block on the verdict, which is also the ID registry. The next run on the same pull request reads it from that pull request's newest trusted verdict. A departure found again keeps its ID when it cites the same record element or the same concept invariant and shares a file. A new item takes the next unused number, because every number ever issued stays in the registry.
 
 An answer line names the ID, a verb and a reason. A departure is accepted, a critical or high finding is waived, and a deferred-scope proposal is approved. Answers are read in the same comment pass as close's waivers, under the same trust rule. When several trusted, well-formed answers name one item, the newest wins.
+
+An open item's resolution shows its fix, then for an answerable item the exact answer line in its own code block, then the command to run afterwards. A medium or low finding gets its fix only, because it cannot be waived. The accept and waive lines stop after the colon, so pasting one unedited applies nothing. An accepted or waived item shows its subject first, then the answer, who gave it and the reason.
 
 ## Key Invariants
 
@@ -32,6 +34,7 @@ An answer line names the ID, a verb and a reason. A departure is accepted, a cri
 - [pr-driven-flow](pr-driven-flow.md) — the flow in which the engineer answers on the open pull request, before the merge.
 - [reading-list](reading-list.md) — a departure from a listed page's invariant is numbered and answered like any other.
 - [answer-recording-run](answer-recording-run.md) — the later run that records these answers and decides what to judge again; split from this page.
+- [verdict-layout](verdict-layout.md) — sets where each item's fields, resolution and answer line appear in the published verdict.
 
 ## Decision Log
 
@@ -46,3 +49,7 @@ The unattended implement run first compared which comments held an answer line. 
 ### 2026-10-09 — #896 — A concept-invariant departure keeps its ID, and the answer-recording run moves to its own page
 
 A departure from a listed page's invariant has no record element to cite, so the page and invariant number identify it across runs. It is then numbered, answered and carried forward by the same rules as any other departure. Refuted alternative: a separate item kind, which the existing machinery would not carry across runs. The rewrite pushed the page's own content past the cap. How a later run records answers is separable from how items are numbered and answered, so it moved to the answer-recording-run page, with no change to its rules.
+
+### 2026-10-18 — #923 — A paste line that is complete without a reason applies nothing
+
+An answerable item's resolution is a line to paste, and the reason is left for the engineer to type after the colon. Had the line carried a placeholder reason such as "<your reason>", an unedited paste would pass the reader's check, which only asks that a reason exists, and would accept the departure with junk text. The line stops after the colon, so an unedited paste gives no reason and is named in the next verdict as having none. Refuted alternative: a filled placeholder, which reads more clearly and passes the check.

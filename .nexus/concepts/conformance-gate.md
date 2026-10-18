@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report", "reading-list", "epic-completion-judgment"]
-last_updated_by: "#896"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report", "reading-list", "epic-completion-judgment", "verdict-layout"]
+last_updated_by: "#923"
 status: active
 verification: verified
 ---
@@ -17,8 +17,7 @@ regenerating it.
 
 ## How It Works
 
-Against a pull request, analyze publishes a review carrying a machine-readable block, followed by
-a second block that lists each departure, finding and deferred-scope proposal with its ID. Run
+Against a pull request, analyze publishes a review whose layout the verdict-layout page sets. Run
 without a pull request, analyze reports in the terminal and writes nothing. A departure is judged
 against a baseline that depends on the record's format, or against the epic's description when the
 epic has no record. Each departure cites what it departs from. A broken guarantee is one departure,
@@ -64,6 +63,7 @@ that as a literal value no reader can mistake for a waiver.
 - [shipped-ledger](shipped-ledger.md) — the record this gate writes on the epic issue for a merged pull request, and the source every later gate reads what shipped from.
 - [close-and-distill-command](close-and-distill-command.md) — the stage that runs this gate with nobody watching before close, and reads its outcome from the published verdict and the shipped record, never from the exit status.
 - [pr-verdict-answers](pr-verdict-answers.md) — numbers the departures and findings this gate judges, and applies the answers posted on the pull request.
+- [verdict-layout](verdict-layout.md) — sets the layout of the review this gate publishes, including the headline that states whether the pull request is blocked.
 - [story-evidence-report](story-evidence-report.md) — the close report that reads the story fingerprints this gate records in its pull-request receipt.
 - [reading-list](reading-list.md) — supplies the pages whose invariants the gate checks, read as they stood before the change.
 - [epic-completion-judgment](epic-completion-judgment.md) — where the epic-level judgment happens; split from this page.
@@ -168,3 +168,7 @@ round.
 ### 2026-10-09 — #896 — The gate also checks the invariants on the epic's listed pages, and epic-level judgment moves to its own page
 
 Before this change the gate never read the concept store, so code could break a recorded invariant unnoticed. It now lists every unstruck invariant on each listed page, skips those a stated change in the record covers, and judges the rest. A contradiction becomes an ordinary departure at severity high, so an earlier release still reads the verdict. Refuted alternative: a separate result kind for concept invariants, which would break close for a team running mixed releases. The rewrite pushed the page's own content past the cap, so the judgment of success metrics and cross-story guarantees on the completing pull request moved to the epic-completion-judgment page, with no change to the rule.
+
+### 2026-10-18 — #923 — The verdict's layout moved to its own page, which the gate now points to
+
+The rule for how a published verdict is laid out grew past this page's cap. The toolkit now writes the whole body from one set of judgments, and the headline and review event follow one rule, so that rule moved to the verdict-layout page. This page keeps the gate: it publishes only on a pull request, and a run without one writes nothing. The rule's content is unchanged. Refuted alternative: keep the layout rule here and trim other content, which would drop still-true content to make room.
