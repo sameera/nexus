@@ -118,4 +118,8 @@ removes it once done reviewing. Add this under the report's Blocked on me headin
 
     Worktree: <wtPath> (the close/distill worktree, still checked out on this branch)
     CLEANUP (after the distillation-PR is merged or closed):
-        nexus pr-worktree remove <wtPath>
+        nexus distill cleanup <epic>
+
+Replace `<epic>` with the number N of the closed queue entry folder `epic-<N>` this run drains, written
+out in full, so the line reads `nexus distill cleanup 952` for the entry `epic-952`. The command finds the worktree itself, so the lead never
+copies `<wtPath>` into it.

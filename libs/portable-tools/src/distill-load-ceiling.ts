@@ -66,7 +66,7 @@ export const RESIDENCY: readonly ResidencyRule[] = [
     { rule: "the recovered close comment's trust rule", contract: "nxs-distill-recovery", probe: "nexus:close-record" },
     { rule: "the continuation branch and push rules", contract: "nxs-distill-continuation", probe: "Do not run `git checkout -`" },
     { rule: "the continuation merge precondition", contract: "nxs-distill-continuation", probe: "range-head-reachability" },
-    { rule: "the continuation worktree cleanup", contract: "nxs-distill-continuation", probe: "nexus pr-worktree remove <wtPath>" },
+    { rule: "the continuation worktree cleanup", contract: "nxs-distill-continuation", probe: "nexus distill cleanup <epic>" },
     { rule: "the hub drain-SLO attribution", contract: "nxs-distill-hub", probe: "attributed to every distinct repo its `range:` list names" },
     { rule: "the hub provenance form", contract: "nxs-distill-hub", probe: "form is **never emitted** here" },
     { rule: "the hub anchor mapping", contract: "nxs-distill-hub", probe: "per-repo mapping" },
