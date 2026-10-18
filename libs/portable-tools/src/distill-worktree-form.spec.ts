@@ -104,12 +104,17 @@ describe("every phase works through the pinned root (D12, G23, G24, R2)", () => 
     });
 });
 
-describe("the report names the worktree and one cleanup command (D10, G26)", () => {
-    it("names nexus pr-worktree remove, never a raw git worktree removal", () => {
+describe("the report names the worktree and one cleanup command (D10, G26, decision record #956 D7)", () => {
+    it("names nexus distill cleanup, never a raw git worktree removal", () => {
         const phase8 = CONTINUATION.slice(CONTINUATION.indexOf("## Phase 8"));
         expect(phase8).toContain("Worktree: <wtPath>");
-        expect(phase8).toContain("nexus pr-worktree remove <wtPath>");
+        expect(phase8).toContain("nexus distill cleanup <epic>");
         expect(CONTINUATION).not.toContain("git worktree remove");
         expect(phase8).toMatch(/inside it or named it by path/);
+    });
+
+    it("tells the run to write the drained epic's number into the cleanup line, not the placeholder (G19)", () => {
+        const phase8 = CONTINUATION.slice(CONTINUATION.indexOf("## Phase 8"));
+        expect(phase8).toMatch(/Replace `<epic>` with the number N of the closed queue entry folder `epic-<N>` this run drains/);
     });
 });
