@@ -45,6 +45,7 @@ function harness(over: Partial<DistillDeps> = {}, end: SessionEnd = { started: t
     h.deps = {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot: mainRoot, repo: { identity: "acme/app", source: "origin" } as never } }),
         epicOfPr: () => ({ ok: true, epic: EPIC, issuesRepo: "acme/app" }),
+        issuesRepo: () => ({ ok: true, issuesRepo: "acme/app" }),
         epicClosed: () => ({ ok: true, closed: true }),
         branchPushed: () => ({ ok: true, pushed: true }),
         findBranch: () => ({ ok: true, branch: BRANCH, source: "local" }),
@@ -74,7 +75,7 @@ function afterSession(read: ReturnType<DistillDeps["openPr"]>): DistillDeps["ope
 }
 
 function input(over: Partial<DistillInput> = {}): DistillInput {
-    return { cwd: "/somewhere", pr: { repo: null, number: PR }, harness: "claude", permissionMode: null, harnessArgs: [], ...over };
+    return { cwd: "/somewhere", target: { kind: "pr", pr: { repo: null, number: PR } }, harness: "claude", permissionMode: null, harnessArgs: [], ...over };
 }
 
 async function run(h: Harness, over: Partial<DistillInput> = {}): Promise<{ code: number; out: string; err: string }> {
@@ -98,8 +99,8 @@ describe("nexus distill — a closed epic distills with one command (AC1, D1, G8
     it("gives the session fixed text only, whatever pull request it was started for (G9)", async () => {
         const a = harness();
         const b = harness();
-        await run(a, { pr: { repo: null, number: 1 } });
-        await run(b, { pr: { repo: "acme/app", number: 777 } });
+        await run(a, { target: { kind: "pr", pr: { repo: null, number: 1 } } });
+        await run(b, { target: { kind: "pr", pr: { repo: "acme/app", number: 777 } } });
         const prompt = (h: Harness): string => h.sessions[0].args[h.sessions[0].args.indexOf("-p") + 1];
         expect(prompt(a)).toBe(prompt(b));
         expect(prompt(a)).not.toMatch(/777|acme/);
@@ -108,7 +109,7 @@ describe("nexus distill — a closed epic distills with one command (AC1, D1, G8
     it("writes the log, the outcome and the final message into an ignored folder of the main checkout (D5, G18)", async () => {
         const h = harness();
         const { out } = await run(h);
-        const dir = path.join(h.mainRoot, ".nexus", "tmp", `distill-run-pr-${PR}`);
+        const dir = path.join(h.mainRoot, ".nexus", "tmp", `distill-run-epic-${EPIC}`);
         expect(fs.readFileSync(path.join(dir, "outcome.txt"), "utf8")).toContain(URL);
         expect(fs.readFileSync(path.join(dir, "distill.log"), "utf8")).toContain("working");
         expect(fs.readFileSync(path.join(dir, "distill-final.txt"), "utf8")).toContain("opened it");
@@ -308,7 +309,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
             branch: BRANCH,
             wtPath: h.wtPath,
             mainRoot: h.mainRoot,
-            files: runFiles(h.mainRoot, PR),
+            files: runFiles(h.mainRoot, EPIC),
             spec: { command: "claude", args: [], cwd: h.wtPath },
             permissionMode: "bypassPermissions",
         };
@@ -320,7 +321,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         const { code, out } = await run(h, { background: true });
         expect(code).toBe(0);
         expect(h.sessions).toHaveLength(0);
-        const files = runFiles(h.mainRoot, PR);
+        const files = runFiles(h.mainRoot, EPIC);
         expect(out).toContain(files.log);
         expect(out).toContain(files.outcome);
         expect(detached).not.toBeNull();
@@ -329,7 +330,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
 
     it("refuses a second start while a run for the same pull request is in progress, naming where its outcome will be written (G6)", async () => {
         const h = harness({ alive: () => true });
-        const files = runFiles(h.mainRoot, PR);
+        const files = runFiles(h.mainRoot, EPIC);
         fs.mkdirSync(files.dir, { recursive: true });
         fs.writeFileSync(files.marker, "4242\n");
         const { code, err } = await run(h);
@@ -341,7 +342,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
 
     it("refuses a start that loses the race for the marker to another run started at the same instant (G6)", async () => {
         const h = harness({ alive: (pid) => pid === 4242 });
-        const files = runFiles(h.mainRoot, PR);
+        const files = runFiles(h.mainRoot, EPIC);
         const onPath = h.deps.onPath;
         h.deps.onPath = (command) => {
             fs.mkdirSync(files.dir, { recursive: true });
@@ -357,7 +358,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
 
     it("is not blocked by a marker whose process no longer exists (G6)", async () => {
         const h = harness({ alive: () => false });
-        const files = runFiles(h.mainRoot, PR);
+        const files = runFiles(h.mainRoot, EPIC);
         fs.mkdirSync(files.dir, { recursive: true });
         fs.writeFileSync(files.marker, "4242\n");
         const { code } = await run(h);
@@ -370,7 +371,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         await run(fg);
         const bg = harness();
         await runDetached(bg.deps, plan(bg), () => undefined, 60_000);
-        const read = (h: Harness): string => fs.readFileSync(runFiles(h.mainRoot, PR).outcome, "utf8").replaceAll(h.wtPath, "<wt>");
+        const read = (h: Harness): string => fs.readFileSync(runFiles(h.mainRoot, EPIC).outcome, "utf8").replaceAll(h.wtPath, "<wt>");
         expect(read(bg)).toBe(read(fg));
         expect(read(bg)).toContain(URL);
         expect(read(bg)).toContain("nexus pr-worktree remove <wt>");
@@ -381,7 +382,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         const lines: string[] = [];
         const outcome = await runDetached(h.deps, plan(h), (l) => lines.push(l), 60_000);
         expect(outcome.success).toBe(false);
-        expect(fs.readFileSync(runFiles(h.mainRoot, PR).outcome, "utf8")).toContain("BLOCKED: hash mismatch");
+        expect(fs.readFileSync(runFiles(h.mainRoot, EPIC).outcome, "utf8")).toContain("BLOCKED: hash mismatch");
         expect(lines[lines.length - 1]).toMatch(/stopped/);
     });
 
@@ -414,7 +415,7 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         }, 10);
         expect(writes).toBe(1);
         expect(outcome.success).toBe(false);
-        expect(fs.existsSync(runFiles(h.mainRoot, PR).outcome)).toBe(true);
+        expect(fs.existsSync(runFiles(h.mainRoot, EPIC).outcome)).toBe(true);
     });
 
     it("writes nothing git reports as a change, in the main checkout or the worktree (AC3, G18)", async () => {
@@ -431,8 +432,8 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
             return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
         });
         const h = harness({ mainCheckout: () => real.mainCheckout(wt), ignored: real.ignored, worktreeOn: () => wt });
-        await runDetached(h.deps, { ...plan(h), mainRoot: real.mainCheckout(wt), wtPath: wt, files: runFiles(real.mainCheckout(wt), PR) }, () => undefined, 60_000);
-        expect(fs.existsSync(path.join(fs.realpathSync(repo), ".nexus", "tmp", `distill-run-pr-${PR}`, "outcome.txt"))).toBe(true);
+        await runDetached(h.deps, { ...plan(h), mainRoot: real.mainCheckout(wt), wtPath: wt, files: runFiles(real.mainCheckout(wt), EPIC) }, () => undefined, 60_000);
+        expect(fs.existsSync(path.join(fs.realpathSync(repo), ".nexus", "tmp", `distill-run-epic-${EPIC}`, "outcome.txt"))).toBe(true);
         expect(g("status", "--porcelain")).toBe("");
         expect(spawnSync("git", ["status", "--porcelain"], { cwd: wt, encoding: "utf8" }).stdout).toBe("");
     });
@@ -497,6 +498,51 @@ console.log(JSON.stringify({ type: "result", subtype: "success", num_turns: 3, d
     });
 });
 
+describe("nexus distill — a closed epic is named by its number (AC1, AC4, AC5, D1, D2, D4, G2, G5, G7)", () => {
+    const BY_EPIC: DistillInput["target"] = { kind: "epic", epic: EPIC };
+
+    it("runs the same unattended session for the epic as for a pull request of it, without reading a pull request (AC1, G1)", async () => {
+        const h = harness({
+            epicOfPr: () => {
+                throw new Error("a pull request was read");
+            },
+        });
+        const { code, out } = await run(h, { target: BY_EPIC });
+        expect(code).toBe(0);
+        expect(out).toContain(URL);
+        expect(h.sessions).toHaveLength(1);
+        expect(h.sessions[0].cwd).toBe(h.wtPath);
+        expect(h.sessions[0].args.join(" ")).toContain("/nxs.distill --unattended");
+    });
+
+    it("refuses an open epic before any session, naming nexus close --epic N (G2)", async () => {
+        const h = harness({ epicClosed: () => ({ ok: true, closed: false }) });
+        const { code, err } = await run(h, { target: BY_EPIC });
+        expect(code).not.toBe(0);
+        expect(err).toContain(`nexus close --epic ${EPIC}`);
+        expect(h.sessions).toHaveLength(0);
+    });
+
+    it("names its own re-run as --epic N in a refusal from an epic start (D4, G7)", async () => {
+        const h = harness({ epicClosed: () => ({ ok: false, message: "rate limited" }) });
+        const { err } = await run(h, { target: BY_EPIC });
+        expect(err).toContain(`nexus distill --epic ${EPIC}`);
+    });
+
+    it("refuses a second start for the same epic whichever form each start used (AC4, G5)", async () => {
+        const h = harness();
+        const files = runFiles(h.mainRoot, EPIC);
+        fs.mkdirSync(files.dir, { recursive: true });
+        fs.writeFileSync(files.marker, `${process.pid}\n`);
+        for (const target of [BY_EPIC, { kind: "pr", pr: { repo: null, number: PR } }] as const) {
+            const { code, err } = await run(h, { target });
+            expect(code).not.toBe(0);
+            expect(err).toContain("still in progress");
+        }
+        expect(h.sessions).toHaveLength(0);
+    });
+});
+
 describe("nexus distill — arguments", () => {
     async function cli(argv: string[]): Promise<{ code: number; err: string }> {
         const err: string[] = [];
@@ -504,10 +550,31 @@ describe("nexus distill — arguments", () => {
         return { code, err: err.join("\n") };
     }
 
-    it("needs --pr", async () => {
+    it("needs a target, names the number form, and says a shell may drop an unquoted #N (D3, G4)", async () => {
         const { code, err } = await cli([]);
         expect(code).toBe(2);
-        expect(err).toContain("--pr");
+        expect(err).toContain("nexus distill N");
+        expect(err).toMatch(/comment/);
+    });
+
+    it("takes N, #N and --epic N as the epic, reaching the checks rather than the argument refusal (AC1, AC2)", async () => {
+        for (const argv of [["123"], ["#123"], ["--epic", "123"], ["--epic", "#123"]]) {
+            const { code, err } = await cli(argv);
+            expect(code, argv.join(" ")).toBe(1);
+            expect(err, argv.join(" ")).toContain("nexus distill refused");
+        }
+    });
+
+    it("refuses two targets before any read (G4)", async () => {
+        const { code, err } = await cli(["123", "--pr", "4"]);
+        expect(code).toBe(2);
+        expect(err).toContain("one target");
+    });
+
+    it("refuses an epic that is not a number, or a missing one (G4)", async () => {
+        expect((await cli(["--epic", "owner/repo#3"])).code).toBe(2);
+        expect((await cli(["--epic"])).code).toBe(2);
+        expect((await cli(["acme/app#3"])).code).toBe(2);
     });
 
     it("refuses an unknown harness and an unknown option", async () => {
