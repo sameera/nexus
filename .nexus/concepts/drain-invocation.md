@@ -1,8 +1,8 @@
 ---
 title: "Drain Invocation"
 aliases: ["unattended drain", "unattended distill", "unattended flag", "who starts a drain", "drain approval"]
-touches: ["distiller", "distillation-pr", "close-and-distill-command", "distill-command"]
-last_updated_by: "#909"
+touches: ["distiller", "distillation-pr", "close-and-distill-command", "distill-command", "distill-run-record"]
+last_updated_by: "#952"
 status: active
 verification: verified
 ---
@@ -28,7 +28,8 @@ The drain learns that nobody can answer only from the unattended flag on its com
 - [distiller](distiller.md) — the stage this page governs the starting and approval of, split from that page.
 - [distillation-pr](distillation-pr.md) — the pull request whose review is an unattended run's only approval.
 - [close-and-distill-command](close-and-distill-command.md) — starts an unattended drain in the worktree close left.
-- [distill-command](distill-command.md) — the shipped command that starts an unattended drain in the worktree close prepared, found from a merged pull request.
+- [distill-command](distill-command.md) — the shipped command that starts an unattended drain in the worktree close prepared, found from the epic's number or a merged pull request of it.
+- [distill-run-record](distill-run-record.md) — the distill run's cleanup refuses during a live run, so a stopped unattended drain can still leave the branch as close left it.
 
 ## Decision Log
 
@@ -39,3 +40,7 @@ Split from distiller, whose invocation invariant moved here, rewritten as the de
 ### 2026-10-17 — #909 — The shipped distill command is a third way to start a drain
 
 The lead can now start a drain with the distill command after close has finished, so the starting rule and invariant 1 are rewritten as the decision record gives them, naming it beside the direct request and the close-and-distill command. The command ships in the package every adopter installs, so starting a model session is no longer limited to the lead or the maintainer's script. It still runs only when the lead types it, and it passes the unattended flag on the session's command line, so unattended mode still never rests on a session having no terminal. Refuted alternative: ship the distill half of the maintainer script as a packaged shell script. It was the faster port, but it parses close's text output and has no tests.
+
+### 2026-10-18 — #952 — The distill command also takes an epic number
+
+The `nexus distill` command now starts a drain from the closed epic's number as well as from a merged pull request of the epic. The epic is what a drain belongs to, and the pull request was only a way to find it. The drain itself is unchanged, and the command still adds the unattended flag and decides nothing else. The drain's own report now names the cleanup command for the epic in place of the old worktree-removal command, so an attended run and an unattended run give the lead the same cleanup instruction. Refuted alternative: filter the old line out of the report inside the distill command. That leaves attended runs on the old command. The new distill-run-record page, which holds the run record and the cleanup command, touches this page, so this page links back to it.
