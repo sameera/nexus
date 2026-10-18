@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1200" viewBox="0 0 1900 1200" role="img" aria-labelledby="title description">
+<title id="title">Nexus toolchain and implement-epic.sh workflow</title>
+<desc id="description">A 1900 by 1200 flowchart from setup through epic, decision record, implementation, analysis, close and distill. Four cards detail the implementation script: implement stories, publish a draft pull request, run local analyze and fix rounds, and certify the pull request.</desc>
+<defs>
+  <radialGradient id="glow" cx="50%" cy="0%" r="85%"><stop offset="0%" stop-color="#153C58"/><stop offset="100%" stop-color="#081321"/></radialGradient>
+  <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M 36 0 L 0 0 0 36" fill="none" stroke="#19314A" stroke-width="0.6" opacity="0.35"/></pattern>
+  <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#030810" flood-opacity="0.35"/></filter>
+</defs>
+<rect x="0" y="0" width="1900" height="1200" rx="0" fill="url(#glow)" stroke="none" stroke-width="1" />
+<rect x="0" y="0" width="1900" height="1200" rx="0" fill="url(#grid)" stroke="none" stroke-width="1" />
+<rect x="64" y="55" width="7" height="61" rx="3" fill="#42D9BD" stroke="none" stroke-width="1" />
+<text x="91" y="91" fill="#F6FAFF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="49" font-weight="800" text-anchor="start" >NEXUS TOOLCHAIN</text>
+<text x="93" y="121" fill="#B6C9DC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="400" text-anchor="start" >From intent to verified delivery to durable knowledge</text>
+<rect x="64" y="155" width="1772" height="212" rx="20" fill="#0D1B2C" stroke="#29445D" stroke-width="1.5" filter="url(#shadow)"/>
+<text x="91" y="186" fill="#78C9D7" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="800" text-anchor="start" letter-spacing="1.5">01 / THE DELIVERY PATH</text>
+<text x="1808" y="186" fill="#9DB4C8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14" font-weight="400" text-anchor="end" >Human approval at the planning and review gates</text>
+<rect x="91" y="219" width="192" height="91" rx="14" fill="#14283D" stroke="#36516D" stroke-width="1" />
+<rect x="91" y="219" width="5" height="91" rx="2" fill="#42D9BD" stroke="none" stroke-width="1" />
+<text x="111" y="243" fill="#42D9BD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="11.5" font-weight="800" text-anchor="start" letter-spacing="1">01 / BOOTSTRAP</text>
+<text x="111" y="270" fill="#F2F7FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="750" text-anchor="start" >Setup</text>
+<text x="111" y="291" fill="#A8BED0" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start" >standards + context</text>
+<rect x="319" y="219" width="194" height="91" rx="14" fill="#14283D" stroke="#36516D" stroke-width="1" />
+<rect x="319" y="219" width="5" height="91" rx="2" fill="#6AB6F8" stroke="none" stroke-width="1" />
+<text x="339" y="243" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="11.5" font-weight="800" text-anchor="start" letter-spacing="1">02 / SCOPE</text>
+<text x="339" y="270" fill="#F2F7FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="750" text-anchor="start" >Epic</text>
+<text x="339" y="291" fill="#A8BED0" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start" >stories + criteria</text>
+<rect x="549" y="219" width="241" height="91" rx="14" fill="#14283D" stroke="#36516D" stroke-width="1" />
+<rect x="549" y="219" width="5" height="91" rx="2" fill="#BAA5FF" stroke="none" stroke-width="1" />
+<text x="569" y="243" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="11.5" font-weight="800" text-anchor="start" letter-spacing="1">03 / DESIGN</text>
+<text x="569" y="270" fill="#F2F7FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="750" text-anchor="start" >Decision record</text>
+<text x="569" y="291" fill="#A8BED0" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start" >approved guarantees</text>
+<rect x="828" y="213" width="589" height="105" rx="16" fill="#173149" stroke="#5A7798" stroke-width="1.5" />
+<text x="848" y="238" fill="#F7C977" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="start" >04 / IMPLEMENT-EPIC.SH  •  HEADLESS PIPELINE</text>
+<rect x="848" y="250" width="251" height="51" rx="9" fill="#1F3C4C" stroke="#447B75" stroke-width="1" />
+<text x="973" y="272" fill="#64E2C2" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="800" text-anchor="middle" >IMPLEMENT</text>
+<text x="973" y="290" fill="#B6D0D2" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle" >stories • commits • draft PR</text>
+<rect x="1111" y="250" width="286" height="51" rx="9" fill="#263648" stroke="#8A6F51" stroke-width="1" />
+<text x="1254" y="272" fill="#F7C977" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="800" text-anchor="middle" >ANALYZE + CERTIFY</text>
+<text x="1254" y="290" fill="#D4C7AF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="middle" >fix loop • PR receipt • ready</text>
+<rect x="1454" y="219" width="159" height="91" rx="14" fill="#14283D" stroke="#36516D" stroke-width="1" />
+<rect x="1454" y="219" width="5" height="91" rx="2" fill="#78C9D7" stroke="none" stroke-width="1" />
+<text x="1474" y="243" fill="#78C9D7" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="11.5" font-weight="800" text-anchor="start" letter-spacing="1">05 / RECORD</text>
+<text x="1474" y="270" fill="#F2F7FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="750" text-anchor="start" >Close</text>
+<text x="1474" y="291" fill="#A8BED0" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start" >after merge</text>
+<rect x="1649" y="219" width="160" height="91" rx="14" fill="#14283D" stroke="#36516D" stroke-width="1" />
+<rect x="1649" y="219" width="5" height="91" rx="2" fill="#BAA5FF" stroke="none" stroke-width="1" />
+<text x="1669" y="243" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="11.5" font-weight="800" text-anchor="start" letter-spacing="1">06 / MEMORY</text>
+<text x="1669" y="270" fill="#F2F7FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="750" text-anchor="start" >Distill</text>
+<text x="1669" y="291" fill="#A8BED0" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.5" font-weight="400" text-anchor="start" >concept store</text>
+<line x1="283" y1="265" x2="310" y2="265" stroke="#6B8BAA" stroke-width="2" />
+<path d="M309,259 L319,265 L309,271" fill="none" stroke="#6B8BAA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="513" y1="265" x2="540" y2="265" stroke="#6B8BAA" stroke-width="2" />
+<path d="M539,259 L549,265 L539,271" fill="none" stroke="#6B8BAA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="790" y1="265" x2="819" y2="265" stroke="#6B8BAA" stroke-width="2" />
+<path d="M818,259 L828,265 L818,271" fill="none" stroke="#6B8BAA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="1417" y1="265" x2="1445" y2="265" stroke="#6B8BAA" stroke-width="2" />
+<path d="M1444,259 L1454,265 L1444,271" fill="none" stroke="#6B8BAA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="1613" y1="265" x2="1640" y2="265" stroke="#6B8BAA" stroke-width="2" />
+<path d="M1639,259 L1649,265 L1639,271" fill="none" stroke="#6B8BAA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="277" y="326" width="372" height="27" rx="13.5" fill="#102A38" stroke="#336E77" stroke-width="1" />
+<text x="463.0" y="344" fill="#8EDEE0" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="700" text-anchor="middle" >Optional: discover when scope is foggy</text>
+<text x="1809" y="344" fill="#8CA7BF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14" font-weight="400" text-anchor="end" >Planning artifacts: GitHub issues   •   Durable memory: concept pages</text>
+<text x="64" y="416" fill="#F5F9FD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="800" text-anchor="start" >02 / INSIDE IMPLEMENT-EPIC.SH</text>
+<text x="1836" y="416" fill="#AFC5D8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="end" >Each agent stage runs headlessly in a fresh Claude or Codex context</text>
+<rect x="64" y="445" width="422" height="560" rx="20" fill="#101E31" stroke="#29415B" stroke-width="1.5" />
+<rect x="64" y="445" width="422" height="7" rx="3" fill="#42D9BD" stroke="none" stroke-width="1" />
+<text x="90" y="487" fill="#F3F8FD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="750" text-anchor="start" >1  Implement stories</text>
+<text x="90" y="515" fill="#42D9BD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="600" text-anchor="start" >STAGE 1  /  BRANCH + COMMITS</text>
+<line x1="90" y1="532" x2="460" y2="532" stroke="#29415B" stroke-width="1" />
+<rect x="90" y="542" width="26" height="26" rx="8" fill="#172C43" stroke="#42D9BD" stroke-width="1" />
+<text x="103" y="561" fill="#42D9BD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >1</text>
+<text x="127" y="561" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Resolve the epic</text>
+<text x="90" y="588" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Run nxs-epic-resolve N; read the</text>
+<text x="90" y="610" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >decision-record sub-issue.</text>
+<line x1="90" y1="627" x2="460" y2="627" stroke="#243A52" stroke-width="1" />
+<rect x="90" y="624" width="26" height="26" rx="8" fill="#172C43" stroke="#42D9BD" stroke-width="1" />
+<text x="103" y="643" fill="#42D9BD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >2</text>
+<text x="127" y="643" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Honor approval</text>
+<text x="90" y="670" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Complete “Before implementation”;</text>
+<text x="90" y="692" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >apply every G# and assigned D#.</text>
+<line x1="90" y1="709" x2="460" y2="709" stroke="#243A52" stroke-width="1" />
+<rect x="90" y="706" width="26" height="26" rx="8" fill="#172C43" stroke="#42D9BD" stroke-width="1" />
+<text x="103" y="725" fill="#42D9BD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >3</text>
+<text x="127" y="725" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Build in dependency order</text>
+<text x="90" y="752" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Follow blocked_by; re-read each story</text>
+<text x="90" y="774" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >and the decisions it delivers.</text>
+<line x1="90" y1="791" x2="460" y2="791" stroke="#243A52" stroke-width="1" />
+<rect x="90" y="788" width="26" height="26" rx="8" fill="#172C43" stroke="#42D9BD" stroke-width="1" />
+<text x="103" y="807" fill="#42D9BD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >4</text>
+<text x="127" y="807" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Test and commit</text>
+<text x="90" y="834" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Test first; suite green; choice stubs.</text>
+<text x="90" y="856" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >One commit/story; Closes #&lt;story&gt;.</text>
+<rect x="88" y="888" width="374" height="88" rx="11" fill="#193230" stroke="#397D6A" stroke-width="1" />
+<text x="106" y="914" fill="#6DE1BE" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="start" >BLOCKED PATH</text>
+<text x="106" y="937" fill="#C4D8D1" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="400" text-anchor="start" >No commit; final “Implementation blocked:”</text>
+<text x="106" y="957" fill="#C4D8D1" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="400" text-anchor="start" >line names the gate. Script stops pre-push.</text>
+<rect x="514" y="445" width="422" height="560" rx="20" fill="#101E31" stroke="#29415B" stroke-width="1.5" />
+<rect x="514" y="445" width="422" height="7" rx="3" fill="#6AB6F8" stroke="none" stroke-width="1" />
+<text x="540" y="487" fill="#F3F8FD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="750" text-anchor="start" >2  Publish draft PR</text>
+<text x="540" y="515" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="600" text-anchor="start" >SCRIPT-OWNED GITHUB ACTIONS</text>
+<line x1="540" y1="532" x2="910" y2="532" stroke="#29415B" stroke-width="1" />
+<rect x="540" y="542" width="26" height="26" rx="8" fill="#172C43" stroke="#6AB6F8" stroke-width="1" />
+<text x="553" y="561" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >1</text>
+<text x="577" y="561" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Capture and check</text>
+<text x="540" y="588" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Stream agent events; save final output in</text>
+<text x="540" y="610" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >.nexus/tmp; stop if blocked.</text>
+<line x1="540" y1="627" x2="910" y2="627" stroke="#243A52" stroke-width="1" />
+<rect x="540" y="624" width="26" height="26" rx="8" fill="#172C43" stroke="#6AB6F8" stroke-width="1" />
+<text x="553" y="643" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >2</text>
+<text x="577" y="643" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Guard and push</text>
+<text x="540" y="670" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Reject detached HEAD or base branch;</text>
+<text x="540" y="692" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >push story branch to origin.</text>
+<line x1="540" y1="709" x2="910" y2="709" stroke="#243A52" stroke-width="1" />
+<rect x="540" y="706" width="26" height="26" rx="8" fill="#172C43" stroke="#6AB6F8" stroke-width="1" />
+<text x="553" y="725" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >3</text>
+<text x="577" y="725" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Link every story</text>
+<text x="540" y="752" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Collect unique Closes lines from commits</text>
+<text x="540" y="774" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >in order; repeat them in PR body.</text>
+<line x1="540" y1="791" x2="910" y2="791" stroke="#243A52" stroke-width="1" />
+<rect x="540" y="788" width="26" height="26" rx="8" fill="#172C43" stroke="#6AB6F8" stroke-width="1" />
+<text x="553" y="807" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >4</text>
+<text x="577" y="807" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Open or reuse PR</text>
+<text x="540" y="834" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Use existing open PR, or create a draft</text>
+<text x="540" y="856" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >against BASE; resolve its PR number.</text>
+<rect x="538" y="888" width="374" height="88" rx="11" fill="#182D42" stroke="#416786" stroke-width="1" />
+<text x="556" y="915" fill="#83C4FD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="start" >OPTIONAL EARLY EXIT</text>
+<text x="556" y="938" fill="#C5D7E8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="400" text-anchor="start" >ANALYZE=0 ends after draft PR.</text>
+<text x="556" y="958" fill="#C5D7E8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="400" text-anchor="start" >Default continues to the local gate.</text>
+<rect x="964" y="445" width="422" height="560" rx="20" fill="#101E31" stroke="#29415B" stroke-width="1.5" />
+<rect x="964" y="445" width="422" height="7" rx="3" fill="#F7C977" stroke="none" stroke-width="1" />
+<text x="990" y="487" fill="#F3F8FD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="750" text-anchor="start" >3  Analyze + repair</text>
+<text x="990" y="515" fill="#F7C977" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="600" text-anchor="start" >STAGES 2–3  /  LOCAL CONFORMANCE</text>
+<line x1="990" y1="532" x2="1360" y2="532" stroke="#29415B" stroke-width="1" />
+<rect x="990" y="542" width="26" height="26" rx="8" fill="#172C43" stroke="#F7C977" stroke-width="1" />
+<text x="1003" y="561" fill="#F7C977" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >1</text>
+<text x="1027" y="561" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Run local analyze</text>
+<text x="990" y="588" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Capture final report in .nexus/tmp;</text>
+<text x="990" y="610" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >parse counts and analyzed HEAD.</text>
+<line x1="990" y1="627" x2="1360" y2="627" stroke="#243A52" stroke-width="1" />
+<rect x="988" y="640" width="374" height="37" rx="10" fill="#3A342A" stroke="#A4783B" stroke-width="1" />
+<text x="1175" y="665" fill="#FFD78D" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.8" font-weight="800" text-anchor="middle" >0 CRITICAL + 0 HIGH  →  CERTIFY</text>
+<rect x="988" y="691" width="374" height="191" rx="11" fill="#302C29" stroke="#8D6945" stroke-width="1" />
+<text x="1006" y="719" fill="#F7C977" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="start" >IF BLOCKING FINDINGS REMAIN</text>
+<text x="1006" y="747" fill="#E2D6C5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.3" font-weight="400" text-anchor="start" >1  Read report; fix critical, then high.</text>
+<text x="1006" y="771" fill="#E2D6C5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.3" font-weight="400" text-anchor="start" >2  Change code, not approved planning.</text>
+<text x="1006" y="795" fill="#E2D6C5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.3" font-weight="400" text-anchor="start" >3  Test first; touched + full suite.</text>
+<text x="1006" y="819" fill="#E2D6C5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.3" font-weight="400" text-anchor="start" >4  Follow-up commit; keep story commits.</text>
+<text x="1006" y="843" fill="#E2D6C5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.3" font-weight="400" text-anchor="start" >5  Compare PR answer lines pre/post fix.</text>
+<text x="1006" y="867" fill="#E2D6C5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.3" font-weight="400" text-anchor="start" >6  Push; re-analyze in fresh context.</text>
+<rect x="988" y="895" width="374" height="81" rx="11" fill="#3A292B" stroke="#85545B" stroke-width="1" />
+<text x="1006" y="919" fill="#F2A9AC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="start" >STOP CONDITIONS</text>
+<text x="1006" y="942" fill="#DDBFC2" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.8" font-weight="400" text-anchor="start" >No result • CONFORM=0 • unchanged state</text>
+<text x="1006" y="961" fill="#DDBFC2" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13.8" font-weight="400" text-anchor="start" >• round cap (default 5) • new PR answer</text>
+<rect x="1414" y="445" width="422" height="560" rx="20" fill="#101E31" stroke="#29415B" stroke-width="1.5" />
+<rect x="1414" y="445" width="422" height="7" rx="3" fill="#BAA5FF" stroke="none" stroke-width="1" />
+<text x="1440" y="487" fill="#F3F8FD" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="750" text-anchor="start" >4  Certify the PR</text>
+<text x="1440" y="515" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="600" text-anchor="start" >STAGE 4  /  PUBLISHED VERDICT</text>
+<line x1="1440" y1="532" x2="1810" y2="532" stroke="#29415B" stroke-width="1" />
+<rect x="1440" y="542" width="26" height="26" rx="8" fill="#172C43" stroke="#BAA5FF" stroke-width="1" />
+<text x="1453" y="561" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >1</text>
+<text x="1477" y="561" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Run PR-mode analyze</text>
+<text x="1440" y="588" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >/nxs.analyze --pr N in a fresh</text>
+<text x="1440" y="610" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >context and worktree.</text>
+<line x1="1440" y1="627" x2="1810" y2="627" stroke="#243A52" stroke-width="1" />
+<rect x="1440" y="624" width="26" height="26" rx="8" fill="#172C43" stroke="#BAA5FF" stroke-width="1" />
+<text x="1453" y="643" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >2</text>
+<text x="1477" y="643" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Read trusted receipt</text>
+<text x="1440" y="670" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Latest review or self-review fallback</text>
+<text x="1440" y="692" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >comment; check marker and PR number.</text>
+<line x1="1440" y1="709" x2="1810" y2="709" stroke="#243A52" stroke-width="1" />
+<rect x="1440" y="706" width="26" height="26" rx="8" fill="#172C43" stroke="#BAA5FF" stroke-width="1" />
+<text x="1453" y="725" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >3</text>
+<text x="1477" y="725" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >Verify clean verdict</text>
+<text x="1440" y="752" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Read critical, high and HEAD from the</text>
+<text x="1440" y="774" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >published machine block.</text>
+<line x1="1440" y1="791" x2="1810" y2="791" stroke="#243A52" stroke-width="1" />
+<rect x="1440" y="788" width="26" height="26" rx="8" fill="#172C43" stroke="#BAA5FF" stroke-width="1" />
+<text x="1453" y="807" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="750" text-anchor="middle" >4</text>
+<text x="1477" y="807" fill="#F0F6FC" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="700" text-anchor="start" >If uncertified</text>
+<text x="1440" y="834" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >Put warning in PR body; remain draft;</text>
+<text x="1440" y="856" fill="#AFC2D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="15.5" font-weight="400" text-anchor="start" >exit on failure or nonclean receipt.</text>
+<rect x="1438" y="888" width="374" height="88" rx="11" fill="#2D2A43" stroke="#75699A" stroke-width="1" />
+<text x="1456" y="914" fill="#D3C2FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="start" >IF CLEAN: READY FOR REVIEW</text>
+<text x="1456" y="937" fill="#DDD6EE" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="400" text-anchor="start" >Refresh PR title/body with clean HEAD</text>
+<text x="1456" y="957" fill="#DDD6EE" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14.5" font-weight="400" text-anchor="start" >and Closes lines; take PR out of draft.</text>
+<rect x="64" y="1031" width="1772" height="118" rx="18" fill="#0E2030" stroke="#356273" stroke-width="1.5" />
+<text x="91" y="1063" fill="#78D6D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="800" text-anchor="start" letter-spacing="1.3">03 / AFTER THE SCRIPT</text>
+<text x="1807" y="1063" fill="#A8C1D1" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="14" font-weight="400" text-anchor="end" >Review and merge happen outside implement-epic.sh</text>
+<rect x="91" y="1080" width="315" height="48" rx="10" fill="#183045" stroke="#3B6077" stroke-width="1" />
+<text x="107" y="1101" fill="#6AB6F8" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="750" text-anchor="start" >Review + merge PR</text>
+<text x="107" y="1119" fill="#AFC6D6" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start" >story issues close on merge</text>
+<rect x="475" y="1080" width="315" height="48" rx="10" fill="#183045" stroke="#3B6077" stroke-width="1" />
+<text x="491" y="1101" fill="#78D6D5" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="750" text-anchor="start" >nexus close --pr N</text>
+<text x="491" y="1119" fill="#AFC6D6" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start" >record verdicts; close epic</text>
+<rect x="859" y="1080" width="315" height="48" rx="10" fill="#183045" stroke="#3B6077" stroke-width="1" />
+<text x="875" y="1101" fill="#BAA5FF" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="750" text-anchor="start" >nexus distill --pr N</text>
+<text x="875" y="1119" fill="#AFC6D6" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start" >open reviewed distillation PR</text>
+<rect x="1244" y="1080" width="565" height="48" rx="10" fill="#183045" stroke="#3B6077" stroke-width="1" />
+<text x="1260" y="1101" fill="#79DDBB" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="750" text-anchor="start" >Concept store</text>
+<text x="1260" y="1119" fill="#AFC6D6" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start" >merge validated decisions; remove temporary queue</text>
+<line x1="406" y1="1104" x2="466" y2="1104" stroke="#78A5B5" stroke-width="2" />
+<path d="M465,1098 L475,1104 L465,1110" fill="none" stroke="#78A5B5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="790" y1="1104" x2="850" y2="1104" stroke="#78A5B5" stroke-width="2" />
+<path d="M849,1098 L859,1104 L849,1110" fill="none" stroke="#78A5B5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="1174" y1="1104" x2="1235" y2="1104" stroke="#78A5B5" stroke-width="2" />
+<path d="M1234,1098 L1244,1104 L1234,1110" fill="none" stroke="#78A5B5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="64" y1="1171" x2="1836" y2="1171" stroke="#284258" stroke-width="1" />
+<text x="64" y="1191" fill="#7895AA" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="700" text-anchor="start" >SOURCE  utils/implement-epic.sh  •  README.md</text>
+<text x="1836" y="1191" fill="#7895AA" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="12.5" font-weight="700" text-anchor="end" >NEXUS  /  SPEC → BUILD → VERDICT → MEMORY</text>
+</svg>
