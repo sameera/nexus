@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.122.0
+
+- **Planning a stub under an initiative reads the initiative's kept context.** Before drafting, the epic
+  stage looks up the initiative above the stub and reads its body and every file in its context folder,
+  including a folder a lead wrote by hand. That text joins what the lead asked for, so the draft can cite
+  a decision the session already made. Scope stays bounded by the stub's own goal: work the context gives
+  to a sibling stub goes under Out of Scope, naming that stub, and is never filed as a story. The reading
+  list is still built from the stub alone.
+- **The epic stage stops before drafting when an initiative names a context the checkout lacks.** It names
+  the folder it expected; pull the folder, or restore it, and run again. An initiative with no kept context
+  is read from its body alone, and the run says no additional context was found. A stub with no initiative
+  above it is planned exactly as before.
+
 ## 0.121.0
 
 - **The epic stage takes a design plan with `--plan <path>`.** A lead who planned an initiative in a

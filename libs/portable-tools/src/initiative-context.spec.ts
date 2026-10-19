@@ -46,12 +46,12 @@ describe("nexus initiative-context names one folder per initiative (story #851, 
     it("puts initiative N's context in the initiative store, named for its issue number", async () => {
         const r = await cli("path", "--initiative", "832");
         expect(r.code).toBe(0);
-        expect(r.out).toEqual([`${INITIATIVE_STORE_PATH}/initiative-832`]);
+        expect(r.out).toEqual([path.join(REPO_ROOT, INITIATIVE_STORE_PATH, "initiative-832")]);
     });
 
     it("keeps the store outside the queue and the discovery store (G1)", async () => {
         const r = await cli("path", "--initiative", "#832");
-        expect(r.out[0]).not.toMatch(/^\.nexus\/(queue|discovery)\//);
+        expect(path.relative(REPO_ROOT, r.out[0])).not.toMatch(/^\.nexus\/(queue|discovery)\//);
     });
 
     it("refuses a path request with no initiative number", async () => {
@@ -83,7 +83,7 @@ describe("the initiative body names where the context is kept (story #851, D3)",
         const drafted: string = (await cli("pointer")).out[0];
         const filled: string = drafted.replace("<INITIATIVE>", "832");
         expect(filled).toBe((await cli("pointer", "--initiative", "832")).out[0]);
-        expect(filled).toContain(`\`${(await cli("path", "--initiative", "832")).out[0]}/\``);
+        expect(filled).toContain(`\`${path.relative(REPO_ROOT, (await cli("path", "--initiative", "832")).out[0])}/\``);
         expect(parsePointer(`Objective.\n\n## Planning context\n\nSummary.\n\n${filled}\n`)).toBe(832);
     });
 
@@ -251,5 +251,47 @@ describe("a lead attaches a design plan to the initiative being filed (story #85
         for (const path of [/declines/, /cannot mark an initiative/, /one-goal split/, /fits a single epic/]) {
             expect(GATE_FLAT.match(/\*\*An attached plan with no initiative\.\*\*.*?(?=\*\*Do NOT proceed)/)?.[0] ?? "").toMatch(path);
         }
+    });
+});
+
+const PROMOTION: string = flat(section(EPIC, "**Promotion under an initiative also reads the initiative's kept context.**", "    - `$ARGUMENTS` contains **`--discovery"));
+const RAZOR: string = read("skills/nxs-razor/SKILL.md");
+
+describe("planning a stub under an initiative reads the initiative's context (story #853)", () => {
+    it("looks the context up before drafting, through the one shared lookup (D5, G21)", () => {
+        expect(PROMOTION).toContain("nexus initiative-context lookup --issue <n>");
+        expect(PROMOTION).toMatch(/Before anything is drafted/);
+    });
+
+    it("stops before drafting, naming where the context was expected, when the checkout lacks it (D5, G15)", () => {
+        expect(PROMOTION).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* `context-missing`[^.]*names a kept context that this checkout does not hold; it names where the context was expected/);
+    });
+
+    it("reads the body alone and says so when no context is kept (D5)", () => {
+        expect(PROMOTION).toMatch(/\*\*`body-only`\*\*: the initiative has no kept context\. Say that no additional context was found/);
+    });
+
+    it("proceeds exactly as before for a stub with no initiative above it (G14)", () => {
+        expect(PROMOTION).toMatch(/\*\*`no-initiative`\*\*: the stub has no initiative above it\. Promotion proceeds exactly as it does without this step/);
+    });
+
+    it("treats the context as asked, within the stub's own goal, and keeps a sibling's work out of scope (D6, G18, G19)", () => {
+        expect(PROMOTION).toMatch(/part of what the lead asked for, within the stub's own goal/);
+        expect(PROMOTION).toMatch(/an item the context assigns to another stub under the same initiative goes under Out of Scope, naming that stub\. It never becomes a story, and never a deferred stub/);
+    });
+
+    it("widens the razor's promotion-mode source text to match (D6, G18)", () => {
+        const row: string = RAZOR.split("\n").find((line) => line.startsWith("| promotion |")) ?? "";
+        expect(row).toMatch(/under an initiative, then the initiative's body and each file of its kept context, verbatim, each under a heading naming its origin/);
+        expect(SOURCE).toContain('nexus initiative-context lookup --issue <n> --out "${DRAFT_DIR}/initiative-context.md"');
+    });
+
+    it("builds the reading list without the context (D6, G20)", () => {
+        expect(SOURCE).toMatch(/pass `--input "\$\{DRAFT_DIR\}\/stub-source\.md"` instead\.\*\* The reading list is built from the stub body and the draft, never from the initiative's context/);
+    });
+
+    it("copies no part of the context into a filed issue, and still leaves the stub where it is (G16, G26)", () => {
+        expect(PROMOTION).toMatch(/No part of the context is copied into a filed issue body or comment/);
+        expect(PROMOTION).toMatch(/Promotion never detaches the stub, moves it, or edits the initiative/);
     });
 });

@@ -147,7 +147,20 @@ Read the plan in full. It is part of the intent this run sizes and decomposes: t
 
       The issue must exist, be **open**, and carry the resolved unplanned label. If it does not (closed, no such issue, or already planned), report **why** it is not promotable, name `--from #<n>` as the way to load an already-planned epic instead, and **file nothing**. Otherwise seed Phase 3 from the stub's body: the functional goal, the estimate, and the candidate story-group titles. Read `feature`/`feature_path` from the body's meta block. Skip the right-sizing gate, because the stub was already sized ≤ M when it was decomposed. Record `PROMOTE = <n>`.
 
-      **Promotion is unchanged by an initiative.** A stub that sits under an initiative is promoted by exactly these steps. Promotion never detaches the stub, moves it, or edits the initiative. The planned epic stays a child of the same initiative, and its stories and its decision record are filed under the epic, as for any epic.
+      **Promotion under an initiative also reads the initiative's kept context.** Before anything is drafted, look the context up:
+
+        ```bash
+        nexus initiative-context lookup --issue <n>
+        ```
+
+      - **Non-zero exit → stop before drafting and report the diagnostic verbatim.** `context-missing` means the initiative's body names a kept context that this checkout does not hold; it names where the context was expected. The usual cause is a folder that was not committed or not pulled. Draft nothing.
+      - **`no-initiative`**: the stub has no initiative above it. Promotion proceeds exactly as it does without this step.
+      - **`body-only`**: the initiative has no kept context. Say that no additional context was found, and read the initiative body alone.
+      - **`context`**: say which context files were read. Record `INITIATIVE_CONTEXT = <initiative>`.
+
+      Under an initiative, the initiative's body and its context become part of what the lead asked for, within the stub's own goal. Phase 4 writes them into the run's source text after the stub body, so an item drawn from them can be cited as asked. Scope stays bounded by the stub's goal: an item the context assigns to another stub under the same initiative goes under Out of Scope, naming that stub. It never becomes a story, and never a deferred stub. No part of the context is copied into a filed issue body or comment: an item drawn from it is written in the epic's own words, as every item is.
+
+      Promotion never detaches the stub, moves it, or edits the initiative. The planned epic stays a child of the same initiative, and its stories and its decision record are filed under the epic, as for any epic.
 
       **Promotion is unchanged by discovery.** A stub filed from a discovery is promoted with no manual edit: its body carries the decision gists in a `## Decisions this goal hangs on` section, which seeds Phase 3 like the rest of the body and is then rewritten with it. Promotion **neither reads nor moves** the marked gist comment. That comment is the copy that survives the rewrite, and `/nxs.decision-record` consumes it later.
     - `$ARGUMENTS` contains **`--discovery <folder>`** (string-matched, like `--from`) → **discovery mode**. Record `DISCOVERY = <folder>` and resolve it as follows:
@@ -536,7 +549,7 @@ INITIATIVE_URL=$(jq -r '.initiative.url' "${RUN_DIR}/initiative/.nxs-created.jso
 
 If the filing is `⚠️ INCOMPLETE`, or the filer warned that the initiative's issue type was not found, stop and report the run incomplete. File no stub until the initiative exists and carries its marker.
 
-**Then copy the context into its store folder**, named for the number just recorded. Ask the toolkit for the folder, and run from the repository root:
+**Then copy the context into its store folder**, named for the number just recorded. Ask the toolkit for the folder; it names the folder in the checkout the issues are filed from:
 
 ```bash
 CONTEXT_DIR=$(nexus initiative-context path --initiative "${INITIATIVE}")
@@ -596,7 +609,7 @@ creates the entry, and distill moves the entry into the concept store". Frontmat
 machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
 1. Read `<docs-root>/product/context.md` if present; personas and strategy are canonical there. **Reference** them; do not re-tabulate.
-2. Parse the capability description. In promotion mode that is the stub's goal + candidate story titles. In discovery mode it is the discovery doc's destination plus the resolved decisions in full; the epic is built **on top of** those decisions, not by re-deriving them.
+2. Parse the capability description. In promotion mode that is the stub's goal + candidate story titles, and, under an initiative, the initiative's body and kept context, bounded by the stub's own goal (Phase 0): build on the decisions they already made rather than re-deriving them, and put work they assign to a sibling stub under Out of Scope, naming that stub. In discovery mode it is the discovery doc's destination plus the resolved decisions in full; the epic is built **on top of** those decisions, not by re-deriving them.
     - Extract actors, goals, actions, data, constraints, business value.
     - Decompose into **3–8 user stories**, each independently deliverable (INVEST).
     - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M** into ≤ M stories before finalizing. The story is the implementation unit (0009), so an oversized story is split here, not filed. Record each story's `size`.
@@ -621,7 +634,15 @@ DRAFT_DIR="$RUN_DIR"
 
 **Store the assets intake result beside the draft** (when `--assets` was passed): write the JSON the intake step printed (`declared` or `unsupported`, with its `assets` list) verbatim to `${DRAFT_DIR}/assets.json`. A resumed run (Phase 0 step 1) recovers `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY` from it after a `revise`. It stays inside `RUN_DIR` like the draft: it is never copied into `epic.filing.md` and never reaches an issue. **Do not put the declared paths in the draft's frontmatter**: the frontmatter is embedded onto the epic issue as its meta block, and the Phase 6 assertion scans every line of the filing body, frontmatter included.
 
-**Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the discovery document plus every resolved ticket (discovery mode). When a plan is attached, write that text first, then the attached plan, verbatim, under a heading naming its file, so an item drawn from the plan can be cited as asked. Write it before labelling anything, because the labels cite it, and the gate has no other way to see what the lead actually asked for. It stays inside `RUN_DIR`: no part of it is posted to an issue, a comment or a report — the only things that ever leave `RUN_DIR` are the derived `epic.filing.md` (Phase 6) and the transient story/stub work-items filed from it, and every one of those is asserted clean of drafting-time content before it is used (Phase 6, `--assert-clean`).
+**Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the discovery document plus every resolved ticket (discovery mode). When a plan is attached, write that text first, then the attached plan, verbatim, under a heading naming its file, so an item drawn from the plan can be cited as asked.
+
+**In promotion mode under an initiative** (Phase 0's lookup found `context` or `body-only`), `source.md` is the stub body under the heading `## From stub #<n>: its issue body`, then the initiative's body and each context file, each under a heading naming its origin, exactly as the lookup writes them. Write the stub body alone to `${DRAFT_DIR}/stub-source.md` too, for the reading list below:
+
+```bash
+nexus initiative-context lookup --issue <n> --out "${DRAFT_DIR}/initiative-context.md"
+```
+
+Append that file to `source.md` after the stub body. It stays inside `RUN_DIR` like the rest of the source text. Write it before labelling anything, because the labels cite it, and the gate has no other way to see what the lead actually asked for. It stays inside `RUN_DIR`: no part of it is posted to an issue, a comment or a report — the only things that ever leave `RUN_DIR` are the derived `epic.filing.md` (Phase 6) and the transient story/stub work-items filed from it, and every one of those is asserted clean of drafting-time content before it is used (Phase 6, `--assert-clean`).
 
 **Then label every story heading, every acceptance criterion, every assumption and every out-of-scope item** inline, `[asked: "…"]` with a fragment quoted from `source.md`, or `[inferred]`. The vocabulary is the skill's and has two values. **Label every story heading**: a story's own label decides whether the approval gate files it by default, so it is a claim the reviewer has to see and be able to reject, not a rendering hint.
 
@@ -636,6 +657,8 @@ Write it **unwrapped**: one line per paragraph, per bullet, per table row. This 
 ```bash
 nexus reading-list --draft "${DRAFT_DIR}/epic.md" --input "${DRAFT_DIR}/source.md"
 ```
+
+**In promotion mode under an initiative, pass `--input "${DRAFT_DIR}/stub-source.md"` instead.** The reading list is built from the stub body and the draft, never from the initiative's context: the list is capped at seven pages, and a context covering the whole initiative would crowd out the pages this stub needs.
 
 It matches the source text, the draft's title and its Description against every active concept page's title and aliases as whole phrases, adds the pages those matches name one step away and no further, caps the list at seven (direct matches first, then neighbours named by more matches) and writes the list into the draft's `concepts:` field. It also saves the offered pages, with the ones beyond the cap, beside the draft for the digest. Archived and deprecated pages are never proposed. A resumed draft that already carries a list keeps it, hand edits included. An empty store or no match leaves `concepts: []`; that is not an error. Never write page text onto the draft or any issue: the field holds page names only.
 
