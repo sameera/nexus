@@ -1,8 +1,8 @@
 ---
 title: "Scope Provenance"
 aliases: ["asked versus inferred", "provenance label", "two-valued vocabulary", "story-level label", "story heading label", "no third value"]
-touches: ["scope-razor", "derived-filing-body", "cut-gate", "addition-gate", "citation-check", "razor-enforcement"]
-last_updated_by: "#576"
+touches: ["scope-razor", "derived-filing-body", "cut-gate", "addition-gate", "citation-check", "razor-enforcement", "removal-gate"]
+last_updated_by: "#722"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ The `asked` value rests on a quoted fragment, and the evidence rule that compare
 - [citation-check](citation-check.md) — the evidence rule behind the `asked` value, comparing each fragment against a materialized copy of the lead's own words.
 
 - [razor-enforcement](razor-enforcement.md) — what keeps this rule's two values enforced rather than merely stated.
+- [removal-gate](removal-gate.md) — lists every invariant and risk these labels mark as the model's own, and leaves off the ones the lead asked for.
 ## Decision Log
 
 ### 2026-09-04 — #284 — Two values, checked against a copy of what the lead actually said
@@ -44,3 +45,7 @@ A third value such as partly asked would restore exactly the judgment the rule e
 ### 2026-09-13 — #576 — The label reaches the story heading, because it now decides filing
 
 The planning gate's default became the smallest usable version, so whether a story reads as asked-for or model-added stopped being a rendering hint and became the rule deciding what is filed. A claim that decides filing has to be stated, cited and checked at the granularity it governs, so the two-valued vocabulary extended to the story heading with the citation rule unchanged. Deriving a story's provenance from its acceptance criteria was considered and refused: it adds no labelling surface, leaves the vocabulary untouched, and makes the two levels unable to disagree, but one loosely attached citation on one criterion would promote a wholly invented story into the set filed by default, and the reviewer would never see the story-level claim as something they could reject. This page was at its own-content capacity, so the evidence rule moved out to citation-check: the materialized source copy, the normalized containment comparison, the four-word floor, and the rule that the scratch copy never reaches an issue. The vocabulary, its two values and the granularities that carry it stayed here.
+
+### 2026-10-18 — #722 — Reciprocal link from removal-gate
+
+The design-record checkpoint now reads these labels to decide which invariants and risks it lists, so removal-gate links here.

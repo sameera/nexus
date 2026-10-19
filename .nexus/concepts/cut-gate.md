@@ -1,8 +1,8 @@
 ---
 title: "Cut Gate"
-aliases: ["approve with cuts", "cut list", "scope reduction at approval", "pre-filing checkpoint", "shared gate shape", "removal convention", "one typed selection"]
-touches: ["scope-razor", "scope-provenance", "epic-approval-gate", "decision-record", "addition-gate", "design-warrant"]
-last_updated_by: "#576"
+aliases: ["approve with cuts", "cut list", "scope reduction at approval", "pre-filing checkpoint", "shared gate shape", "one typed selection"]
+touches: ["scope-razor", "scope-provenance", "epic-approval-gate", "decision-record", "addition-gate", "design-warrant", "removal-gate"]
+last_updated_by: "#722"
 status: active
 verification: verified
 ---
@@ -13,14 +13,14 @@ A gate that shows a reviewer what the model added must also let them act on it i
 
 ## How It Works
 
-Entries are numbered stably and grouped under the story or the decision each belongs to, never rendered as one control per item: five stories easily yield twenty items, and paginating them into batches turns one action into several rounds, which is no longer cheaper than approving as drafted. One typed selection covers every group the list holds. An empty selection is identical to a plain approval, with no re-derivation and no second confirmation. Nothing is applied to content a prior partial run already filed; a number naming such content is refused with its reason stated.
+Entries are numbered stably and grouped under the story or the decision each belongs to, never rendered as one control per item: five stories easily yield twenty items, and paginating them into batches turns one action into several rounds, which is no longer cheaper than approving as drafted. One typed selection covers every group the list holds. An empty selection is identical to a plain approval, with no re-derivation and no second confirmation. Nothing is applied to content a prior run already filed and approved. A number naming such content is refused with its reason and route stated, and the gate marks that line where the reviewer reads it. A filed body that is still open is edited in place by design, so it is not frozen.
 
-The design-record checkpoint's convention is removal. Its list holds every model-added invariant and risk, and every refuted alternative, and a plain approval files the record as drafted. That gate has nothing to add to. A refuted alternative is the model's own by construction, and an invariant or a risk describes an epic whose scope the planning gate has already settled, so there is no smaller usable record to default to and no remainder to defer.
+The design-record checkpoint keeps the removal convention, where a plain approval files the record as drafted and a number cuts one line. The planning gate keeps the addition convention.
 
 ## Key Invariants
 
 1. A gate that renders the model's additions offers a one-action way to act on them.
-2. Nothing is applied to content not yet filed; a number naming already-filed content is refused with its reason, never silently ignored.
+2. ~~Nothing is applied to content not yet filed; a number naming already-filed content is refused with its reason, never silently ignored.~~ A number naming content already filed and approved is refused with its reason and route, never silently ignored or applied.
 3. An empty selection is identical to plain approval.
 4. At least one story is always filed; a selection leaving none is a revise, not an approval.
 5. A change to the filed story set, in either direction, re-derives the complexity rollup, the design warrant that follows from it, and any banner quoting the earlier sizing.
@@ -32,9 +32,10 @@ The design-record checkpoint's convention is removal. Its list holds every model
 - [scope-razor](scope-razor.md) — the rule set that states this shape and both conventions over it.
 - [scope-provenance](scope-provenance.md) — the labels the list is built from, which is what makes an addition separable from the lead's own words.
 - [epic-approval-gate](epic-approval-gate.md) — renders the list under its digest, under the addition convention rather than this page's removal one.
-- [decision-record](decision-record.md) — the one gate still on the removal convention, whose list is the refuted alternatives.
+- [decision-record](decision-record.md) — the stage whose pre-filing checkpoint renders this shape under the removal convention.
 - [addition-gate](addition-gate.md) — the other convention over this same shape, where a plain approval files the smallest usable version.
 - [design-warrant](design-warrant.md) — one of the three outputs re-derived whenever the filed story set changes.
+- [removal-gate](removal-gate.md) — the removal convention over this shape, split out of this page, where a plain approval files the record as drafted.
 
 ## Decision Log
 
@@ -45,3 +46,7 @@ Labelling a model's additions changes nothing while the only route to less scope
 ### 2026-09-13 — #576 — One shared shape, and two conventions that are no longer the same
 
 The planning gate inverted its default, so the convention this page recorded stopped being shared. The shape survives the split intact, because numbered prose, coarse actions, one typed selection, an empty selection reading as plain approval, and the refusal to touch already-filed content are all indifferent to which direction the selection moves scope. What separated is the default: the planning gate now files the smallest usable version and offers the rest, while the design-record checkpoint still files as drafted and offers deletion, because a refuted alternative is not scope and there is nothing at that gate to add to. Re-parenting a dropped story's dependents onto its own blockers is retired rather than kept. Closure is now checked before any edge is edited, so no filed story can wait on a dropped one, and keeping the step would restore the rewrite that made the closure check unable to fire at all.
+
+### 2026-10-18 — #722 — The removal convention moves out, and approval is what freezes a line
+
+The design-record checkpoint now lists every invariant and risk the model added, so its convention grew past what this page could hold, and it moved to removal-gate. This page keeps the shape both gates share. The refusal rule changed in the same epic. A number is now refused only against content a prior run filed and approved, because an open record's body is edited in place by design, and refusing there would turn a one-edit cut into a re-run. The gate marks such a line when it renders the list, so a reviewer does not meet the refusal one number at a time. Refuted alternative: match frozen lines by position or by a stable identifier carried from the earlier run. That is more precise, but no such identifier exists, and adding one would write bookkeeping into a body the stage keeps free of machine content.
