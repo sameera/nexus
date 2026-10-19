@@ -7,8 +7,9 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { INITIATIVE_STORE_PATH } from "@nexus/workspace/pipeline-stores";
 import { parsePointer } from "./initiative-context";
 import { DISPATCH_NAMES, runNexusCli, type CliIo } from "./nexus-cli";
@@ -162,5 +163,93 @@ describe("filing an initiative keeps the planning context that produced it (stor
     it("commits nothing, and leaves the folder for the lead to commit (G3)", () => {
         expect(UNDER_FLAT).toMatch(/Do not commit the folder: the lead commits it/);
         expect(STUBS).toMatch(/also commit and push the initiative's context folder/);
+    });
+});
+
+let tmpDirs: string[] = [];
+function makeDir(): string {
+    const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), "initiative-plan-"));
+    tmpDirs.push(dir);
+    return dir;
+}
+afterEach(() => {
+    for (const dir of tmpDirs) fs.rmSync(dir, { recursive: true, force: true });
+    tmpDirs = [];
+});
+
+describe("nexus initiative-context check-plan refuses a plan it cannot keep (story #852, D4)", () => {
+    it("accepts a plan that exists and has content, naming it", async () => {
+        const dir: string = makeDir();
+        const plan: string = path.join(dir, "session-plan.md");
+        fs.writeFileSync(plan, "# Plan\n\nDecided: one store per initiative.\n");
+        const r = await cli("check-plan", "--plan", plan);
+        expect(r.code).toBe(0);
+        expect(JSON.parse(r.out[0])).toMatchObject({ path: plan, name: "session-plan.md", keptAs: "plan-session-plan.md" });
+    });
+
+    it("refuses a missing plan and names the file (G11)", async () => {
+        const plan: string = path.join(makeDir(), "nowhere.md");
+        const r = await cli("check-plan", "--plan", plan);
+        expect(r.code).toBe(1);
+        expect(r.out).toEqual([]);
+        expect(r.err.join("\n")).toMatch(/missing-plan/);
+        expect(r.err.join("\n")).toContain(plan);
+    });
+
+    it("refuses an empty plan and names the file (G11)", async () => {
+        const plan: string = path.join(makeDir(), "blank.md");
+        fs.writeFileSync(plan, "  \n\n");
+        const r = await cli("check-plan", "--plan", plan);
+        expect(r.code).toBe(1);
+        expect(r.err.join("\n")).toMatch(/empty-plan/);
+        expect(r.err.join("\n")).toContain(plan);
+    });
+
+    it("refuses a folder named as a plan", async () => {
+        const dir: string = makeDir();
+        const r = await cli("check-plan", "--plan", dir);
+        expect(r.code).toBe(1);
+        expect(r.err.join("\n")).toContain(dir);
+    });
+
+    it("needs the plan named", async () => {
+        expect((await cli("check-plan")).code).toBe(2);
+    });
+});
+
+const ENTRY: string = flat(section(EPIC, "# User Input", "## Phase 1"));
+const SOURCE: string = flat(section(EPIC, "## Phase 4 — Write the draft", "## Phase 4b"));
+
+describe("a lead attaches a design plan to the initiative being filed (story #852)", () => {
+    it("takes the plan by its own argument, checked before anything is drafted (D4, G11)", () => {
+        expect(ENTRY).toMatch(/\*\*`--plan <path>`\*\*/);
+        expect(ENTRY).toContain("nexus initiative-context check-plan --plan <path>");
+        expect(ENTRY).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim/);
+    });
+
+    it("accepts it only where an initiative can be filed, and says why elsewhere (D4)", () => {
+        expect(ENTRY).toMatch(/`--plan` is accepted only in intent mode and discovery mode/);
+        expect(ENTRY).toMatch(/promotion mode and `--from` refuse it/i);
+    });
+
+    it("feeds the plan to the decomposition after the typed description (D4, G30)", () => {
+        expect(SOURCE).toMatch(/then the attached plan, verbatim, under a heading naming its file/);
+    });
+
+    it("names the plan beside the objective inside the consent question (D4, G12)", () => {
+        expect(GATE).toContain("**Attached plan:**");
+        expect(GATE_FLAT).toMatch(/the objective and the attached plan's file name in the question text/);
+    });
+
+    it("keeps the plan byte for byte, only when an initiative is filed (D4, G12)", () => {
+        expect(UNDER).toContain('cp "<plan path>" "${RUN_DIR}/initiative/context/<keptAs>"');
+        expect(UNDER_FLAT).toMatch(/byte for byte/);
+    });
+
+    it("says the plan was kept nowhere whenever no initiative is filed (D4, G13)", () => {
+        expect(GATE_FLAT).toMatch(/\*\*An attached plan with no initiative\.\*\*.*?the plan was kept nowhere, and the run says so/);
+        for (const path of [/declines/, /cannot mark an initiative/, /one-goal split/, /fits a single epic/]) {
+            expect(GATE_FLAT.match(/\*\*An attached plan with no initiative\.\*\*.*?(?=\*\*Do NOT proceed)/)?.[0] ?? "").toMatch(path);
+        }
     });
 });

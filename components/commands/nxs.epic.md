@@ -29,6 +29,8 @@ The text after the slash command is one of:
 
 Any planning mode (intent, promotion or discovery) may also carry **`--assets <path>[,<path>…]`**: local files (a diagram, a screen mockup, a sketch) the filed issues should carry. The flag is repeatable and its value comma-separated. Strip every `--assets` token and its value before reading the rest of `$ARGUMENTS`. Keep the paths **exactly as written**, because they are the tokens the draft carries and the filing step matches. Load the **`nxs-assets`** skill before handling it. `--assets` is meaningless with `--from` (a pull drafts nothing) and is refused there.
 
+**`--plan <path>`** names a design plan the lead wrote in a planning session held outside Nexus. The plan feeds the decomposition, and it travels with the initiative when one is filed. Strip the `--plan` token and its value before reading the rest of `$ARGUMENTS`. `--plan` is accepted only in intent mode and discovery mode, because only those modes can file a new initiative. Promotion mode and `--from` refuse it: say that a plan is attached only when a decomposition files a new initiative, and that a plan for an initiative that already exists is attached by hand. Then stop, before anything is drafted.
+
 The flag selects the operation; it is never inferred from the shape of the argument. A bare number always means "plan this epic"; `--from` always means "load this already-planned epic"; `--discovery` always means "consume this finished discovery". **Any other input is a capability description**. There is no slug lookup, because a stub's issue number is its only identifier.
 
 Empty input is an error: ask the user for a capability description (or a stub's issue number) and stop.
@@ -110,6 +112,17 @@ nexus assets check --asset <path> [--asset <path> ...]
 - **`{ "state": "declared", repo, branch, visibility, assets }`** → record `ASSETS` (the declared paths, in the order given), `ASSET_STORE` (`repo`, plus `@branch` when one is set) and `ASSET_VISIBILITY` (`public` | `private`). The visibility is read here **once** and feeds the Phase 5 digest only; it never selects how an asset is referenced.
 
 The check reads; it writes nothing to the store. Nothing is published before the Phase 5 gate.
+
+**Plan intake (when `--plan` was passed, before anything is drafted).** Check the plan, naming it exactly as the lead wrote it:
+
+```bash
+nexus initiative-context check-plan --plan <path>
+```
+
+- **Non-zero exit → stop before drafting and report the diagnostic verbatim.** It names the plan that does not exist (`missing-plan`) or that is empty (`empty-plan`). Nothing has been drafted.
+- **Success** prints `{ path, name, keptAs }`. Record `PLAN` (the path), `PLAN_NAME` (the file name shown at the gate) and `PLAN_KEPT_AS` (the file name the context keeps it under).
+
+Read the plan in full. It is part of the intent this run sizes and decomposes: the split, the objective and the reach statements may draw on it as they draw on the typed description.
 
 1. **Resume check.** List every run folder this checkout is currently holding:
 
@@ -325,7 +338,7 @@ Under `types`, the marker is the issue type; under anything else it is the label
 With two or more goals, **always propose an objective**. You may not withhold it, even when you doubt the goals share one. The lead's decline is the only filter. Neither version of the filing option is marked as recommended, because this gate is the one place the lead can reject your reading of the set.
 
 - **Discovery mode:** the objective is the discovery's destination, copied in its own words. Do not draft a new sentence.
-- **Intent and promotion mode:** draft the objective from the lead's capability description. It may claim nothing the description does not.
+- **Intent and promotion mode:** draft the objective from the lead's capability description, and from the attached plan when there is one. It may claim nothing the description and the plan do not.
 
 Render the proposal under the split, before the options, so every sentence the initiative will state, and every sentence of context the run will keep, is on screen before the lead chooses. Ask the toolkit for the pointer sentence; never write the folder out by hand:
 
@@ -335,6 +348,8 @@ nexus initiative-context pointer
 
 ```markdown
 **Proposed objective:** <one sentence: what completing every stub achieves>
+
+**Attached plan:** <PLAN_NAME>   <!-- only when a plan is attached; omit the line otherwise -->
 
 **Execution order, and how much of the objective each reaches:**
 
@@ -354,11 +369,13 @@ nexus initiative-context pointer
 
 The order respects every `blocked_by` edge between the goals; break a tie by the split's own order. Each reach statement is **cumulative** and in plain words, never a percentage. The last one says the objective is reached. The lead accepts or declines the objective, the order and the reach statements as **one unit**. An "Other" answer that rewords the objective counts as accepting it, in the lead's words.
 
-Repeat the proposal inside the `AskUserQuestion` call itself: the objective in the question text, and the order with its reach statements, the split reasoning, the deferred scope, the context summary and the pointer sentence in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
+Repeat the proposal inside the `AskUserQuestion` call itself: the objective and the attached plan's file name in the question text, and the order with its reach statements, the split reasoning, the deferred scope, the context summary and the pointer sentence in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
 
 Declining needs no reason and is not an error. Do not ask why, and do not argue for the objective.
 
 **No other path proposes an objective.** The deferral stub (Phase 6 step 8), the stubs `nexus close` files for deferred scope (however many), the intake lane's follow-ups, a one-goal decomposition and the successors of a stub that already sits under an initiative ("When a promoted stub proves oversized") each file their stubs flat, with no proposal and no initiative.
+
+**An attached plan with no initiative.** A plan is kept only when an initiative is filed. When a plan is attached and no initiative is filed, the plan was kept nowhere, and the run says so in its completion report: "the attached plan <PLAN_NAME> was kept nowhere, because no initiative was filed". That holds when the lead declines the initiative with a flat choice, when this repository cannot mark an initiative, on a one-goal split, and when the scope fits a single epic (`proceed`, `full`, or a scope sized M or smaller that never reached a split).
 
 **Do NOT proceed without an explicit choice.** Nothing is created on GitHub before it, and no context is kept anywhere before it.
 
@@ -467,6 +484,12 @@ The flat choices skip this section entirely. On the initiative choice the run ta
 
 - `context.md`: the gate-shown text, exactly as it was shown, in the lead's words where the lead reworded it: the split table, the objective, the execution order with its reach statements, the split reasoning, the deferred scope and the context summary. Add no heading text, introduction or sentence of your own beyond one heading per part.
 - `discovery.md` (discovery mode only): the discovery document, then every resolved ticket under a heading of its title, each copied in full with its decision and its reasoning. The discovery folder is removed once the discovery ends, so no line of this file may point into it. Where a copied line links a file in the discovery folder, name that ticket by its title instead.
+
+- `<PLAN_KEPT_AS>` (when a plan is attached): the plan, byte for byte. Copy the file; never retype or reformat it:
+
+    ```bash
+    cp "<plan path>" "${RUN_DIR}/initiative/context/<keptAs>"
+    ```
 
 Never write the run's `source.md` or the lead's typed capability description into the context, in any form.
 
@@ -598,7 +621,7 @@ DRAFT_DIR="$RUN_DIR"
 
 **Store the assets intake result beside the draft** (when `--assets` was passed): write the JSON the intake step printed (`declared` or `unsupported`, with its `assets` list) verbatim to `${DRAFT_DIR}/assets.json`. A resumed run (Phase 0 step 1) recovers `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY` from it after a `revise`. It stays inside `RUN_DIR` like the draft: it is never copied into `epic.filing.md` and never reaches an issue. **Do not put the declared paths in the draft's frontmatter**: the frontmatter is embedded onto the epic issue as its meta block, and the Phase 6 assertion scans every line of the filing body, frontmatter included.
 
-**Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the discovery document plus every resolved ticket (discovery mode). Write it before labelling anything, because the labels cite it, and the gate has no other way to see what the lead actually asked for. It stays inside `RUN_DIR`: no part of it is posted to an issue, a comment or a report — the only things that ever leave `RUN_DIR` are the derived `epic.filing.md` (Phase 6) and the transient story/stub work-items filed from it, and every one of those is asserted clean of drafting-time content before it is used (Phase 6, `--assert-clean`).
+**Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the discovery document plus every resolved ticket (discovery mode). When a plan is attached, write that text first, then the attached plan, verbatim, under a heading naming its file, so an item drawn from the plan can be cited as asked. Write it before labelling anything, because the labels cite it, and the gate has no other way to see what the lead actually asked for. It stays inside `RUN_DIR`: no part of it is posted to an issue, a comment or a report — the only things that ever leave `RUN_DIR` are the derived `epic.filing.md` (Phase 6) and the transient story/stub work-items filed from it, and every one of those is asserted clean of drafting-time content before it is used (Phase 6, `--assert-clean`).
 
 **Then label every story heading, every acceptance criterion, every assumption and every out-of-scope item** inline, `[asked: "…"]` with a fragment quoted from `source.md`, or `[inferred]`. The vocabulary is the skill's and has two values. **Label every story heading**: a story's own label decides whether the approval gate files it by default, so it is a claim the reviewer has to see and be able to reject, not a rendering hint.
 
@@ -1028,6 +1051,7 @@ Report in the run-discipline skill's layout:
     - Epic issue link and the created story issue numbers, plus the implementation sequence (the table from Phase 6 step 5).
     - **In promotion mode**: that epic issue `#<n>` is the same issue the stub was filed under. No second issue was created, and the unplanned label was removed.
     - **The deferral stub, when one was filed** (Phase 6 step 8): its issue number, and the story titles it carries. If none was filed, say so: either every asked-for story was ticked, or this run was planning a single-story deferral and the floor suppressed it.
+    - **An attached plan**, when `--plan` was passed: that it was kept nowhere, because a single epic files no initiative.
     - **Assets**, when `--assets` was passed: each published file with its pinned reference and the issue it landed in; any declared file that no body mentioned and so was **not** published; or, when the repository declares no store, that assets were unsupported and the issues were filed without them.
     - **Nothing committed to `.nexus/queue/`**: the epic lives on GitHub issues, and the queue entry is created at close. The `epic.md` draft stayed in `RUN_DIR`, gitignored under `.nexus/tmp/planning/`, and (on a complete filing) `RUN_DIR` is now gone (Phase 6 step 10). This holds in discovery mode too: a consumed discovery folder is left exactly as it was found.
 - **Found:**

@@ -78,7 +78,8 @@ describe("the lead decides whether a decomposition serves one objective (story #
 
     it("takes the objective from the discovery's destination, in its own words (D4, G5)", () => {
         expect(GATE_FLAT).toMatch(/\*\*Discovery mode:\*\* the objective is the discovery's destination, copied in its own words/);
-        expect(GATE_FLAT).toMatch(/It may claim nothing the description does not/);
+        // An attached plan joins the description as intent (record #961, D4, G30).
+        expect(GATE_FLAT).toMatch(/It may claim nothing the description and the plan do not/);
     });
 
     it("shows the objective, the order and every reach statement before the lead chooses (D4, G6)", () => {

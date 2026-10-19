@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.121.0
+
+- **The epic stage takes a design plan with `--plan <path>`.** A lead who planned an initiative in a
+  session outside Nexus names the plan when running a decomposition. The epic stage checks the plan before
+  drafting anything and refuses a missing or empty one, naming the file. The plan feeds the decomposition,
+  so the split and the objective may draw on it, and the consent question names it beside the objective.
+  When the lead accepts the initiative, the plan is kept word for word in the initiative's context. When no
+  initiative is filed, the run says the plan was kept nowhere. Planning a stub and `--from` refuse the flag.
+
 ## 0.120.0
 
 - **An initiative filed by the epic stage keeps the planning context that produced it.** When a lead

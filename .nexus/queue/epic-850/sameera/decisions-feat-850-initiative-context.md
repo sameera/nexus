@@ -7,3 +7,8 @@
 - **Choice:** `nexus initiative-context path|pointer` prints the folder `.nexus/initiatives/initiative-<n>` and the pointer sentence; the epic body asks for both.
 - **Why:** The readers (#853, #854) must recognise exactly the pointer the epic stage writes, so its shape lives in code once.
 - **Refuted alternative:** Write the folder and the sentence out in the command body.
+
+## 2026-10-19 — A kept plan is filed as plan-<its name>
+- **Choice:** The context keeps an attached plan as `plan-<file name>`, copied with `cp`.
+- **Why:** The context folder also holds the run's own `context.md` and `discovery.md`, and a plan named either would overwrite it.
+- **Refuted alternative:** Keep the plan under its own file name, or in a subfolder the readers would have to walk.
