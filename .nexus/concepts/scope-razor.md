@@ -1,8 +1,8 @@
 ---
 title: "The Scope Razor"
 aliases: ["scope razor", "the razor", "counted limits", "necessity question", "scope discipline", "gate conventions", "content rules"]
-touches: ["forcing-function-razor", "scope-provenance", "cut-gate", "derived-filing-body", "epic-approval-gate", "decision-record", "pre-epic-discovery", "addition-gate", "draft-ordering-block", "set-closure-check", "razor-enforcement", "citation-check"]
-last_updated_by: "#576"
+touches: ["forcing-function-razor", "scope-provenance", "cut-gate", "derived-filing-body", "epic-approval-gate", "decision-record", "pre-epic-discovery", "addition-gate", "draft-ordering-block", "set-closure-check", "razor-enforcement", "citation-check", "removal-gate"]
+last_updated_by: "#722"
 status: active
 verification: verified
 ---
@@ -29,7 +29,8 @@ The other two are stated here and nowhere else. Counted limits bound how much a 
 - [forcing-function-razor](forcing-function-razor.md) — the sibling test: that one asks whether an artifact forces a decision, this one whether its scope was ever asked for.
 - [razor-enforcement](razor-enforcement.md) — what keeps this the single normative home: one implementation, a pinning conformance test, and an assertion shipped with its rule.
 - [scope-provenance](scope-provenance.md) — the load-bearing rule, and the comparison that makes it checkable rather than asserted.
-- [cut-gate](cut-gate.md) — the shape both gates render, and the removal convention the design-record checkpoint keeps.
+- [cut-gate](cut-gate.md) — the shape both gates render.
+- [removal-gate](removal-gate.md) — the design-record checkpoint's convention, where a plain approval files the record as drafted and a number cuts one line.
 - [addition-gate](addition-gate.md) — the planning gate's convention, where a plain approval files the smallest usable version and nothing else.
 - [draft-ordering-block](draft-ordering-block.md) — the title-keyed graph a drafted epic carries, which this rule set requires and the filing body removes.
 - [set-closure-check](set-closure-check.md) — the rule that makes the necessity answer checked rather than asserted, run twice inside the shared checker.
@@ -48,3 +49,7 @@ Every gate in the epic stage measured effort or testability, and none asked whet
 ### 2026-09-13 — #576 — Two conventions over one shape, a checked necessity answer, and a split
 
 The necessity answer was a line of prose nobody verified, so a smallest usable version that could not actually run read the same as one that could. It became a named set whose closure the shared checker walks, which needed a dependency graph inside the draft, keyed on story titles because a story has no issue number yet. The cut-gate section then split, since the two gates share a shape after this change and no longer share a rule: the planning gate offers addition and names the set a plain approval files, while the design-record checkpoint offers removal and states why it has nothing to add to. The provenance vocabulary extended to the story heading, because a label that decides whether a story is filed is a claim the reviewer must be able to reject at the granularity it governs. Deriving a story's provenance from its criteria was considered and refused: it adds no labelling surface and the two levels cannot disagree, but one loosely attached citation would promote a wholly invented story into the set filed by default, and the reviewer would never see the story-level claim as a claim at all. This page was at its own-content capacity, so what makes a restatement fail a build moved out to razor-enforcement: the one normative home, the single implementation, the pinning conformance test, the rule that judgments never block, and the new rule that a rule and its assertion ship in the same story. The counted limits, the content rules and the necessity answer stayed here.
+
+### 2026-10-18 — #722 — Reciprocal link from removal-gate
+
+The removal convention split out of cut-gate into removal-gate, so this page's cut-gate link now names only the shared shape, and a new link points at removal-gate.
