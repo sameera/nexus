@@ -26,7 +26,7 @@ import { resolveWorkspace, type ResolvedWorkspace } from "@nexus/workspace/resol
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
 import { sameRepo } from "@nexus/workspace/issue-ref";
-import { excludePathspecs } from "./pipeline-stores.js";
+import { excludePathspecs } from "@nexus/workspace/pipeline-stores";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 

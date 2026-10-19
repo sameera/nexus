@@ -53,9 +53,9 @@ What goes in it, by entry mode:
 
 | Mode | The source text is |
 |---|---|
-| intent | the capability description the lead typed, verbatim |
-| promotion | the stub issue's body, verbatim |
-| discovery | the discovery document plus every resolved ticket, concatenated verbatim |
+| intent | the capability description the lead typed, verbatim, then an attached design plan, verbatim, under a heading naming its file |
+| promotion | the stub issue's body, verbatim; under an initiative, then the initiative's body and each file of its kept context, verbatim, each under a heading naming its origin. An item drawn from the context is asked only within the stub's own goal: one the context assigns to another stub under the same initiative is out of scope |
+| discovery | the discovery document plus every resolved ticket, concatenated verbatim, then an attached design plan, verbatim, under a heading naming its file |
 
 Every citation check in that run compares against **that file and nothing else**. No check re-reads
 a live stub issue, a discovery folder, or a command argument.
