@@ -14,7 +14,12 @@
  *   listed, and any one of them posts nothing (G11). Body-only findings are not checked: they get
  *   no inline comment (D4).
  * - **No silent second review.** A review by the lead on the same head commit posts nothing unless
- *   the lead confirmed a second one (G12).
+ *   the lead confirmed a second one (G12). A dismissed review does not count.
+ * - **An open pull request.** A closed pull request gets no review.
+ *
+ * When GitHub reports a failed post, the command reads the reviews again. A review by the lead on
+ * the head that was not there before means the post landed anyway; the stop names it, so the lead
+ * does not post a second copy.
  *
  * "Changed lines" are the head-side lines of the pull request's diff hunks — added lines and the
  * context lines around them — which is where GitHub accepts an inline comment.
@@ -39,8 +44,10 @@ export const REVIEW_POST_USAGE: string = [
     "      findings carried only in the body ({ finding, path, line }). Posts nothing without a",
     "      verdict (exit 2). Exits 1, posting nothing, when a ranked finding is in neither list, when",
     "      any inline comment names a file not in the pull request, a line outside the changed lines",
-    "      or expected text not on that line (every problem is listed), or when the lead already",
-    "      reviewed the head commit and --confirm-second was not given (second-review-unconfirmed).",
+    "      or expected text not on that line (every problem is listed), when the pull request is",
+    "      not open (pr-not-open), or when the lead already reviewed the head commit and",
+    "      --confirm-second was not given (second-review-unconfirmed). When GitHub reports a failed",
+    "      post but a new review by the lead is on the head, stops with post-uncertain and its link.",
     "      Prints { command, posted, pr, repo, url, verdict, inlineComments, bodyOnly }.",
 ].join("\n");
 
@@ -147,6 +154,13 @@ export function changedLines(patch: string | null | undefined): Set<number> {
     return lines;
 }
 
+interface ExistingReview {
+    login: string;
+    commit: string;
+    state?: string;
+    url: string;
+}
+
 /** Each line of `gh api --jq` output parsed as one JSON value. */
 function jsonLines<T>(stdout: string): T[] {
     return stdout
@@ -204,24 +218,33 @@ export function runReviewPost(argv: string[], io: ReviewPostIo, run: Runner = de
         return 1;
     };
 
-    const prRead = gh(pull, "--jq", "{head: .head.sha}");
+    const prRead = gh(pull, "--jq", "{head: .head.sha, state: .state}");
     if (!prRead.ok) return readFailed(`pull request ${slug}#${flags.pr}`, prRead.message);
-    const head: string = (JSON.parse(prRead.stdout) as { head: string }).head;
+    const { head, state } = JSON.parse(prRead.stdout) as { head: string; state: string };
+    if (state !== "open") {
+        io.stderr(`review-post pr-not-open: ${slug}#${flags.pr} is ${state}. Nothing was posted.`);
+        return 1;
+    }
 
     const filesRead = gh("--paginate", `${pull}/files`, "--jq", ".[] | {filename, patch}");
     if (!filesRead.ok) return readFailed("the pull request's changed files", filesRead.message);
-    const changed = new Map<string, Set<number>>();
+    // null: GitHub left the file's diff out (too large, or binary), so its changed lines are unknown.
+    const changed = new Map<string, Set<number> | null>();
     for (const f of jsonLines<{ filename: string; patch?: string | null }>(filesRead.stdout)) {
-        changed.set(f.filename, changedLines(f.patch));
+        changed.set(f.filename, f.patch === null || f.patch === undefined ? null : changedLines(f.patch));
     }
 
     const problems: string[] = [];
     const contents = new Map<string, string[] | null>();
     for (const c of review.comments) {
         const where = `finding ${c.finding} at ${c.path}:${c.line}`;
-        const lines: Set<number> | undefined = changed.get(c.path);
+        const lines: Set<number> | null | undefined = changed.get(c.path);
         if (lines === undefined) {
             problems.push(`${where}: the file is not in the pull request`);
+            continue;
+        }
+        if (lines === null) {
+            problems.push(`${where}: GitHub left out the file's diff (too large, or binary), so the line cannot be confirmed as a changed line`);
             continue;
         }
         if (!lines.has(c.line)) {
@@ -243,10 +266,16 @@ export function runReviewPost(argv: string[], io: ReviewPostIo, run: Runner = de
 
     const login = gh("user", "--jq", ".login");
     if (!login.ok) return readFailed("the signed-in GitHub user", login.message);
-    const reviewsRead = gh("--paginate", `${pull}/reviews`, "--jq", ".[] | {login: .user.login, commit: .commit_id}");
-    if (!reviewsRead.ok) return readFailed("the pull request's reviews", reviewsRead.message);
     const me: string = login.stdout.trim();
-    const second: boolean = jsonLines<{ login: string; commit: string }>(reviewsRead.stdout).some((r) => r.login === me && r.commit === head);
+    /** The lead's reviews of the head commit that still stand, or the read's failure message. */
+    const myHeadReviews = (): ExistingReview[] | string => {
+        const read = gh("--paginate", `${pull}/reviews`, "--jq", ".[] | {login: .user.login, commit: .commit_id, state: .state, url: .html_url}");
+        if (!read.ok) return read.message;
+        return jsonLines<ExistingReview>(read.stdout).filter((r) => r.login === me && r.commit === head && r.state !== "DISMISSED");
+    };
+    const before = myHeadReviews();
+    if (typeof before === "string") return readFailed("the pull request's reviews", before);
+    const second: boolean = before.length > 0;
 
     if (problems.length > 0) {
         io.stderr(`review-post comment-check-failed: ${problems.length} inline comment problem(s). Nothing was posted.`);
@@ -272,7 +301,18 @@ export function runReviewPost(argv: string[], io: ReviewPostIo, run: Runner = de
     const posted = gh("-X", "POST", `${pull}/reviews`, "--input", payloadFile);
     fs.rmSync(payloadFile, { force: true });
     if (!posted.ok) {
-        io.stderr(`review-post post-failed: GitHub did not accept the review: ${posted.message}`);
+        const after = myHeadReviews();
+        const known = new Set<string>(before.map((r) => r.url));
+        const landed: ExistingReview | undefined = typeof after === "string" ? undefined : after.find((r) => !known.has(r.url));
+        if (landed !== undefined) {
+            io.stderr(
+                `review-post post-uncertain: GitHub reported a failure (${posted.message}), but a new review by ${me} is on head commit ${head}: ${landed.url}. ` +
+                    "Check that review before posting again; posting again would add a second review.",
+            );
+            return 1;
+        }
+        const unchecked: string = typeof after === "string" ? ` Could not check whether a review landed anyway: ${after}.` : "";
+        io.stderr(`review-post post-failed: GitHub did not accept the review: ${posted.message}.${unchecked}`);
         return 1;
     }
     const url: string = (JSON.parse(posted.stdout) as { html_url: string }).html_url;
