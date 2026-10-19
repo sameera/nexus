@@ -66,6 +66,11 @@ describe("/nxs.code-review posts only through nexus review-post (D3)", () => {
         expect(POST).toMatch(/Only when the lead confirms, run the same command again with `--confirm-second`/);
     });
 
+    it("never posts again when GitHub reported a failure but a review landed anyway", () => {
+        expect(POST).toMatch(/post-uncertain/);
+        expect(POST).toMatch(/Do not run the command again/);
+    });
+
     it("shows every comment problem unchanged and does not retry (G11)", () => {
         expect(POST).toMatch(/comment-check-failed/);
         expect(POST).toMatch(/every problem/);
@@ -83,6 +88,26 @@ describe("/nxs.code-review writes one review carrying every finding (D4: G2, G10
         expect(WRITE).toMatch(/`comments` — one entry per finding location that is not body-only/);
         expect(WRITE).toMatch(/`bodyOnly` — one entry per body-only finding/);
         expect(WRITE).toMatch(/Every finding appears in `comments` or `bodyOnly`/);
+    });
+});
+
+describe("/nxs.code-review writes the review for the pull request's author", () => {
+    it("opens the body with the verdict, the finding that drives it and what fits in this pull request", () => {
+        expect(WRITE).toMatch(/written for the pull request's author/);
+        expect(WRITE).toMatch(/the verdict, the finding that drives it, and which findings fit in this pull request/);
+        expect(WRITE).toMatch(/if you agree/);
+    });
+
+    it("carries a ranking table with each finding's four ratings, then the suggested order", () => {
+        expect(WRITE).toMatch(/table/);
+        for (const column of ["probability", "severity", "fix effort", "regression risk"]) expect(WRITE).toContain(column);
+        expect(WRITE).toMatch(/`### Suggested order`/);
+    });
+
+    it("tells the author how to fix each finding, in prose and never as a suggestion block", () => {
+        expect(WRITE).toMatch(/what goes wrong in a concrete case, then the fix/);
+        expect(WRITE).toMatch(/No `suggestion` block/);
+        expect(WRITE).toMatch(/follow-up.*suggests? opening an issue/i);
     });
 });
 

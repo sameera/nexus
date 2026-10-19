@@ -91,6 +91,10 @@ findings always get the same groups and the same numbers.
 
 - **Probability** — how likely the failure is to happen: certain, high, medium or low. A finding
   that only happens on a developer machine rates lower than one that happens in CI.
+  - **Certain**: it happens on every run, or is bound to happen over time.
+  - **High**: common inputs or ordinary workflows hit it.
+  - **Medium**: a plausible but uncommon action hits it.
+  - **Low**: it needs unusual input, or an environment CI does not have.
 - **Severity** — how bad it is when it happens:
   - **High**: data is lost, data or credentials are exposed, consumers break, or a check passes
     when it should fail.
@@ -99,8 +103,17 @@ findings always get the same groups and the same numbers.
   - **Low**: a loud false failure, or local-only confusion.
   - **Negligible**: performance or tidiness only.
 - **Fix effort** — the work the fix takes: very low, low, medium or high.
+  - **Very low**: a line or two.
+  - **Low**: a small change plus a test.
+  - **Medium**: changes to several functions, or new test fixtures.
+  - **High**: restructuring, a new CI step, or a design decision.
 - **Regression risk** — the chance the fix breaks something else: none, very low, low, medium or
   high.
+  - **None**: the fix can change nothing beyond the flagged defect.
+  - **Very low**: the fix changes behavior only on the path the finding names.
+  - **Low**: the fix changes a path other code shares, and existing tests cover that path.
+  - **Medium**: the fix changes behavior someone may rely on, or adds an escape hatch.
+  - **High**: the fix can silently disable what it protects.
 
 ## Group rules
 
@@ -155,15 +168,30 @@ Mark the recommended verdict as recommended. The lead chooses. Without a verdict
 Write one review file at `.nexus/tmp/code-review-<pr-number>/review.json`, a JSON object with:
 
 - `findings` — the number of ranked findings.
-- `body` — the ranking, as Step 5 showed it, in markdown. It lists every finding by number, and
-  carries each body-only finding in full: its file and head line, its ratings, its summary and its
-  failure scenario.
+- `body` — the ranking, written for the pull request's author, in markdown, in this order:
+  1. One or two sentences: the verdict, the finding that drives it, and which findings fit in this
+     pull request. Say that each inline comment is tagged with its finding number, and that
+     body-only findings are written out below.
+  2. A table with one row per finding, by number: the finding, its file and head line with the
+     **body-only** mark where it applies, and its probability, severity, fix effort and regression
+     risk.
+  3. `### Body-only findings`, when there are any. It carries each body-only finding in full: its
+     file and head line, its ratings, and what goes wrong in a concrete case, then the fix.
+  4. `### Suggested order` — the groups in the numbering order, leaving out an empty group. Each
+     lists its findings by number, with one line on why each is in its group.
+
+  Address the author ("if you agree"), not the lead.
 - `comments` — one entry per finding location that is not body-only:
-  `{ "finding": <number>, "path": <file>, "line": <head line>, "expectedText": <expected text>, "body": <the finding's summary, failure scenario and group> }`.
-  Leave the finding number out of `body`: `nexus review-post` puts the tag in front.
+  `{ "finding": <number>, "path": <file>, "line": <head line>, "expectedText": <expected text>, "body": <comment> }`.
 - `bodyOnly` — one entry per body-only finding: `{ "finding": <number>, "path": <file>, "line": <head line> }`.
 
 Every finding appears in `comments` or `bodyOnly`, or both when it has locations of each kind.
+
+Each comment's `body` starts with `**<short title>.**`, then what goes wrong in a concrete case,
+then the fix in a sentence or two, then the finding's group. Leave the finding number out:
+`nexus review-post` puts the tag in front. A finding in "Follow-up issues" says so and suggests
+opening an issue for it, instead of a fix. No `suggestion` block: the comment says what to change,
+and the author changes it.
 
 # Step 8 — Post through `nexus review-post`
 
@@ -181,8 +209,12 @@ Take `<owner/repo>` from the pull request's URL (`host/owner/repo` on a host oth
   with `AskUserQuestion` whether to post a second review. Only when the lead confirms, run the same
   command again with `--confirm-second` added. Otherwise end the run, unposted.
 - **`comment-check-failed`** — an inline comment names a file not in the pull request, a line
-  outside the changed lines, or expected text that is not on its line. Show the lead every problem
-  it listed, unchanged, and end the run. Do not move a line, drop a comment or retry.
+  outside the changed lines, a file whose diff GitHub left out, or expected text that is not on its
+  line. Show the lead every problem it listed, unchanged, and end the run. Do not move a line, drop
+  a comment or retry.
+- **`post-uncertain`** — GitHub reported a failure, but a new review by the lead is on the head
+  commit. Show the message and the review link it names, unchanged, and end the run. Do not run the
+  command again: the review may already be posted.
 - Any other stop — show its message unchanged and end the run.
 
 # Step 9 — Report
