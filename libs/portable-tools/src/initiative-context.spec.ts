@@ -295,3 +295,44 @@ describe("planning a stub under an initiative reads the initiative's context (st
         expect(PROMOTION).toMatch(/Promotion never detaches the stub, moves it, or edits the initiative/);
     });
 });
+
+const RECORD: string = read("commands/nxs.decision-record.md");
+const RECORD_READ: string = flat(section(RECORD, "## Phase 0.45 — Read the initiative's kept context", "## Phase 0.5"));
+const RECORD_ANALYSIS: string = flat(section(RECORD, "## Phase 1 — Architectural analysis", "## Phase 2"));
+
+describe("the decision record reads the initiative's context (story #854)", () => {
+    it("looks the context up before analysis, through the same lookup stub planning uses (D5, D7, G21)", () => {
+        expect(RECORD_READ).toContain('nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-context.md"');
+        expect(RECORD.indexOf("## Phase 0.45")).toBeLessThan(RECORD.indexOf("## Phase 1 — Architectural analysis"));
+    });
+
+    it("reads it on every path, revision included (D7, G21)", () => {
+        expect(RECORD_READ).toMatch(/This runs on every path \(normal, import and revision\)/);
+        expect(flat(RECORD)).toMatch(/Then run \*\*Phase 0\.4\*\* and \*\*Phase 0\.45\*\* \(both run on every path, revision included\)/);
+    });
+
+    it("stops before drafting when the checkout lacks a context the initiative names (D5, G15)", () => {
+        expect(RECORD_READ).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* `context-missing`[^.]*it names where the context was expected/);
+    });
+
+    it("runs exactly as today for an epic with no initiative above it (G14)", () => {
+        expect(RECORD_READ).toMatch(/\*\*`no-initiative`\*\*: the epic has no initiative above it\. Continue exactly as today/);
+    });
+
+    it("passes the context to the architect as settled decisions, stated with their reasoning (D7, G22)", () => {
+        expect(RECORD_ANALYSIS).toMatch(/`INITIATIVE_CONTEXT` from Phase 0\.45, when present\):\*\* pass it the same way, as decisions \*\*already settled\*\*/);
+        expect(RECORD_ANALYSIS).toMatch(/states each design decision the context settled in the record as decided, with the context's reasoning/);
+    });
+
+    it("turns a settled decision with no reasoning into an open clarification (D7, G23)", () => {
+        expect(RECORD_ANALYSIS).toMatch(/A settled decision \*\*with no reasoning\*\* in the context becomes an \*\*Open Clarification\*\*\. Never invent the missing \*why\*/);
+    });
+
+    it("follows the epic where it and the context disagree, and names the departure (D7, G24)", () => {
+        expect(RECORD_ANALYSIS).toMatch(/\*\*The epic wins\.\*\*[^.]*\.[^.]*the record follows the epic and names the departure from the context/);
+    });
+
+    it("copies no part of the context into the record or a comment, and never edits the initiative (G16)", () => {
+        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context folder,\*\* and copies no part of the context into the record or a comment/);
+    });
+});

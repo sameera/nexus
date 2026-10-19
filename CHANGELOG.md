@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.123.0
+
+- **The decision-record stage reads the initiative's kept context.** On every path, normal, `--from` and
+  `--revise`, the decision-record stage looks up the initiative above the epic before analysis and reads
+  its body and kept context as decisions already made. The record states each settled decision as decided,
+  with its reasoning, instead of offering it as an open choice. A settled decision with no reasoning becomes
+  an open clarification. Where the epic and the context disagree, the record follows the epic and names the
+  departure. A checkout that lacks a context the initiative names stops the stage before drafting, naming
+  the folder. An epic with no initiative above it runs exactly as before.
+
 ## 0.122.0
 
 - **Planning a stub under an initiative reads the initiative's kept context.** Before drafting, the epic
