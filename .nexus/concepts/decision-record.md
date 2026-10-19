@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief"]
-last_updated_by: "#934"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate"]
+last_updated_by: "#722"
 status: active
 verification: verified
 ---
@@ -37,7 +37,8 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [conformance-gate](conformance-gate.md) — blocked entirely, emitting nothing, while this record is unapproved.
 - [discovery-graduation](discovery-graduation.md) — writes the marked comment this stage reads as an authoritative input before it analyses.
 - [scope-razor](scope-razor.md) — the rule set this stage drafts under, invoking the shared checker directly since it has no gate agent.
-- [cut-gate](cut-gate.md) — the convention behind the pre-filing checkpoint, whose cuttable list is the refuted alternatives.
+- [cut-gate](cut-gate.md) — the shape the pre-filing checkpoint renders: one numbered list and one typed selection.
+- [removal-gate](removal-gate.md) — the checkpoint's convention: every refuted alternative and model-added invariant and risk listed ticked, a number cuts one line, and approved content is frozen.
 - [derived-filing-body](derived-filing-body.md) — what is filed and hashed, derived after the checkpoint so it matches what was approved.
 - [intake-lane](intake-lane.md) — never files one; a landed change's why is read from its pull request instead, hash-verified against that body rather than a record.
 - [issue-kind-classification](issue-kind-classification.md) — decides whether the issue the design stage's import was handed is the epic.
@@ -100,3 +101,7 @@ Stories required a positive statement both when no page was read and when no pag
 ### 2026-10-16 — #934 — Reciprocal link from approval-brief
 
 Mechanical reciprocity fan-out: the approval-brief page describes the record's opening section. It now lists an ADDRESS risk that another epic delivers, whose gap the owner accepts, under its own group instead of Before implementation. A revision rebuilds the brief under that rule and changes no decision by moving a risk.
+
+### 2026-10-18 — #722 — The checkpoint shows the invariants and risks the model added
+
+The stage labelled every invariant and every risk and then stripped the labels before filing, while its checkpoint showed only the refuted alternatives. So the labelling on invariants and risks reached no human. The pre-filing checkpoint now lists them too, built by the shared checker from the labelled draft, and removal-gate describes that list. Refuted alternative: have the architect return a separate list of what it inferred, beside its prose. That reads more directly, but it is a second statement of what the model added, and it could disagree with the labels the citation check enforces.
