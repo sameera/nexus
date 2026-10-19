@@ -5,6 +5,23 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.120.0
+
+- **`/nxs.code-review`, run ahead of `analyze`, writes its review for the pull request's author.**
+  The review body opens with
+  the verdict, the finding that drives it and which findings fit in this pull request, then gives a
+  table of every finding with its four ratings, the body-only findings in full, and the suggested
+  order. Each inline comment now says what goes wrong in a concrete case and how to fix it, or, for
+  a follow-up item, suggests opening an issue. It never posts a one-click suggestion. Every value on
+  the probability, fix effort and regression risk scales now has a definition, so two runs rate the
+  same finding alike.
+- **`nexus review-post` refuses a closed pull request and no longer counts a dismissed review.** A
+  closed pull request gets no review (`pr-not-open`). A dismissed review of the lead's on the head
+  no longer asks for a second-review confirmation. An inline comment on a file whose diff GitHub
+  left out is named as such, instead of as a line outside the changed lines. When GitHub reports a
+  failed post but a new review by the lead is on the head, it stops with `post-uncertain` and that
+  review's link, and the code-review stage does not post again.
+
 ## 0.119.0
 
 - **The distill stage names `nexus distill cleanup N` in every ending, and in its own report.** Each distill
