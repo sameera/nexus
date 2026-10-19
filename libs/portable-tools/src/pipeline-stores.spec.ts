@@ -7,10 +7,11 @@ import { deriveEntryDiff } from "./derive-entry-diff";
 import {
     EXCLUDED_STORES,
     EXCLUDED_STORE_PATHS,
+    INITIATIVE_STORE_PATH,
     WORKBOOK_STORE_PATH,
     excludePathspecs,
     isExcludedStorePath,
-} from "./pipeline-stores";
+} from "@nexus/workspace/pipeline-stores";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const COMMANDS_DIR: string = path.join(REPO_ROOT, "components", "commands");
@@ -57,7 +58,25 @@ function write(dir: string, rel: string, body: string): void {
 
 describe("the excluded-store set has exactly one definition", () => {
     it("names the workbook store alongside the queue and the discovery store", () => {
-        expect(EXCLUDED_STORE_PATHS).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH]);
+        expect(EXCLUDED_STORE_PATHS.slice(0, 3)).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH]);
+    });
+
+    it("names the initiative context store as the fourth member (record #961, D1, G2)", () => {
+        expect(EXCLUDED_STORE_PATHS).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH, INITIATIVE_STORE_PATH]);
+        expect(isExcludedStorePath(`${INITIATIVE_STORE_PATH}/initiative-832/plan.md`)).toBe(true);
+    });
+
+    // Close and analyze derive their ranges in the pull-request libraries. A store list written out
+    // there is a second statement of the set, and a store added here would silently stay in those
+    // diffs (record #961, G2).
+    it.each([
+        "libs/pr-worktree/src/range.ts",
+        "libs/pr-worktree/src/landed-change.ts",
+        "libs/pr-acceptance/src/verify.ts",
+    ])("%s states no store path of its own", (rel) => {
+        const source = fs.readFileSync(path.join(REPO_ROOT, rel), "utf8");
+        expect(source).not.toMatch(/:\(exclude\)\.nexus\//);
+        expect(source).toContain("@nexus/workspace/pipeline-stores");
     });
 
     it("justifies every member, so membership is reviewable rather than a bare path", () => {

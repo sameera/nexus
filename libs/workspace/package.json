@@ -69,6 +69,11 @@
       "import": "./src/regexp.ts",
       "default": "./src/regexp.ts"
     },
+    "./pipeline-stores": {
+      "types": "./src/pipeline-stores.ts",
+      "import": "./src/pipeline-stores.ts",
+      "default": "./src/pipeline-stores.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

@@ -18,6 +18,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { forgeHost } from "@nexus/pr-worktree/member-target";
 import { sameRepo } from "@nexus/workspace/issue-ref";
+import { excludePathspecs } from "@nexus/workspace/pipeline-stores";
 import { normalizeRemote } from "@nexus/workspace/remote";
 import { type Result, fail, ok } from "./diagnostic.js";
 import { RECEIPT_MARKER, type ReceiptBlock, collectReceiptBlocks, maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
@@ -25,9 +26,9 @@ import { type Runner, git } from "./run.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 
-/** The exact three-dot diff the distiller recomputes later, queue and discovery excluded. */
+/** The exact three-dot diff the distiller recomputes later, the pipeline stores excluded. */
 export function changedFileSet(run: Runner, cwd: string, base: string, head: string): string[] | null {
-    const out = git(run, cwd, "diff", "--name-only", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery");
+    const out = git(run, cwd, "diff", "--name-only", `${base}...${head}`, "--", ".", ...excludePathspecs());
     if (out === null) return null;
     return [...new Set(out.split("\n").map((l) => l.trim()).filter((l) => l.length > 0))].sort();
 }

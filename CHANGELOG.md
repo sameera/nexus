@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.120.0
+
+- **An initiative filed by the epic stage keeps the planning context that produced it.** When a lead
+  accepts an initiative, the epic stage's consent question now also shows why the run split the scope
+  this way, the scope it deferred, and the short summary the initiative body will carry. On acceptance
+  the run keeps that gate-shown text, and in discovery mode every resolved decision in full with its
+  reasoning, in a folder named for the initiative's issue number. The initiative body carries the summary
+  and one sentence naming that folder. The run commits nothing: the report asks the lead to commit and
+  push the folder. A declined initiative keeps nothing, and the lead's typed description is never kept.
+- **Analyze, close and distill leave the initiative context store out of every diff they check**, as
+  they already leave out the queue and the discovery folder. Close's range checks now leave out every
+  pipeline store, the workbook included, from the same one definition.
+
 ## 0.119.0
 
 - **The distill stage names `nexus distill cleanup N` in every ending, and in its own report.** Each distill
