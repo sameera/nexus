@@ -114,6 +114,11 @@ describe("filing an initiative keeps the planning context that produced it (stor
         );
     });
 
+    it("repeats the split table inside the consent question, because the kept context holds it (D2, G5)", () => {
+        expect(UNDER_FLAT).toMatch(/`context\.md`: [^.]*the split table/);
+        expect(GATE_FLAT).toMatch(/Repeat the proposal inside the `AskUserQuestion` call itself[^.]*the split table/);
+    });
+
     it("keeps only text the lead supplied or saw at the gate, and never the typed description (D2, G5, G7, G29)", () => {
         expect(GATE_FLAT).toMatch(/The context holds only text the lead supplied or saw at this gate/);
         expect(GATE_FLAT).toMatch(/The lead's typed capability description is never kept/);

@@ -382,7 +382,7 @@ nexus initiative-context pointer
 
 The order respects every `blocked_by` edge between the goals; break a tie by the split's own order. Each reach statement is **cumulative** and in plain words, never a percentage. The last one says the objective is reached. The lead accepts or declines the objective, the order and the reach statements as **one unit**. An "Other" answer that rewords the objective counts as accepting it, in the lead's words.
 
-Repeat the proposal inside the `AskUserQuestion` call itself: the objective and the attached plan's file name in the question text, and the order with its reach statements, the split reasoning, the deferred scope, the context summary and the pointer sentence in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
+Repeat the proposal inside the `AskUserQuestion` call itself: the objective and the attached plan's file name in the question text, and the split table, the order with its reach statements, the split reasoning, the deferred scope, the context summary and the pointer sentence in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
 
 Declining needs no reason and is not an error. Do not ask why, and do not argue for the objective.
 

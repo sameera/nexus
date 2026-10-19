@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.123.1
+
+- **The initiative consent question repeats the split table.** When the epic stage proposes an initiative,
+  the question the lead answers now repeats the split table along with the objective, the order, the split
+  reasoning, the deferred scope and the context summary. The kept context holds the split table, so the lead
+  sees every part of it inside the question they answer.
+
 ## 0.123.0
 
 - **The decision-record stage reads the initiative's kept context.** On every path, normal, `--from` and

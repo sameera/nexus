@@ -22,3 +22,8 @@
 - **Choice:** A context folder with no files is treated as absent, so a pointer over an empty folder stops the run.
 - **Why:** An empty folder holds none of the decisions the pointer promises.
 - **Refuted alternative:** Read an empty folder as a found context with no files.
+
+## 2026-10-19 — The consent question repeats the split table
+- **Choice:** Repeat the split table inside the initiative consent question, so the kept `context.md` holds nothing the question did not show (G5).
+- **Why:** The split table carries each goal's estimate and candidate stories, which a later promotion reads as context; dropping it would lose that.
+- **Refuted alternative:** Drop the split table from `context.md` and keep only the goal titles carried in the order list.
