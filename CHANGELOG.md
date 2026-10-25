@@ -5,6 +5,12 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## Unreleased
+
+- **The published package declares `yaml`.** Three library sources under `dist/lib/workspace/` import `yaml`,
+  but the package declared no dependencies, so a consumer that did not install `yaml` itself failed to load
+  them. The package now declares `yaml` as its one runtime dependency. No stage behaviour changes.
+
 ## 0.120.0
 
 - **`/nxs.code-review`, run ahead of `analyze`, writes its review for the pull request's author.**
