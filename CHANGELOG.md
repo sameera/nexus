@@ -5,6 +5,27 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.121.0
+
+- **`nexus implement-epic <N>` implements an approved epic unattended, in any repository that installs
+  Nexus.** It replaces the two implement-epic shell scripts this repository kept, which are removed.
+  Before any model runs it refuses an unapproved decision record, an epic that needs design and has no
+  record, a dirty working tree, or an existing `nxs/epic-<N>` branch, and it creates that branch itself.
+  The implementation stage can end blocked on a line beginning `Implementation blocked:`; the command
+  then stops before it pushes. It pushes only when the branch has one commit per story, each claiming
+  its story, in blocked-by order. It opens a draft pull request that claims every story, runs
+  `/nxs.analyze --pr` after every round, and reads each round's items from the newest trusted verdict.
+  It marks the pull request ready only when that verdict is for the head and has no open Critical, High
+  or Medium item. Every stop exits non-zero, names the stage and the reason, and rewrites a run status
+  section of the pull request body. The command posts an answer only when a person wrote its source
+  before the run (a decision stub committed before the run), names that source, and stops the run when
+  an answer line appears during an agent stage. Claude stages run in auto permission mode unless
+  `--permission-mode` names another; the command refuses when auto mode is unavailable. `--harness
+  codex` runs every stage under Codex with the same checks. The test command comes from
+  `--test-command`, then the new `test-command` setting.
+- **The product context's anti-goal and the project instructions name the exception** for this one
+  optional command; no pipeline stage writes code.
+
 ## 0.120.0
 
 - **`/nxs.code-review`, run ahead of `analyze`, writes its review for the pull request's author.**
