@@ -48,6 +48,9 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // publishing target; it lives here because the worktree exists only for the GitHub `--pr` flow,
     // and because membership in this block is what buys it the precedence chain and the hub layer.
     { githubKey: "worktree-path", normalized: "worktreePath" },
+    // The full test suite `nexus implement-epic` holds its stages to, when the invocation names
+    // none (decision record #966, D14). This resolver is its only reader.
+    { githubKey: "test-command", normalized: "testCommand" },
     // Decision-record and design-gate markers.
     { githubKey: "record-label", normalized: "recordLabel", builtin: "decision-record" },
     { githubKey: "record-type", normalized: "recordType", builtin: "Decision Record" },
