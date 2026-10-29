@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.122.0
+
+- **`nexus implement-epic` fixes Critical, High and Medium items, and never a Low one.** A fix round is
+  given each item's ID, severity, summary, fix text and location, and reads only what the item cites.
+- **A fix round sorts every item before it edits anything.** When an item's fix would contradict a
+  decision or guarantee of the record, or would be architectural, the round changes nothing and the
+  command stops, naming each such item and its reason. A departure the verdict already marks as
+  superseding a record decision stops the run before any fix round is spent.
+- **The loop stops when a round leaves the same item IDs open**, instead of comparing counts, so a
+  round that fixes one item and creates another still counts as progress until the round cap
+  (`--rounds`, 5 by default).
+
 ## 0.121.0
 
 - **`nexus implement-epic <N>` implements an approved epic unattended, in any repository that installs

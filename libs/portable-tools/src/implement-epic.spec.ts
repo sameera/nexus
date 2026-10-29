@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { type Departure, type Finding, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type SessionEnd, type SessionSpec } from "./distill-command.js";
-import { BLOCKED_PREFIX, STATUS_OPEN, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement-epic.js";
+import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement-epic.js";
 import { VERB_NAMES } from "./nexus-cli.js";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -293,6 +293,59 @@ describe("fix loop (G9, G13)", () => {
         expect(r.code).toBe(1);
         expect(r.err).toMatch(/round cap of 2/);
         expect(r.err).toContain("F3 (critical)");
+    });
+});
+
+describe("the work list holds only Critical, High and Medium items (story #930: G10, G11, G12, G13)", () => {
+    it("gives a fix round the Critical, High and Medium items and never a Low one", async () => {
+        const r = await run(world({ verdicts: [judged(finding("F1", "critical"), finding("F2", "high"), finding("F3", "medium"), finding("F4", "low")), judged(finding("F4", "low"))] }));
+        expect(r.code).toBe(0);
+        const fix = r.sessions[2].args[1];
+        expect(fix).toContain("F1 (critical");
+        expect(fix).toContain("F2 (high");
+        expect(fix).toContain("F3 (medium");
+        expect(fix).not.toContain("F4");
+    });
+
+    it("finishes with a Low item still open, and never runs a fix round for Low items alone", async () => {
+        const r = await run(world({ verdicts: [judged(finding("F1", "low"))] }));
+        expect(r.code).toBe(0);
+        expect(r.sessions).toHaveLength(2);
+    });
+
+    it("gives a fix round each item's text and tells it not to read the epic or record end to end", async () => {
+        const r = await run(world({ verdicts: [judged(finding("F1", "medium", { location: { file: "src/x.ts", line: 4 } })), judged()] }));
+        const fix = r.sessions[2].args[1];
+        expect(fix).toContain("F1 is wrong");
+        expect(fix).toContain("src/x.ts:4");
+        expect(fix).toMatch(/Do not read the epic or the decision record end to end/);
+    });
+
+    it("stops on a departure the verdict marks as superseding, with no fix round spent", async () => {
+        const dv = departure("DV1", { supersedes: { decision: "D3", instead: "merged the commits" } });
+        const r = await run(world({ verdicts: [judged(dv, finding("F1", "high"))] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/escalation.*DV1 supersedes D3/);
+        expect(r.sessions).toHaveLength(2);
+    });
+
+    it("stops on an escalation the fix round names, pushing nothing for it", async () => {
+        const r = await run(world({ verdicts: [judged(finding("F1", "high"))], finals: ["done", "done", `sorted\n${ESCALATION_PREFIX} F1 needs G6 reworded`] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/fix \(round 1\): escalation.*F1 needs G6 reworded/);
+        expect(r.log.filter((l) => l === "push nxs/epic-7")).toHaveLength(1);
+        expect(r.sessions[2].args[1]).toMatch(/Sort every item before you edit anything/);
+    });
+
+    it("stops when a round leaves the same item IDs open, though the head moved", async () => {
+        const r = await run(world({ verdicts: [judged(finding("F1", "high"))] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/round 1 left the same items open: F1 \(high\)/);
+    });
+
+    it("counts a round that fixes one item and creates another as progress", async () => {
+        const r = await run(world({ verdicts: [judged(finding("F1", "high")), judged(finding("F2", "high")), judged()] }));
+        expect(r.code).toBe(0);
     });
 });
 

@@ -34,6 +34,9 @@ export type Harness = "claude" | "codex";
 /** The final-message prefix of the implementation stage's blocked outcome (D3). */
 export const BLOCKED_PREFIX = "Implementation blocked:";
 
+/** The final-message prefix of each escalation a fix round names instead of fixing (D7). */
+export const ESCALATION_PREFIX = "Escalation:";
+
 /** The final-message prefix naming the suite the stage ran, when none was declared (D14). */
 export const TEST_COMMAND_PREFIX = "Test command:";
 
@@ -297,9 +300,14 @@ export function openBlocking(judgments: Judgments | null): Item[] {
     return judgments === null ? [] : openItems(judgments).filter((i) => BLOCKING.has(i.severity));
 }
 
-/** The work list (#929): the open Critical and High items. */
+/** The work list (D6): the open Critical, High and Medium items. A Low item is never on it. */
 export function workList(judgments: Judgments | null): Item[] {
-    return openBlocking(judgments).filter((i) => i.severity === "critical" || i.severity === "high");
+    return openBlocking(judgments);
+}
+
+/** The departures the verdict already marks as superseding a record decision: escalations with no stage spent (D7). */
+export function supersedingDepartures(items: readonly Item[]): Departure[] {
+    return items.filter((i): i is Departure => i.kind === "departure" && i.supersedes !== null);
 }
 
 function describeItem(i: Item): string {
@@ -320,7 +328,11 @@ export function fixPrompt(epic: number, round: number, rounds: number, items: re
         "",
         "Read only what an item cites: the acceptance criterion, the record guarantee (G<n>) or decision (D<n>), and the files it points at. Do not read the epic or the decision record end to end, and do not run /nxs.analyze — the calling command runs it the moment you stop.",
         "",
-        "Fix each item with the smallest change that satisfies what it cites. Test first: write or amend the test that pins the behaviour before the code that satisfies it. Never make an item disappear instead of fixing it: do not weaken, skip or delete a test, and do not edit the epic or the decision record. If the only honest fix is a planning change, leave the code as it is, name the item in your final message, and stop.",
+        "Sort every item before you edit anything. An item is an escalation when its fix would contradict a decision or guarantee the record states, or would meet a guarantee only by changing its wording. It is also an escalation when the fix is architectural: it adds a dependency, changes an interface or data format that another component or stage reads, or moves a responsibility between components the record names. Every other item is fixable.",
+        "",
+        `If any item is an escalation, change nothing and commit nothing. End your final message with one line per escalation, beginning exactly '${ESCALATION_PREFIX}', then the item's ID and the reason, and stop. The lead revises the record; the calling command stops the run.`,
+        "",
+        "Otherwise fix each item with the smallest change that satisfies what it cites. Test first: write or amend the test that pins the behaviour before the code that satisfies it. Never make an item disappear instead of fixing it: do not weaken, skip or delete a test, and do not edit the epic or the decision record.",
         "",
         "Never answer a departure, a finding or a deferred-scope proposal. Post no comment on the pull request, and above all no answer line (`<ID> — accepted: <reason>`, `<ID> — waived: <reason>`, `<ID> — approved`). The calling command stops the run if an answer line appears or changes during this round.",
         "",
@@ -475,7 +487,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
 
         const posted = new Set<string>();
         let round = 0;
-        let lastState: string | null = null;
+        let lastIds: string | null = null;
         let resolveNext = false;
         for (;;) {
             // 4. Analyze, published on the pull request every time (D5).
@@ -511,19 +523,37 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 io.stdout(`implement-epic: PR #${prNum} is ready for review.`);
                 return 0;
             }
+            // 6. Work list (D6), and the escalations the verdict already labels (D7).
             const work = workList(v.judgments);
             const ids = open.map((i) => `${i.id} (${i.severity})`).join(", ");
-            if (work.length === 0) fail("fix", `open items remain that no fix round works: ${ids}.`);
-            const state = `${v.head}:${work.map((i) => i.severity).join(",")}`;
-            if (state === lastState) fail("fix", `round ${round} left the open items unchanged: ${ids}.`);
+            const superseding = supersedingDepartures(work);
+            if (superseding.length > 0) {
+                fail(
+                    "fix",
+                    `escalation, for the lead to revise the record: ${superseding.map((d) => `${d.id} supersedes ${d.supersedes?.decision ?? "a record decision"} (${d.supersedes?.instead ?? d.summary})`).join("; ")}.`,
+                );
+            }
+            // D8: progress is the set of open Critical, High and Medium item IDs, never a count.
+            const idSet = work
+                .map((i) => i.id)
+                .sort()
+                .join(",");
+            if (idSet === lastIds) fail("fix", `round ${round} left the same items open: ${ids}.`);
             if (round >= input.rounds) fail("fix", `the round cap of ${input.rounds} was reached with items still open: ${ids}.`);
-            lastState = state;
+            lastIds = idSet;
             round++;
 
-            // 7. Fix round.
-            const fix = await guarded(`fix (round ${round})`, fixPrompt(epic, round, input.rounds, work, testCommand, input.fixTurns));
-            if (fix.exitCode !== 0 || fix.error !== null) fail(`fix (round ${round})`, `the stage failed: ${fix.error ?? `exit ${fix.exitCode}`}`);
-            onBranch(`fix (round ${round})`);
+            // 7. Fix round: it sorts every item before it edits anything (D7).
+            const fixStage = `fix (round ${round})`;
+            const headBefore = deps.headSha(cwd);
+            const fix = await guarded(fixStage, fixPrompt(epic, round, input.rounds, work, testCommand, input.fixTurns));
+            const escalations = prefixedLines(fix.finalMessage, ESCALATION_PREFIX);
+            if (escalations.length > 0) {
+                const committed = deps.headSha(cwd) !== headBefore ? " The stage committed despite the escalation; nothing was pushed." : "";
+                fail(fixStage, `escalation, for the lead to revise the record: ${escalations.join("; ")}.${committed}`);
+            }
+            if (fix.exitCode !== 0 || fix.error !== null) fail(fixStage, `the stage failed: ${fix.error ?? `exit ${fix.exitCode}`}`);
+            onBranch(fixStage);
             const again = deps.push(cwd, branch);
             if (!again.ok) fail("push", again.message);
         }
