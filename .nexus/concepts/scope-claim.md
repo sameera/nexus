@@ -1,8 +1,8 @@
 ---
 title: "Claim of Scope"
 aliases: ["mention is not a claim", "repository qualifier", "closing keyword", "implements", "part of", "body reference", "commit trailer", "explicit story reference", "scope grammar"]
-touches: ["pr-story-resolution"]
-last_updated_by: "#829"
+touches: ["pr-story-resolution", "unattended-epic-implementation"]
+last_updated_by: "#928"
 status: active
 verification: verified
 ---
@@ -32,6 +32,7 @@ The platform's own closing links are same-repository by construction, so they ar
 ## Integration Points
 
 - [pr-story-resolution](pr-story-resolution.md) — the ladder that gathers under this grammar, and then validates whatever it gathered against the live issue graph.
+- [unattended-epic-implementation](unattended-epic-implementation.md) — writes the draft pull request body's story claims in this grammar.
 
 ## Decision Log
 
@@ -42,3 +43,7 @@ Split from pr-story-resolution, which was at its capacity and was describing two
 ### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
 
 Mechanical reciprocity fan-out: the epic-wide receipt that read a story as analyzed when a trusted receipt named it is retired, so the edge is removed. Narrowing a pull request's story list to the stories it claims is unchanged.
+
+### 2026-10-31 — #928 — Reciprocal link from unattended-epic-implementation
+
+Mechanical reciprocity fan-out: the unattended implementation page declares that it claims each story in this grammar.

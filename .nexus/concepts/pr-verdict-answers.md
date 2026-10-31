@@ -1,8 +1,8 @@
 ---
 title: "Pull-Request Verdict Answers"
 aliases: ["verdict item IDs", "departure ID", "item registry", "answer line", "accepted departure", "waived finding", "approved deferred scope", "open-item counts"]
-touches: ["conformance-gate", "published-verdict-selection", "pr-driven-flow", "reading-list", "answer-recording-run", "verdict-layout"]
-last_updated_by: "#923"
+touches: ["conformance-gate", "published-verdict-selection", "pr-driven-flow", "reading-list", "answer-recording-run", "verdict-layout", "unattended-epic-implementation"]
+last_updated_by: "#928"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ An open item's resolution shows its fix, then for an answerable item the exact a
 - [reading-list](reading-list.md) — a departure from a listed page's invariant is numbered and answered like any other.
 - [answer-recording-run](answer-recording-run.md) — the later run that records these answers and decides what to judge again; split from this page.
 - [verdict-layout](verdict-layout.md) — sets where each item's fields, resolution and answer line appear in the published verdict.
+- [unattended-epic-implementation](unattended-epic-implementation.md) — its loop tracks these item IDs and posts answer lines only when a person's earlier text implies them.
 
 ## Decision Log
 
@@ -57,3 +58,7 @@ An answerable item's resolution is a line to paste, and the reason is left for t
 ### 2026-10-18 — #923 — Reciprocal link from verdict-layout
 
 The verdict-layout page sets where each item's resolution and answer line appear in the published verdict, so this page mirrors it.
+
+### 2026-10-31 — #928 — Reciprocal link from unattended-epic-implementation
+
+Mechanical reciprocity fan-out: the unattended implementation page declares that its loop reads item IDs from the verdict and posts answer lines under this page's grammar.

@@ -1,8 +1,8 @@
 ---
 title: "Nexus Pipeline"
 aliases: ["delivery pipeline", "pipeline stages", "System A", "spec-driven pipeline"]
-touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record", "conformance-gate", "pre-epic-discovery", "fix-lane"]
-last_updated_by: "#263"
+touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record", "conformance-gate", "pre-epic-discovery", "fix-lane", "unattended-epic-implementation"]
+last_updated_by: "#928"
 status: active
 verification: verified
 ---
@@ -17,7 +17,7 @@ Setup bootstraps the project's ground truth and product context. Discovery runs 
 
 ## Key Invariants
 
-1. The pipeline assists product and project management; it does not own or gate implementation.
+1. The pipeline assists product and project management; it does not own or gate implementation. One optional command, which no stage calls, implements an approved epic unattended.
 2. ~~The stages are setup, epic, high-level design, analyze, and close.~~
 3. ~~The stages are setup, epic, decision record, analyze, and close.~~ The stages are setup, epic, decision record, analyze, and close. Discovery is an optional stage before the epic, run only when the initiative is underspecified.
 4. Each stage keeps only outputs that force a human decision.
@@ -38,6 +38,7 @@ Setup bootstraps the project's ground truth and product context. Discovery runs 
 - [conformance-gate](conformance-gate.md) — the receipt analyze leaves and close reads as a hard precondition.
 - [pre-epic-discovery](pre-epic-discovery.md) — the optional stage before the epic, run only when the initiative is foggy.
 - [fix-lane](fix-lane.md) — the lane a change takes when it is too small to justify these stages, bypassing them entirely.
+- [unattended-epic-implementation](unattended-epic-implementation.md) — the optional command that implements an approved epic unattended; the one exception to leaving implementation to engineers.
 
 ## Decision Log
 
@@ -85,3 +86,7 @@ The pipeline had one answer for scope that was too large and no answer for scope
 ### 2026-09-05 — #263 — Reciprocal link from fix-lane
 
 A change too small to justify the stages now has somewhere else to go. The lane sits beside this pipeline rather than in it: it files no issue, gates nothing, and adds no stage here. The pipeline's own stages and their order are unchanged.
+
+### 2026-10-31 — #928 — An optional command implements an approved epic unattended
+
+The pipeline's stages still do not write code, but Nexus now ships one optional command that does, run only when a lead chooses it. This narrows decision 0001 from "the pipeline leaves implementation to engineers" to "no stage implements; one optional command can". Refuted alternative: keep the script in this repository only. An adopter receives only the published package, so the script would never reach them.

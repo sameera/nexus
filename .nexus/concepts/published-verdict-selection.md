@@ -1,8 +1,8 @@
 ---
 title: "Published Verdict Selection"
 aliases: ["which verdict a pull request carries", "newest-wins verdict", "verdict trust", "repository stamp matching", "superseded verdict"]
-touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report"]
-last_updated_by: "#829"
+touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report", "unattended-epic-implementation"]
+last_updated_by: "#928"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ Every review and comment carrying the verdict marker is collected, each with the
 - [close-and-distill-command](close-and-distill-command.md) — uses this rule to require a clean verdict before its merge option merges an open pull request.
 - [pr-verdict-answers](pr-verdict-answers.md) — reads its item IDs and earlier answers from the verdict this rule picks.
 - [story-evidence-report](story-evidence-report.md) — reads the receipt this rule selects on each pull request that claims a story.
+- [unattended-epic-implementation](unattended-epic-implementation.md) — reads the newest trusted verdict each round and again before it marks the pull request ready.
 
 ## Decision Log
 
@@ -54,3 +55,7 @@ Mechanical reciprocity fan-out: the close stage's evidence report reads one rece
 ### 2026-10-04 — #829 — Reciprocal links: aggregated-epic-receipt retired, pr-verdict-answers added
 
 Mechanical reciprocity fan-out, two edges. The epic-wide derivation that applied this rule per story is retired, so that edge is removed. The pull-request verdict answers page declared an interaction with this rule, so this page mirrors it: the newest trusted verdict this rule picks is the registry the next run reads its item IDs and earlier answers from.
+
+### 2026-10-31 — #928 — Reciprocal link from unattended-epic-implementation
+
+Mechanical reciprocity fan-out: the unattended implementation page declares that it reads the verdict this rule selects.
