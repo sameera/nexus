@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight"]
-last_updated_by: "#594"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation"]
+last_updated_by: "#928"
 status: active
 verification: verified
 ---
@@ -47,6 +47,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [issue-asset-store](issue-asset-store.md) — one more key on this chain, hub layer included, and the one target that deliberately has no built-in fallback.
 - [initiative](initiative.md) — the initiative label and issue type are two more keys this resolver supplies; the issue type has no built-in.
 - [filing-preflight](filing-preflight.md) — resolves the unplanned label and the initiative marker here before it checks a stub's parent.
+- [unattended-epic-implementation](unattended-epic-implementation.md) — one more key on this chain, the test command, is read only by this command.
 
 ## Decision Log
 
@@ -97,3 +98,7 @@ The asset store declares an interaction with this concept, so the edge is mirror
 ### 2026-10-10 — #705 — Reciprocal links from initiative and filing-preflight
 
 Mechanical reciprocity fan-out: the initiative page names this resolver as the source of the initiative label and issue type, and the filing-preflight page names it as the source of the markers its parent check reads.
+
+### 2026-10-31 — #928 — Reciprocal link from unattended-epic-implementation
+
+Mechanical reciprocity fan-out: the unattended implementation page declares that it resolves its test command and issues repository here.
