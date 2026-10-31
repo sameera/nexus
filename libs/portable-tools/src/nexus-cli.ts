@@ -109,7 +109,8 @@ import { DEFAULT_FIX_TURNS, DEFAULT_ROUNDS, DEFAULT_TURNS, implementEpicDeps, ru
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { cleanupDeps, runDistillCleanup } from "./distill-cleanup.js";
 import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness, type DistillTarget } from "./distill-command.js";
-import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
+import { EXCLUDED_STORES, excludePathspecs } from "@nexus/workspace/pipeline-stores";
+import { INITIATIVE_CONTEXT_SUBVERBS, INITIATIVE_CONTEXT_USAGE, runInitiativeContext } from "./initiative-context-cli.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import {
@@ -791,6 +792,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      than writing the paths out, so no second statement of it can drift.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
+    },
+    "initiative-context": {
+        summary: "Locate, check and read the planning context an initiative keeps in the repository.",
+        usage: INITIATIVE_CONTEXT_USAGE,
+        subverbs: INITIATIVE_CONTEXT_SUBVERBS,
+        run: runInitiativeContext,
     },
     trunk: {
         summary: "Print the trunk every stage reads — its remote-tracking ref, or just the remote.",

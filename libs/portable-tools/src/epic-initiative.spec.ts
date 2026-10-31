@@ -78,7 +78,8 @@ describe("the lead decides whether a decomposition serves one objective (story #
 
     it("takes the objective from the discovery's destination, in its own words (D4, G5)", () => {
         expect(GATE_FLAT).toMatch(/\*\*Discovery mode:\*\* the objective is the discovery's destination, copied in its own words/);
-        expect(GATE_FLAT).toMatch(/It may claim nothing the description does not/);
+        // An attached plan joins the description as intent (record #961, D4, G30).
+        expect(GATE_FLAT).toMatch(/It may claim nothing the description and the plan do not/);
     });
 
     it("shows the objective, the order and every reach statement before the lead chooses (D4, G6)", () => {
@@ -207,8 +208,9 @@ describe("every stub in a coherent decomposition hangs under its initiative (sto
     });
 
     it("promotes a stub under an initiative by the same steps, leaving it where it is (G21, G22)", () => {
-        expect(ENTRY).toMatch(/\*\*Promotion is unchanged by an initiative\.\*\*/);
-        expect(ENTRY).toMatch(/never detaches the stub, moves it, or edits the initiative/);
+        // Promotion now also reads the initiative's context (record #961, D6); it still leaves the stub where it is.
+        expect(ENTRY).toMatch(/\*\*Promotion under an initiative also reads the initiative's kept context\.\*\*/);
+        expect(ENTRY).toMatch(/Promotion never detaches the stub, moves it, or edits the initiative/);
         expect(ENTRY).toMatch(/stories and its decision record are filed under the epic/);
     });
 

@@ -20,11 +20,12 @@
  * `base...mergeCommit` file set equals it. With no PR head to verify against we
  * refuse rather than guess — a wrong range would distill the wrong pages weeks
  * later. Two final gates always run: base must be an ancestor of head, and the
- * exact three-dot diff the distiller runs (queue and discovery excluded) must be non-empty.
+ * exact three-dot diff the distiller runs (the pipeline stores excluded) must be non-empty.
  */
 
 import { type PrInfo } from "./pr.js";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
+import { excludePathspecs } from "@nexus/workspace/pipeline-stores";
 import { type Runner, git } from "./run.js";
 
 export interface Range {
@@ -36,9 +37,9 @@ export type DeriveRangeResult =
     | { ok: true; range: Range }
     | { ok: false; error: PrWorktreeDiagnostic };
 
-/** Sorted, unique, non-empty changed paths for `base...head`, queue and discovery excluded; null on git error. */
+/** Sorted, unique, non-empty changed paths for `base...head`, pipeline stores excluded; null on git error. */
 function diffNameSet(run: Runner, cwd: string, base: string, head: string): string[] | null {
-    const out = git(run, cwd, "diff", "--name-only", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery");
+    const out = git(run, cwd, "diff", "--name-only", `${base}...${head}`, "--", ".", ...excludePathspecs());
     if (out === null) return null;
     return [...new Set(out.split("\n").map((l) => l.trim()).filter((l) => l.length > 0))].sort();
 }
@@ -149,7 +150,7 @@ export function deriveRange(
         };
     }
 
-    const diff = git(run, cwd, "diff", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery");
+    const diff = git(run, cwd, "diff", `${base}...${head}`, "--", ".", ...excludePathspecs());
     if (diff === null) {
         return {
             ok: false,
@@ -161,7 +162,7 @@ export function deriveRange(
             ok: false,
             error: {
                 problem: "range-empty-diff",
-                message: `derived range ${base}...${head} has an empty diff (excluding .nexus/queue and .nexus/discovery); refusing to stamp a range that would distill nothing.`,
+                message: `derived range ${base}...${head} has an empty diff (excluding the pipeline stores); refusing to stamp a range that would distill nothing.`,
             },
         };
     }

@@ -57,8 +57,8 @@ cover. Strip the `--from <path>` token before resolving the entry path from the 
 **which filing path Phase 4 takes**. It does not select where the run starts. Run Phase 0.2's
 **resolution** steps 1–2 as usual, because they establish `$REPO_ARG` and the label names every
 later `gh` call needs. Skip its step-3 **gate**: that gate answers "does this epic warrant a
-record", and a revision already presupposes the answer. Then run **Phase 0.4** (it runs on every
-path, revision included) and **Phases 1–3** to produce the new body. File the body through
+record", and a revision already presupposes the answer. Then run **Phase 0.4** and **Phase 0.45**
+(both run on every path, revision included) and **Phases 1–3** to produce the new body. File the body through
 **Phase 4.5**, which reopens the record, records what is being superseded, updates the body, and
 re-closes it. Strip the token before resolving the entry path. Without an existing closed record
 there is nothing to revise: say so and run the normal path instead.
@@ -259,6 +259,34 @@ degrades the input. Capturing an out-of-band decision comment in general is not 
 **This command never edits or removes those comments.** They are the only durable carrier of the
 discovery's reasoning once the discovery folder is gone.
 
+## Phase 0.45 — Read the initiative's kept context
+
+An epic planned from a stub under an initiative sits under that initiative, and the initiative may
+keep the planning context of the session that produced it: a summary in its body, and a committed
+folder of context files. Read it **before** analysing, so a design decision the session already made
+is carried into the record instead of being decided again.
+
+This runs on every path (normal, import and revision) and needs no flag. Look the context up through
+the same lookup stub planning uses:
+
+```bash
+nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-context.md"
+```
+
+- **Non-zero exit → stop before drafting and report the diagnostic verbatim.** `context-missing`
+  means the initiative's body names a kept context that this checkout does not hold; it names where
+  the context was expected. The usual cause is a folder that was not committed or not pulled.
+- **`no-initiative`**: the epic has no initiative above it. Continue exactly as today: no new prompt,
+  no new question, and **no empty section** anywhere in the record. Skip the rest of this phase.
+- **`body-only`**: say that no additional context was found. Keep the initiative's body, which the
+  lookup wrote to `${QDIR}/initiative-context.md`, as **`INITIATIVE_CONTEXT`** for Phase 1.
+- **`context`**: say which context files were read. Keep `${QDIR}/initiative-context.md`, the
+  initiative's body and every context file, as **`INITIATIVE_CONTEXT`** for Phase 1.
+
+**This command never edits the initiative or its context folder,** and copies no part of the context
+into the record or a comment. A decision the context settled is restated in the record's own words,
+with its reasoning.
+
 ## Phase 0.5 — Load the design doc (import mode only)
 
 **Skip without `--from`.** With `--from <path>`, read the design doc at `<path>`. It lives outside
@@ -320,6 +348,19 @@ A gist that **states a decision without its reasoning** becomes an **Open Clarif
 human, exactly as an unexplained decision in an imported design doc does. Never invent the missing
 *why*.
 
+**Initiative context (`INITIATIVE_CONTEXT` from Phase 0.45, when present):** pass it the same way,
+as decisions **already settled**, read the way the discovery gists are read. The architect states
+each design decision the context settled in the record as decided, with the context's reasoning,
+and does not present it as an open choice or reopen it. Three rules bound it:
+
+- A settled decision **with no reasoning** in the context becomes an **Open Clarification**. Never
+  invent the missing *why*.
+- **The epic wins.** The approved epic was decided after the context was written. Where the epic and
+  the context disagree, the record follows the epic and names the departure from the context.
+- The context is an input, not a substitute: the architect still designs the epic and still covers
+  every story. A decision the context makes about a sibling epic under the same initiative is not
+  this record's to state.
+
 ```
 Invoke: nxs-architect
 Topic: Decision record for epic "<epic title>"
@@ -328,6 +369,9 @@ Inputs to read:
 - <IMPORT_DOC path>          # import mode ONLY (--from): the authoritative design doc — primary why source
 - DISCOVERY_GISTS            # when present (Phase 0.4): decisions the discovery already settled —
                              #   authoritative, already decided, NOT a substitute for this analysis
+- INITIATIVE_CONTEXT         # when present (Phase 0.45): the initiative's body and kept context —
+                             #   decisions already settled; state each as decided, with its reasoning;
+                             #   no reasoning → Open Clarification; the epic wins a disagreement
 - ${QDIR}/epic.md            # the epic and ALL its user stories — authoritative scope
 - <docs-root>/product/context.md    # personas, strategy (reference, don't re-tabulate)
 - <docs-root>/system/stack.md       # technology stack
@@ -1184,6 +1228,12 @@ Report concisely, in the run-discipline skill's layout:
   analysis and still checks story coverage. It **never edits or removes** those comments, and it
   reads **only** the marked ones. An epic with no marked comment behaves exactly as before: no new
   prompt, no empty section.
+- **The initiative's context is settled input, never a substitute.** An epic under an initiative
+  with a kept context is designed on top of the decisions that context made: each appears in the
+  record as decided, with its reasoning, or as an Open Clarification when the context gives none.
+  The epic wins a disagreement, and the record names the departure. A checkout that lacks a context
+  the initiative names stops the run before drafting. An epic with no initiative above it behaves
+  exactly as before.
 - **`--from` imports a design doc; it does not copy it.** The doc is the authoritative *why*
   source, but the record it produces is still abstracted domain prose (no code / file paths / type
   names) covering every story, and every decision still carries its *why*. A doc that states a

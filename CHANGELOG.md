@@ -11,6 +11,66 @@ behaviour says so.
   but the package declared no dependencies, so a consumer that did not install `yaml` itself failed to load
   them. The package now declares `yaml` as its one runtime dependency. No stage behaviour changes.
 
+## 0.123.2
+
+- **Both stages read the initiative above an epic from the configured epic-repo.** Stub promotion and the
+  decision-record stage now read an issue's parent, and the initiative itself, from the repository
+  `epic-repo` names, on the host it names. They fall back to the checkout's own repository only when
+  nothing is configured. Before, a checkout whose epic-repo named another repository read the wrong one:
+  the stage stopped on an issue it could not find, or read an unrelated issue's parent.
+
+## 0.123.1
+
+- **The initiative consent question repeats the split table.** When the epic stage proposes an initiative,
+  the question the lead answers now repeats the split table along with the objective, the order, the split
+  reasoning, the deferred scope and the context summary. The kept context holds the split table, so the lead
+  sees every part of it inside the question they answer.
+
+## 0.123.0
+
+- **The decision-record stage reads the initiative's kept context.** On every path, normal, `--from` and
+  `--revise`, the decision-record stage looks up the initiative above the epic before analysis and reads
+  its body and kept context as decisions already made. The record states each settled decision as decided,
+  with its reasoning, instead of offering it as an open choice. A settled decision with no reasoning becomes
+  an open clarification. Where the epic and the context disagree, the record follows the epic and names the
+  departure. A checkout that lacks a context the initiative names stops the stage before drafting, naming
+  the folder. An epic with no initiative above it runs exactly as before.
+
+## 0.122.0
+
+- **Planning a stub under an initiative reads the initiative's kept context.** Before drafting, the epic
+  stage looks up the initiative above the stub and reads its body and every file in its context folder,
+  including a folder a lead wrote by hand. That text joins what the lead asked for, so the draft can cite
+  a decision the session already made. Scope stays bounded by the stub's own goal: work the context gives
+  to a sibling stub goes under Out of Scope, naming that stub, and is never filed as a story. The reading
+  list is still built from the stub alone.
+- **The epic stage stops before drafting when an initiative names a context the checkout lacks.** It names
+  the folder it expected; pull the folder, or restore it, and run again. An initiative with no kept context
+  is read from its body alone, and the run says no additional context was found. A stub with no initiative
+  above it is planned exactly as before.
+
+## 0.121.0
+
+- **The epic stage takes a design plan with `--plan <path>`.** A lead who planned an initiative in a
+  session outside Nexus names the plan when running a decomposition. The epic stage checks the plan before
+  drafting anything and refuses a missing or empty one, naming the file. The plan feeds the decomposition,
+  so the split and the objective may draw on it, and the consent question names it beside the objective.
+  When the lead accepts the initiative, the plan is kept word for word in the initiative's context. When no
+  initiative is filed, the run says the plan was kept nowhere. Planning a stub and `--from` refuse the flag.
+
+## 0.120.0
+
+- **An initiative filed by the epic stage keeps the planning context that produced it.** When a lead
+  accepts an initiative, the epic stage's consent question now also shows why the run split the scope
+  this way, the scope it deferred, and the short summary the initiative body will carry. On acceptance
+  the run keeps that gate-shown text, and in discovery mode every resolved decision in full with its
+  reasoning, in a folder named for the initiative's issue number. The initiative body carries the summary
+  and one sentence naming that folder. The run commits nothing: the report asks the lead to commit and
+  push the folder. A declined initiative keeps nothing, and the lead's typed description is never kept.
+- **Analyze, close and distill leave the initiative context store out of every diff they check**, as
+  they already leave out the queue and the discovery folder. Close's range checks now leave out every
+  pipeline store, the workbook included, from the same one definition.
+
 ## 0.122.0
 
 - **`nexus implement-epic` fixes Critical, High and Medium items, and never a Low one.** A fix round is

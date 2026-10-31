@@ -5,8 +5,8 @@
  * The reviewed change is what the analyzed head changed in each file against the point where it
  * left trunk: `git diff <base>...<analyzedHead>`, where `base` is the merge-anchored range's base,
  * so the three-dot form resolves to the fork point. The landed change is what the pull request's
- * own range changed: `git diff <base> <head>`. Queue and discovery paths are left out of both, as
- * range derivation leaves them out.
+ * own range changed: `git diff <base> <head>`. The pipeline stores are left out of both, as range
+ * derivation leaves them out.
  *
  * The two are compared as changes, never as file contents. Contents at the merge include every
  * sibling pull request merged in between, and no re-analysis can make them equal. Each file's patch
@@ -27,6 +27,7 @@
  */
 
 import { canonicalTrunkRef } from "@nexus/workspace/canonical-remote";
+import { excludePathspecs } from "@nexus/workspace/pipeline-stores";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner, git } from "./run.js";
 
@@ -45,7 +46,7 @@ export interface LandedChangeInput {
     head: string;
 }
 
-const PIPELINE_EXCLUDES = [".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery"];
+const PIPELINE_EXCLUDES: readonly string[] = [".", ...excludePathspecs()];
 const DIFF_FLAGS = ["--no-ext-diff", "--no-textconv", "--no-color", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/"];
 
 function fail(message: string): LandedChangeResult {
@@ -127,8 +128,8 @@ export interface OwnChangeInput {
     /** The pull request's head now. */
     head: string;
     /**
-     * Pathspecs the comparison leaves out. Defaults to the queue and discovery stores, as range
-     * derivation leaves them out; a caller that knows the whole pipeline-store set passes it.
+     * Pathspecs the comparison leaves out. Defaults to the pipeline stores, as range derivation
+     * leaves them out.
      */
     excludes?: readonly string[];
 }
