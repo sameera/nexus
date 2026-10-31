@@ -45,6 +45,9 @@
         "nexus:build-release": "tsx libs/portable-tools/src/pack-release.ts",
         "prepack": "pnpm nexus:build-release"
     },
+    "dependencies": {
+        "yaml": "^2.9.0"
+    },
     "devDependencies": {
         "@eslint/js": "^9.8.0",
         "@nexus/abs-doc-path": "workspace:*",

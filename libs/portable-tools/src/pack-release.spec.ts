@@ -52,8 +52,8 @@ describe("the manifest declares a publishable package (AC2, AC3)", () => {
         expect(manifest.publishConfig?.access).toBe("public");
     });
 
-    it("fetches nothing at install time beyond the package itself", () => {
-        expect(manifest.dependencies ?? {}).toEqual({});
+    it("declares only the dependencies its published library sources import", () => {
+        expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(["yaml"]);
     });
 });
 
@@ -204,10 +204,43 @@ describe("both toolkits run from a machine with no Nexus checkout (AC1, AC4)", (
         expect(JSON.parse(result.stdout).version).toBe(declaredVersion);
     });
 
-    it("resolves no workspace package — the installed tree carries no node_modules", () => {
+    it("resolves no workspace package — the installed tree carries only its declared dependencies", () => {
         const installed: string = path.join(prefix, "lib", "node_modules", manifest.name);
         expect(fs.existsSync(installed)).toBe(true);
-        expect(fs.existsSync(path.join(installed, "node_modules"))).toBe(false);
+        const nested: string = path.join(installed, "node_modules");
+        const carried: string[] = fs.existsSync(nested) ? fs.readdirSync(nested).filter((n) => !n.startsWith(".")) : [];
+        expect(carried.sort()).toEqual(Object.keys(manifest.dependencies ?? {}).sort());
+    });
+});
+
+/** Every bare import specifier (not `node:`, relative or `@nexus/`) in the staged library sources. */
+function bareImports(dir: string): Map<string, string[]> {
+    const found = new Map<string, string[]>();
+    const walk = (current: string): void => {
+        for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+            const full: string = path.join(current, entry.name);
+            if (entry.isDirectory()) walk(full);
+            else if (/\.(ts|mts|js|mjs)$/.test(entry.name)) {
+                const source: string = fs.readFileSync(full, "utf8");
+                for (const match of source.matchAll(/^\s*(?:import|export)\b[^"';]*?\bfrom\s+["']([^"']+)["']/gm)) {
+                    const spec: string = match[1];
+                    if (spec.startsWith(".") || spec.startsWith("/") || spec.startsWith("node:") || spec.startsWith("@nexus/")) continue;
+                    const pkg: string = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
+                    found.set(pkg, [...(found.get(pkg) ?? []), path.relative(dir, full)]);
+                }
+            }
+        }
+    };
+    walk(dir);
+    return found;
+}
+
+describe("the published library sources import only what the manifest declares", () => {
+    it("declares every bare import under dist/lib in the root dependencies", () => {
+        const imported = bareImports(path.join(REPO_ROOT, RELEASE_TREE_DIRNAME, "lib"));
+        const undeclared: string[] = [...imported.keys()].filter((pkg) => !(pkg in (manifest.dependencies ?? {})));
+        expect(undeclared, `imported by ${undeclared.map((p) => imported.get(p)?.join(", ")).join("; ")}`).toEqual([]);
+        expect([...imported.keys()]).toContain("yaml");
     });
 });
 
