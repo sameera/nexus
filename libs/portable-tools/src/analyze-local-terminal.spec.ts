@@ -4,8 +4,8 @@
  * still calls no longer writes the local receipt (G36). The fix lane, the intake lane, close, the
  * issue-reference rules and the implement scripts no longer name the local analysis file (G37), and
  * close behaves the same whether or not a local run happened, even when a file an older release
- * wrote is still beside the epic (G38). The implement scripts' half is pinned in
- * implement-epic.spec.ts.
+ * wrote is still beside the epic (G38). The implement scripts are gone (decision record #966, D1):
+ * `nexus implement-epic` reads the published verdict, never a local report.
  */
 
 import * as fs from "node:fs";
@@ -46,17 +46,6 @@ describe("analyze without a pull request reports in the terminal and writes no f
     });
 });
 
-describe("the implement scripts parse the line analyze defines (R2)", () => {
-    it("matches the defined line, filled in, with the pattern the shared script reads it by", () => {
-        const template = /^Analyze result: critical=<C>[^\n]*$/m.exec(ANALYZE)?.[0];
-        expect(template).toBeDefined();
-        const filled = template!.replace("<C>", "2").replace("<H>", "1").replace("<M>", "0").replace("<L>", "3").replace("<full 40-hex HEAD>", "f".repeat(40));
-        const pattern = /grep -oE '([^']+)'/.exec(fs.readFileSync(path.join(REPO_ROOT, "utils/implement-epic.sh"), "utf8"))?.[1];
-        expect(pattern).toBeDefined();
-        expect(new RegExp(`^${pattern!}$`).test(filled)).toBe(true);
-    });
-});
-
 describe("no other stage names the local analysis file (G37)", () => {
     const surfaces: Array<[string, string]> = [
         ["the fix lane", "commands/nxs.fix.md"],
@@ -68,8 +57,8 @@ describe("no other stage names the local analysis file (G37)", () => {
         expect(read(rel)).not.toContain(LOCAL_FILE);
     });
 
-    it.each([["utils/implement-epic.sh"], ["utils/codex/implement-epic.sh"]])("%s does not name it", (rel) => {
-        expect(fs.readFileSync(path.join(REPO_ROOT, rel), "utf8")).not.toContain(LOCAL_FILE);
+    it("nexus implement-epic does not name it", () => {
+        expect(fs.readFileSync(path.join(REPO_ROOT, "libs/portable-tools/src/implement-epic.ts"), "utf8")).not.toContain(LOCAL_FILE);
     });
 });
 
