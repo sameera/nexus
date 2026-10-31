@@ -27,3 +27,8 @@
 - **Choice:** Repeat the split table inside the initiative consent question, so the kept `context.md` holds nothing the question did not show (G5).
 - **Why:** The split table carries each goal's estimate and candidate stories, which a later promotion reads as context; dropping it would lose that.
 - **Refuted alternative:** Drop the split table from `context.md` and keep only the goal titles carried in the order list.
+
+## 2026-10-31 — The lookup reads the issues repository through close's resolver
+- **Choice:** Resolve the issues repository with `resolveVerdictRepos` + `canonicalIssuesRepo`, and run gh through `onIssuesHost`, as close's `issuesSide` does.
+- **Why:** One reading of `epic-repo` (fallback, host, written forms) across stages; a configured host on GitHub Enterprise must reach that host, not github.com (G14).
+- **Refuted alternative:** Read `epic-repo` with `resolvePublishingKey` and split it into a slug inline, dropping the host.

@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.123.2
+
+- **Both stages read the initiative above an epic from the configured epic-repo.** Stub promotion and the
+  decision-record stage now read an issue's parent, and the initiative itself, from the repository
+  `epic-repo` names, on the host it names. They fall back to the checkout's own repository only when
+  nothing is configured. Before, a checkout whose epic-repo named another repository read the wrong one:
+  the stage stopped on an issue it could not find, or read an unrelated issue's parent.
+
 ## 0.123.1
 
 - **The initiative consent question repeats the split table.** When the epic stage proposes an initiative,

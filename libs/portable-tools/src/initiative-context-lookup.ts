@@ -16,8 +16,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { isDeclaredInitiative, readKindMarkers } from "@nexus/delivery-config/issue-kind";
-import { fetchIssue, fetchIssueFacts, resolveRepoSlug } from "@nexus/epic-resolve/gh";
+import { fetchIssue, fetchIssueFacts, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type Runner } from "@nexus/epic-resolve/run";
+import { canonicalIssuesRepo, issuesRepoSlug, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { initiativeContextDir, parsePointer } from "./initiative-context.js";
 
 /** One file of a kept context, read verbatim. */
@@ -52,27 +53,34 @@ function readFolder(absolute: string): ContextFile[] {
 /**
  * Look up the initiative context of `issue`.
  *
- * @param run  the process seam (`gh` runs with `cwd` = `root`)
- * @param root  the checkout that holds the initiative store, and whose repository holds the issues
+ * The issues are read in the repository `root` configures as its `epic-repo`, on the host that names,
+ * and in `root`'s own repository only when nothing is configured: an epic filed into another
+ * repository has its parent there, not here.
+ *
+ * @param baseRun  the process seam (`gh` runs with `cwd` = `root`)
+ * @param root  the checkout that holds the initiative store and declares the issues repository
  */
-export function lookupInitiativeContext(run: Runner, root: string, issue: number): LookupResult {
-    const slug = resolveRepoSlug(run, root);
-    if (!slug.ok) return { ok: false, problem: "gh-failed", message: slug.error.message };
+export function lookupInitiativeContext(baseRun: Runner, root: string, issue: number): LookupResult {
+    const repos = resolveVerdictRepos(baseRun, root);
+    if (!repos.ok) return { ok: false, problem: "gh-failed", message: repos.error.message };
+    const issuesRepo: string = canonicalIssuesRepo(repos.repos.issuesRepo);
+    const run: Runner = onIssuesHost(baseRun, issuesRepo);
+    const slug: RepoSlug = issuesRepoSlug(issuesRepo);
 
-    const facts = fetchIssueFacts(run, root, slug.slug, issue);
+    const facts = fetchIssueFacts(run, root, slug, issue);
     if (!facts.ok) return { ok: false, problem: "gh-failed", message: facts.error.message };
     if (!facts.facts.exists) return { ok: false, problem: "issue-not-found", message: `#${issue} names no issue.` };
     const parent: number | null = facts.facts.parent;
     if (parent === null) return { ok: true, outcome: { state: "no-initiative", issue } };
 
-    const parentFacts = fetchIssueFacts(run, root, slug.slug, parent);
+    const parentFacts = fetchIssueFacts(run, root, slug, parent);
     if (!parentFacts.ok) return { ok: false, problem: "gh-failed", message: parentFacts.error.message };
     const markers = readKindMarkers(root);
     if (!isDeclaredInitiative(markers, { labels: parentFacts.facts.labels, issueType: parentFacts.facts.issueType })) {
         return { ok: true, outcome: { state: "no-initiative", issue } };
     }
 
-    const initiative = fetchIssue(run, root, parent, "gh-failed", slug.slug);
+    const initiative = fetchIssue(run, root, parent, "gh-failed", slug);
     if (!initiative.ok) return { ok: false, problem: "gh-failed", message: initiative.error.message };
     const body: string = initiative.issue.body;
     const folder: string = initiativeContextDir(parent);

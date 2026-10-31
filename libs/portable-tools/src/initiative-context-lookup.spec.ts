@@ -18,20 +18,28 @@ interface FakeIssue {
     labels?: string[];
 }
 
-function fakeGh(issues: Record<number, FakeIssue>): Runner {
+/**
+ * A canned `gh` that holds `issues` in the repository `home` only. A read that names another
+ * repository finds no issue there, as GitHub would answer it. `calls` records every argument list.
+ */
+function fakeGh(issues: Record<number, FakeIssue>, home: string = "acme/app", calls: string[][] = []): Runner {
     return (cmd: string, args: string[]): RunResult => {
         const ok = (stdout: string): RunResult => ({ status: 0, stdout, stderr: "" });
         if (cmd !== "gh") return { status: 1, stdout: "", stderr: `unexpected ${cmd}` };
+        calls.push(args);
         if (args[0] === "repo") return ok("acme/app\n");
         if (args[0] === "issue" && args[1] === "view") {
             const n = Number(args[2]);
-            const issue = issues[n];
+            const repoAt = args.indexOf("--repo");
+            const repo = repoAt === -1 ? "acme/app" : args[repoAt + 1].split("/").slice(-2).join("/");
+            const issue = repo === home ? issues[n] : undefined;
             if (issue === undefined) return { status: 1, stdout: "", stderr: "not found" };
             return ok(JSON.stringify({ number: n, title: `#${n}`, body: issue.body ?? "", state: "OPEN", stateReason: "", labels: (issue.labels ?? []).map((name) => ({ name })) }));
         }
-        if (args[0] === "api" && args[1] === "graphql") {
-            const n = Number(args[args.indexOf("-F", args.indexOf("-F", args.indexOf("-F") + 1) + 1) + 1].slice("num=".length));
-            const issue = issues[n];
+        if (args[0] === "api" && args.includes("graphql")) {
+            const field = (key: string): string => args.find((a) => a.startsWith(`${key}=`))?.slice(key.length + 1) ?? "";
+            const n = Number(field("num"));
+            const issue = `${field("owner")}/${field("repo")}` === home ? issues[n] : undefined;
             if (issue === undefined) return { status: 1, stdout: "", stderr: "Could not resolve to an issue with the number of " + n };
             return ok(JSON.stringify({
                 data: { repository: { issue: {
@@ -45,6 +53,12 @@ function fakeGh(issues: Record<number, FakeIssue>): Runner {
         }
         return { status: 1, stdout: "", stderr: `unexpected gh ${args.join(" ")}` };
     };
+}
+
+/** Declare the checkout's issues repository, as `.nexus/config/settings.yml` does. */
+function declareEpicRepo(root: string, repo: string): void {
+    fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), `github:\n  epic-repo: ${repo}\n`);
 }
 
 let tmpDirs: string[] = [];
@@ -133,6 +147,27 @@ describe("the context lookup (story #853, D5)", () => {
         expect(text.indexOf("## From initiative #700: its issue body")).toBeLessThan(text.indexOf("## From initiative #700: kept context file context.md"));
         expect(text).toContain("One store per initiative.");
         expect(text).toContain("Split by goal.");
+    });
+
+    it("reads the issues from the configured epic-repo, not the checkout's own repository (G14)", () => {
+        const root = checkout();
+        declareEpicRepo(root, "acme/issues");
+        keep(root, 700, { "context.md": "Split by goal.\n" });
+        const r = lookupInitiativeContext(fakeGh({ 701: { parent: 700 }, 700: { body: FILED_BODY, labels: ["initiative"] } }, "acme/issues"), root, 701);
+
+        expect(r.ok && r.outcome.state).toBe("context");
+    });
+
+    it("reaches the host a configured epic-repo names (G14)", () => {
+        const root = checkout();
+        declareEpicRepo(root, "ghe.example.com/acme/issues");
+        const calls: string[][] = [];
+        const r = lookupInitiativeContext(fakeGh({ 711: { parent: 710 }, 710: { body: "Objective only.\n", labels: ["initiative"] } }, "acme/issues", calls), root, 711);
+
+        expect(r.ok && r.outcome.state).toBe("body-only");
+        const reads = calls.filter((args) => args[0] !== "repo");
+        expect(reads.length).toBeGreaterThan(0);
+        for (const args of reads) expect(args.join(" ")).toContain("ghe.example.com");
     });
 
     it("fails on an issue that does not exist, rather than reading it as unparented", () => {
