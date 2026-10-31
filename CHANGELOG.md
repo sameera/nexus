@@ -5,6 +5,12 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## Unreleased
+
+- **The published package declares `yaml`.** Three library sources under `dist/lib/workspace/` import `yaml`,
+  but the package declared no dependencies, so a consumer that did not install `yaml` itself failed to load
+  them. The package now declares `yaml` as its one runtime dependency. No stage behaviour changes.
+
 ## 0.123.2
 
 - **Both stages read the initiative above an epic from the configured epic-repo.** Stub promotion and the
@@ -64,6 +70,56 @@ behaviour says so.
 - **Analyze, close and distill leave the initiative context store out of every diff they check**, as
   they already leave out the queue and the discovery folder. Close's range checks now leave out every
   pipeline store, the workbook included, from the same one definition.
+
+## 0.122.0
+
+- **`nexus implement-epic` fixes Critical, High and Medium items, and never a Low one.** A fix round is
+  given each item's ID, severity, summary, fix text and location, and reads only what the item cites.
+- **A fix round sorts every item before it edits anything.** When an item's fix would contradict a
+  decision or guarantee of the record, or would be architectural, the round changes nothing and the
+  command stops, naming each such item and its reason. A departure the verdict already marks as
+  superseding a record decision stops the run before any fix round is spent.
+- **The loop stops when a round leaves the same item IDs open**, instead of comparing counts, so a
+  round that fixes one item and creates another still counts as progress until the round cap
+  (`--rounds`, 5 by default).
+
+## 0.121.0
+
+- **`nexus implement-epic <N>` implements an approved epic unattended, in any repository that installs
+  Nexus.** It replaces the two implement-epic shell scripts this repository kept, which are removed.
+  Before any model runs it refuses an unapproved decision record, an epic that needs design and has no
+  record, a dirty working tree, or an existing `nxs/epic-<N>` branch, and it creates that branch itself.
+  The implementation stage can end blocked on a line beginning `Implementation blocked:`; the command
+  then stops before it pushes. It pushes only when the branch has one commit per story, each claiming
+  its story, in blocked-by order. It opens a draft pull request that claims every story, runs
+  `/nxs.analyze --pr` after every round, and reads each round's items from the newest trusted verdict.
+  It marks the pull request ready only when that verdict is for the head and has no open Critical, High
+  or Medium item. Every stop exits non-zero, names the stage and the reason, and rewrites a run status
+  section of the pull request body. The command posts an answer only when a person wrote its source
+  before the run (a decision stub committed before the run), names that source, and stops the run when
+  an answer line appears during an agent stage. Claude stages run in auto permission mode unless
+  `--permission-mode` names another; the command refuses when auto mode is unavailable. `--harness
+  codex` runs every stage under Codex with the same checks. The test command comes from
+  `--test-command`, then the new `test-command` setting.
+- **The product context's anti-goal and the project instructions name the exception** for this one
+  optional command; no pipeline stage writes code.
+
+## 0.120.0
+
+- **`/nxs.code-review`, run ahead of `analyze`, writes its review for the pull request's author.**
+  The review body opens with
+  the verdict, the finding that drives it and which findings fit in this pull request, then gives a
+  table of every finding with its four ratings, the body-only findings in full, and the suggested
+  order. Each inline comment now says what goes wrong in a concrete case and how to fix it, or, for
+  a follow-up item, suggests opening an issue. It never posts a one-click suggestion. Every value on
+  the probability, fix effort and regression risk scales now has a definition, so two runs rate the
+  same finding alike.
+- **`nexus review-post` refuses a closed pull request and no longer counts a dismissed review.** A
+  closed pull request gets no review (`pr-not-open`). A dismissed review of the lead's on the head
+  no longer asks for a second-review confirmation. An inline comment on a file whose diff GitHub
+  left out is named as such, instead of as a line outside the changed lines. When GitHub reports a
+  failed post but a new review by the lead is on the head, it stops with `post-uncertain` and that
+  review's link, and the code-review stage does not post again.
 
 ## 0.119.0
 

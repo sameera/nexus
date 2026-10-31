@@ -28,9 +28,14 @@ interface FakePr {
     files: Record<string, string | null>;
     /** filename → file content at the head commit. */
     contents: Record<string, string>;
-    reviews: Array<{ login: string; commit: string }>;
+    reviews: Array<{ login: string; commit: string; state?: string; url?: string }>;
     login: string;
+    state?: string;
     postFails?: boolean;
+    /** GitHub reports a failure, but the review lands anyway. */
+    postLandsAnyway?: boolean;
+    /** After a failed post, the reviews can no longer be read. */
+    reviewsUnreadableAfterPost?: boolean;
 }
 
 interface Posted {
@@ -50,13 +55,18 @@ function fakeGitHub(pr: FakePr, posted: Posted[]): Runner {
         if (args.includes("POST")) {
             const input: string = args[args.indexOf("--input") + 1];
             posted.push({ args, payload: JSON.parse(fs.readFileSync(input, "utf8")) as Record<string, unknown> });
+            if (pr.postLandsAnyway === true) {
+                pr.reviews.push({ login: pr.login, commit: pr.head, state: "COMMENTED", url: `https://github.com/${REPO}/pull/7#pullrequestreview-100` });
+                return fail("HTTP 500: Internal Server Error");
+            }
             return pr.postFails === true ? fail("HTTP 422: Unprocessable Entity") : ok(JSON.stringify({ html_url: `https://github.com/${REPO}/pull/7#pullrequestreview-99` }));
         }
-        if (target === `repos/${REPO}/pulls/7`) return ok(JSON.stringify({ head: pr.head }));
+        if (target === `repos/${REPO}/pulls/7`) return ok(JSON.stringify({ head: pr.head, state: pr.state ?? "open" }));
         if (target === `repos/${REPO}/pulls/7/files`) {
             return ok(Object.entries(pr.files).map(([filename, patch]) => JSON.stringify({ filename, patch })).join("\n"));
         }
         if (target === `repos/${REPO}/pulls/7/reviews`) {
+            if (pr.reviewsUnreadableAfterPost === true && posted.length > 0) return fail("HTTP 502: Bad Gateway");
             return ok(pr.reviews.map((r) => JSON.stringify(r)).join("\n"));
         }
         const contents = /^repos\/acme\/widgets\/contents\/(.+)\?ref=(\w+)$/.exec(target ?? "");
@@ -190,6 +200,24 @@ describe("nexus review-post posts one review carrying the ranking (G10, G13, G19
         const run = post(baseReview(), pr);
         expect(run.status).toBe(1);
         expect(err.join("\n")).toMatch(/post-failed/);
+        expect(err.join("\n")).not.toMatch(/post-uncertain/);
+        expect(out).toHaveLength(0);
+    });
+
+    it("says it could not check whether a failed post landed anyway", () => {
+        const pr: FakePr = { ...basePr(), postFails: true, reviewsUnreadableAfterPost: true };
+        const run = post(baseReview(), pr);
+        expect(run.status).toBe(1);
+        expect(err.join("\n")).toMatch(/post-failed.*Could not check whether a review landed/);
+    });
+
+    it("names the review that landed when GitHub reports a failure but the review was posted anyway", () => {
+        const pr: FakePr = { ...basePr(), postLandsAnyway: true };
+        const run = post(baseReview(), pr);
+        expect(run.status).toBe(1);
+        const said: string = err.join("\n");
+        expect(said).toMatch(/post-uncertain/);
+        expect(said).toContain(`https://github.com/${REPO}/pull/7#pullrequestreview-100`);
         expect(out).toHaveLength(0);
     });
 });
@@ -233,12 +261,15 @@ describe("nexus review-post checks every inline comment before posting (G11)", (
         expect(run.status, err.join("\n")).toBe(0);
     });
 
-    it("treats a file whose diff GitHub does not show as having no changed lines", () => {
+    it("says GitHub left out a file's diff, rather than calling the line unchanged", () => {
         const review: Review = { ...baseReview(), comments: [{ finding: 1, path: "docs/readme.md", line: 1, expectedText: "x", body: "a" }] };
         review.bodyOnly = [...review.bodyOnly, { finding: 2, path: "src/app.ts", line: 30 }];
         const run = post(review, basePr());
         expect(run.status).toBe(1);
-        expect(err.join("\n")).toMatch(/docs\/readme\.md:1.*outside the changed lines/);
+        expect(run.posted).toHaveLength(0);
+        const listed: string = err.join("\n");
+        expect(listed).toMatch(/docs\/readme\.md:1.*GitHub left out the file's diff/);
+        expect(listed).not.toMatch(/outside the changed lines/);
     });
 
     it("does not check a body-only finding's location", () => {
@@ -265,6 +296,13 @@ describe("nexus review-post asks before a second review by the lead on the same 
         expect(run.posted).toHaveLength(1);
     });
 
+    it("does not count a review of the lead's that was dismissed", () => {
+        const pr: FakePr = { ...basePr(), reviews: [{ login: "lead", commit: HEAD, state: "DISMISSED" }] };
+        const run = post(baseReview(), pr);
+        expect(run.status, err.join("\n")).toBe(0);
+        expect(run.posted).toHaveLength(1);
+    });
+
     it("does not count another person's review, or the lead's review of an earlier commit", () => {
         const pr: FakePr = { ...basePr(), reviews: [{ login: "someone", commit: HEAD }, { login: "lead", commit: "b".repeat(40) }] };
         const run = post(baseReview(), pr);
@@ -281,6 +319,15 @@ describe("nexus review-post is deterministic (G22)", () => {
         expect(second.status).toBe(first.status);
         expect(out).toEqual(firstOut);
         expect(second.posted[0].payload).toEqual(first.posted[0].payload);
+    });
+});
+
+describe("nexus review-post posts only on an open pull request", () => {
+    it("posts nothing on a closed pull request, and names its state", () => {
+        const run = post(baseReview(), { ...basePr(), state: "closed" });
+        expect(run.status).toBe(1);
+        expect(run.posted).toHaveLength(0);
+        expect(err.join("\n")).toMatch(/pr-not-open.*closed/);
     });
 });
 

@@ -123,6 +123,23 @@ describe("/nxs.code-review rates, groups and numbers findings by fixed rules (D2
         expect(scales).toMatch(/Regression risk.*none.*high/s);
     });
 
+    it("defines every value on the probability, fix effort and regression risk scales, so two runs rate alike (G5, G17)", () => {
+        const axis = (from: string, to: string | null): string => {
+            const start: number = scales.indexOf(`**${from}**`);
+            return to === null ? scales.slice(start) : scales.slice(start, scales.indexOf(`**${to}**`, start));
+        };
+        const defined: Array<[string, string, string[]]> = [
+            [axis("Probability", "Severity"), "Probability", ["Certain", "High", "Medium", "Low"]],
+            [axis("Fix effort", "Regression risk"), "Fix effort", ["Very low", "Low", "Medium", "High"]],
+            [axis("Regression risk", null), "Regression risk", ["None", "Very low", "Low", "Medium", "High"]],
+        ];
+        for (const [text, name, values] of defined) {
+            for (const value of values) {
+                expect(text, `${name} defines ${value}`).toMatch(new RegExp(`\\*\\*${value}\\*\\*: \\S`));
+            }
+        }
+    });
+
     it("takes Low and Negligible severity from the lead's personal skill, as D2's base (G5)", () => {
         expect(scales).toMatch(/\*\*Low\*\*: a loud false failure, or local-only confusion/);
         expect(scales).toMatch(/\*\*Negligible\*\*: performance or tidiness only/);
