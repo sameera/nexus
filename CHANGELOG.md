@@ -14,8 +14,9 @@ behaviour says so.
   achievable or not, every decision and guarantee as kept or violated, every conflict between the
   record and the code, and every choice the record left open. The lead sees the page and the verdict
   before anything is written. On approval the page is published to the team's asset store through
-  `nexus assets publish` and referenced from the record: in the record body while the record is open,
-  as a dated comment once it is approved, so an approved body and its stamped hash never change. It
+  `nexus assets publish` and referenced from the record by a dated comment, whether the record is open
+  or approved, so the record body and its hash never change. If the record is withdrawn, reopened or
+  edited while the lead is at the preview, the run stops before publishing. It
   edits no epic, no story and no decision; a choice the record left open is listed for the lead to
   settle with `decision-record --revise`.
 - **The published package declares `yaml`.** Three library sources under `dist/lib/workspace/` import `yaml`,

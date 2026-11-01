@@ -1,6 +1,6 @@
 ---
 name: nxs.hld
-description: Render one planned epic's approved design as a high-level design document (HLD), a self-contained HTML page with inline SVG architecture, flow, data and delivery diagrams, and check that design against the epic. Reads the epic, its stories and its decision record, derives the design from the record's decisions and guarantees, and reports every acceptance criterion as achievable or not, every decision and guarantee as kept or violated, every conflict between the record and the code, and every choice the record left open. Shows the page to the lead before any write, then publishes it to the team's asset store through `nexus assets publish` and references it from the decision record, in the record body while the record is open and as a dated comment once the record is approved. Never edits a closed record's body, never edits the epic or a story, never writes a decision of its own into the record. Invoke as `/nxs.hld <epic-issue-number>`.
+description: Render one planned epic's approved design as a high-level design document (HLD), a self-contained HTML page with inline SVG architecture, flow, data and delivery diagrams, and check that design against the epic. Reads the epic, its stories and its decision record, derives the design from the record's decisions and guarantees, and reports every acceptance criterion as achievable or not, every decision and guarantee as kept or violated, every conflict between the record and the code, and every choice the record left open. Shows the page to the lead before any write, then publishes it to the team's asset store through `nexus assets publish` and references it from the decision record with a dated comment, whether the record is open or approved, so the hashed record body never changes. Never edits the record's body, never edits the epic or a story, never writes a decision of its own into the record. Invoke as `/nxs.hld <epic-issue-number>`.
 ---
 
 # nxs.hld
@@ -39,7 +39,7 @@ for the epic issue number; the resolver takes a bare number only.
 
 A run reads GitHub and the workspace's checkouts. Its working files go under the gitignored
 `.nexus/tmp/`: the materialized `epic.md` and the HTML page are written there before the preview
-gate in Phase 4, and the reference block and the fetched record body after it. Outside `.nexus/tmp/`
+gate in Phase 4, and the reference block after it. Outside `.nexus/tmp/`
 it writes exactly two things, both after the preview gate: one file in the asset store, and one
 reference in the decision record. It edits no epic, no story and no code. It never
 reopens or closes an issue, never changes a label, and never writes a decision into the record.
@@ -81,11 +81,11 @@ reopens or closes an issue, never changes a label, and never writes a decision i
     nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
-    Keep `digest` as `RECORD_DIGEST` and `approved` as `RECORD_APPROVED`. A record closed as
-    *not planned* is withdrawn, not approved: say so and stop, because a withdrawn design is not
-    one to build from. This state is what the page is derived from. It does not choose the write
-    in Phase 5: the record can be approved while the lead is at the preview gate, so Phase 5 reads
-    the state again.
+    Keep `state` as `RECORD_STATE`, `digest` as `RECORD_DIGEST` and `approved` as
+    `RECORD_APPROVED`. A record closed as *not planned* is withdrawn, not approved: say so and stop,
+    because a withdrawn design is not one to build from. This state and digest are what the page is
+    derived from. The record can change while the lead is at the preview gate, so Phase 5 reads both
+    again before anything is published.
 
 5. **Find the code.** Run `nexus workspace status`. In a workspace, the members' checkouts hold the
    code; in single-repo mode, the current checkout does. For each checkout the HLD reads, record
@@ -99,8 +99,8 @@ Read all of them before designing. The order says which wins when two disagree.
 1. **The decision record**, the whole body as fetched from GitHub:
    `gh issue view <RECORD> $REPO_ARG --json body --jq .body`. Its decisions (D-IDs),
    guarantees (G-IDs), risks (R-IDs), mechanism and approval brief are binding. Read its comments
-   too, for a revision trail (a `## Record revised` comment) and for an earlier HLD reference, so
-   the report can say this run supersedes it.
+   too, for a revision trail (a `## Record revised` comment) and for an earlier HLD reference (a
+   comment whose first line is `<!-- nxs.hld -->`), so the report can say this run supersedes it.
 2. **The stories**, as `epic.md` carries them now. The resolver materializes the live issue text,
    so an acceptance criterion the record amended is read in its current wording, not the wording
    the record quoted.
@@ -340,7 +340,31 @@ the page as a conforming design.
 Load the `nxs-assets` skill. The store, the size cap and the renderer are team settings; this
 skill reads them and never falls back to another repository.
 
-1. **Publish.** `<feature-slug>` is the last segment of the epic's `feature_path` when the
+1. **Read the record again.** The lead may have spent any length of time at the preview gate, and
+   the record may have changed in that time. Before anything is published, read it again through
+   the digest program:
+
+    ```bash
+    nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+    Compare its `state`, `stateReason` and `digest` with what Phase 0 kept. Check these cases in
+    order; the first that matches decides:
+
+    - **Withdrawn** — the record is now closed as *not planned*. Say so and stop: a withdrawn design
+      is not one to reference. Nothing is published and nothing is written to the record.
+    - **Reopened** — `RECORD_STATE` was `closed` and the record is now `open`. A
+      `/nxs.decision-record --revise` is under way. Say so and stop; run `/nxs.hld` again once the
+      revised record is approved. Nothing is published.
+    - **Changed** — `digest` differs from `RECORD_DIGEST`. The record body changed during the run,
+      so the page was derived from a body that is no longer the record's. Say so and stop; run
+      `/nxs.hld` again to derive the page from the current body. Nothing is published.
+    - **Approved during the run** — `RECORD_STATE` was `open` and the record is now closed as
+      *completed*, with the same digest. The page still matches the body, so tell the lead the
+      record was approved during the run, and go on.
+    - Otherwise the record is as Phase 0 read it. Go on.
+
+2. **Publish.** `<feature-slug>` is the last segment of the epic's `feature_path` when the
    materialized frontmatter carries it, else the epic's `slug`, else `epic-<N>`; say which one was
    used.
 
@@ -355,76 +379,47 @@ skill reads them and never falls back to another repository.
     when it is the plain link. A non-zero exit stops the run with its diagnostic; nothing is
     written to the record.
 
-2. **Write the reference block** to `<scratch>/hld-reference.md`, where `<scratch>` is
-   `<targetRoot>/.nexus/tmp/hld/`. It is short: the page is the document, and the record body
-   stays decisions-and-rationale prose. The two HTML comment markers are part of the block: they
-   are how a later run finds this skill's section and knows where it ends.
+3. **Write the reference block** to `<scratch>/hld-reference.md`, where `<scratch>` is
+   `<targetRoot>/.nexus/tmp/hld/`. It is short: the page is the document. The first line marks the
+   comment as this skill's, so a later run can find it and say it supersedes it.
 
     ```markdown
-    <!-- nxs.hld:start -->
+    <!-- nxs.hld -->
     ## High-level design
 
-    Rendered <YYYY-MM-DD> from this record, against <checkout>@<commit>.
+    Rendered <YYYY-MM-DD> from this record at digest `<RECORD_DIGEST>`, against <checkout>@<commit>.
 
     - Design: <markdown reference from the publish output>
     - Verdict: <the one-line verdict from Phase 4, with the violation count when it is not zero>
     - Choices the record left open: <count>, listed in the page's section 13.
-    <!-- nxs.hld:end -->
     ```
 
-    On the closed path only, write `from this record at digest `<RECORD_DIGEST>`` in the first line:
-    a comment leaves the body, and so the digest, unchanged. On the open path state no digest. The
-    block goes into the body the digest is taken over, so any digest it stated would be wrong as
-    soon as it was written.
+    The digest is the record's as Phase 0 read it and step 1 confirmed it. The comment does not
+    change the body, so the digest stays true.
 
     Every issue number in it follows the `nxs-issue-reference` rule for a GitHub surface in
     `ISSUES_REPO`: bare for the epic, the record and the stories, qualified only for a number in
     another repository.
 
-3. **Reference it from the record.** Read the record's state again, now, because the lead may
-   have spent any length of time at the preview gate and the record may have been approved in
-   that time:
+4. **Post it as a comment on the record**, whether the record is open or closed:
 
     ```bash
-    nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    gh issue comment <RECORD> $REPO_ARG --body-file <scratch>/hld-reference.md
     ```
 
-    Its `state` selects the one write, not the state read in Phase 0. When the two differ, tell
-    the lead the record was approved during the run, and take the closed path.
+    The record body is the text its digest is taken over, and it holds no machine comment and
+    nothing that churns for a non-design reason, such as a run date. So this skill never edits it,
+    even while the record is open. The comment sits on the record's own issue, where the approver
+    sees it beside the record when they close it. An earlier HLD comment is left as it is: an asset
+    reference is frozen once filed, and the newer comment supersedes it.
 
-    - **Record open** (filed, not yet approved): the body is not frozen. Fetch the current body to
-      `<scratch>/record-body.md`. If it holds a `<!-- nxs.hld:start -->` line and a later
-      `<!-- nxs.hld:end -->` line, replace those two lines and everything between them with the
-      contents of `<scratch>/hld-reference.md`. Otherwise append `<scratch>/hld-reference.md` to
-      the end of the body, after one blank line. Then edit the body:
+    Do not suggest `/nxs.decision-record --revise` to move the link into the body: a revision
+    rebuilds the body, reopens the record and blocks the epic until it is approved again, and it
+    exists for a change to the design, not for a link.
 
-        ```bash
-        gh issue view <RECORD> $REPO_ARG --json body --jq .body > <scratch>/record-body.md
-        # replace the marked section, or append the block, as above
-        gh issue edit <RECORD> $REPO_ARG --body-file <scratch>/record-body.md
-        ```
-
-      Touch nothing else in the body. A `## High-level design` heading without the markers is not
-      this skill's, even when its title matches: it may be the author's own, for example from a
-      design imported with `/nxs.decision-record --from`. Leave it as it is. The approver then
-      sees the design beside its reasons when they close the record.
-
-    - **Record closed** (approved): the body is frozen, because the hash stamped from it is what
-      every later stage verifies. Do not edit it and do not reopen it. Post the block as a comment:
-
-        ```bash
-        gh issue comment <RECORD> $REPO_ARG --body-file <scratch>/hld-reference.md
-        ```
-
-      The comment is the reference. It is enough for every reader of the record and changes no
-      stamped hash. Do not suggest `/nxs.decision-record --revise` to move the link into the body:
-      a revision rebuilds the body, reopens the record and blocks the epic until it is approved
-      again, and it exists for a change to the design, not for a link.
-
-4. **Confirm.** For an open record, recompute the digest through the digest program and report it
-   as the record's current identity. For a closed record, recompute it and confirm it still equals
-   `RECORD_DIGEST`; a difference means something other than this run changed the body, and the
-   report says so.
+5. **Confirm.** Recompute the digest through the digest program and confirm it still equals
+   `RECORD_DIGEST`. A difference means something other than this run changed the body after
+   step 1, and the report says so.
 
 # Phase 6 — Report
 
@@ -436,8 +431,7 @@ In the run-discipline layout:
   name the next step: approve the record by closing it, or implement against it and run
   `/nxs.analyze`.
 - **Changed:** the page's local path, the store path and commit, the reference form filed
-  (renderer or plain link), and where the reference went (the record body, or a comment on the
-  record). Say what was left unwritten: the epic, the stories, the record's decisions.
+  (renderer or plain link), and the link to the comment on the record. Say what was left unwritten: the epic, the stories, the record's decisions.
 - **Found:** the verdict line, the counts (criteria, decisions, guarantees, conflicts, violations,
   open choices), the earlier HLD reference this run supersedes if any, and the record's digest the
   page was derived from.
@@ -464,10 +458,9 @@ In the run-discipline layout:
 - **Publishing goes only through `nexus assets publish`**, into the declared store, under the
   epic's feature. No store declared means no publish and no reference: the page stays local and
   the report says so.
-- **A closed record's body is never edited and never reopened by this skill.** The reference goes
-  in a comment, and the revision path belongs to `/nxs.decision-record --revise`. An open record's
-  body gets exactly one section between the `nxs.hld` markers, replaced on a re-run; nothing
-  outside the markers changes.
+- **The record's body is never edited and the record is never reopened or closed by this skill.**
+  The reference goes in a comment, open or closed, and the revision path belongs to
+  `/nxs.decision-record --revise`.
 - **The epic and its stories are never edited.** A conflict or a violation that needs a story
   amendment is reported for the lead to apply.
 - **Never link the materialized `epic.md`** or any `.nexus/tmp/` path from the page, the record

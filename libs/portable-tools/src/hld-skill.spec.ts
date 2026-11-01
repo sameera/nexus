@@ -5,8 +5,8 @@
  * The page derives from the record and never replaces it: a choice the record left open is listed
  * for the lead, a decision the design cannot keep is a violation written in full. The page is one
  * self-contained HTML file with inline SVG diagrams, shown to the lead before any write. It is
- * published only through `nexus assets publish`, and referenced from the record body while the
- * record is open, or as a comment once the record is approved, whose body is frozen.
+ * published only through `nexus assets publish`, and referenced from the record by a comment, in
+ * either state, so the hashed record body never changes.
  */
 
 import { spawnSync } from "node:child_process";
@@ -257,42 +257,49 @@ describe("/nxs.hld publishes only through nexus assets and references the record
         expect(publish).toMatch(/pins the commit the publish created/);
     });
 
-    it("reads the record's state again after the gate and branches on it", () => {
+    it("never edits the record body, in either state", () => {
+        expect(SKILL).not.toMatch(/gh issue edit/);
+        expect(SKILL).not.toMatch(/nxs\.hld:start|nxs\.hld:end/);
+        expect(publish).toMatch(/gh issue comment <RECORD> \$REPO_ARG --body-file <scratch>\/hld-reference\.md/);
+        expect(publish).toMatch(/whether the record is open or closed/);
+    });
+
+    it("reads the record again after the gate, before anything is published", () => {
         const reread: number = publish.indexOf("nexus record-digest");
         expect(reread).toBeGreaterThan(-1);
-        expect(reread).toBeLessThan(publish.indexOf("**Record open**"));
-        expect(publish).toMatch(/not the state read in Phase 0/);
+        expect(reread).toBeLessThan(publish.indexOf("nexus assets publish"));
     });
 
-    it("replaces only the section between its own markers in an open record's body", () => {
-        expect(publish).toMatch(/\*\*Record open\*\*/);
-        expect(publish).toContain("<!-- nxs.hld:start -->");
-        expect(publish).toContain("<!-- nxs.hld:end -->");
-        expect(publish).toMatch(/A `## High-level design` heading without the markers is not this skill's/);
-        expect(publish).toMatch(/gh issue edit <RECORD> \$REPO_ARG --body-file/);
+    it("stops before publishing when the record was withdrawn during the run", () => {
+        expect(publish).toMatch(/\*\*Withdrawn\*\*.{0,300}stop.{0,200}Nothing is published/);
     });
 
-    it("comments on a closed record and never edits or reopens it", () => {
-        expect(publish).toMatch(/\*\*Record closed\*\*/);
-        expect(publish).toMatch(/Do not edit it and do not reopen it/);
-        expect(publish).toMatch(/gh issue comment <RECORD> \$REPO_ARG --body-file/);
-        expect(publish).not.toMatch(/--revise <N> --assets <page>/);
+    it("stops before publishing when the record was reopened for a revision during the run", () => {
+        expect(publish).toMatch(/\*\*Reopened\*\*.{0,300}stop/);
+        expect(publish).toMatch(/\/nxs\.decision-record --revise/);
     });
 
-    it("states a digest only where the reference cannot change it", () => {
-        const block: string = publish.slice(publish.indexOf("<!-- nxs.hld:start -->"), publish.indexOf("<!-- nxs.hld:end -->"));
-        expect(block).not.toMatch(/<RECORD_DIGEST>/);
-        expect(publish).toMatch(/On the closed path only.{0,200}`<RECORD_DIGEST>`/);
+    it("stops before publishing when the record body changed during the run", () => {
+        expect(publish).toMatch(/\*\*Changed\*\*.{0,300}`digest` differs from `RECORD_DIGEST`.{0,300}stop/);
     });
 
-    it("confirms a closed record's digest is unchanged after the comment", () => {
+    it("tells the lead when the record was approved during the run, and goes on", () => {
+        expect(publish).toMatch(/\*\*Approved during the run\*\*.{0,300}tell the lead/);
+    });
+
+    it("states the digest the page was derived from in the reference", () => {
+        const block: string = publish.slice(publish.indexOf("## High-level design"), publish.indexOf("- Choices the record left open"));
+        expect(block).toMatch(/at digest `<RECORD_DIGEST>`/);
+    });
+
+    it("confirms the record's digest is unchanged after the comment", () => {
         expect(publish).toMatch(/confirm it still equals `RECORD_DIGEST`/);
     });
 
     it("states in the constraints that the epic and the stories are never edited", () => {
         const constraints: string = section("# Constraints");
         expect(constraints).toMatch(/The epic and its stories are never edited/);
-        expect(constraints).toMatch(/A closed record's body is never edited and never reopened by this skill/);
+        expect(constraints).toMatch(/The record's body is never edited and the record is never reopened or closed by this skill/);
         expect(constraints).toMatch(/Never link the materialized `epic\.md`/);
     });
 });
