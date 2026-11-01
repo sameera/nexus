@@ -5,8 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## Unreleased
+## 0.124.0
 
+- **New `/nxs.hld <epic>` renders an epic's design as a high-level design page and puts it on the
+  decision record.** Run after `decision-record` has filed the record, it reads the epic, its stories
+  and the record, draws the architecture, each mechanism's flow, the data and the delivery order as
+  inline SVG in one self-contained HTML page, and checks the design: every acceptance criterion as
+  achievable or not, every decision and guarantee as kept or violated, every conflict between the
+  record and the code, and every choice the record left open. The lead sees the page and the verdict
+  before anything is written. On approval the page is published to the team's asset store through
+  `nexus assets publish` and referenced from the record: in the record body while the record is open,
+  as a dated comment once it is approved, so an approved body and its stamped hash never change. It
+  edits no epic, no story and no decision; a choice the record left open is listed for the lead to
+  settle with `decision-record --revise`.
 - **The published package declares `yaml`.** Three library sources under `dist/lib/workspace/` import `yaml`,
   but the package declared no dependencies, so a consumer that did not install `yaml` itself failed to load
   them. The package now declares `yaml` as its one runtime dependency. No stage behaviour changes.
