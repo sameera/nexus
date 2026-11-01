@@ -48,6 +48,16 @@ describe("/nxs.hld ships as a Nexus skill under its own name", () => {
     });
 });
 
+describe("/nxs.hld's scope matches when each write happens", () => {
+    const scope: string = section("# Scope");
+
+    it("writes its scratch files under .nexus/tmp before the gate, and everything else after it", () => {
+        expect(scope).toMatch(/under the gitignored `\.nexus\/tmp\/`.{0,200}before the preview gate/);
+        expect(scope).toMatch(/Outside `\.nexus\/tmp\/` it writes exactly two things, both after the preview gate/);
+        expect(scope).not.toMatch(/all after the preview gate/);
+    });
+});
+
 describe("/nxs.hld resolves the epic through the shared resolver and refuses without a record", () => {
     const resolve: string = section("# Phase 0 — Resolve the epic, the record and the repositories");
 
@@ -68,6 +78,21 @@ describe("/nxs.hld resolves the epic through the shared resolver and refuses wit
     it("resolves the issues repository before it reads the record from it", () => {
         expect(resolve.indexOf("ISSUES_REPO=")).toBeGreaterThan(-1);
         expect(resolve.indexOf("ISSUES_REPO=")).toBeLessThan(resolve.indexOf("nexus record-digest"));
+    });
+
+    it("names every gh call's repository through a guard that stays empty for the current repository", () => {
+        expect(resolve).toMatch(/REPO_ARG=""; \[ -n "\$ISSUES_REPO" \] && REPO_ARG="-R \$ISSUES_REPO"/);
+        expect(SKILL).not.toMatch(/-R <ISSUES_REPO>/);
+        const ghCalls: string[] = SKILL.split("\n").filter((line) => /\bgh (issue|api|label) /.test(line));
+        expect(ghCalls.length).toBeGreaterThan(0);
+        for (const call of ghCalls) {
+            expect(call, call).toMatch(/\$REPO_ARG/);
+        }
+    });
+
+    it("reads from the resolver only the fields it prints, and resolves no repository it never uses", () => {
+        expect(resolve).not.toMatch(/issuesRepo/);
+        expect(resolve).not.toMatch(/STORY_REPO/);
     });
 
     it("treats a record closed as not planned as withdrawn", () => {
@@ -174,12 +199,20 @@ describe("/nxs.hld's external-dependency check finds every remote load and nothi
         ["a CSS url()", "body { background: url(https://example.com/a.png); }"],
         ["a CSS @import", '@import "https://example.com/a.css";'],
         ["a remote SVG image", '<image href="https://example.com/a.png" />'],
+        ["a remote SVG sprite", '<use href="https://example.com/s.svg#icon" />'],
+        ["a module imported from a CDN", '<script type="module">import * as d3 from "https://esm.sh/d3";</script>'],
+        ["a module imported for its side effects", "<script type=\"module\">import 'https://esm.sh/x';</script>"],
+        ["a remote video poster", '<video poster="https://example.com/p.png"></video>'],
+        ["a remote later srcset entry", '<img srcset="a.png 1x, https://example.com/b.png 2x">'],
+        ["a remote src with spaces around the equals sign", '<img src = "https://example.com/a.png">'],
     ])("flags %s", (_kind, html) => {
         expect(flags(html)).toBe(true);
     });
 
     it.each([
         ["a hyperlink to an issue", '<a href="https://github.com/acme/app/issues/12">acme/app#12</a>'],
+        ["an issue link inside an SVG diagram", '<a xlink:href="https://github.com/acme/app/issues/12"><text>#12</text></a>'],
+        ["a local srcset", '<img srcset="data:image/png;base64,AAAA 1x, data:image/png;base64,BBBB 2x">'],
         ["the SVG namespace", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>'],
         ["a data URI", '<img src="data:image/png;base64,AAAA">'],
         ["an inline script and style", "<script>play()</script><style>:root { --a: #fff; }</style>"],
@@ -236,14 +269,20 @@ describe("/nxs.hld publishes only through nexus assets and references the record
         expect(publish).toContain("<!-- nxs.hld:start -->");
         expect(publish).toContain("<!-- nxs.hld:end -->");
         expect(publish).toMatch(/A `## High-level design` heading without the markers is not this skill's/);
-        expect(publish).toMatch(/gh issue edit <RECORD> -R <ISSUES_REPO> --body-file/);
+        expect(publish).toMatch(/gh issue edit <RECORD> \$REPO_ARG --body-file/);
     });
 
     it("comments on a closed record and never edits or reopens it", () => {
         expect(publish).toMatch(/\*\*Record closed\*\*/);
         expect(publish).toMatch(/Do not edit it and do not reopen it/);
-        expect(publish).toMatch(/gh issue comment <RECORD> -R <ISSUES_REPO> --body-file/);
+        expect(publish).toMatch(/gh issue comment <RECORD> \$REPO_ARG --body-file/);
         expect(publish).not.toMatch(/--revise <N> --assets <page>/);
+    });
+
+    it("states a digest only where the reference cannot change it", () => {
+        const block: string = publish.slice(publish.indexOf("<!-- nxs.hld:start -->"), publish.indexOf("<!-- nxs.hld:end -->"));
+        expect(block).not.toMatch(/<RECORD_DIGEST>/);
+        expect(publish).toMatch(/On the closed path only.{0,200}`<RECORD_DIGEST>`/);
     });
 
     it("confirms a closed record's digest is unchanged after the comment", () => {

@@ -37,9 +37,11 @@ for the epic issue number; the resolver takes a bare number only.
 
 # Scope
 
-A run reads GitHub and the workspace's checkouts. It writes exactly three things, all after the
-preview gate in Phase 4: one HTML file under the gitignored `.nexus/tmp/`, one file in the asset
-store, and one reference in the decision record. It edits no epic, no story and no code. It never
+A run reads GitHub and the workspace's checkouts. Its working files go under the gitignored
+`.nexus/tmp/`: the materialized `epic.md` and the HTML page are written there before the preview
+gate in Phase 4, and the reference block and the fetched record body after it. Outside `.nexus/tmp/`
+it writes exactly two things, both after the preview gate: one file in the asset store, and one
+reference in the decision record. It edits no epic, no story and no code. It never
 reopens or closes an issue, never changes a label, and never writes a decision into the record.
 
 # Phase 0 — Resolve the epic, the record and the repositories
@@ -51,8 +53,7 @@ reopens or closes an issue, never changes a label, and never writes a decision i
     ```
 
     On a non-zero exit, report the diagnostic verbatim and stop. On success keep `outPath` (the
-    materialized `epic.md`), `targetRoot`, `issuesRepo` and `record` (`{ number, state }` or
-    `null`).
+    materialized `epic.md`), `targetRoot` and `record` (`{ number, state }` or `null`).
 
 2. **Refuse without a record.** When `record` is `null`, stop: *epic #N has no decision record;
    run `/nxs.decision-record N` first. An HLD derives from a record, so there is nothing to derive
@@ -63,12 +64,14 @@ reopens or closes an issue, never changes a label, and never writes a decision i
 
     ```bash
     ISSUES_REPO="$(nexus config resolve epic-repo --root "<targetRoot>")"
-    STORY_REPO="$(nexus config resolve story-repo --root "<targetRoot>")"
+    REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
     nexus workspace docs-root
     ```
 
-    An empty `ISSUES_REPO` means the current repository. Confirm `nexus` is on the path before
-    trusting an empty value: an unreachable executable yields the same empty string.
+    An empty `ISSUES_REPO` means the current repository, and `REPO_ARG` then stays empty: `gh`
+    refuses `-R ""`. **Every `gh` call below carries `$REPO_ARG`**, and it is the only form used.
+    Confirm `nexus` is on the path before trusting an empty value: an unreachable executable yields
+    the same empty string.
 
 4. **Note the record's state.** `open` means the record is filed but not yet approved; its body
    may still change. `closed` means approved; its body is frozen. Read the record's approval and
@@ -94,7 +97,7 @@ reopens or closes an issue, never changes a label, and never writes a decision i
 Read all of them before designing. The order says which wins when two disagree.
 
 1. **The decision record**, the whole body as fetched from GitHub:
-   `gh issue view <RECORD> -R <ISSUES_REPO> --json body --jq .body`. Its decisions (D-IDs),
+   `gh issue view <RECORD> $REPO_ARG --json body --jq .body`. Its decisions (D-IDs),
    guarantees (G-IDs), risks (R-IDs), mechanism and approval brief are binding. Read its comments
    too, for a revision trail (a `## Record revised` comment) and for an earlier HLD reference, so
    the report can say this run supersedes it.
@@ -278,16 +281,18 @@ diagram must read fully with the animation never played, so a printed or still c
 ## Checks before the preview
 
 ```bash
-grep -niE "<script[^>]*[[:space:]]src=|<(link|image)[^>]*[[:space:]](xlink:)?href=[\"']?(https?:)?//|[[:space:]](src|srcset|data|xlink:href)=[\"']?(https?:)?//|url\([[:space:]]*[\"']?(https?:)?//|@import" <page>   # must find nothing
+grep -niE "<script[^>]*[[:space:]]src[[:space:]]*=|<(link|image|use|feimage)[^>]*[[:space:]](xlink:)?href[[:space:]]*=[[:space:]]*[\"']?(https?:)?//|[[:space:]](src|srcset|data|poster)[[:space:]]*=[[:space:]]*[\"']?(https?:)?//|srcset[[:space:]]*=[[:space:]]*[\"'][^\"']*,[[:space:]]*(https?:)?//|(^|[^[:alnum:]_.@-])import[[:space:](][^;\"']*[\"'](https?:)?//|url\([[:space:]]*[\"']?(https?:)?//|@import" <page>   # must find nothing
 wc -c < <page>
 nexus config resolve asset-size-cap --root "<targetRoot>"
 nexus assets check --asset <page> --root "<targetRoot>"
 ```
 
-The first finds any external dependency: a script with a `src`, a stylesheet or SVG image linked
-from a host, a `src`, `srcset` or `data` attribute on any host (`http:`, `https:` or
-protocol-relative `//`), a CSS `url(...)` on a host, and any `@import`. An `<a href>` to an issue
-is a link, not a load, and is not flagged. Fix every hit before going on, and keep each tag on one
+The first finds any external dependency: a script with a `src`; a stylesheet, SVG image, SVG
+`<use>` or `<feImage>` linked from a host; a `src`, `srcset` (any of its entries), `data` or
+`poster` attribute on any host (`http:`, `https:` or protocol-relative `//`); a module `import` or
+`import()` from a host; a CSS `url(...)` on a host; and any `@import`. Spaces around `=` do not
+hide a load. An `<a href>` or `<a xlink:href>` to an issue, in HTML or inside an SVG diagram, is a
+link, not a load, and is not flagged. Fix every hit before going on, and keep each tag on one
 line so the check can see it.
 
 The second and third compare the page's size in bytes with the team's `asset-size-cap`. A page
@@ -359,13 +364,18 @@ skill reads them and never falls back to another repository.
     <!-- nxs.hld:start -->
     ## High-level design
 
-    Rendered <YYYY-MM-DD> from this record at digest `<RECORD_DIGEST>`, against <checkout>@<commit>.
+    Rendered <YYYY-MM-DD> from this record, against <checkout>@<commit>.
 
     - Design: <markdown reference from the publish output>
     - Verdict: <the one-line verdict from Phase 4, with the violation count when it is not zero>
     - Choices the record left open: <count>, listed in the page's section 13.
     <!-- nxs.hld:end -->
     ```
+
+    On the closed path only, write `from this record at digest `<RECORD_DIGEST>`` in the first line:
+    a comment leaves the body, and so the digest, unchanged. On the open path state no digest. The
+    block goes into the body the digest is taken over, so any digest it stated would be wrong as
+    soon as it was written.
 
     Every issue number in it follows the `nxs-issue-reference` rule for a GitHub surface in
     `ISSUES_REPO`: bare for the epic, the record and the stories, qualified only for a number in
@@ -389,9 +399,9 @@ skill reads them and never falls back to another repository.
       the end of the body, after one blank line. Then edit the body:
 
         ```bash
-        gh issue view <RECORD> -R <ISSUES_REPO> --json body --jq .body > <scratch>/record-body.md
+        gh issue view <RECORD> $REPO_ARG --json body --jq .body > <scratch>/record-body.md
         # replace the marked section, or append the block, as above
-        gh issue edit <RECORD> -R <ISSUES_REPO> --body-file <scratch>/record-body.md
+        gh issue edit <RECORD> $REPO_ARG --body-file <scratch>/record-body.md
         ```
 
       Touch nothing else in the body. A `## High-level design` heading without the markers is not
@@ -403,7 +413,7 @@ skill reads them and never falls back to another repository.
       every later stage verifies. Do not edit it and do not reopen it. Post the block as a comment:
 
         ```bash
-        gh issue comment <RECORD> -R <ISSUES_REPO> --body-file <scratch>/hld-reference.md
+        gh issue comment <RECORD> $REPO_ARG --body-file <scratch>/hld-reference.md
         ```
 
       The comment is the reference. It is enough for every reader of the record and changes no
@@ -449,7 +459,7 @@ In the run-discipline layout:
   the store with no network and no build step. No Mermaid, no diagram library, no CDN.
 - **HLD altitude.** No SQL, no line numbers, no schemas, no test catalogue. An engineer's low-level
   design is theirs to write and never enters Nexus through this skill.
-- **Nothing is written before the preview gate**, except the page under the gitignored
+- **Nothing is written before the preview gate**, except the working files under the gitignored
   `.nexus/tmp/`. The lead sees the page and the verdict before the store or the record changes.
 - **Publishing goes only through `nexus assets publish`**, into the declared store, under the
   epic's feature. No store declared means no publish and no reference: the page stays local and
