@@ -9,7 +9,9 @@
  * record is open, or as a comment once the record is approved, whose body is frozen.
  */
 
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { authoredComponentRoot } from "./vendor-components.js";
@@ -61,6 +63,11 @@ describe("/nxs.hld resolves the epic through the shared resolver and refuses wit
     it("reads the record's digest through the one digest program", () => {
         expect(resolve).toMatch(/nexus record-digest --issue <RECORD>/);
         expect(resolve).toMatch(/never a shell hash/);
+    });
+
+    it("resolves the issues repository before it reads the record from it", () => {
+        expect(resolve.indexOf("ISSUES_REPO=")).toBeGreaterThan(-1);
+        expect(resolve.indexOf("ISSUES_REPO=")).toBeLessThan(resolve.indexOf("nexus record-digest"));
     });
 
     it("treats a record closed as not planned as withdrawn", () => {
@@ -137,8 +144,51 @@ describe("/nxs.hld renders one self-contained page with inline SVG diagrams", ()
         expect(render).toMatch(/prefers-reduced-motion: reduce/);
     });
 
-    it("checks the page for external dependencies and against the size cap before the preview", () => {
-        expect(render).toMatch(/nexus assets check --asset <page>/);
+    it("checks the store at the epic's target root and the size cap itself, before the preview", () => {
+        expect(render).toMatch(/nexus assets check --asset <page> --root "<targetRoot>"/);
+        expect(render).toMatch(/nexus config resolve asset-size-cap --root "<targetRoot>"/);
+    });
+});
+
+describe("/nxs.hld's external-dependency check finds every remote load and nothing else", () => {
+    const render: string = section("# Phase 3 — Render the page");
+    const command: string | undefined = SKILL.split("\n").find((line) => /^grep .*<page>/.test(line));
+
+    /** Runs the skill's own grep on a page; true when it reports something. */
+    function flags(html: string): boolean {
+        expect(command, "the external-dependency grep").toBeDefined();
+        const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), "hld-grep-"));
+        const page: string = path.join(dir, "page.html");
+        fs.writeFileSync(page, html);
+        const result = spawnSync("bash", ["-c", (command as string).replace("<page>", `'${page}'`)]);
+        fs.rmSync(dir, { recursive: true, force: true });
+        expect(result.status, String(result.stderr)).not.toBe(2);
+        return result.status === 0;
+    }
+
+    it.each([
+        ['a Google Fonts stylesheet', '<link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">'],
+        ["a CDN script", '<script src="https://cdnjs.cloudflare.com/ajax/libs/x/1.0/x.js"></script>'],
+        ["a single-quoted remote image", "<img src='http://example.com/a.png'>"],
+        ["a protocol-relative image", '<img src="//cdn.example.com/a.png">'],
+        ["a CSS url()", "body { background: url(https://example.com/a.png); }"],
+        ["a CSS @import", '@import "https://example.com/a.css";'],
+        ["a remote SVG image", '<image href="https://example.com/a.png" />'],
+    ])("flags %s", (_kind, html) => {
+        expect(flags(html)).toBe(true);
+    });
+
+    it.each([
+        ["a hyperlink to an issue", '<a href="https://github.com/acme/app/issues/12">acme/app#12</a>'],
+        ["the SVG namespace", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>'],
+        ["a data URI", '<img src="data:image/png;base64,AAAA">'],
+        ["an inline script and style", "<script>play()</script><style>:root { --a: #fff; }</style>"],
+    ])("passes %s", (_kind, html) => {
+        expect(flags(html)).toBe(false);
+    });
+
+    it("holds the page rules above the design skills' allowances", () => {
+        expect(render).toMatch(/Google Fonts/);
     });
 });
 
@@ -157,6 +207,10 @@ describe("/nxs.hld shows the page to the lead before any write outside .nexus/tm
         expect(gate).toMatch(/\*\*Keep it local\*\*/);
     });
 
+    it("offers no publish when no asset store is declared", () => {
+        expect(gate).toMatch(/`unsupported`.{0,200}leave out \*\*Publish and reference it from the record\*\*/);
+    });
+
     it("names the store, its visibility and the renderer before the lead approves", () => {
         expect(gate).toMatch(/its visibility, and whether an HTML renderer is configured/);
     });
@@ -166,13 +220,22 @@ describe("/nxs.hld publishes only through nexus assets and references the record
     const publish: string = section("# Phase 5 — Publish and reference");
 
     it("publishes through nexus assets publish under the epic's feature", () => {
-        expect(publish).toMatch(/nexus assets publish --file <page> --feature "<feature-slug>" --json/);
+        expect(publish).toMatch(/nexus assets publish --file <page> --feature "<feature-slug>" --root "<targetRoot>" --json/);
         expect(publish).toMatch(/pins the commit the publish created/);
     });
 
-    it("appends one section to an open record's body and replaces it on a re-run", () => {
+    it("reads the record's state again after the gate and branches on it", () => {
+        const reread: number = publish.indexOf("nexus record-digest");
+        expect(reread).toBeGreaterThan(-1);
+        expect(reread).toBeLessThan(publish.indexOf("**Record open**"));
+        expect(publish).toMatch(/not the state read in Phase 0/);
+    });
+
+    it("replaces only the section between its own markers in an open record's body", () => {
         expect(publish).toMatch(/\*\*Record open\*\*/);
-        expect(publish).toMatch(/remove any earlier `## High-level design` section/);
+        expect(publish).toContain("<!-- nxs.hld:start -->");
+        expect(publish).toContain("<!-- nxs.hld:end -->");
+        expect(publish).toMatch(/A `## High-level design` heading without the markers is not this skill's/);
         expect(publish).toMatch(/gh issue edit <RECORD> -R <ISSUES_REPO> --body-file/);
     });
 
@@ -180,7 +243,7 @@ describe("/nxs.hld publishes only through nexus assets and references the record
         expect(publish).toMatch(/\*\*Record closed\*\*/);
         expect(publish).toMatch(/Do not edit it and do not reopen it/);
         expect(publish).toMatch(/gh issue comment <RECORD> -R <ISSUES_REPO> --body-file/);
-        expect(publish).toMatch(/\/nxs\.decision-record --revise <N> --assets <page>/);
+        expect(publish).not.toMatch(/--revise <N> --assets <page>/);
     });
 
     it("confirms a closed record's digest is unchanged after the comment", () => {

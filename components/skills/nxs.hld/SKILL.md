@@ -58,20 +58,8 @@ reopens or closes an issue, never changes a label, and never writes a decision i
    run `/nxs.decision-record N` first. An HLD derives from a record, so there is nothing to derive
    from.* Write nothing.
 
-3. **Note the record's state.** `open` means the record is filed but not yet approved; its body
-   may still change and Phase 5 appends the reference to the body. `closed` means approved; its
-   body is frozen and Phase 5 comments instead. Read the record's approval and its digest through
-   the one digest program, never a shell hash:
-
-    ```bash
-    nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
-    ```
-
-    Keep `digest` as `RECORD_DIGEST` and `approved` as `RECORD_APPROVED`. A record closed as
-    *not planned* is withdrawn, not approved: say so and stop, because a withdrawn design is not
-    one to build from.
-
-4. **Resolve the repositories and the docs root.**
+3. **Resolve the repositories and the docs root.** Do this before reading the record: the record
+   lives in the issues repository, and every later read of it names that repository.
 
     ```bash
     ISSUES_REPO="$(nexus config resolve epic-repo --root "<targetRoot>")"
@@ -81,6 +69,20 @@ reopens or closes an issue, never changes a label, and never writes a decision i
 
     An empty `ISSUES_REPO` means the current repository. Confirm `nexus` is on the path before
     trusting an empty value: an unreachable executable yields the same empty string.
+
+4. **Note the record's state.** `open` means the record is filed but not yet approved; its body
+   may still change. `closed` means approved; its body is frozen. Read the record's approval and
+   its digest through the one digest program, never a shell hash:
+
+    ```bash
+    nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+    Keep `digest` as `RECORD_DIGEST` and `approved` as `RECORD_APPROVED`. A record closed as
+    *not planned* is withdrawn, not approved: say so and stop, because a withdrawn design is not
+    one to build from. This state is what the page is derived from. It does not choose the write
+    in Phase 5: the record can be approved while the lead is at the preview gate, so Phase 5 reads
+    the state again.
 
 5. **Find the code.** Run `nexus workspace status`. In a workspace, the members' checkouts hold the
    code; in single-repo mode, the current checkout does. For each checkout the HLD reads, record
@@ -221,7 +223,8 @@ materialized frontmatter carries it, else a kebab-case form of the epic title. T
 gitignored. Write no Markdown twin: a second copy drifts from the first at the first revision.
 When the `artifact-design` and `artifact-diagramming` skills are available in the session, load
 them before writing; their guidance applies to a local file as it does to a published page. The
-rules below hold either way.
+rules below hold either way, and they win where those skills allow more: those skills permit
+Google Fonts stylesheets and CDN scripts, and this page uses neither.
 
 ## Page rules
 
@@ -275,14 +278,25 @@ diagram must read fully with the animation never played, so a printed or still c
 ## Checks before the preview
 
 ```bash
-grep -nE 'src="http|href="http[^"]*\.(css|js)|@import url\(|<script src' <page>   # must find nothing
-nexus assets check --asset <page>
+grep -niE "<script[^>]*[[:space:]]src=|<(link|image)[^>]*[[:space:]](xlink:)?href=[\"']?(https?:)?//|[[:space:]](src|srcset|data|xlink:href)=[\"']?(https?:)?//|url\([[:space:]]*[\"']?(https?:)?//|@import" <page>   # must find nothing
+wc -c < <page>
+nexus config resolve asset-size-cap --root "<targetRoot>"
+nexus assets check --asset <page> --root "<targetRoot>"
 ```
 
-The first finds any external dependency; fix it before going on. The second checks the file
-against the size cap and reads the store once. A non-zero exit stops the run with its diagnostic.
-`{ "state": "unsupported" }` means no asset store is declared: say so once, and go to the preview
-knowing Phase 5 will have nowhere to publish.
+The first finds any external dependency: a script with a `src`, a stylesheet or SVG image linked
+from a host, a `src`, `srcset` or `data` attribute on any host (`http:`, `https:` or
+protocol-relative `//`), a CSS `url(...)` on a host, and any `@import`. An `<a href>` to an issue
+is a link, not a load, and is not flagged. Fix every hit before going on, and keep each tag on one
+line so the check can see it.
+
+The second and third compare the page's size in bytes with the team's `asset-size-cap`. A page
+over the cap cannot be published: shrink it before going on. `nexus assets check` does not check
+the size; only `nexus assets publish` enforces it, and it does so after the lead has approved.
+
+The fourth reads the store at the epic's target root once: its visibility and the renderer. A
+non-zero exit stops the run with its diagnostic. `{ "state": "unsupported" }` means no asset store
+is declared: say so once, and go to the preview knowing the page can only stay local.
 
 # Phase 4 — Preview gate (MANDATORY STOP)
 
@@ -302,7 +316,9 @@ Before any write outside `.nexus/tmp/`, show the lead the page and the verdict:
    configured is a warning the lead decides on, never a refusal: the renderer may not be able to
    read the page.
 
-Then ask, through `AskUserQuestion`:
+Then ask, through `AskUserQuestion`. When the check in Phase 3 returned `unsupported`, there is no
+store to publish to: leave out **Publish and reference it from the record**, and say in the
+question that the page can only stay local.
 
 - **Publish and reference it from the record** — continue to Phase 5.
 - **Revise** — the lead's notes are applied to the page, the checks in Phase 3 run again, and
@@ -324,7 +340,7 @@ skill reads them and never falls back to another repository.
    used.
 
     ```bash
-    nexus assets publish --file <page> --feature "<feature-slug>" --json
+    nexus assets publish --file <page> --feature "<feature-slug>" --root "<targetRoot>" --json
     ```
 
     Keep `url`, `commit` and `markdown` from the output. The reference pins the commit the publish
@@ -334,10 +350,13 @@ skill reads them and never falls back to another repository.
     when it is the plain link. A non-zero exit stops the run with its diagnostic; nothing is
     written to the record.
 
-2. **Write the reference block** to a scratch file. It is short: the page is the document, and the
-   record body stays decisions-and-rationale prose.
+2. **Write the reference block** to `<scratch>/hld-reference.md`, where `<scratch>` is
+   `<targetRoot>/.nexus/tmp/hld/`. It is short: the page is the document, and the record body
+   stays decisions-and-rationale prose. The two HTML comment markers are part of the block: they
+   are how a later run finds this skill's section and knows where it ends.
 
     ```markdown
+    <!-- nxs.hld:start -->
     ## High-level design
 
     Rendered <YYYY-MM-DD> from this record at digest `<RECORD_DIGEST>`, against <checkout>@<commit>.
@@ -345,25 +364,40 @@ skill reads them and never falls back to another repository.
     - Design: <markdown reference from the publish output>
     - Verdict: <the one-line verdict from Phase 4, with the violation count when it is not zero>
     - Choices the record left open: <count>, listed in the page's section 13.
+    <!-- nxs.hld:end -->
     ```
 
     Every issue number in it follows the `nxs-issue-reference` rule for a GitHub surface in
     `ISSUES_REPO`: bare for the epic, the record and the stories, qualified only for a number in
     another repository.
 
-3. **Reference it from the record.** The record's state from Phase 0 selects the one write:
+3. **Reference it from the record.** Read the record's state again, now, because the lead may
+   have spent any length of time at the preview gate and the record may have been approved in
+   that time:
 
-    - **Record open** (filed, not yet approved): the body is not frozen. Fetch the current body,
-      remove any earlier `## High-level design` section this skill wrote, append the new block,
-      and edit the body:
+    ```bash
+    nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+    Its `state` selects the one write, not the state read in Phase 0. When the two differ, tell
+    the lead the record was approved during the run, and take the closed path.
+
+    - **Record open** (filed, not yet approved): the body is not frozen. Fetch the current body to
+      `<scratch>/record-body.md`. If it holds a `<!-- nxs.hld:start -->` line and a later
+      `<!-- nxs.hld:end -->` line, replace those two lines and everything between them with the
+      contents of `<scratch>/hld-reference.md`. Otherwise append `<scratch>/hld-reference.md` to
+      the end of the body, after one blank line. Then edit the body:
 
         ```bash
         gh issue view <RECORD> -R <ISSUES_REPO> --json body --jq .body > <scratch>/record-body.md
+        # replace the marked section, or append the block, as above
         gh issue edit <RECORD> -R <ISSUES_REPO> --body-file <scratch>/record-body.md
         ```
 
-      Touch nothing else in the body. The approver then sees the design beside its reasons when
-      they close the record.
+      Touch nothing else in the body. A `## High-level design` heading without the markers is not
+      this skill's, even when its title matches: it may be the author's own, for example from a
+      design imported with `/nxs.decision-record --from`. Leave it as it is. The approver then
+      sees the design beside its reasons when they close the record.
 
     - **Record closed** (approved): the body is frozen, because the hash stamped from it is what
       every later stage verifies. Do not edit it and do not reopen it. Post the block as a comment:
@@ -372,10 +406,10 @@ skill reads them and never falls back to another repository.
         gh issue comment <RECORD> -R <ISSUES_REPO> --body-file <scratch>/hld-reference.md
         ```
 
-      Tell the lead that the one way to carry the page in the body is a revision:
-      `/nxs.decision-record --revise <N> --assets <page>`, which reopens the record, records
-      what it supersedes, and re-closes it. The comment is enough for every reader of the record
-      and changes no stamped hash.
+      The comment is the reference. It is enough for every reader of the record and changes no
+      stamped hash. Do not suggest `/nxs.decision-record --revise` to move the link into the body:
+      a revision rebuilds the body, reopens the record and blocks the epic until it is approved
+      again, and it exists for a change to the design, not for a link.
 
 4. **Confirm.** For an open record, recompute the digest through the digest program and report it
    as the record's current identity. For a closed record, recompute it and confirm it still equals
@@ -422,7 +456,8 @@ In the run-discipline layout:
   the report says so.
 - **A closed record's body is never edited and never reopened by this skill.** The reference goes
   in a comment, and the revision path belongs to `/nxs.decision-record --revise`. An open record's
-  body gets exactly one `## High-level design` section, replaced on a re-run.
+  body gets exactly one section between the `nxs.hld` markers, replaced on a re-run; nothing
+  outside the markers changes.
 - **The epic and its stories are never edited.** A conflict or a violation that needs a story
   amendment is reported for the lead to apply.
 - **Never link the materialized `epic.md`** or any `.nexus/tmp/` path from the page, the record
