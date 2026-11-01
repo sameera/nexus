@@ -18,7 +18,9 @@ behaviour says so.
   or approved, so the record body and its hash never change. If the record is withdrawn, reopened or
   edited while the lead is at the preview, the run stops before publishing. It
   edits no epic, no story and no decision; a choice the record left open is listed for the lead to
-  settle with `decision-record --revise`.
+  settle with `decision-record --revise`. It refuses to be the first step of a design: it stops
+  while the epic has no record, or while the epic still carries the needs-design label that
+  `decision-record` removes when it files the record.
 - **The published package declares `yaml`.** Three library sources under `dist/lib/workspace/` import `yaml`,
   but the package declared no dependencies, so a consumer that did not install `yaml` itself failed to load
   them. The package now declares `yaml` as its one runtime dependency. No stage behaviour changes.

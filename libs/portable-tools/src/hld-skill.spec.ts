@@ -98,6 +98,21 @@ describe("/nxs.hld resolves the epic through the shared resolver and refuses wit
     it("treats a record closed as not planned as withdrawn", () => {
         expect(resolve).toMatch(/not planned\* is withdrawn, not approved/);
     });
+
+    it("refuses to be the first design step while the epic still carries the needs-design label", () => {
+        expect(resolve).toMatch(/nexus config resolve needs-design-label/);
+        expect(resolve).toMatch(/label is on the epic, stop/);
+        expect(resolve.indexOf("needs-design-label")).toBeLessThan(resolve.indexOf("nexus record-digest"));
+    });
+});
+
+describe("/nxs.hld is the step between the decision record and implementation", () => {
+    it("says the page refines the record toward implementation and never feeds back into it", () => {
+        const intro: string = BODY.slice(0, BODY.indexOf("# User Input")).replace(/\s+/g, " ");
+        expect(intro).toMatch(/after the decision record and before implementation/);
+        expect(intro).toMatch(/never feeds back into the record/);
+        expect(FRONTMATTER).toMatch(/needs-design/);
+    });
 });
 
 describe("/nxs.hld derives the design from the record and reports what does not hold", () => {

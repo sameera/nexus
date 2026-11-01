@@ -1,6 +1,6 @@
 ---
 name: nxs.hld
-description: Render one planned epic's approved design as a high-level design document (HLD), a self-contained HTML page with inline SVG architecture, flow, data and delivery diagrams, and check that design against the epic. Reads the epic, its stories and its decision record, derives the design from the record's decisions and guarantees, and reports every acceptance criterion as achievable or not, every decision and guarantee as kept or violated, every conflict between the record and the code, and every choice the record left open. Shows the page to the lead before any write, then publishes it to the team's asset store through `nexus assets publish` and references it from the decision record with a dated comment, whether the record is open or approved, so the hashed record body never changes. Never edits the record's body, never edits the epic or a story, never writes a decision of its own into the record. Invoke as `/nxs.hld <epic-issue-number>`.
+description: Render one planned epic's approved design as a high-level design document (HLD), a self-contained HTML page with inline SVG architecture, flow, data and delivery diagrams, and check that design against the epic. Reads the epic, its stories and its decision record, derives the design from the record's decisions and guarantees, and reports every acceptance criterion as achievable or not, every decision and guarantee as kept or violated, every conflict between the record and the code, and every choice the record left open. Shows the page to the lead before any write, then publishes it to the team's asset store through `nexus assets publish` and references it from the decision record with a dated comment, whether the record is open or approved, so the hashed record body never changes. Never edits the record's body, never edits the epic or a story, never writes a decision of its own into the record. Refuses to be the first design step: it stops while the epic has no record or still carries the needs-design label. Invoke as `/nxs.hld <epic-issue-number>`.
 ---
 
 # nxs.hld
@@ -16,6 +16,13 @@ stories and the code as it is today: the components, the flows, the data, the de
 a check of every acceptance criterion, decision and guarantee. A design choice the record did not
 make is reported as an open choice for the lead to settle, never filed as a decision by this
 skill.
+
+The HLD is the step **after the decision record and before implementation**. It takes the design
+the record approved one step closer to code, so engineers, and `nexus implement-epic` when a lead
+runs it, can build from it. It never feeds back into the record: a choice it makes binds the build
+only once the lead promotes it with `/nxs.decision-record --revise`. So it is never the first step
+of a design. It refuses while the epic has no record, or while the epic still carries the
+needs-design label, which `/nxs.decision-record` removes when it files the record.
 
 **Finish line:** the HTML page published to the asset store and referenced from the decision
 record, with the completion report; or the page left local when the lead chose that; or a refusal
@@ -73,7 +80,21 @@ reopens or closes an issue, never changes a label, and never writes a decision i
     Confirm `nexus` is on the path before trusting an empty value: an unreachable executable yields
     the same empty string.
 
-4. **Note the record's state.** `open` means the record is filed but not yet approved; its body
+4. **Refuse while the design step is unfinished.** Read the label name through the resolver and the
+   epic's labels from GitHub:
+
+    ```bash
+    NEEDS_DESIGN="$(nexus config resolve needs-design-label --root "<targetRoot>")"
+    gh issue view <N> $REPO_ARG --json labels --jq '[.labels[].name]'
+    ```
+
+    `/nxs.decision-record` removes this label when it files the record. When the label is on the
+    epic, stop: *epic #N still carries `<NEEDS_DESIGN>`, so its design step has not finished; run
+    `/nxs.decision-record N` first. An HLD refines a filed record and is never the first step of a
+    design.* Write nothing. This catches a record filed by hand or a filing that stopped before it
+    moved the label.
+
+5. **Note the record's state.** `open` means the record is filed but not yet approved; its body
    may still change. `closed` means approved; its body is frozen. Read the record's approval and
    its digest through the one digest program, never a shell hash:
 
@@ -87,7 +108,7 @@ reopens or closes an issue, never changes a label, and never writes a decision i
     derived from. The record can change while the lead is at the preview gate, so Phase 5 reads both
     again before anything is published.
 
-5. **Find the code.** Run `nexus workspace status`. In a workspace, the members' checkouts hold the
+6. **Find the code.** Run `nexus workspace status`. In a workspace, the members' checkouts hold the
    code; in single-repo mode, the current checkout does. For each checkout the HLD reads, record
    its short commit (`git rev-parse --short HEAD`) for the page header. Pull nothing and switch no
    branch.
