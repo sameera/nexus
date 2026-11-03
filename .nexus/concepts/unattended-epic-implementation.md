@@ -2,7 +2,7 @@
 title: "Unattended Epic Implementation"
 aliases: ["nexus implement", "implement command", "implement-epic command", "nexus implement-epic", "unattended implementation", "implement an epic unattended", "implement-epic fix loop"]
 touches: ["nexus-pipeline", "pr-verdict-answers", "published-verdict-selection", "scope-claim", "publishing-config-resolution"]
-last_updated_by: "#928"
+last_updated_by: "#979"
 status: active
 verification: verified
 ---
@@ -38,3 +38,7 @@ Before any agent runs, the command resolves the epic and refuses unless the deci
 ### 2026-10-31 — #928 — Implementation becomes an optional verb that loops on the published verdict
 
 The unattended flow became a verb of the shipped command-line tool, replacing two repository-only scripts, so an adopter can run it and it calls the one verdict reader and the one answer reader. The loop reads the published verdict on the pull request every round, fixes only Critical, High and Medium items, and stops instead of editing when a fix would contradict the record or is architectural. Refuted alternative: ship the existing shell script inside the package behind a thin verb. It matches verdict text with its own trust filter, which is a second copy of the reader close uses and can drift from it. The same change reverses the reasoning of the pipeline's decision 0001, which kept the code-generation step outside Nexus. The exception is limited to this command, which no stage calls.
+
+### 2026-11-03 — sameera/nexus#979 — The verb is named `implement`, with no alias for the old name
+
+The command-line verb changed from `implement-epic` to `implement`. Its arguments and behaviour are unchanged. Calling the old name now gives an unknown-command error, so scripts must switch. The old names stay as aliases on this page so searches still find it. The hidden markers in the pull request body keep their old name, so pull requests opened by earlier runs still match. Refuted alternative: keep the old verb as an alias for the new one. The pull request declined it, so one name stays in use.
