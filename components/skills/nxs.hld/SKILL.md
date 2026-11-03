@@ -19,7 +19,7 @@ make is reported as an open choice for the lead to settle, never filed as a deci
 skill.
 
 The HLD is the step **after the decision record and before implementation**. It takes the design
-the record approved one step closer to code, so engineers, and `nexus implement-epic` when a lead
+the record approved one step closer to code, so engineers, and `nexus implement` when a lead
 runs it, can build from it. It never feeds back into the record: a choice it makes binds the build
 only once the lead promotes it with `/nxs.decision-record --revise`. So it is never the first step
 of a design. It refuses while the epic has no record, or while the epic still carries the
@@ -266,7 +266,7 @@ Render **one Markdown file** at `<targetRoot>/.nexus/tmp/hld/<N>-<slug>.md`, whe
 epic's `slug` when the materialized frontmatter carries it, else a kebab-case form of the epic
 title. The folder is gitignored. Write no second copy: a second copy drifts from the first at the
 first revision. The one file serves both readers. People read it rendered by GitHub, which draws
-the Mermaid blocks. An implementing agent, such as `nexus implement-epic`, reads the same text, and
+the Mermaid blocks. An implementing agent, such as `nexus implement`, reads the same text, and
 a Mermaid block states every edge and every message in order as text.
 
 ## Page rules

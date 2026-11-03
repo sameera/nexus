@@ -105,7 +105,7 @@ import {
 import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from "./migrate-components.js";
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
-import { DEFAULT_FIX_TURNS, DEFAULT_ROUNDS, DEFAULT_TURNS, implementEpicDeps, runImplementEpic, type Harness as ImplementHarness } from "./implement-epic.js";
+import { DEFAULT_FIX_TURNS, DEFAULT_ROUNDS, DEFAULT_TURNS, implementEpicDeps, runImplementEpic, type Harness as ImplementHarness } from "./implement.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { cleanupDeps, runDistillCleanup } from "./distill-cleanup.js";
 import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness, type DistillTarget } from "./distill-command.js";
@@ -185,9 +185,9 @@ const DISTILL_USAGE: string = [
     "      record. Refuses while a run for the epic is live. Deletes no branch and no pull request.",
 ].join("\n");
 
-const IMPLEMENT_EPIC_USAGE: string = [
-    "  nexus implement-epic <N> | --epic <N> [--harness claude|codex] [--permission-mode <mode>] [--test-command <cmd>]",
-    "                       [--base <branch>] [--rounds <n>] [--turns <n>] [--fix-turns <n>] [-- <harness args>...]",
+const IMPLEMENT_USAGE: string = [
+    "  nexus implement <N> | --epic <N> [--harness claude|codex] [--permission-mode <mode>] [--test-command <cmd>]",
+    "                  [--base <branch>] [--rounds <n>] [--turns <n>] [--fix-turns <n>] [-- <harness args>...]",
     "      An optional command the lead runs: it writes the project's code. Checks the epic's decision record is",
     "      approved and the working tree is clean, creates branch nxs/epic-<N>, implements one commit per story,",
     "      pushes, opens a draft pull request claiming every story, then runs /nxs.analyze --pr and fix rounds",
@@ -850,9 +850,9 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: DISTILL_USAGE,
         run: runDistill,
     },
-    "implement-epic": {
+    implement: {
         summary: "Implement an approved epic unattended: stories, draft pull request, analyze and fix rounds.",
-        usage: IMPLEMENT_EPIC_USAGE,
+        usage: IMPLEMENT_USAGE,
         run: runImplementEpicCli,
     },
     "create-epic": {
@@ -3342,10 +3342,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
 
 
 /** `nexus distill` — distill a closed epic with one command (epic #909, decision record #946). */
-/** `nexus implement-epic` — parse the invocation and run the command (decision record #966). */
+/** `nexus implement` — parse the invocation and run the command (decision record #966). */
 async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
     const refuse = (message: string): number => {
-        io.stderr(`implement-epic: ${message}\n${IMPLEMENT_EPIC_USAGE}`);
+        io.stderr(`implement: ${message}\n${IMPLEMENT_USAGE}`);
         return 2;
     };
     const dashes = argv.indexOf("--");
@@ -3384,7 +3384,7 @@ async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
             return refuse(`unknown argument '${a}'.`);
         }
     }
-    if (epic === null) return refuse("name the epic: nexus implement-epic <N>.");
+    if (epic === null) return refuse("name the epic: nexus implement <N>.");
     return runImplementEpic(
         implementEpicDeps(closeMigrationRunner),
         { cwd: io.cwd, epic, harness, permissionMode, testCommand, base, harnessArgs, ...counts },

@@ -25,6 +25,6 @@ generated: 2026-10-31
 - `utils/implement-epic.sh` — the unattended implement loop, which stops when a fix round adds or changes an answer line, detected by comparing the lines rather than comment links or time (#886)
 - `libs/portable-tools/src/analyze-answers.spec.ts` — pins how the stage applies trusted answers and names those that apply nothing
 - `libs/portable-tools/src/analyze-resolve.spec.ts` — pins the answer-recording run's scope as the stage states it
-- `libs/portable-tools/src/implement-epic.spec.ts` — pins that the implement loop stops on a posted answer and on an answer edited into an existing comment (#886)
+- `libs/portable-tools/src/implement.spec.ts` — pins that the implement loop stops on a posted answer and on an answer edited into an existing comment (#886)
 - `libs/epic-verdicts/src/verdict-items.spec.ts` — pins that a concept-invariant departure is high, not critical, and blocks until answered (#903)
 - `libs/epic-verdicts/src/verdict-render.ts` — writes each open item's resolution: its fix, the paste line in its own code block for an answerable item, and the command to run afterwards, so an unedited paste applies nothing (#949)

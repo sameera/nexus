@@ -1,5 +1,5 @@
 /**
- * `nexus implement-epic` (epic #928, story #929, decision record #966): one command implements an
+ * `nexus implement` (epic #928, story #929, decision record #966): one command implements an
  * approved epic unattended. The platform is injected, so each case states what git, the issue graph,
  * the harness and the published verdicts say, and asserts what the command did about it.
  */
@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { type Departure, type Finding, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type SessionEnd, type SessionSpec } from "./distill-command.js";
-import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement-epic.js";
+import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
 import { VERB_NAMES } from "./nexus-cli.js";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -364,7 +364,7 @@ describe("answers on the pull request (G14, G15, G16)", () => {
         expect(r.code).toBe(0);
         expect(r.comments[0]).toMatch(/^DV1 — accepted: kept the old format/);
         expect(r.comments[0]).toContain(stub.path);
-        expect(r.comments[0]).toContain("unattended nexus implement-epic command");
+        expect(r.comments[0]).toContain("unattended nexus implement command");
         expect(r.sessions[2].args[1]).toContain("--resolve");
     });
 
@@ -428,7 +428,7 @@ describe("harness and configuration (G20, G21)", () => {
 
 describe("distribution (G22)", () => {
     it("lists the command among the shipped nexus commands", () => {
-        expect(VERB_NAMES).toContain("implement-epic");
+        expect(VERB_NAMES).toContain("implement");
     });
 
     it("leaves neither implement-epic script in the repository", () => {
