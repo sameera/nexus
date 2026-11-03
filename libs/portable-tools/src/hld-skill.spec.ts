@@ -89,8 +89,9 @@ describe("/nxs.hld resolves the epic through the shared resolver and refuses wit
         }
     });
 
-    it("reads from the resolver only the fields it prints, and resolves no repository it never uses", () => {
-        expect(resolve).not.toMatch(/issuesRepo/);
+    it("takes the record's repository from the resolver that returned the record's number", () => {
+        expect(resolve).toMatch(/`issuesRepo`/);
+        expect(resolve).not.toMatch(/nexus config resolve epic-repo/);
         expect(resolve).not.toMatch(/STORY_REPO/);
     });
 
@@ -117,14 +118,26 @@ describe("/nxs.hld is the step between the decision record and implementation", 
 describe("/nxs.hld derives the design from the record and reports what does not hold", () => {
     const design: string = section("# Phase 2 — Derive the design and check it");
 
-    it("ranks the record above the stories, the epic, the concept pages and the code", () => {
+    it("ranks the record above the stories, the epic, the concept invariants and the code", () => {
         const sources: string = section("# Phase 1 — Read the sources, in order of authority");
-        const order: number[] = ["The decision record", "The stories", "The epic", "The concept pages", "The code"].map((s) =>
+        const order: number[] = ["The decision record", "The stories", "The epic", "The concept invariants", "The code"].map((s) =>
             sources.indexOf(s),
         );
         for (let i = 1; i < order.length; i += 1) {
             expect(order[i], `source order at ${i}`).toBeGreaterThan(order[i - 1]);
         }
+    });
+
+    it("reads the record's comments with its body, to find a revision trail and the HLD reference it supersedes", () => {
+        const sources: string = section("# Phase 1 — Read the sources, in order of authority");
+        expect(sources).toMatch(/gh issue view <RECORD> \$REPO_ARG --json body,comments/);
+    });
+
+    it("lists the concept invariants through the lister analyze runs, so an invariant the record changes on purpose is no violation", () => {
+        const sources: string = section("# Phase 1 — Read the sources, in order of authority");
+        expect(sources).toMatch(/nexus concept-invariants --epic "<outPath>" --base HEAD --record "[^"]+" --root "<targetRoot>"/);
+        expect(sources).toMatch(/covered.{0,300}never a violation/);
+        expect(SKILL).not.toMatch(/<docs-root>\/\.nexus\/concepts/);
     });
 
     it("keeps the page at HLD altitude: no SQL, no line numbers, no test catalogue", () => {
@@ -280,8 +293,18 @@ describe("/nxs.hld publishes only through nexus assets and references the record
         expect(block).toMatch(/at digest `<RECORD_DIGEST>`/);
     });
 
-    it("confirms the record's digest is unchanged after the comment", () => {
-        expect(publish).toMatch(/confirm it still equals `RECORD_DIGEST`/);
+    it("judges approval during the run by the digest program's approved field, not by the close reason", () => {
+        expect(publish).toMatch(/\*\*Approved during the run\*\* — `RECORD_APPROVED` was false and `approved` is now true/);
+    });
+
+    it("reads the record once after the gate and not again after the comment", () => {
+        expect(publish.split("nexus record-digest").length - 1).toBe(1);
+    });
+
+    it("settles a feature slug the store accepts before the lead approves", () => {
+        const render: string = section("# Phase 3 — Render the page");
+        expect(render).toMatch(/`\^\[a-z0-9\]\[a-z0-9-\]\*\$`/);
+        expect(publish).toMatch(/`<feature-slug>` settled in Phase 3/);
     });
 
     it("states in the constraints that the epic and the stories are never edited", () => {

@@ -46,8 +46,8 @@ for the epic issue number; the resolver takes a bare number only.
 # Scope
 
 A run reads GitHub and the workspace's checkouts. Its working files go under the gitignored
-`.nexus/tmp/`: the materialized `epic.md` and the Markdown page are written there before the preview
-gate in Phase 4, and the reference block after it. Outside `.nexus/tmp/`
+`.nexus/tmp/`: the materialized `epic.md`, the record body and the Markdown page are written there
+before the preview gate in Phase 4, and the reference block after it. Outside `.nexus/tmp/`
 it writes exactly two things, both after the preview gate: one file in the asset store, and one
 reference in the decision record. It edits no epic, no story and no code. It never
 reopens or closes an issue, never changes a label, and never writes a decision into the record.
@@ -61,25 +61,28 @@ reopens or closes an issue, never changes a label, and never writes a decision i
     ```
 
     On a non-zero exit, report the diagnostic verbatim and stop. On success keep `outPath` (the
-    materialized `epic.md`), `targetRoot` and `record` (`{ number, state }` or `null`).
+    materialized `epic.md`), `targetRoot`, `issuesRepo` and `record` (`{ number, state }` or
+    `null`).
 
 2. **Refuse without a record.** When `record` is `null`, stop: *epic #N has no decision record;
    run `/nxs.decision-record N` first. An HLD derives from a record, so there is nothing to derive
    from.* Write nothing.
 
-3. **Resolve the repositories and the docs root.** Do this before reading the record: the record
-   lives in the issues repository, and every later read of it names that repository.
+3. **Resolve the issues repository.** Do this before reading the record: the record lives in the
+   issues repository, and every later read of it names that repository. Take it from the
+   resolver's `issuesRepo`, the repository the resolver read the epic and the record's number
+   from, so the number and the repository always come from one source. Never resolve it again
+   from configuration: a configured repository that differs from the one the resolver read would
+   pair the record's number with an unrelated issue.
 
     ```bash
-    ISSUES_REPO="$(nexus config resolve epic-repo --root "<targetRoot>")"
+    ISSUES_REPO="<issuesRepo, or empty when it is null>"
     REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
-    nexus workspace docs-root
     ```
 
-    An empty `ISSUES_REPO` means the current repository, and `REPO_ARG` then stays empty: `gh`
-    refuses `-R ""`. **Every `gh` call below carries `$REPO_ARG`**, and it is the only form used.
-    Confirm `nexus` is on the path before trusting an empty value: an unreachable executable yields
-    the same empty string.
+    A `null` `issuesRepo` (single-repo mode) means the current repository, and `REPO_ARG` then
+    stays empty: `gh` refuses `-R ""`. **Every `gh` call below carries `$REPO_ARG`**, and it is the
+    only form used.
 
 4. **Refuse while the design step is unfinished.** Read the label name through the resolver and the
    epic's labels from GitHub:
@@ -118,19 +121,36 @@ reopens or closes an issue, never changes a label, and never writes a decision i
 
 Read all of them before designing. The order says which wins when two disagree.
 
-1. **The decision record**, the whole body as fetched from GitHub:
-   `gh issue view <RECORD> $REPO_ARG --json body --jq .body`. Its decisions (D-IDs),
-   guarantees (G-IDs), risks (R-IDs), mechanism and approval brief are binding. Read its comments
-   too, for a revision trail (a `## Record revised` comment) and for an earlier HLD reference (a
-   comment whose first line is `<!-- nxs.hld -->`), so the report can say this run supersedes it.
+1. **The decision record**, its body and its comments as fetched from GitHub:
+
+    ```bash
+    gh issue view <RECORD> $REPO_ARG --json body,comments
+    ```
+
+    Write the `body` field, unchanged, to `<targetRoot>/.nexus/tmp/hld/record-body.md`; step 4
+    reads it. Its decisions (D-IDs), guarantees (G-IDs), risks (R-IDs), mechanism and approval
+    brief are binding. Read the comments for a revision trail (a `## Record revised` comment) and
+    for an earlier HLD reference (a comment whose first line is `<!-- nxs.hld -->`), so the report
+    can say this run supersedes it.
 2. **The stories**, as `epic.md` carries them now. The resolver materializes the live issue text,
    so an acceptance criterion the record amended is read in its current wording, not the wording
    the record quoted.
 3. **The epic**: description, success metrics, assumptions, out-of-scope list and the
    Implementation Sequence table.
-4. **The concept pages** the epic's `concepts:` frontmatter names, under
-   `<docs-root>/.nexus/concepts/` (or `.nexus/concepts/` at a hub whose docs root is `.`). Their
-   invariants bind the design as the record's guarantees do.
+4. **The concept invariants** on the pages the epic lists. List them with the invariant lister
+   `/nxs.analyze` runs, never by reading the store by hand:
+
+    ```bash
+    nexus concept-invariants --epic "<outPath>" --base HEAD --record "<targetRoot>/.nexus/tmp/hld/record-body.md" --root "<targetRoot>"
+    ```
+
+    `<targetRoot>` is the hub checkout in a workspace, which holds the store. The lister reads
+    each listed page from git at `HEAD` and marks an invariant **covered** when a stated change in
+    the record's Concept-store changes quotes it. A covered invariant is one the approved record
+    changes on purpose: the design follows the record's change, and it is never a violation. Every
+    **uncovered** invariant binds the design as the record's guarantees do. Name each page the
+    lister reports under `missing`. Exit 1 stops the run with its diagnostic: never read zero
+    invariants as none to keep. Put the lister's `sentence` in the report.
 5. **The code**, only to the depth the HLD needs: the components the record's mechanism touches,
    the entry points a flow passes through, the stored data a decision changes. Stop at file level.
    Line numbers, call-site tables and schema dumps belong to an engineer's low-level design, not
@@ -318,6 +338,16 @@ The fourth reads the store at the epic's target root once: its visibility. A non
 the run with its diagnostic. `{ "state": "unsupported" }` means no asset store is declared: say so
 once, and go to the preview knowing the page can only stay local.
 
+## The feature slug
+
+Settle the feature the page will be published under now, so a name the store refuses cannot stop
+the run after the lead has approved. Take the last segment of the epic's `feature_path` when the
+materialized frontmatter carries it, else the epic's `slug`, else `epic-<N>`. Normalize it:
+lower-case it, replace every run of characters other than `a-z` and `0-9` with one `-`, and trim
+`-` from both ends. The result must match `^[a-z0-9][a-z0-9-]*$`, the form `nexus assets publish`
+accepts; when nothing is left, use `epic-<N>`. Keep it as `<feature-slug>` and say at the preview
+which source it came from and whether it was changed.
+
 # Phase 4 — Preview gate (MANDATORY STOP)
 
 Before any write outside `.nexus/tmp/`, show the lead the page and the verdict:
@@ -333,7 +363,7 @@ Before any write outside `.nexus/tmp/`, show the lead the page and the verdict:
 5. Each conflict with the record, in one line each.
 6. Each open question with its recommended answer.
 7. Each choice the record left open, in one line each.
-8. The store line: the store and its visibility. The reference will be the plain link to the page's
+8. The store line: the store and its visibility, and the `<feature-slug>` the page goes under. The reference will be the plain link to the page's
    blob at the publish commit; `asset-renderer` applies only to HTML and plays no part. A private
    store means only people and agents with read access to it can open the page: say so, so the
    lead decides before approving.
@@ -365,7 +395,7 @@ and never falls back to another repository.
     nexus record-digest --issue <RECORD> ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
-    Compare its `state`, `stateReason` and `digest` with what Phase 0 kept. Check these cases in
+    Compare its `state`, `approved` and `digest` with what Phase 0 kept. Check these cases in
     order; the first that matches decides:
 
     - **Withdrawn** — the record is now closed as *not planned*. Say so and stop: a withdrawn design
@@ -376,14 +406,13 @@ and never falls back to another repository.
     - **Changed** — `digest` differs from `RECORD_DIGEST`. The record body changed during the run,
       so the page was derived from a body that is no longer the record's. Say so and stop; run
       `/nxs.hld` again to derive the page from the current body. Nothing is published.
-    - **Approved during the run** — `RECORD_STATE` was `open` and the record is now closed as
-      *completed*, with the same digest. The page still matches the body, so tell the lead the
-      record was approved during the run, and go on.
+    - **Approved during the run** — `RECORD_APPROVED` was false and `approved` is now true, with
+      the same digest. Judge approval by the digest program's `approved`, never by the close
+      reason: it counts every close except *not planned*. The page still matches the body, so tell
+      the lead the record was approved during the run, and go on.
     - Otherwise the record is as Phase 0 read it. Go on.
 
-2. **Publish.** `<feature-slug>` is the last segment of the epic's `feature_path` when the
-   materialized frontmatter carries it, else the epic's `slug`, else `epic-<N>`; say which one was
-   used.
+2. **Publish** under the `<feature-slug>` settled in Phase 3.
 
     ```bash
     nexus assets publish --file <page> --feature "<feature-slug>" --root "<targetRoot>" --json
@@ -436,10 +465,6 @@ and never falls back to another repository.
     rebuilds the body, reopens the record and blocks the epic until it is approved again, and it
     exists for a change to the design, not for a link.
 
-5. **Confirm.** Recompute the digest through the digest program and confirm it still equals
-   `RECORD_DIGEST`. A difference means something other than this run changed the body after
-   step 1, and the report says so.
-
 # Phase 6 — Report
 
 In the run-discipline layout:
@@ -451,7 +476,8 @@ In the run-discipline layout:
   `/nxs.analyze`.
 - **Changed:** the page's local path, the store path and commit, the pinned link filed, and the link to the comment on the record. Say what was left unwritten: the epic, the stories, the record's decisions.
 - **Found:** the verdict line, the counts (criteria, decisions, guarantees, conflicts, violations,
-  open choices), the diagram check (parsed, or unchecked and why), the earlier HLD reference this run supersedes if any, and the record's digest the
+  open choices), the concept invariants line (the lister's `sentence`), the diagram check (parsed,
+  or unchecked and why), the earlier HLD reference this run supersedes if any, and the record's digest the
   page was derived from.
 
 # Usage

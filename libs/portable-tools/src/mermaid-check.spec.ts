@@ -110,6 +110,39 @@ describe("nexus mermaid-check parses every Mermaid block in a Markdown page", ()
         expect(report(io)).toMatchObject({ state: "parsed", blocks: [] });
     });
 
+    it("parses a block nested under a list item, and fails it when it is broken", async () => {
+        const dir: string = tmpDir();
+        const indent = (body: string): string => fence(body).split("\n").map((l) => `    ${l}`).join("\n");
+        const good: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["mermaid-check", "--file", page(dir, "1. **Flow.**", "", indent(SEQUENCE))], good)).toBe(0);
+        expect(report(good).blocks.map((b) => b.diagramType)).toEqual(["sequence"]);
+
+        const bad: CapturedIo = makeIo(dir);
+        const broken: string = ["sequenceDiagram", "  participant A", "  A->>: no target"].join("\n");
+        expect(await runNexusCli(["mermaid-check", "--file", page(dir, "1. **Flow.**", "", indent(broken))], bad)).toBe(1);
+        expect(report(bad).state).toBe("invalid");
+    });
+
+    it("fails a Mermaid block whose fence is never closed, naming its fence line", async () => {
+        const dir: string = tmpDir();
+        const io: CapturedIo = makeIo(dir);
+        const file: string = page(dir, fence(FLOW), ["```mermaid", SEQUENCE].join("\n"));
+        expect(await runNexusCli(["mermaid-check", "--file", file], io)).toBe(1);
+        const result = report(io);
+        expect(result.state).toBe("invalid");
+        const bad = result.blocks.filter((b) => b.error !== undefined);
+        expect(bad).toHaveLength(1);
+        expect(fs.readFileSync(file, "utf8").split("\n")[bad[0].line - 1]).toBe("```mermaid");
+    });
+
+    it("fails an unclosed Mermaid fence even when the parser is not installed", async () => {
+        const dir: string = tmpDir();
+        const io: CapturedIo = makeIo(dir);
+        const code: number = await runMermaidCheck(["--file", page(dir, ["```mermaid", SEQUENCE].join("\n"))], io, () => Promise.resolve(null));
+        expect(code).toBe(1);
+        expect(report(io).state).toBe("invalid");
+    });
+
     it("reports unchecked, without failing, when the parser is not installed", async () => {
         const dir: string = tmpDir();
         const io: CapturedIo = makeIo(dir);

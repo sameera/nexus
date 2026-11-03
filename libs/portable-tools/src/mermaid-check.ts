@@ -33,7 +33,8 @@ export const MERMAID_CHECK_USAGE: string = [
     "      parser names one. state is parsed (exit 0), invalid (exit 1) or unchecked (exit 0):",
     "      mermaid and jsdom are optional peers, looked for beside the Nexus install and then under",
     "      --root (default: the working directory), and unchecked means one of them is absent.",
-    "      Exits 1 when the file cannot be read; 2 on a usage error.",
+    "      A fence may sit at any indent; a ```mermaid fence the file never closes is invalid, parser",
+    "      or not. Exits 1 when the file cannot be read; 2 on a usage error.",
 ].join("\n");
 
 const INSTALL_HINT = "mermaid and jsdom are not installed; install both (npm install -g mermaid jsdom) to check the diagrams";
@@ -48,6 +49,8 @@ interface Block {
     /** 1-based line of the opening fence. */
     line: number;
     text: string;
+    /** True when the file ends before the block's closing fence. */
+    unclosed?: boolean;
 }
 
 interface BlockResult {
@@ -57,27 +60,37 @@ interface BlockResult {
     errorLine?: number;
 }
 
-/** Every fenced block whose info string is `mermaid`, with the line of its opening fence. */
+/**
+ * Every fenced block whose info string is `mermaid`, with the line of its opening fence. A fence may
+ * sit at any indent, because a block nested under a list item is still rendered by GitHub; the
+ * opening fence's indent is taken off each body line. A Mermaid block the file ends inside is
+ * returned with `unclosed`.
+ */
 export function mermaidBlocks(markdown: string): Block[] {
     const lines: string[] = markdown.split(/\r?\n/);
     const blocks: Block[] = [];
-    let open: { line: number; fence: string; mermaid: boolean; body: string[] } | null = null;
+    let open: { line: number; fence: string; indent: number; mermaid: boolean; body: string[] } | null = null;
     lines.forEach((text, index) => {
         if (open === null) {
-            const start: RegExpMatchArray | null = text.match(/^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)/);
-            if (start !== null) open = { line: index + 1, fence: start[1], mermaid: start[2].toLowerCase() === "mermaid", body: [] };
+            const start: RegExpMatchArray | null = text.match(/^( *)(`{3,}|~{3,})\s*([^\s`]*)/);
+            if (start !== null) open = { line: index + 1, indent: start[1].length, fence: start[2], mermaid: start[3].toLowerCase() === "mermaid", body: [] };
             return;
         }
-        const close: RegExpMatchArray | null = text.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+        const close: RegExpMatchArray | null = text.match(/^ *(`{3,}|~{3,})\s*$/);
         if (close !== null && close[1][0] === open.fence[0] && close[1].length >= open.fence.length) {
             if (open.mermaid) blocks.push({ line: open.line, text: open.body.join("\n") });
             open = null;
             return;
         }
-        open.body.push(text);
+        const indent: number = open.indent;
+        open.body.push(text.replace(new RegExp(`^ {0,${indent}}`), ""));
     });
+    const last = open as { line: number; mermaid: boolean; body: string[] } | null;
+    if (last !== null && last.mermaid) blocks.push({ line: last.line, text: last.body.join("\n"), unclosed: true });
     return blocks;
 }
+
+const UNCLOSED = "the ```mermaid fence is never closed";
 
 /** Resolve a package from the first base directory that has it; null when none does. */
 function resolveFrom(name: string, bases: string[]): string | null {
@@ -140,12 +153,18 @@ export async function runMermaidCheck(argv: string[], io: MermaidCheckIo, load: 
 
     const parser: MermaidParser | null = await load([installDir(), path.resolve(io.cwd, root ?? ".")]);
     if (parser === null) {
-        print("unchecked", blocks.map((b) => ({ line: b.line })), INSTALL_HINT);
-        return 0;
+        // An unclosed fence is found without the parser, so it fails the page either way.
+        const unclosed: boolean = blocks.some((b) => b.unclosed === true);
+        print(unclosed ? "invalid" : "unchecked", blocks.map((b) => (b.unclosed === true ? { line: b.line, error: UNCLOSED } : { line: b.line })), INSTALL_HINT);
+        return unclosed ? 1 : 0;
     }
 
     const results: BlockResult[] = [];
     for (const block of blocks) {
+        if (block.unclosed === true) {
+            results.push({ line: block.line, error: UNCLOSED });
+            continue;
+        }
         try {
             const { diagramType } = await parser.parse(block.text);
             results.push({ line: block.line, diagramType });
