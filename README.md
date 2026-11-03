@@ -340,6 +340,7 @@ Inside Codex, invoke a stage by its skill name:
 | `/nxs.council` | `$nxs-council` |
 | `/nxs.fix` | `$nxs-fix` |
 | `/nxs.intake` | `$nxs-intake` |
+| `/nxs.hld` | `$nxs-hld` |
 
 Arguments follow the skill name, for example `$nxs-epic Add team invitations` or
 `$nxs-analyze --pr 123`. These are prompts in Codex, not shell commands. Skills require explicit

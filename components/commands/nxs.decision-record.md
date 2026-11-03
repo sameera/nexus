@@ -1187,8 +1187,10 @@ Report concisely, in the run-discipline skill's layout:
 
 # Constraints
 
-- **No 16-section HLD, no per-task LLD, no task index, no `story_ref`**: the story is the
-  implementation unit (0009) and `/nxs.tasks` is cut (0010). A design split changes an existing
+- **The record is not an HLD. No per-task LLD, no task index, no `story_ref`**: the story is the
+  implementation unit (0009) and `/nxs.tasks` is cut (0010). The record holds the decisions and
+  their why; the step toward implementation after it is `/nxs.hld`, which renders a page derived
+  from the filed record and never writes into it. A design split changes an existing
   story's scope, not a new task. It is recorded as an Epic commitment affected for the lead to apply.
 - **Human prose only.** System A emits no machine artifact; the distiller (System B) derives the
   ConceptDelta later from the record + close record and the diff (0006). On the issue-sourced path

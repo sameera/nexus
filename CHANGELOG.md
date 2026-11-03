@@ -5,8 +5,33 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## Unreleased
+## 0.124.0
 
+- **New `/nxs.hld <epic>` renders an epic's design as a high-level design page and puts it on the
+  decision record.** Run after `decision-record` has filed the record, it reads the epic, its
+  stories and the record and writes one Markdown page. Every diagram is a Mermaid block: the
+  architecture is a flowchart grouped by where each part runs, each mechanism is a sequence diagram
+  or a decision flowchart, the data is an entity-relationship diagram and the delivery order is a
+  timeline or a dependency flowchart, each with a legend line under it. People read the page
+  rendered by GitHub, and an implementing agent reads the same text. The page also checks the
+  design: every acceptance criterion as achievable or not, every decision and guarantee as kept or
+  violated, every concept invariant the record does not change on purpose, every conflict between
+  the record and the code, and every choice the record left open. The lead sees the page and the
+  verdict before anything is written. On approval the page is published to the team's asset store
+  through `nexus assets publish`, and `/nxs.hld` references it from the record with a dated comment
+  holding the plain link to the page at its publish commit, whether the record is open or approved,
+  so the record body and its hash never change. If the record is withdrawn, reopened or edited
+  while the lead is at the preview, the run stops before publishing. It edits no epic, no story and
+  no decision; a choice the record left open is listed for the lead to settle with
+  `decision-record --revise`. It refuses to be the first step of a design: it stops while the epic
+  has no record, or while the epic still carries the needs-design label that `decision-record`
+  removes when it files the record.
+- **`/nxs.hld` checks that every diagram parses before the preview.** The new `nexus mermaid-check`
+  runs Mermaid's own parser over the page, including a diagram nested under a list item, and fails
+  a diagram whose fence is never closed. A diagram GitHub would show as an error is fixed before the
+  lead sees the page. The parser is not installed with Nexus. Install `mermaid` and `jsdom` beside
+  it (`npm install -g mermaid jsdom`) or in the repository to turn the check on. Without them the
+  preview says the diagrams were not checked, and the run goes on.
 - **The published package declares `yaml`.** Three library sources under `dist/lib/workspace/` import `yaml`,
   but the package declared no dependencies, so a consumer that did not install `yaml` itself failed to load
   them. The package now declares `yaml` as its one runtime dependency. No stage behaviour changes.
