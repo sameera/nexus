@@ -5,6 +5,23 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.125.0
+
+- **`/nxs.hld` now writes its high-level design page as Markdown, with every diagram as a Mermaid
+  block.** The architecture is a flowchart grouped by where each part runs, each mechanism is a
+  sequence diagram or a decision flowchart, the data is an entity-relationship diagram and the
+  delivery order is a timeline or a dependency flowchart, each with a legend line under it. People
+  read the page rendered by GitHub, and an implementing agent reads the same text, where every edge
+  and every message is written out instead of drawn. The page's content, the checks and the preview
+  are unchanged. The reference on the record that `decision-record` filed is now always the plain
+  link to the page at its publish commit; the HTML renderer setting no longer applies to it. Pages published before this
+  release stay as they are.
+- **`/nxs.hld` checks that every diagram parses before the preview.** The new `nexus mermaid-check`
+  runs Mermaid's own parser over the page; a diagram GitHub would show as an error is fixed before
+  the lead sees the page. The parser is not installed with Nexus. Install `mermaid` and `jsdom`
+  beside it (`npm install -g mermaid jsdom`) or in the repository to turn the check on. Without
+  them the preview says the diagrams were not checked, and the run goes on.
+
 ## 0.124.0
 
 - **New `/nxs.hld <epic>` renders an epic's design as a high-level design page and puts it on the

@@ -4,14 +4,13 @@
  *
  * The page derives from the record and never replaces it: a choice the record left open is listed
  * for the lead, a decision the design cannot keep is a violation written in full. The page is one
- * self-contained HTML file with inline SVG diagrams, shown to the lead before any write. It is
- * published only through `nexus assets publish`, and referenced from the record by a comment, in
- * either state, so the hashed record body never changes.
+ * Markdown file whose diagrams are Mermaid blocks, so people read it rendered by GitHub and an
+ * implementing agent reads the same text. It is shown to the lead before any write, published only
+ * through `nexus assets publish`, and referenced from the record by a comment, in either state, so
+ * the hashed record body never changes.
  */
 
-import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { authoredComponentRoot } from "./vendor-components.js";
@@ -154,89 +153,52 @@ describe("/nxs.hld derives the design from the record and reports what does not 
     });
 });
 
-describe("/nxs.hld renders one self-contained page with inline SVG diagrams", () => {
+describe("/nxs.hld renders one Markdown page whose diagrams are Mermaid blocks", () => {
     const render: string = section("# Phase 3 — Render the page");
 
-    it("writes the page under the gitignored .nexus/tmp and no Markdown twin", () => {
-        expect(render).toMatch(/\.nexus\/tmp\/hld\/<N>-<slug>\.html/);
-        expect(render).toMatch(/Write no Markdown twin/);
+    it("writes one Markdown page under the gitignored .nexus/tmp and no second copy", () => {
+        expect(render).toMatch(/\.nexus\/tmp\/hld\/<N>-<slug>\.md/);
+        expect(render).not.toMatch(/<N>-<slug>\.html/);
+        expect(render).toMatch(/Write no second copy/);
     });
 
-    it("allows no external host, no CDN and no diagram library", () => {
-        expect(render).toMatch(/No external host of any kind/);
-        expect(render).toMatch(/no Mermaid or diagram library/);
+    it("draws every diagram as a Mermaid block, by the kind of thing it shows", () => {
+        expect(render).toMatch(/\*\*Architecture diagram\*\* \(required\).{0,200}`flowchart`.{0,200}`subgraph`/);
+        expect(render).toMatch(/\*\*Flow diagrams\*\* \(one per mechanism\).{0,200}`sequenceDiagram`.{0,300}`flowchart`/);
+        expect(render).toMatch(/\*\*Data diagram\*\*.{0,200}`erDiagram`/);
+        expect(render).toMatch(/\*\*Delivery diagram\*\* \(required\).{0,200}`gantt`.{0,200}`flowchart`/);
+        expect(render).not.toMatch(/inline SVG/);
     });
 
-    it("renders in both themes", () => {
-        expect(render).toMatch(/prefers-color-scheme: dark/);
-        expect(render).toMatch(/:root\[data-theme="dark"\]/);
+    it("keeps a legend under each diagram, solid and dotted edges with meaning, and the central components highlighted", () => {
+        expect(render).toMatch(/legend line/);
+        expect(render).toMatch(/dotted/);
+        expect(render).toMatch(/`classDef`/);
+        expect(render).toMatch(/No picture decorates/);
     });
 
-    it("requires an architecture diagram, a flow diagram per mechanism and a delivery diagram, as inline SVG", () => {
-        expect(render).toMatch(/\*\*Architecture diagram\*\* \(required\)/);
-        expect(render).toMatch(/\*\*Flow diagrams\*\* \(one per mechanism\)/);
-        expect(render).toMatch(/\*\*Delivery diagram\*\* \(required\)/);
-        expect(render).toMatch(/inline SVG with a `viewBox`, `role="img"` and an `aria-label`/);
+    it("writes issue references in the qualified form, because the page lives in the store", () => {
+        expect(render).toMatch(/`owner\/repo#N`/);
     });
 
-    it("animates only with a play control and honours reduced motion", () => {
-        expect(render).toMatch(/\*Play\* control and starts still/);
-        expect(render).toMatch(/prefers-reduced-motion: reduce/);
+    it("loads no page-design or diagramming skill, and carries no theme, layout or animation rule", () => {
+        expect(render).not.toMatch(/artifact-design|artifact-diagramming/);
+        expect(render).not.toMatch(/prefers-color-scheme|prefers-reduced-motion|\*Play\* control/);
     });
 
-    it("checks the store at the epic's target root and the size cap itself, before the preview", () => {
+    it("checks every Mermaid block parses, the size cap and the store, before the preview", () => {
+        expect(render).toMatch(/nexus mermaid-check --file <page> --root "<targetRoot>"/);
         expect(render).toMatch(/nexus assets check --asset <page> --root "<targetRoot>"/);
         expect(render).toMatch(/nexus config resolve asset-size-cap --root "<targetRoot>"/);
     });
-});
 
-describe("/nxs.hld's external-dependency check finds every remote load and nothing else", () => {
-    const render: string = section("# Phase 3 — Render the page");
-    const command: string | undefined = SKILL.split("\n").find((line) => /^grep .*<page>/.test(line));
-
-    /** Runs the skill's own grep on a page; true when it reports something. */
-    function flags(html: string): boolean {
-        expect(command, "the external-dependency grep").toBeDefined();
-        const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), "hld-grep-"));
-        const page: string = path.join(dir, "page.html");
-        fs.writeFileSync(page, html);
-        const result = spawnSync("bash", ["-c", (command as string).replace("<page>", `'${page}'`)]);
-        fs.rmSync(dir, { recursive: true, force: true });
-        expect(result.status, String(result.stderr)).not.toBe(2);
-        return result.status === 0;
-    }
-
-    it.each([
-        ['a Google Fonts stylesheet', '<link href="https://fonts.googleapis.com/css2?family=Inter" rel="stylesheet">'],
-        ["a CDN script", '<script src="https://cdnjs.cloudflare.com/ajax/libs/x/1.0/x.js"></script>'],
-        ["a single-quoted remote image", "<img src='http://example.com/a.png'>"],
-        ["a protocol-relative image", '<img src="//cdn.example.com/a.png">'],
-        ["a CSS url()", "body { background: url(https://example.com/a.png); }"],
-        ["a CSS @import", '@import "https://example.com/a.css";'],
-        ["a remote SVG image", '<image href="https://example.com/a.png" />'],
-        ["a remote SVG sprite", '<use href="https://example.com/s.svg#icon" />'],
-        ["a module imported from a CDN", '<script type="module">import * as d3 from "https://esm.sh/d3";</script>'],
-        ["a module imported for its side effects", "<script type=\"module\">import 'https://esm.sh/x';</script>"],
-        ["a remote video poster", '<video poster="https://example.com/p.png"></video>'],
-        ["a remote later srcset entry", '<img srcset="a.png 1x, https://example.com/b.png 2x">'],
-        ["a remote src with spaces around the equals sign", '<img src = "https://example.com/a.png">'],
-    ])("flags %s", (_kind, html) => {
-        expect(flags(html)).toBe(true);
+    it("fixes an invalid block before the preview, and says so at the preview when the parser is not installed", () => {
+        expect(render).toMatch(/`invalid`.{0,300}[Ff]ix/);
+        expect(render).toMatch(/`unchecked`.{0,400}preview/);
     });
 
-    it.each([
-        ["a hyperlink to an issue", '<a href="https://github.com/acme/app/issues/12">acme/app#12</a>'],
-        ["an issue link inside an SVG diagram", '<a xlink:href="https://github.com/acme/app/issues/12"><text>#12</text></a>'],
-        ["a local srcset", '<img srcset="data:image/png;base64,AAAA 1x, data:image/png;base64,BBBB 2x">'],
-        ["the SVG namespace", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>'],
-        ["a data URI", '<img src="data:image/png;base64,AAAA">'],
-        ["an inline script and style", "<script>play()</script><style>:root { --a: #fff; }</style>"],
-    ])("passes %s", (_kind, html) => {
-        expect(flags(html)).toBe(false);
-    });
-
-    it("holds the page rules above the design skills' allowances", () => {
-        expect(render).toMatch(/Google Fonts/);
+    it("keeps no external-load grep: a Markdown page loads nothing", () => {
+        expect(SKILL.split("\n").some((line) => /^grep .*<page>/.test(line))).toBe(false);
     });
 });
 
@@ -259,8 +221,14 @@ describe("/nxs.hld shows the page to the lead before any write outside .nexus/tm
         expect(gate).toMatch(/`unsupported`.{0,200}leave out \*\*Publish and reference it from the record\*\*/);
     });
 
-    it("names the store, its visibility and the renderer before the lead approves", () => {
-        expect(gate).toMatch(/its visibility, and whether an HTML renderer is configured/);
+    it("names the store and its visibility, and says the reference is the plain link, before the lead approves", () => {
+        expect(gate).toMatch(/the store and its visibility/);
+        expect(gate).toMatch(/plain link/);
+        expect(gate).not.toMatch(/HTML renderer/);
+    });
+
+    it("says at the gate when the diagrams were not checked", () => {
+        expect(gate).toMatch(/`unchecked`/);
     });
 });
 
@@ -270,6 +238,11 @@ describe("/nxs.hld publishes only through nexus assets and references the record
     it("publishes through nexus assets publish under the epic's feature", () => {
         expect(publish).toMatch(/nexus assets publish --file <page> --feature "<feature-slug>" --root "<targetRoot>" --json/);
         expect(publish).toMatch(/pins the commit the publish created/);
+    });
+
+    it("files the plain link to the pinned blob, which GitHub renders with its diagrams", () => {
+        expect(publish).toMatch(/plain link/);
+        expect(publish).not.toMatch(/`assets renderer:`/);
     });
 
     it("never edits the record body, in either state", () => {

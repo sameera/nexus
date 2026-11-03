@@ -126,6 +126,7 @@ import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
 import { runRecordAmendments } from "./record-amendments.js";
+import { MERMAID_CHECK_USAGE, runMermaidCheck } from "./mermaid-check.js";
 import { REVIEW_POST_USAGE, runReviewPost } from "./review-post.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
@@ -515,6 +516,11 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      posted an answer. Exits 1 when the comments cannot be read; that is never \"no answer\".",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runPrAnswers(argv, io)),
+    },
+    "mermaid-check": {
+        summary: "Check that every Mermaid block in a Markdown page parses.",
+        usage: MERMAID_CHECK_USAGE,
+        run: (argv, io) => runMermaidCheck(argv, io),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",

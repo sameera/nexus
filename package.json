@@ -1,6 +1,6 @@
 {
     "name": "@sameeraperera/nexus",
-    "version": "0.124.0",
+    "version": "0.125.0",
     "description": "A System of Intentional Friction for the Age of AI Agents",
     "license": "ISC",
     "repository": {
@@ -48,6 +48,18 @@
     "dependencies": {
         "yaml": "^2.9.0"
     },
+    "peerDependencies": {
+        "jsdom": ">=24.0.0",
+        "mermaid": "^11.0.0"
+    },
+    "peerDependenciesMeta": {
+        "jsdom": {
+            "optional": true
+        },
+        "mermaid": {
+            "optional": true
+        }
+    },
     "devDependencies": {
         "@eslint/js": "^9.8.0",
         "@nexus/abs-doc-path": "workspace:*",
@@ -74,6 +86,8 @@
         "eslint": "^9.8.0",
         "eslint-config-prettier": "^10.0.0",
         "jiti": "2.4.2",
+        "jsdom": "^27.4.0",
+        "mermaid": "^11.17.2",
         "nx": "23.2.1",
         "prettier": "~3.6.2",
         "tslib": "^2.3.0",

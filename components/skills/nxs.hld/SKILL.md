@@ -1,13 +1,14 @@
 ---
 name: nxs.hld
-description: Render one planned epic's approved design as a high-level design document (HLD), a self-contained HTML page with inline SVG architecture, flow, data and delivery diagrams, and check that design against the epic. Reads the epic, its stories and its decision record, derives the design from the record's decisions and guarantees, and reports every acceptance criterion as achievable or not, every decision and guarantee as kept or violated, every conflict between the record and the code, and every choice the record left open. Shows the page to the lead before any write, then publishes it to the team's asset store through `nexus assets publish` and references it from the decision record with a dated comment, whether the record is open or approved, so the hashed record body never changes. Never edits the record's body, never edits the epic or a story, never writes a decision of its own into the record. Refuses to be the first design step: it stops while the epic has no record or still carries the needs-design label. Invoke as `/nxs.hld <epic-issue-number>`.
+description: Render one planned epic's approved design as a high-level design document (HLD), a Markdown page whose architecture, flow, data and delivery diagrams are Mermaid blocks, so people read it rendered by GitHub and an implementing agent reads the same text, and check that design against the epic. Reads the epic, its stories and its decision record, derives the design from the record's decisions and guarantees, and reports every acceptance criterion as achievable or not, every decision and guarantee as kept or violated, every conflict between the record and the code, and every choice the record left open. Shows the page to the lead before any write, then publishes it to the team's asset store through `nexus assets publish` and references it from the decision record with a dated comment, whether the record is open or approved, so the hashed record body never changes. Never edits the record's body, never edits the epic or a story, never writes a decision of its own into the record. Refuses to be the first design step: it stops while the epic has no record or still carries the needs-design label. Invoke as `/nxs.hld <epic-issue-number>`.
 ---
 
 # nxs.hld
 
 Render the design the decision record already made as a document engineers can build from and a
 lead can check in one sitting, with the architecture, the flows and the data drawn rather than
-described. Then put that document where the record lives, so the picture of the design sits
+described. The document is one Markdown page with Mermaid diagrams: GitHub draws them for a person,
+and an agent reads the same blocks as text. Then put that document where the record lives, so the picture of the design sits
 beside its reasons.
 
 An HLD here is **derived from the record, never a substitute for it**. The record holds every
@@ -24,7 +25,7 @@ only once the lead promotes it with `/nxs.decision-record --revise`. So it is ne
 of a design. It refuses while the epic has no record, or while the epic still carries the
 needs-design label, which `/nxs.decision-record` removes when it files the record.
 
-**Finish line:** the HTML page published to the asset store and referenced from the decision
+**Finish line:** the Markdown page published to the asset store and referenced from the decision
 record, with the completion report; or the page left local when the lead chose that; or a refusal
 that names what is missing.
 
@@ -45,7 +46,7 @@ for the epic issue number; the resolver takes a bare number only.
 # Scope
 
 A run reads GitHub and the workspace's checkouts. Its working files go under the gitignored
-`.nexus/tmp/`: the materialized `epic.md` and the HTML page are written there before the preview
+`.nexus/tmp/`: the materialized `epic.md` and the Markdown page are written there before the preview
 gate in Phase 4, and the reference block after it. Outside `.nexus/tmp/`
 it writes exactly two things, both after the preview gate: one file in the asset store, and one
 reference in the decision record. It edits no epic, no story and no code. It never
@@ -241,106 +242,101 @@ up as above.
 
 # Phase 3 — Render the page
 
-Render **one self-contained HTML file** at
-`<targetRoot>/.nexus/tmp/hld/<N>-<slug>.html`, where `<slug>` is the epic's `slug` when the
-materialized frontmatter carries it, else a kebab-case form of the epic title. The folder is
-gitignored. Write no Markdown twin: a second copy drifts from the first at the first revision.
-When the `artifact-design` and `artifact-diagramming` skills are available in the session, load
-them before writing; their guidance applies to a local file as it does to a published page. The
-rules below hold either way, and they win where those skills allow more: those skills permit
-Google Fonts stylesheets and CDN scripts, and this page uses neither.
+Render **one Markdown file** at `<targetRoot>/.nexus/tmp/hld/<N>-<slug>.md`, where `<slug>` is the
+epic's `slug` when the materialized frontmatter carries it, else a kebab-case form of the epic
+title. The folder is gitignored. Write no second copy: a second copy drifts from the first at the
+first revision. The one file serves both readers. People read it rendered by GitHub, which draws
+the Mermaid blocks. An implementing agent, such as `nexus implement-epic`, reads the same text, and
+a Mermaid block states every edge and every message in order as text.
 
 ## Page rules
 
-- **Self-contained.** Inline all CSS and JS. No external host of any kind: no CDN script, no web
-  font, no remote image, no Mermaid or diagram library. An image is a data URI or inline SVG. The
-  page must open from a file path with no network.
-- **Both themes.** Colours are tokens on `:root`, redefined for dark mode under
-  `@media (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])` and again
-  under `:root[data-theme="dark"]`. SVG shapes and text take their fill and stroke from the same
-  tokens, so a diagram reads in both themes.
-- **Navigable.** A sticky section index, numbered sections with anchors, and the header's epic,
-  record and digest visible without scrolling.
-- **Readable at phone width.** A 16px side gutter, no horizontal page scroll; a wide diagram or
-  table scrolls inside its own frame.
-- **Issue references** inside the page are the qualified form `owner/repo#N` as text, hyperlinked
-  to the issue, because the page is published into a repository that is not the issues
-  repository.
-- **Size.** Stay well under the team's `asset-size-cap` (default 5 MB). A page with every diagram
-  inline is normally under 200 KB.
+- **One file, plain Markdown.** Headings, lists, tables and fenced `mermaid` blocks only. No raw
+  HTML, no image and no link to a local file: the page must read the same as text and as rendered.
+- **Numbered sections.** Each section from Phase 2 is a `##` heading with its number, so the
+  reference comment and a reader can point at one by number. Keep the numbers in step with
+  Phase 2: the reference comment names section 13, *Choices the record left open*.
+- **Header first.** The header's epic, record, state and digest are the first lines under the title.
+- **Issue references** inside the page are the qualified form `owner/repo#N`, because the page is
+  published into the store repository, where a bare `#N` would point at the wrong issue.
+- **Size.** Stay well under the team's `asset-size-cap` (default 5 MB). A Markdown page with every
+  diagram is normally under 100 KB.
 
 ## Diagram rules
 
-Draw every diagram as inline SVG with a `viewBox`, `role="img"` and an `aria-label` that states
-what the diagram shows. Each sits in a `<figure>` with a caption that explains the legend: what a
-solid line, a dashed line and each fill mean.
+Draw every diagram as a fenced `mermaid` block. Put a **legend line** in italics directly under
+each block: what a solid edge, a dotted edge and each highlighted class mean. Mermaid places the
+boxes itself, so spend no effort on layout; spend it on the right nodes and edges.
 
-- **Architecture diagram** (required). Components grouped by where they run. Solid lines for a
-  call or a read/write, dashed lines for a reference or an out-of-band step. The components the
-  record's mechanism centres on are highlighted. At most one line crossing per diagram; redraw
-  before accepting a second.
-- **Flow diagrams** (one per mechanism). A sequence diagram for a path through components, with
-  lifelines and ordered messages. A decision flow for a branching rule, with the checks down one
-  column and each exit to the side, coloured by kind of outcome: a refusal, a write, a return.
-  Every outcome the record lists is an exit.
-- **Data diagram** (when stored data changes). Entities as boxes with their key fields, lines for
-  relationships, and the constraint a guarantee relies on written on the line.
-- **Delivery diagram** (required). The stories in the epic's Implementation Sequence as a timeline
-  or a dependency graph, with the pull request each lands in.
-- **Anything else** only when it carries a decision: a state diagram for a lifecycle the record
-  introduces, a before/after pair for a data change. No picture decorates; each one shows a
+- **Architecture diagram** (required). A `flowchart`, with one `subgraph` per place a component
+  runs: a machine, a service, a repository, GitHub. Solid edges (`-->`) for a call or a
+  read/write, dotted edges (`-.->`) for a reference or an out-of-band step, each labelled with what
+  travels on it. The components the record's mechanism centres on are highlighted with a
+  `classDef` and `class` line.
+- **Flow diagrams** (one per mechanism). A `sequenceDiagram` for a path through components, with
+  one participant per component and the messages in order. A `flowchart` for a decision flow, with
+  the checks top to bottom and each exit as its own node, given a `classDef` by kind of outcome:
+  a refusal, a write, a return. Every outcome the record lists is an exit.
+- **Data diagram** (when stored data changes). An `erDiagram` with the entities, their key
+  fields and their relationships. Write the constraint a guarantee relies on as the relationship's
+  label.
+- **Delivery diagram** (required). The stories in the epic's Implementation Sequence, as a
+  `gantt` with one section per pull request when the order is a timeline, or as a dependency
+  `flowchart` when it is a graph. Name the pull request each story lands in.
+- **Anything else** only when it carries a decision: a `stateDiagram-v2` for a lifecycle the
+  record introduces, a before/after pair for a data change. No picture decorates; each one shows a
   mechanism the prose would take a page to say.
 
-## Animation rules
-
-An animation shows order: a request moving through the sequence, a decision flow lighting one
-path at a time, a rollout advancing step by step. Use SVG SMIL or CSS keyframes, inline. Every
-animated figure has a *Play* control and starts still; it never loops unattended. Under
-`@media (prefers-reduced-motion: reduce)` every animation is replaced by the final frame. A
-diagram must read fully with the animation never played, so a printed or still copy loses nothing.
+A label with punctuation Mermaid reads as syntax, such as `/`, `(`, `[` or `#`, goes in double
+quotes: `skill["/nxs.hld"]`.
 
 ## Checks before the preview
 
 ```bash
-grep -niE "<script[^>]*[[:space:]]src[[:space:]]*=|<(link|image|use|feimage)[^>]*[[:space:]](xlink:)?href[[:space:]]*=[[:space:]]*[\"']?(https?:)?//|[[:space:]](src|srcset|data|poster)[[:space:]]*=[[:space:]]*[\"']?(https?:)?//|srcset[[:space:]]*=[[:space:]]*[\"'][^\"']*,[[:space:]]*(https?:)?//|(^|[^[:alnum:]_.@-])import[[:space:](][^;\"']*[\"'](https?:)?//|url\([[:space:]]*[\"']?(https?:)?//|@import" <page>   # must find nothing
+nexus mermaid-check --file <page> --root "<targetRoot>"
 wc -c < <page>
 nexus config resolve asset-size-cap --root "<targetRoot>"
 nexus assets check --asset <page> --root "<targetRoot>"
 ```
 
-The first finds any external dependency: a script with a `src`; a stylesheet, SVG image, SVG
-`<use>` or `<feImage>` linked from a host; a `src`, `srcset` (any of its entries), `data` or
-`poster` attribute on any host (`http:`, `https:` or protocol-relative `//`); a module `import` or
-`import()` from a host; a CSS `url(...)` on a host; and any `@import`. Spaces around `=` do not
-hide a load. An `<a href>` or `<a xlink:href>` to an issue, in HTML or inside an SVG diagram, is a
-link, not a load, and is not flagged. Fix every hit before going on, and keep each tag on one
-line so the check can see it.
+The first parses every Mermaid block with Mermaid's own parser. Its `state` decides:
+
+- `parsed` — every block parses. Confirm the `blocks` list holds at least the architecture and
+  delivery diagrams and one flow per mechanism.
+- `invalid` — a block GitHub would show as an error. Each failing block names its fence line, the
+  parser's message and, when the parser gives one, the line in the file. Fix every failing block
+  and run the check again before going on.
+- `unchecked` — `mermaid` or `jsdom` is not installed where the check looks: beside the Nexus
+  install, or under the target root. Go on, and say at the preview that the diagrams were not
+  parsed, with the check's `reason`, so the lead checks them in GitHub's rendering instead.
 
 The second and third compare the page's size in bytes with the team's `asset-size-cap`. A page
 over the cap cannot be published: shrink it before going on. `nexus assets check` does not check
 the size; only `nexus assets publish` enforces it, and it does so after the lead has approved.
 
-The fourth reads the store at the epic's target root once: its visibility and the renderer. A
-non-zero exit stops the run with its diagnostic. `{ "state": "unsupported" }` means no asset store
-is declared: say so once, and go to the preview knowing the page can only stay local.
+The fourth reads the store at the epic's target root once: its visibility. A non-zero exit stops
+the run with its diagnostic. `{ "state": "unsupported" }` means no asset store is declared: say so
+once, and go to the preview knowing the page can only stay local.
 
 # Phase 4 — Preview gate (MANDATORY STOP)
 
 Before any write outside `.nexus/tmp/`, show the lead the page and the verdict:
 
-1. The file's absolute path, and where available open it: `xdg-open <page>` on Linux,
-   `open <page>` on macOS. If neither runs, say so and give the path alone.
-2. One line: *All acceptance criteria achievable, no decision violated*, or the counts of
+1. The file's absolute path. The lead reads it in any Markdown viewer that draws Mermaid, such as
+   an editor's Markdown preview; the published page is drawn by GitHub.
+2. The diagram check: how many Mermaid blocks parsed, or, when `nexus mermaid-check` reported
+   `unchecked`, that the diagrams were not parsed, with its `reason`.
+3. One line: *All acceptance criteria achievable, no decision violated*, or the counts of
    violations and not-achievable criteria.
-3. Each violation in short form: ID, what is violated, impact in one or two sentences,
+4. Each violation in short form: ID, what is violated, impact in one or two sentences,
    recommendation.
-4. Each conflict with the record, in one line each.
-5. Each open question with its recommended answer.
-6. Each choice the record left open, in one line each.
-7. The store line: the store, its visibility, and whether an HTML renderer is configured, so the
-   lead reads before approving which form the reference will take. A private store with a renderer
-   configured is a warning the lead decides on, never a refusal: the renderer may not be able to
-   read the page.
+5. Each conflict with the record, in one line each.
+6. Each open question with its recommended answer.
+7. Each choice the record left open, in one line each.
+8. The store line: the store and its visibility. The reference will be the plain link to the page's
+   blob at the publish commit; `asset-renderer` applies only to HTML and plays no part. A private
+   store means only people and agents with read access to it can open the page: say so, so the
+   lead decides before approving.
 
 Then ask, through `AskUserQuestion`. When the check in Phase 3 returned `unsupported`, there is no
 store to publish to: leave out **Publish and reference it from the record**, and say in the
@@ -358,8 +354,8 @@ the page as a conforming design.
 
 # Phase 5 — Publish and reference
 
-Load the `nxs-assets` skill. The store, the size cap and the renderer are team settings; this
-skill reads them and never falls back to another repository.
+Load the `nxs-assets` skill. The store and the size cap are team settings; this skill reads them
+and never falls back to another repository.
 
 1. **Read the record again.** The lead may have spent any length of time at the preview gate, and
    the record may have changed in that time. Before anything is published, read it again through
@@ -395,9 +391,11 @@ skill reads them and never falls back to another repository.
 
     Keep `url`, `commit` and `markdown` from the output. The reference pins the commit the publish
     created, so a later run that publishes the same file name makes a new commit and never changes
-    what an earlier reference shows. State on the console which form was filed: `assets renderer:`
-    naming the template when the reference goes through the renderer, or `assets renderer-absent:`
-    when it is the plain link. A non-zero exit stops the run with its diagnostic; nothing is
+    what an earlier reference shows. For a Markdown page the reference is always the plain link to
+    `https://github.com/<store>/blob/<commit>/features/<feature-slug>/<file>`, which GitHub renders
+    with its diagrams; the publish prints no renderer line. That pinned link is also how an agent
+    finds the page: it takes the store, the path and the commit from it and reads the raw text
+    through GitHub's contents API at that commit, which works for a private store. A non-zero exit stops the run with its diagnostic; nothing is
     written to the record.
 
 3. **Write the reference block** to `<scratch>/hld-reference.md`, where `<scratch>` is
@@ -451,16 +449,15 @@ In the run-discipline layout:
   choice the record left open names the revision that would bind it. When nothing waits, say so and
   name the next step: approve the record by closing it, or implement against it and run
   `/nxs.analyze`.
-- **Changed:** the page's local path, the store path and commit, the reference form filed
-  (renderer or plain link), and the link to the comment on the record. Say what was left unwritten: the epic, the stories, the record's decisions.
+- **Changed:** the page's local path, the store path and commit, the pinned link filed, and the link to the comment on the record. Say what was left unwritten: the epic, the stories, the record's decisions.
 - **Found:** the verdict line, the counts (criteria, decisions, guarantees, conflicts, violations,
-  open choices), the earlier HLD reference this run supersedes if any, and the record's digest the
+  open choices), the diagram check (parsed, or unchecked and why), the earlier HLD reference this run supersedes if any, and the record's digest the
   page was derived from.
 
 # Usage
 
 ```
-/nxs.hld 348        # render the HLD for epic #348 from its decision record, preview, publish, reference
+/nxs.hld 348        # render the HLD page (Markdown, Mermaid diagrams) for epic #348 from its record, preview, publish, reference
 /nxs.hld #348       # the same
 ```
 
@@ -470,8 +467,9 @@ In the run-discipline layout:
   stories, the concept invariants and the code. It never makes a decision binding: a choice the
   record left open is listed for the lead, and a decision the design cannot keep is a violation
   written in full, never a silent change.
-- **One page, self-contained, both themes, no external host.** It opens from a file path and from
-  the store with no network and no build step. No Mermaid, no diagram library, no CDN.
+- **One Markdown page, Mermaid diagrams, one source.** People read it rendered by GitHub and agents
+  read the same text. No HTML twin, no image, no raw HTML. Every Mermaid block parses before the
+  preview, or the preview says it was not checked.
 - **HLD altitude.** No SQL, no line numbers, no schemas, no test catalogue. An engineer's low-level
   design is theirs to write and never enters Nexus through this skill.
 - **Nothing is written before the preview gate**, except the working files under the gitignored
