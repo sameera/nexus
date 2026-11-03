@@ -48,7 +48,7 @@ What Nexus deliberately does **not** do:
 
 - **Does not write or gate the target project's code.** Implementation belongs to engineers, with
   whatever tools they choose. Nexus plans and gates the work around it. One exception: the optional
-  `nexus implement-epic` command, which a lead chooses to run, drives an agent to implement an
+  `nexus implement` command, which a lead chooses to run, drives an agent to implement an
   approved epic unattended. No pipeline stage writes code.
 - **Does not decompose below the user story.** The story, not the technical task, is the terminal
   planning unit and the GitHub-issue granularity. Nexus stops once a story can be shipped and

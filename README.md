@@ -366,17 +366,16 @@ package if you installed both. Repository-local installation is also available w
 account installation to avoid duplicate skills. `migrate-components` remains a Claude migration
 command for the old committed component layout.
 
-The checkout utility can also use Codex for the headless implementation and conformance loop:
+`nexus implement` can also use Codex for the unattended implementation and fix loop:
 
 ```bash
-HARNESS=codex utils/implement-epic.sh 123
+nexus implement 123 --harness codex
 ```
 
 It uses [`codex exec`](https://learn.chatgpt.com/docs/non-interactive-mode) with a fresh session for
-each stage and a `workspace-write` sandbox. Set `CODEX_SANDBOX` or pass additional `codex exec`
-options for your environment. Turn caps are prompt instructions, not enforced runtime budgets.
-As with the existing Claude runner, this utility pushes the implementation branch and opens or
-updates its PR; use it only when that publication is intended.
+each stage and a `workspace-write` sandbox. Pass additional `codex exec` options after `--`.
+The command pushes the implementation branch and opens a draft pull request; run it only when
+that publication is intended.
 
 ## Distilling with one command
 

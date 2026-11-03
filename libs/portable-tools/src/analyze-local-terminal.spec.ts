@@ -5,7 +5,7 @@
  * issue-reference rules and the implement scripts no longer name the local analysis file (G37), and
  * close behaves the same whether or not a local run happened, even when a file an older release
  * wrote is still beside the epic (G38). The implement scripts are gone (decision record #966, D1):
- * `nexus implement-epic` reads the published verdict, never a local report.
+ * `nexus implement` reads the published verdict, never a local report.
  */
 
 import * as fs from "node:fs";
@@ -57,8 +57,8 @@ describe("no other stage names the local analysis file (G37)", () => {
         expect(read(rel)).not.toContain(LOCAL_FILE);
     });
 
-    it("nexus implement-epic does not name it", () => {
-        expect(fs.readFileSync(path.join(REPO_ROOT, "libs/portable-tools/src/implement-epic.ts"), "utf8")).not.toContain(LOCAL_FILE);
+    it("nexus implement does not name it", () => {
+        expect(fs.readFileSync(path.join(REPO_ROOT, "libs/portable-tools/src/implement.ts"), "utf8")).not.toContain(LOCAL_FILE);
     });
 });
 

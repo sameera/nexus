@@ -1,6 +1,6 @@
 ---
 title: "Unattended Epic Implementation"
-aliases: ["implement-epic command", "nexus implement-epic", "unattended implementation", "implement an epic unattended", "implement-epic fix loop"]
+aliases: ["nexus implement", "implement command", "implement-epic command", "nexus implement-epic", "unattended implementation", "implement an epic unattended", "implement-epic fix loop"]
 touches: ["nexus-pipeline", "pr-verdict-answers", "published-verdict-selection", "scope-claim", "publishing-config-resolution"]
 last_updated_by: "#928"
 status: active

@@ -5,6 +5,12 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.125.0
+
+- **`nexus implement-epic` is now `nexus implement`.** The command takes the same arguments and runs the
+  same way: `nexus implement <N>`. The old name is gone, so a lead or script that calls
+  `nexus implement-epic` gets an unknown-command error and must switch to the new name.
+
 ## 0.124.0
 
 - **New `/nxs.hld <epic>` renders an epic's design as a high-level design page and puts it on the

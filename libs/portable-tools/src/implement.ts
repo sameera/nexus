@@ -1,5 +1,5 @@
 /**
- * `nexus implement-epic` — implement an approved epic unattended (epic #928, decision record #966).
+ * `nexus implement` — implement an approved epic unattended (epic #928, decision record #966).
  *
  * The command replaces the two implement-epic scripts. It checks the epic before any model runs,
  * creates the epic's branch itself, runs one agent stage that implements the stories, checks the
@@ -265,7 +265,7 @@ export function issueRef(n: number, issuesRepo: string, prRepo: string): string 
 
 /** The status section, between its markers. */
 export function statusSection(text: string): string {
-    return `${STATUS_OPEN}\n**Run status (\`nexus implement-epic\`):** ${text}\n${STATUS_CLOSE}`;
+    return `${STATUS_OPEN}\n**Run status (\`nexus implement\`):** ${text}\n${STATUS_CLOSE}`;
 }
 
 /** `body` with its status section rewritten, or the section appended when it has none (D11). */
@@ -360,7 +360,7 @@ export function inferredAnswers(judgments: Judgments | null, preRunStub: (path: 
         if (content === null || reason === "" || !content.includes(reason)) continue;
         out.push({
             id: item.id,
-            line: `${item.id} — accepted: ${reason.replace(/\s+/g, " ")} (source: decision stub ${item.stub.path}, committed before this run; posted by the unattended nexus implement-epic command)`,
+            line: `${item.id} — accepted: ${reason.replace(/\s+/g, " ")} (source: decision stub ${item.stub.path}, committed before this run; posted by the unattended nexus implement command)`,
         });
     }
     return out;
@@ -393,9 +393,9 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
     };
 
     const stop = (s: RunStop): number => {
-        io.stderr(`implement-epic stopped at ${s.stage}: ${s.reason}`);
+        io.stderr(`implement stopped at ${s.stage}: ${s.reason}`);
         if (pr !== null && !setStatus(`stopped at ${s.stage}. ${s.reason}`)) {
-            io.stderr(`implement-epic could not update the status section of PR #${pr}.`);
+            io.stderr(`implement could not update the status section of PR #${pr}.`);
         }
         return 1;
     };
@@ -425,7 +425,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const created = deps.createBranch(cwd, branch, base);
         if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
         const baseSha = created.value;
-        say(`implement-epic: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
+        say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
         const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
             say(`>>> ${stage}`);
@@ -468,7 +468,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             pr = opened.value;
         }
         const prNum: number = pr;
-        say(`implement-epic: draft PR #${prNum}`);
+        say(`implement: draft PR #${prNum}`);
 
         const readAnswers = (stage: string): Set<string> => {
             const r = deps.answers(cwd, prNum, prRepo);
@@ -506,7 +506,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (answers.length > 0) {
                 if (!deps.postComment(cwd, prNum, answers.map((a) => a.line).join("\n"))) fail("answers", `the inferred answers could not be posted on PR #${prNum}.`);
                 for (const a of answers) posted.add(a.id);
-                say(`implement-epic: posted inferred answers for ${answers.map((a) => a.id).join(", ")}`);
+                say(`implement: posted inferred answers for ${answers.map((a) => a.id).join(", ")}`);
                 resolveNext = true;
                 continue;
             }
@@ -517,10 +517,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 // 9. Finish (D10): only a verdict for the current head with nothing open.
                 if (v.head !== v.prHead) fail("finish", `the newest verdict is for ${v.head}, but PR #${prNum}'s head is ${v.prHead}.`);
                 if (!setStatus(`finished. The newest verdict, for ${v.head}, has no open Critical, High or Medium item (${testNote}).`)) {
-                    io.stderr(`implement-epic could not update the status section of PR #${prNum}.`);
+                    io.stderr(`implement could not update the status section of PR #${prNum}.`);
                 }
                 if (!deps.markReady(cwd, prNum)) fail("finish", `PR #${prNum} could not be marked ready for review.`);
-                io.stdout(`implement-epic: PR #${prNum} is ready for review.`);
+                io.stdout(`implement: PR #${prNum} is ready for review.`);
                 return 0;
             }
             // 6. Work list (D6), and the escalations the verdict already labels (D7).
