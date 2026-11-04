@@ -47,3 +47,17 @@ export function newestHldComment(comments: readonly RecordComment[]): RecordComm
     }
     return newest;
 }
+
+/** The page link on the comment's `- Design:` line, or null when it has none. */
+export function designLink(body: string): string | null {
+    for (const line of body.split(/\r?\n/)) {
+        if (!/^\s*-\s*Design:/.test(line)) continue;
+        return /https?:\/\/[^\s)\]>]+/.exec(line)?.[0] ?? null;
+    }
+    return null;
+}
+
+/** Where the command writes the page copy, in the epic's gitignored scratch folder (D6). */
+export function pageCopyPath(epic: number): string {
+    return `.nexus/tmp/epic-${epic}/hld-page.md`;
+}

@@ -18,6 +18,8 @@
  * stage stops the run.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { type Departure, type Finding, type Judgments, openItems } from "@nexus/pr-acceptance/judgments-block";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
@@ -28,7 +30,8 @@ import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { git, type Runner } from "@nexus/workspace/run";
 import { fetchRecordIn, issuesRepoPath, onIssuesHost } from "@nexus/epic-verdicts/verdict-repos";
-import { newestHldComment, type RecordComment } from "./implement-hld.js";
+import { parsePinnedUrl, type PinnedAddress } from "@nexus/delivery-config/asset-publish";
+import { designLink, newestHldComment, pageCopyPath, type RecordComment } from "./implement-hld.js";
 import { onPath, spawnSession, type SessionEnd, type SessionSpec } from "./distill-command.js";
 
 export type Harness = "claude" | "codex";
@@ -74,6 +77,8 @@ export interface ImplementInput {
     rounds: number;
     /** Extra arguments for the harness, passed after `--`. They never reach a prompt. */
     harnessArgs: string[];
+    /** Skip the HLD lookup and build from the decision record alone (epic #971, D5). */
+    recordOnly: boolean;
 }
 
 /** What the one epic resolver gives the command (G2). */
@@ -134,6 +139,12 @@ export interface ImplementDeps {
     recordComments(cwd: string, record: number, issuesRepo: string): Outcome<RecordComment[]>;
     /** The record's current digest, from the one record-digest program (G16). */
     recordDigest(cwd: string, record: number, issuesRepo: string): Outcome<string>;
+    /** The raw text of a store file at a pinned commit, under the lead's own GitHub login (D4). */
+    readPage(cwd: string, page: PinnedAddress): Outcome<string>;
+    /** Whether git ignores `file`, relative to `cwd`. */
+    ignored(cwd: string, file: string): boolean;
+    /** Write `text` to `file`, relative to `cwd`, creating its folders. */
+    writeFile(cwd: string, file: string, text: string): Outcome<null>;
     /** A file's content at a commit, or null when it is absent there. */
     fileAt(cwd: string, sha: string, file: string): string | null;
     autoModeAvailable(): boolean;
@@ -419,8 +430,11 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (harness === "claude" && mode === "auto" && !deps.autoModeAvailable()) {
             fail("preflight", "auto permission mode is not available to this account. Pass --permission-mode <mode> to choose another mode.");
         }
-        // 1a. The HLD comment (epic #971, D1, D2): read before the branch exists, so a stop never blocks a re-run.
-        if (facts.record !== null) {
+        // 1a. The HLD page (epic #971): every stop here comes before the branch exists, so a re-run is never refused for it (G13).
+        let page: { url: string; text: string } | null = null;
+        if (input.recordOnly) {
+            say("implement: --record-only: the HLD page was skipped at the lead's request; building from the decision record alone.");
+        } else if (facts.record !== null) {
             const record = facts.record.number;
             const comments = deps.recordComments(cwd, record, facts.issuesRepo);
             if (!comments.ok) return fail("preflight", `the comments on decision record #${record} could not be read: ${comments.message}`);
@@ -428,6 +442,18 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (newest !== null) {
                 const digest = deps.recordDigest(cwd, record, facts.issuesRepo);
                 if (!digest.ok) return fail("preflight", `the current digest of decision record #${record} could not be read: ${digest.message}`);
+                const unreadable = (why: string): never =>
+                    fail("preflight", `the HLD page on decision record #${record} could not be read: ${why} Build from the decision record alone instead? Run again with --record-only to do so.`);
+                const link = designLink(newest.body);
+                const pinned = link === null ? null : parsePinnedUrl(link);
+                if (link === null || pinned === null) return unreadable(`its HLD comment (${newest.url}) has no pinned page link${link === null ? "" : `: ${link}`}.`);
+                const text = deps.readPage(cwd, pinned);
+                if (!text.ok) return unreadable(`${link}: ${text.message}.`);
+                if (!deps.ignored(cwd, pageCopyPath(epic))) {
+                    fail("preflight", `git does not ignore ${pageCopyPath(epic)}, so the HLD page copy would show as a change. Add .nexus/tmp/ to .gitignore, then re-run nexus implement.`);
+                }
+                page = { url: link, text: text.value };
+                say(`implement: building from the HLD page ${link}, rendered at the record's current digest ${digest.value}.`);
             }
         }
         if (testCommand === null) {
@@ -442,6 +468,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const created = deps.createBranch(cwd, branch, base);
         if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
         const baseSha = created.value;
+        if (page !== null) {
+            const wrote = deps.writeFile(cwd, pageCopyPath(epic), page.text);
+            if (!wrote.ok) fail("preflight", `the HLD page copy could not be written to ${pageCopyPath(epic)}: ${wrote.message}`);
+        }
         say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
         const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
@@ -713,6 +743,22 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
         recordDigest: (cwd, record, issuesRepo) => {
             const r = fetchRecordIn(run, cwd, record, issuesRepo);
             return r.ok ? ok(r.record.digest) : { ok: false, message: `${r.error.problem}: ${r.error.message}` };
+        },
+        readPage: (cwd, p) => {
+            const file = p.path.split("/").map(encodeURIComponent).join("/");
+            const r = run("gh", ["api", "-H", "Accept: application/vnd.github.raw", `repos/${p.repo}/contents/${file}?ref=${p.commit}`], { cwd });
+            return r.status === 0 ? ok(r.stdout) : err(r, "gh api");
+        },
+        ignored: (cwd, file) => run("git", ["check-ignore", "-q", "--no-index", file], { cwd }).status === 0,
+        writeFile: (cwd, file, text) => {
+            try {
+                const target = path.join(cwd, file);
+                fs.mkdirSync(path.dirname(target), { recursive: true });
+                fs.writeFileSync(target, text);
+                return ok(null);
+            } catch (e) {
+                return { ok: false, message: e instanceof Error ? e.message : String(e) };
+            }
         },
         fileAt: (cwd, sha, file) => {
             const r = run("git", ["show", `${sha}:${file}`], { cwd });

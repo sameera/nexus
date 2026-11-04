@@ -25,6 +25,28 @@ export function pinnedUrl(store: AssetStore, commit: string, storeFilePath: stri
     return `https://github.com/${store.repo}/blob/${commit}/${storeFilePath}`;
 }
 
+/** What a pinned address names: the store repository, the commit and the file's path in the store. */
+export interface PinnedAddress {
+    /** `owner/name` of the store. */
+    repo: string;
+    /** The full commit sha the address is pinned to. */
+    commit: string;
+    /** The file's path in the store. */
+    path: string;
+}
+
+/**
+ * The inverse of pinnedUrl (epic #971, D4): the store, commit and path a pinned address names, or
+ * null when `url` is not one — a branch or a short sha is not a pin, so it is refused.
+ */
+export function parsePinnedUrl(url: string): PinnedAddress | null {
+    const m = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/blob\/([0-9a-f]{40}|[0-9a-f]{64})\/([^?#\s]+)$/.exec(url.trim());
+    if (m === null) return null;
+    const segments = m[4].split("/");
+    if (segments.some((s) => s === "" || s === "." || s === "..")) return null;
+    return { repo: `${m[1]}/${m[2]}`, commit: m[3], path: m[4] };
+}
+
 export interface PublishRequest {
     /** The local file to publish. */
     file: string;

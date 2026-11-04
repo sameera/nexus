@@ -52,6 +52,7 @@ const judged = (...items: Array<Departure | Finding>): Judgments => ({
 const DIGEST = "a".repeat(64);
 const STORE_SHA = "c".repeat(40);
 const PAGE_URL = `https://github.com/o/store/blob/${STORE_SHA}/features/epic-7/hld.md`;
+const PAGE_TEXT = "# HLD: Epic\n\n```mermaid\nflowchart LR\n  a --> b\n```\n";
 const CLEAN_VERDICT = "All acceptance criteria achievable, no decision violated";
 
 /** A comment as /nxs.hld posts it on the record, with the parts a case varies. */
@@ -95,6 +96,10 @@ interface World {
     comments: RecordComment[] | null;
     /** The record's current digest; null when it cannot be read. */
     digest: string | null;
+    /** The page text at each `<repo>@<commit>:<path>`; a page absent here cannot be read. */
+    pages: Record<string, string>;
+    /** Whether git ignores the page copy's folder. */
+    ignored: boolean;
 }
 
 function world(over: Partial<World> = {}): World {
@@ -114,6 +119,8 @@ function world(over: Partial<World> = {}): World {
         setting: "",
         comments: [],
         digest: DIGEST,
+        pages: { [`o/store@${STORE_SHA}:features/epic-7/hld.md`]: PAGE_TEXT },
+        ignored: true,
         ...over,
     };
 }
@@ -123,6 +130,7 @@ function harness(w: World) {
     const sessions: SessionSpec[] = [];
     const bodies: string[] = [];
     const comments: string[] = [];
+    const writes: Record<string, string> = {};
     let answers: PrAnswer[] = [];
     let head = 0;
     let analyzeRuns = 0;
@@ -178,6 +186,18 @@ function harness(w: World) {
             log.push("digest");
             return w.digest === null ? { ok: false, message: "gh-failed: HTTP 502" } : { ok: true, value: w.digest };
         },
+        readPage: (_c, p) => {
+            const key = `${p.repo}@${p.commit}:${p.path}`;
+            log.push(`page ${key}`);
+            const text = w.pages[key];
+            return text === undefined ? { ok: false, message: "HTTP 404: Not Found" } : { ok: true, value: text };
+        },
+        ignored: () => w.ignored,
+        writeFile: (_c, file, text) => {
+            log.push(`write ${file}`);
+            writes[file] = text;
+            return { ok: true, value: null };
+        },
         fileAt: (_c, _sha, file) => w.files[file] ?? null,
         autoModeAvailable: () => w.auto,
         onPath: () => true,
@@ -196,7 +216,7 @@ function harness(w: World) {
             return { started: true, exitCode: 0, error: null, finalMessage: w.finals[index] ?? "done" };
         },
     };
-    return { deps, log, sessions, bodies, comments };
+    return { deps, log, sessions, bodies, comments, writes };
 }
 
 const input = (over: Partial<ImplementInput> = {}): ImplementInput => ({
@@ -210,6 +230,7 @@ const input = (over: Partial<ImplementInput> = {}): ImplementInput => ({
     fixTurns: 30,
     rounds: 5,
     harnessArgs: [],
+    recordOnly: false,
     ...over,
 });
 
@@ -514,6 +535,50 @@ describe("finding the HLD comment on the record (epic #971, story #982: G1-G5, G
         const r = await run(world({ facts: { record: null } }));
         expect(r.code).toBe(0);
         expect(r.log).not.toContain("comments");
+    });
+});
+
+describe("reading the HLD page, including from a private store (story #983: G10-G14, G17)", () => {
+    const current = [comment(hldBody(), "2026-11-03T00:00:00Z")];
+
+    it("reads the page's raw text at the commit the comment pins, and hands the agent a copy", async () => {
+        const r = await run(world({ comments: current }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain(`page o/store@${STORE_SHA}:features/epic-7/hld.md`);
+        expect(r.writes[".nexus/tmp/epic-7/hld-page.md"]).toBe(PAGE_TEXT);
+        expect(r.err).toContain(PAGE_URL);
+        const branchAt = r.log.findIndex((l) => l.startsWith("branch"));
+        expect(r.log.findIndex((l) => l.startsWith("page"))).toBeLessThan(branchAt);
+        expect(r.log.findIndex((l) => l.startsWith("write"))).toBeGreaterThan(branchAt);
+    });
+
+    it.each<[string, Partial<World>, RegExp]>([
+        ["the page cannot be read", { comments: current, pages: {} }, /HLD page .* could not be read: .*HTTP 404/],
+        ["the link names a branch, not a commit", { comments: [comment(hldBody({ link: PAGE_URL.replace(STORE_SHA, "main") }), "2026-11-03T00:00:00Z")] }, /HLD page .* could not be read: .*no pinned page link/],
+        ["the comment has no page link", { comments: [comment(hldBody({ link: "see the wiki" }), "2026-11-03T00:00:00Z")] }, /HLD page .* could not be read: .*no pinned page link/],
+    ])("stops before the branch exists when %s, and asks whether to build from the record alone", async (_name, w, reason) => {
+        const r = await run(world(w));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(reason);
+        expect(r.err).toMatch(/Build from the decision record alone instead\? Run again with --record-only/);
+        expect(r.log.filter((l) => l.startsWith("branch"))).toHaveLength(0);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("stops before the branch exists when git would show the page copy as a change", async () => {
+        const r = await run(world({ comments: current, ignored: false }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/does not ignore .nexus\/tmp\/epic-7\/hld-page.md.*Add .nexus\/tmp\/ to .gitignore/);
+        expect(r.log.filter((l) => l.startsWith("branch"))).toHaveLength(0);
+    });
+
+    it("with --record-only reads no comment and no page, says so in one line, and gives today's instructions", async () => {
+        const r = await run(world({ comments: current, pages: {} }), { recordOnly: true });
+        expect(r.code).toBe(0);
+        expect(r.log).not.toContain("comments");
+        expect(r.log.filter((l) => l.startsWith("page") || l.startsWith("write"))).toHaveLength(0);
+        expect(r.err.split("\n").filter((l) => /record-only/.test(l))).toHaveLength(1);
+        expect(r.sessions[0].args[1]).toBe(implementationPrompt(7, 40, "npm test") + UNATTENDED_CLAUSE);
     });
 });
 
