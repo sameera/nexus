@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.126.0
+
+- **The decision-record approval list now shows what each decision chose, above the alternatives it
+  rejected.** Under every decision heading the list prints a `chosen:` line, and each refuted
+  alternative starts with `rejected:`. Before, the list showed only the losers, and the reviewer had
+  to open the draft to see what won. The stage must paste the whole list, not a shortened copy.
+
 ## 0.125.0
 
 - **`nexus implement-epic` is now `nexus implement`.** The command takes the same arguments and runs the

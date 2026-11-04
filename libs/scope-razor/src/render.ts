@@ -145,11 +145,13 @@ export function renderRecordChecklist(draft: string, items: RecordChecklistItem[
         }
         if (item.parent !== undefined && item.parent !== parent) {
             lines.push(`  ${item.parent}`);
+            if (item.chosen !== undefined) lines.push(`      chosen: ${item.chosen}`);
             parent = item.parent;
         }
         const number: string = String(item.number).padStart(width, " ");
+        const text: string = item.kind === "alternative" ? `rejected: ${item.text}` : item.text;
         const frozen: string = item.frozen ? " · frozen: the approved record already carries this" : "";
-        lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${item.text}${frozen}`);
+        lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${text}${frozen}`);
     }
     return lines.join("\n");
 }
