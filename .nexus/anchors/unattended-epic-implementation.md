@@ -9,8 +9,8 @@ generated: 2026-11-04
 
 # Code Anchors: Unattended Epic Implementation
 
-- `libs/portable-tools/src/implement.ts` — the command: preflight, implementation stage, story commit check, draft pull request, analyze and fix loop, answer posting, status section (#967)
-- `libs/portable-tools/src/implement.spec.ts` — coverage for the stop paths and the loop (#967)
-- `libs/portable-tools/src/nexus-cli.ts` — registers the verb and wires its dependencies (#967)
-- `libs/delivery-config/src/keys.ts` — the test-command settings key (#967)
+- `libs/portable-tools/src/implement.ts` — the command: preflight, implementation stage, story commit check, draft pull request, analyze and fix loop, answer posting, status section (#979)
+- `libs/portable-tools/src/implement.spec.ts` — coverage for the stop paths and the loop (#979)
+- `libs/portable-tools/src/nexus-cli.ts` — registers the verb and wires its dependencies (#979)
+- `libs/delivery-config/src/keys.ts` — the test-command settings key (#979)
 - `components/skills/nxs.hld/SKILL.md` — the optional preview step that renders the design page a lead reads before starting an unattended run (#970)
