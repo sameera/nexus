@@ -2,7 +2,7 @@
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
 touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate"]
-last_updated_by: "#722"
+last_updated_by: "#987"
 status: active
 verification: verified
 ---
@@ -105,3 +105,7 @@ Mechanical reciprocity fan-out: the approval-brief page describes the record's o
 ### 2026-10-18 — #722 — The checkpoint shows the invariants and risks the model added
 
 The stage labelled every invariant and every risk and then stripped the labels before filing, while its checkpoint showed only the refuted alternatives. So the labelling on invariants and risks reached no human. The pre-filing checkpoint now lists them too, built by the shared checker from the labelled draft, and removal-gate describes that list. Refuted alternative: have the architect return a separate list of what it inferred, beside its prose. That reads more directly, but it is a second statement of what the model added, and it could disagree with the labels the citation check enforces.
+
+### 2026-11-04 — #987 — The checkpoint list shows what each decision chose beside what it rejected
+
+The pre-filing checkpoint listed only the refuted alternatives, so a reviewer saw the losers without the winner and had to open the draft to weigh them. Under each decision heading the list now prints a line stating what the decision chose, and each refuted alternative starts with the word rejected. A decision that states no chosen option gets no such line. The stage must paste the whole list and not a shortened copy, because a shortened copy drops the line the reviewer needs.
