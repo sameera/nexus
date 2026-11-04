@@ -14,6 +14,9 @@ import { maintainerAuthored } from "@nexus/pr-acceptance/receipt-blocks";
 /** The first line of every comment `/nxs.hld` posts on a record. */
 export const HLD_MARKER = "<!-- nxs.hld -->";
 
+/** The verdict `/nxs.hld` writes when every criterion is achievable and no decision is violated (D3). */
+export const CLEAN_VERDICT = "All acceptance criteria achievable, no decision violated";
+
 /** One comment on the decision record, as the platform recorded it. */
 export interface RecordComment {
     body: string;
@@ -60,4 +63,36 @@ export function designLink(body: string): string | null {
 /** Where the command writes the page copy, in the epic's gitignored scratch folder (D6). */
 export function pageCopyPath(epic: number): string {
     return `.nexus/tmp/epic-${epic}/hld-page.md`;
+}
+
+/** The record digest the comment says the page was rendered from, or null when it states none (D3). */
+export function commentDigest(body: string): string | null {
+    for (const line of body.split(/\r?\n/)) {
+        if (!/^\s*Rendered\b/.test(line)) continue;
+        return /\bat digest `([0-9a-f]+)`/.exec(line)?.[1] ?? null;
+    }
+    return null;
+}
+
+/** The text of the comment's `- Verdict:` line, or null when it has none. */
+export function commentVerdict(body: string): string | null {
+    for (const line of body.split(/\r?\n/)) {
+        const m = /^\s*-\s*Verdict:(.*)$/.exec(line);
+        if (m !== null) return m[1].trim();
+    }
+    return null;
+}
+
+/**
+ * Whether `verdict` is the clean verdict (D3). Only an exact match counts; the emphasis the preview
+ * prints it in and a closing full stop are the only differences allowed.
+ */
+export function isCleanVerdict(verdict: string | null): boolean {
+    if (verdict === null) return false;
+    const bare = verdict
+        .trim()
+        .replace(/^([*_]{1,2})(.*)\1$/, "$2")
+        .trim()
+        .replace(/\.$/, "");
+    return bare === CLEAN_VERDICT;
 }

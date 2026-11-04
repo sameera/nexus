@@ -31,7 +31,7 @@ import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { git, type Runner } from "@nexus/workspace/run";
 import { fetchRecordIn, issuesRepoPath, onIssuesHost } from "@nexus/epic-verdicts/verdict-repos";
 import { parsePinnedUrl, type PinnedAddress } from "@nexus/delivery-config/asset-publish";
-import { designLink, newestHldComment, pageCopyPath, type RecordComment } from "./implement-hld.js";
+import { commentDigest, commentVerdict, designLink, isCleanVerdict, newestHldComment, pageCopyPath, type RecordComment } from "./implement-hld.js";
 import { onPath, spawnSession, type SessionEnd, type SessionSpec } from "./distill-command.js";
 
 export type Harness = "claude" | "codex";
@@ -442,18 +442,30 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (newest !== null) {
                 const digest = deps.recordDigest(cwd, record, facts.issuesRepo);
                 if (!digest.ok) return fail("preflight", `the current digest of decision record #${record} could not be read: ${digest.message}`);
-                const unreadable = (why: string): never =>
-                    fail("preflight", `the HLD page on decision record #${record} could not be read: ${why} Build from the decision record alone instead? Run again with --record-only to do so.`);
-                const link = designLink(newest.body);
-                const pinned = link === null ? null : parsePinnedUrl(link);
-                if (link === null || pinned === null) return unreadable(`its HLD comment (${newest.url}) has no pinned page link${link === null ? "" : `: ${link}`}.`);
-                const text = deps.readPage(cwd, pinned);
-                if (!text.ok) return unreadable(`${link}: ${text.message}.`);
-                if (!deps.ignored(cwd, pageCopyPath(epic))) {
-                    fail("preflight", `git does not ignore ${pageCopyPath(epic)}, so the HLD page copy would show as a change. Add .nexus/tmp/ to .gitignore, then re-run nexus implement.`);
+                // D3: the stale check, then the verdict check, both from the comment alone and before any fetch (G9).
+                const rendered = commentDigest(newest.body);
+                const verdict = commentVerdict(newest.body);
+                if (rendered !== digest.value) {
+                    say(
+                        `implement: the HLD page on decision record #${record} was ignored because it was rendered from an older record ` +
+                            `(${rendered === null ? "its comment states no digest" : `digest ${rendered}`}; current digest ${digest.value}). Building from the decision record alone.`,
+                    );
+                } else if (!isCleanVerdict(verdict)) {
+                    say(`implement: the HLD page on decision record #${record} was ignored because of its verdict: "${verdict ?? "(no verdict line)"}". Building from the decision record alone.`);
+                } else {
+                    const unreadable = (why: string): never =>
+                        fail("preflight", `the HLD page on decision record #${record} could not be read: ${why} Build from the decision record alone instead? Run again with --record-only to do so.`);
+                    const link = designLink(newest.body);
+                    const pinned = link === null ? null : parsePinnedUrl(link);
+                    if (link === null || pinned === null) return unreadable(`its HLD comment (${newest.url}) has no pinned page link${link === null ? "" : `: ${link}`}.`);
+                    const text = deps.readPage(cwd, pinned);
+                    if (!text.ok) return unreadable(`${link}: ${text.message}.`);
+                    if (!deps.ignored(cwd, pageCopyPath(epic))) {
+                        fail("preflight", `git does not ignore ${pageCopyPath(epic)}, so the HLD page copy would show as a change. Add .nexus/tmp/ to .gitignore, then re-run nexus implement.`);
+                    }
+                    page = { url: link, text: text.value };
+                    say(`implement: building from the HLD page ${link}, rendered at the record's current digest ${digest.value}.`);
                 }
-                page = { url: link, text: text.value };
-                say(`implement: building from the HLD page ${link}, rendered at the record's current digest ${digest.value}.`);
             }
         }
         if (testCommand === null) {
