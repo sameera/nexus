@@ -39,6 +39,10 @@ Before any agent runs, the command resolves the epic and refuses unless the deci
 
 The unattended flow became a verb of the shipped command-line tool, replacing two repository-only scripts, so an adopter can run it and it calls the one verdict reader and the one answer reader. The loop reads the published verdict on the pull request every round, fixes only Critical, High and Medium items, and stops instead of editing when a fix would contradict the record or is architectural. Refuted alternative: ship the existing shell script inside the package behind a thin verb. It matches verdict text with its own trust filter, which is a second copy of the reader close uses and can drift from it. The same change reverses the reasoning of the pipeline's decision 0001, which kept the code-generation step outside Nexus. The exception is limited to this command, which no stage calls.
 
+### 2026-11-03 — #970 — An optional high-level design page lets the lead preview the build before the agent starts
+
+A lead may now render an approved epic's design as a high-level design page before running this command. The page shows how the design will be built, in diagrams and prose derived from the decision record. The lead reads it, fine-tunes the design, and only then starts the unattended run. The step is optional, and this command does not require it.
+
 ### 2026-11-03 — sameera/nexus#979 — The verb is named `implement`, with no alias for the old name
 
 The command-line verb changed from `implement-epic` to `implement`. Its arguments and behaviour are unchanged. Calling the old name now gives an unknown-command error, so scripts must switch. The old names stay as aliases on this page so searches still find it. The hidden markers in the pull request body keep their old name, so pull requests opened by earlier runs still match. Refuted alternative: keep the old verb as an alias for the new one. The pull request declined it, so one name stays in use.

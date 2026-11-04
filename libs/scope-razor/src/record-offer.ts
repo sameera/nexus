@@ -50,6 +50,11 @@ export interface RecordChecklistItem {
      */
     parent: string | undefined;
     /**
+     * For an alternative, what its decision chose, so the reviewer reads the winner beside the loser
+     * without opening the appendix. Nothing for any other kind.
+     */
+    chosen: string | undefined;
+    /**
      * Whether the approved record body already carries this line's content. A frozen line is still
      * rendered and still ticked; what it cannot be is flipped, because an approved body changes
      * only through the revision path's supersession trail.
@@ -80,10 +85,12 @@ function inferred<T extends RecordLine>(items: T[]): T[] {
  * an absent one is the ordinary case and not a gap to render. In the new format a decision states
  * that absence as `none`, and the reader already leaves that out.
  */
-function alternatives(record: RecordReading): Array<Pick<RecordChecklistItem, "kind" | "text" | "parent">> {
-    return record.decisions.flatMap((decision: RecordDecision) =>
-        decision.alternatives.map((field: RecordField) => ({ kind: "alternative" as const, text: itemText(field.value), parent: decision.heading })),
-    );
+function alternatives(record: RecordReading): Array<Pick<RecordChecklistItem, "kind" | "text" | "parent" | "chosen">> {
+    return record.decisions.flatMap((decision: RecordDecision) => {
+        const chosenField: RecordField | undefined = decision.fields.find((field: RecordField) => /^Decision$/i.test(field.name));
+        const chosen: string | undefined = chosenField === undefined ? undefined : itemText(chosenField.value);
+        return decision.alternatives.map((field: RecordField) => ({ kind: "alternative" as const, text: itemText(field.value), parent: decision.heading, chosen }));
+    });
 }
 
 /**
@@ -110,14 +117,14 @@ function alternatives(record: RecordReading): Array<Pick<RecordChecklistItem, "k
  */
 export function recordChecklist(draft: string, approvedBody?: string): RecordChecklistItem[] {
     const record: RecordReading = readRecordAs(draft, recordFormat(draft) === "new" ? "new" : "old");
-    const lines: Array<Pick<RecordChecklistItem, "kind" | "text" | "parent">> = [
+    const lines: Array<Pick<RecordChecklistItem, "kind" | "text" | "parent" | "chosen">> = [
         ...alternatives(record),
-        ...inferred(record.guarantees).map((item: RecordGuarantee) => ({ kind: "guarantee" as const, text: itemText(item.text), parent: item.group === "" ? undefined : item.group })),
-        ...inferred(record.invariants).map((item: RecordLine) => ({ kind: "invariant" as const, text: itemText(item.text), parent: undefined })),
-        ...inferred(record.risks).map((item: RecordLine) => ({ kind: "risk" as const, text: itemText(item.text), parent: undefined })),
+        ...inferred(record.guarantees).map((item: RecordGuarantee) => ({ kind: "guarantee" as const, text: itemText(item.text), parent: item.group === "" ? undefined : item.group, chosen: undefined })),
+        ...inferred(record.invariants).map((item: RecordLine) => ({ kind: "invariant" as const, text: itemText(item.text), parent: undefined, chosen: undefined })),
+        ...inferred(record.risks).map((item: RecordLine) => ({ kind: "risk" as const, text: itemText(item.text), parent: undefined, chosen: undefined })),
     ];
     const approved: string | undefined = approvedBody === undefined ? undefined : normalize(approvedBody);
-    return lines.map((line: Pick<RecordChecklistItem, "kind" | "text" | "parent">, index: number) => ({
+    return lines.map((line: Pick<RecordChecklistItem, "kind" | "text" | "parent" | "chosen">, index: number) => ({
         ...line,
         number: index + 1,
         filed: true,
