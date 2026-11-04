@@ -69,6 +69,11 @@ describe("the record checkpoint's checklist", () => {
         expect(alternatives[0].text).toContain("have the architect return its own list");
     });
 
+    it("carries what each decision chose onto its alternatives, so the reviewer sees winner and loser together", () => {
+        const alternatives: RecordChecklistItem[] = items.filter((item: RecordChecklistItem) => item.kind === "alternative");
+        expect(alternatives.map((item: RecordChecklistItem) => item.chosen)).toEqual(["read the labelled draft.", "extend the checklist builder."]);
+    });
+
     it("leaves a decision that refutes nothing off the list entirely", () => {
         expect(items.map((item: RecordChecklistItem) => item.parent)).not.toContain("The ticks are unchanged");
     });

@@ -1551,7 +1551,7 @@ describe("nexus razor-offer --record (epic #722)", () => {
 
     it("prints the model-added invariants and risks alongside the refuted alternatives, in one sequence", async () => {
         const out: string = await run(record);
-        expect(out).toMatch(/ 1\. have the architect return its own list/);
+        expect(out).toMatch(/ 1\. rejected: have the architect return its own list/);
         expect(out).toMatch(/ 2\. Every model-added invariant appears on the list/);
         expect(out).toMatch(/ 3\. \*\*ADDRESS — a claimed citation hides an invariant:\*\*/);
     });
@@ -1578,7 +1578,7 @@ describe("nexus razor-offer --record (epic #722)", () => {
     it("ticks every line, since a plain approval files the record minus nothing", async () => {
         const out: string = await run(record);
         expect(out).not.toMatch(/\[ \]/);
-        expect(out).toMatch(/\[x\] +1\. have the architect return its own list/);
+        expect(out).toMatch(/\[x\] +1\. rejected: have the architect return its own list/);
         expect(out).toMatch(/\[x\] +3\. \*\*ADDRESS/);
     });
 
@@ -1597,7 +1597,7 @@ describe("nexus razor-offer --record (epic #722)", () => {
         expect(await runNexusCli(["razor-offer", "--draft", "record.md", "--record", "--approved-body", "approved.md"], io)).toBe(0);
         const out: string = io.out.join("\n");
         expect(out).toMatch(/\[x\] +2\. Every model-added invariant appears on the list.*approved/);
-        expect(out).toMatch(/\[x\] +1\. have the architect return its own list[^\n]*$/m);
+        expect(out).toMatch(/\[x\] +1\. rejected: have the architect return its own list[^\n]*$/m);
         expect(out.split("\n").find((line: string) => line.includes("have the architect"))).not.toContain("frozen");
     });
 

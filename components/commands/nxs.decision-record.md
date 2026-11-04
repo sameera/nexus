@@ -781,9 +781,11 @@ the reviewer types then names the wrong item. The fence suspends that.
 
 Refuted alternatives
   <Decision Title>
-  [x] 1. <the alternative, as written> — <its stated reason for losing>
+      chosen: <what the decision picked>
+  [x] 1. rejected: <the alternative, as written> — <its stated reason for losing>
   <Decision Title>
-  [x] 2. <the alternative, as written> — <its stated reason for losing>
+      chosen: <what the decision picked>
+  [x] 2. rejected: <the alternative, as written> — <its stated reason for losing>
 
 Guarantees — model-added
   <Group heading>
@@ -796,6 +798,10 @@ Risks — model-added
 
 Type the numbers you want to cut, or nothing to file the record as drafted.
 ````
+
+**Paste the whole list; never condense it.** The `chosen:` line is what lets the reviewer weigh a
+`rejected:` line without opening the appendix, and a shortened copy drops it. Do not shorten
+titles, merge lines, or point to the draft file instead.
 
 **Every line is numbered and a number flips exactly one line**, whatever kind that line is. There is
 no group whose numbers mean something different from another group's. One typed selection carries the
