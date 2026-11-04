@@ -2,7 +2,7 @@
 title: "Unattended Epic Implementation"
 aliases: ["nexus implement", "implement command", "implement-epic command", "nexus implement-epic", "unattended implementation", "implement an epic unattended", "implement-epic fix loop"]
 touches: ["nexus-pipeline", "pr-verdict-answers", "published-verdict-selection", "scope-claim", "publishing-config-resolution"]
-last_updated_by: "#928"
+last_updated_by: "#970"
 status: active
 verification: verified
 ---
@@ -38,3 +38,7 @@ Before any agent runs, the command resolves the epic and refuses unless the deci
 ### 2026-10-31 — #928 — Implementation becomes an optional verb that loops on the published verdict
 
 The unattended flow became a verb of the shipped command-line tool, replacing two repository-only scripts, so an adopter can run it and it calls the one verdict reader and the one answer reader. The loop reads the published verdict on the pull request every round, fixes only Critical, High and Medium items, and stops instead of editing when a fix would contradict the record or is architectural. Refuted alternative: ship the existing shell script inside the package behind a thin verb. It matches verdict text with its own trust filter, which is a second copy of the reader close uses and can drift from it. The same change reverses the reasoning of the pipeline's decision 0001, which kept the code-generation step outside Nexus. The exception is limited to this command, which no stage calls.
+
+### 2026-11-03 — #970 — An optional high-level design page lets the lead preview the build before the agent starts
+
+A lead may now render an approved epic's design as a high-level design page before running this command. The page shows how the design will be built, in diagrams and prose derived from the decision record. The lead reads it, fine-tunes the design, and only then starts the unattended run. The step is optional, and this command does not require it.
