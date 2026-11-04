@@ -43,6 +43,6 @@ The unattended flow became a verb of the shipped command-line tool, replacing tw
 
 A lead may now render an approved epic's design as a high-level design page before running this command. The page shows how the design will be built, in diagrams and prose derived from the decision record. The lead reads it, fine-tunes the design, and only then starts the unattended run. The step is optional, and this command does not require it.
 
-### 2026-11-03 — sameera/nexus#979 — The verb is named `implement`, with no alias for the old name
+### 2026-11-04 — #979 — The command is named implement, with no alias for the old name
 
-The command-line verb changed from `implement-epic` to `implement`. Its arguments and behaviour are unchanged. Calling the old name now gives an unknown-command error, so scripts must switch. The old names stay as aliases on this page so searches still find it. The hidden markers in the pull request body keep their old name, so pull requests opened by earlier runs still match. Refuted alternative: keep the old verb as an alias for the new one. The pull request declined it, so one name stays in use.
+The verb was called implement-epic, which repeated what its argument already says. It is now called implement and takes the same arguments with the same behaviour. A call to the old name gets an unknown-command error. The page keeps both names as aliases so a search for either finds it. The hidden status markers in pull request bodies keep the old name, so pull requests opened by earlier runs still match. Refuted alternative: keep the old verb as an alias for the new one. The pull request declines an alias outright, and a second name for one command would leave two spellings in every document that names it.
