@@ -2,7 +2,7 @@
 title: "Unattended Epic Implementation"
 aliases: ["nexus implement", "implement command", "implement-epic command", "nexus implement-epic", "unattended implementation", "implement an epic unattended", "implement-epic fix loop"]
 touches: ["nexus-pipeline", "pr-verdict-answers", "published-verdict-selection", "scope-claim", "publishing-config-resolution"]
-last_updated_by: "#970"
+last_updated_by: "#979"
 status: active
 verification: verified
 ---
@@ -42,3 +42,7 @@ The unattended flow became a verb of the shipped command-line tool, replacing tw
 ### 2026-11-03 — #970 — An optional high-level design page lets the lead preview the build before the agent starts
 
 A lead may now render an approved epic's design as a high-level design page before running this command. The page shows how the design will be built, in diagrams and prose derived from the decision record. The lead reads it, fine-tunes the design, and only then starts the unattended run. The step is optional, and this command does not require it.
+
+### 2026-11-03 — sameera/nexus#979 — The verb is named `implement`, with no alias for the old name
+
+The command-line verb changed from `implement-epic` to `implement`. Its arguments and behaviour are unchanged. Calling the old name now gives an unknown-command error, so scripts must switch. The old names stay as aliases on this page so searches still find it. The hidden markers in the pull request body keep their old name, so pull requests opened by earlier runs still match. Refuted alternative: keep the old verb as an alias for the new one. The pull request declined it, so one name stays in use.
