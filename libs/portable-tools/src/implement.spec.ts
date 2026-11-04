@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
 import { type Departure, type Finding, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type SessionEnd, type SessionSpec } from "./distill-command.js";
-import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
+import { HLD_MARKER, isHldComment as isHldCommentLine, newestHldComment, type RecordComment } from "./implement-hld.js";
+import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, UNATTENDED_CLAUSE, implementationPrompt, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
 import { VERB_NAMES } from "./nexus-cli.js";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -48,6 +49,29 @@ const judged = (...items: Array<Departure | Finding>): Judgments => ({
     deferred: [],
 });
 
+const DIGEST = "a".repeat(64);
+const STORE_SHA = "c".repeat(40);
+const PAGE_URL = `https://github.com/o/store/blob/${STORE_SHA}/features/epic-7/hld.md`;
+const CLEAN_VERDICT = "All acceptance criteria achievable, no decision violated";
+
+/** A comment as /nxs.hld posts it on the record, with the parts a case varies. */
+function hldBody(over: { digest?: string | null; verdict?: string | null; link?: string } = {}): string {
+    const digest = over.digest === undefined ? DIGEST : over.digest;
+    const verdict = over.verdict === undefined ? CLEAN_VERDICT : over.verdict;
+    return [
+        HLD_MARKER,
+        "## High-level design",
+        "",
+        `Rendered 2026-11-04 from this record at ${digest === null ? "an unknown digest" : `digest \`${digest}\``}, against o/r@abc.`,
+        "",
+        `- Design: [hld.md](${over.link ?? PAGE_URL})`,
+        ...(verdict === null ? [] : [`- Verdict: ${verdict}`]),
+        "- Choices the record left open: 2, listed in the page's section 13.",
+    ].join("\n");
+}
+
+const comment = (body: string, createdAt: string, authorAssociation: string | null = "OWNER", url = `https://x/c/${createdAt}`): RecordComment => ({ body, createdAt, authorAssociation, url });
+
 const storyCommit = (n: number, sha: string = `sha${n}`): Commit => ({ sha, message: `story ${n}\n\nCloses #${n}\n` });
 
 interface World {
@@ -67,6 +91,10 @@ interface World {
     editFails: boolean;
     files: Record<string, string>;
     setting: string;
+    /** The comments on the decision record; null when they cannot be read. */
+    comments: RecordComment[] | null;
+    /** The record's current digest; null when it cannot be read. */
+    digest: string | null;
 }
 
 function world(over: Partial<World> = {}): World {
@@ -84,6 +112,8 @@ function world(over: Partial<World> = {}): World {
         editFails: false,
         files: {},
         setting: "",
+        comments: [],
+        digest: DIGEST,
         ...over,
     };
 }
@@ -139,6 +169,14 @@ function harness(w: World) {
         postComment: (_c, _pr, body) => {
             comments.push(body);
             return true;
+        },
+        recordComments: () => {
+            log.push("comments");
+            return w.comments === null ? { ok: false, message: "HTTP 502" } : { ok: true, value: w.comments };
+        },
+        recordDigest: () => {
+            log.push("digest");
+            return w.digest === null ? { ok: false, message: "gh-failed: HTTP 502" } : { ok: true, value: w.digest };
         },
         fileAt: (_c, _sha, file) => w.files[file] ?? null,
         autoModeAvailable: () => w.auto,
@@ -213,7 +251,7 @@ describe("starting a run (G1, G3, G23)", () => {
 
     it("creates the epic's branch itself, off the default branch", async () => {
         const r = await run(world());
-        expect(r.log[0]).toBe("branch nxs/epic-7 main");
+        expect(r.log.find((l) => l.startsWith("branch"))).toBe("branch nxs/epic-7 main");
     });
 });
 
@@ -423,6 +461,73 @@ describe("harness and configuration (G20, G21)", () => {
         const r = await run(world({ finals: ["done\nTest command: pnpm vitest"] }), { testCommand: null });
         expect(r.sessions[0].args[1]).toContain("Test command:");
         expect(r.bodies[r.bodies.length - 1]).toContain("pnpm vitest");
+    });
+});
+
+describe("finding the HLD comment on the record (epic #971, story #982: G1-G5, G15)", () => {
+    const older = comment(hldBody({ link: PAGE_URL.replace("hld.md", "old.md") }), "2026-11-01T00:00:00Z");
+    const newer = comment(hldBody(), "2026-11-03T00:00:00Z");
+
+    it("takes the HLD comment the platform recorded as created later, whatever order the comments arrive in", () => {
+        expect(newestHldComment([newer, older])).toBe(newer);
+        expect(newestHldComment([older, newer])).toBe(newer);
+    });
+
+    it("counts a comment only when its first line is exactly the marker", () => {
+        const quoted = comment(`> ${HLD_MARKER}\n> quoted`, "2026-11-04T00:00:00Z");
+        const later = comment(`See this:\n${HLD_MARKER}`, "2026-11-05T00:00:00Z");
+        expect(newestHldComment([older, quoted, later])).toBe(older);
+    });
+
+    it("never uses an HLD comment from an author who cannot speak for the repository, and never lets one hide a trusted one", () => {
+        const stranger = comment(hldBody(), "2026-11-09T00:00:00Z", "NONE");
+        expect(newestHldComment([older, stranger])).toBe(older);
+        expect(newestHldComment([stranger])).toBeNull();
+    });
+
+    it("finds the newest HLD comment however many comments the record carries", () => {
+        const chatter = Array.from({ length: 250 }, (_, i) => comment(`note ${i}`, `2026-10-01T00:00:${String(i % 60).padStart(2, "0")}Z`));
+        expect(newestHldComment([older, ...chatter, newer])).toBe(newer);
+    });
+
+    it("leaves the run exactly as before when the record has no trusted HLD comment", async () => {
+        const baseline = await run(world({ comments: [] }));
+        const r = await run(world({ comments: [comment("LGTM", "2026-11-02T00:00:00Z"), comment(hldBody(), "2026-11-03T00:00:00Z", "NONE")] }));
+        expect(r.code).toBe(0);
+        expect(r.sessions[0].args[1]).toBe(implementationPrompt(7, 40, "npm test") + UNATTENDED_CLAUSE);
+        expect(r.err).toBe(baseline.err);
+        expect(r.err).not.toMatch(/HLD|design page/i);
+    });
+
+    it.each<[string, Partial<World>, RegExp]>([
+        ["the record's comments cannot be read", { comments: null }, /comments on decision record #9 could not be read/],
+        ["the record's current digest cannot be read", { comments: [newer], digest: null }, /digest of decision record #9 could not be read/],
+    ])("stops before the branch exists when %s", async (_name, w, reason) => {
+        const r = await run(world(w));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(reason);
+        expect(r.log.filter((l) => l.startsWith("branch"))).toHaveLength(0);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("reads no comment when the epic has no decision record", async () => {
+        const r = await run(world({ facts: { record: null } }));
+        expect(r.code).toBe(0);
+        expect(r.log).not.toContain("comments");
+    });
+});
+
+describe("the /nxs.hld comment template this reader depends on (R1)", () => {
+    const skill = fs.readFileSync(path.join(REPO_ROOT, "components/skills/nxs.hld/SKILL.md"), "utf8");
+    const block = /```markdown\n\s*(<!-- nxs\.hld -->[\s\S]*?)\n\s*```/.exec(skill)?.[1] ?? "";
+    const template = block
+        .split("\n")
+        .map((l) => l.replace(/^ {4}/, ""))
+        .join("\n");
+
+    it("still opens the reference comment with the marker this reader matches", () => {
+        expect(template.split("\n")[0]).toBe(HLD_MARKER);
+        expect(isHldCommentLine(template)).toBe(true);
     });
 });
 
