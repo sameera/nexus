@@ -800,7 +800,8 @@ Type the numbers you want to cut, or nothing to file the record as drafted.
 ````
 
 **Paste the whole list; never condense it.** The `chosen:` line is what lets the reviewer weigh a
-`rejected:` line without opening the appendix, and a shortened copy drops it. Do not shorten
+`rejected:` line without opening the appendix, and a shortened copy drops it. The command prints
+`chosen:` only under a decision that states a `Decision` field; where it prints none, add none. Do not shorten
 titles, merge lines, or point to the draft file instead.
 
 **Every line is numbered and a number flips exactly one line**, whatever kind that line is. There is
