@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { type Departure, type Finding, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type SessionEnd, type SessionSpec } from "./distill-command.js";
-import { HLD_MARKER, isHldComment as isHldCommentLine, newestHldComment, type RecordComment } from "./implement-hld.js";
+import { CLEAN_VERDICT as READER_CLEAN_VERDICT, HLD_MARKER, commentDigest, commentVerdict, isCleanVerdict, isHldComment as isHldCommentLine, newestHldComment, type RecordComment } from "./implement-hld.js";
 import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, UNATTENDED_CLAUSE, implementationPrompt, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
 import { VERB_NAMES } from "./nexus-cli.js";
 
@@ -582,6 +582,48 @@ describe("reading the HLD page, including from a private store (story #983: G10-
     });
 });
 
+describe("ignoring a stale page or a page with violations (story #984: G6-G9, G16)", () => {
+    const at = "2026-11-03T00:00:00Z";
+    const today = implementationPrompt(7, 40, "npm test") + UNATTENDED_CLAUSE;
+
+    it.each<[string, string]>([
+        ["a digest that differs from the record's current digest", hldBody({ digest: "b".repeat(64) })],
+        ["no digest at all", hldBody({ digest: null })],
+    ])("ignores a page whose comment states %s, says it was rendered from an older record, and never fetches it", async (_name, body) => {
+        const r = await run(world({ comments: [comment(body, at)], pages: {} }));
+        expect(r.code).toBe(0);
+        expect(r.err).toMatch(/ignored because it was rendered from an older record/);
+        expect(r.log.filter((l) => l.startsWith("page") || l.startsWith("write"))).toHaveLength(0);
+        expect(r.sessions[0].args[1]).toBe(today);
+    });
+
+    it.each<[string, string | null, string]>([
+        ["lists violations", "2 violations: D3 violated, AC2 of #4 not achievable", "2 violations: D3 violated, AC2 of #4 not achievable"],
+        ["names a criterion that cannot be read", "All decisions kept; 1 criterion unreadable", "All decisions kept; 1 criterion unreadable"],
+        ["has no verdict line", null, "(no verdict line)"],
+        ["is empty", "", ""],
+    ])("ignores a page whose verdict %s, quoting it, and never fetches it", async (_name, verdict, quoted) => {
+        const r = await run(world({ comments: [comment(hldBody({ verdict }), at)], pages: {} }));
+        expect(r.code).toBe(0);
+        expect(r.err).toContain(`ignored because of its verdict: "${quoted}"`);
+        expect(r.log.filter((l) => l.startsWith("page") || l.startsWith("write"))).toHaveLength(0);
+        expect(r.sessions[0].args[1]).toBe(today);
+    });
+
+    it("uses a page whose verdict is the clean verdict as the preview prints it", async () => {
+        const r = await run(world({ comments: [comment(hldBody({ verdict: `*${CLEAN_VERDICT}*` }), at)] }));
+        expect(r.log.filter((l) => l.startsWith("page"))).toHaveLength(1);
+    });
+
+    it("never falls back to an older HLD comment when the newest is stale", async () => {
+        const older = comment(hldBody(), "2026-11-01T00:00:00Z");
+        const newer = comment(hldBody({ digest: "b".repeat(64) }), at);
+        const r = await run(world({ comments: [older, newer] }));
+        expect(r.err).toMatch(/older record/);
+        expect(r.log.filter((l) => l.startsWith("page"))).toHaveLength(0);
+    });
+});
+
 describe("the /nxs.hld comment template this reader depends on (R1)", () => {
     const skill = fs.readFileSync(path.join(REPO_ROOT, "components/skills/nxs.hld/SKILL.md"), "utf8");
     const block = /```markdown\n\s*(<!-- nxs\.hld -->[\s\S]*?)\n\s*```/.exec(skill)?.[1] ?? "";
@@ -593,6 +635,16 @@ describe("the /nxs.hld comment template this reader depends on (R1)", () => {
     it("still opens the reference comment with the marker this reader matches", () => {
         expect(template.split("\n")[0]).toBe(HLD_MARKER);
         expect(isHldCommentLine(template)).toBe(true);
+    });
+
+    it("still states the record digest where this reader looks for it", () => {
+        expect(commentDigest(template.replace("<RECORD_DIGEST>", DIGEST))).toBe(DIGEST);
+    });
+
+    it("still writes a verdict line, and the clean verdict in the wording this reader accepts", () => {
+        expect(commentVerdict(template)).not.toBeNull();
+        expect(skill).toContain(`*${READER_CLEAN_VERDICT}*`);
+        expect(isCleanVerdict(`*${READER_CLEAN_VERDICT}*`)).toBe(true);
     });
 });
 
