@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { publishAsset, storePath } from "./asset-publish";
+import { parsePinnedUrl, pinnedUrl, publishAsset, storePath } from "./asset-publish";
 import { type AssetStore, DEFAULT_ASSET_SIZE_CAP, resolveAssetSizeCap } from "./asset-store";
 import { runAssets } from "./assets-cli";
 import { type GhRunner, type RunResult } from "./gh";
@@ -222,5 +222,24 @@ describe("the publish command", () => {
         expect(runAssets(["publish", "--file", "a.png", "--feature", "Bad Slug", "--root", root], recordingIo(root), store.run)).toBe(2);
         expect(runAssets(["publish", "--file", "a.png", "--feature", "f", "stray", "--root", root], recordingIo(root), store.run)).toBe(2);
         expect(store.calls).toEqual([]);
+    });
+});
+
+describe("reading a pinned address back (epic #971, D4)", () => {
+    const store: AssetStore = { owner: "acme", name: "design-assets", repo: "acme/design-assets", branch: null };
+    const commit = "0123456789abcdef0123456789abcdef01234567";
+
+    it("names the store, commit and path the publisher built the address from", () => {
+        const file = storePath("epic-7", "hld.md");
+        expect(parsePinnedUrl(pinnedUrl(store, commit, file))).toEqual({ repo: "acme/design-assets", commit, path: file });
+    });
+
+    it.each([
+        ["a branch", "https://github.com/acme/design-assets/blob/main/features/epic-7/hld.md"],
+        ["a short sha", "https://github.com/acme/design-assets/blob/0123456/features/epic-7/hld.md"],
+        ["a raw-content host", `https://raw.githubusercontent.com/acme/design-assets/${commit}/features/epic-7/hld.md`],
+        ["a path that climbs out", `https://github.com/acme/design-assets/blob/${commit}/../secrets.md`],
+    ])("refuses %s", (_name, url) => {
+        expect(parsePinnedUrl(url)).toBeNull();
     });
 });
