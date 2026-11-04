@@ -27,6 +27,8 @@ import { readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
 import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { git, type Runner } from "@nexus/workspace/run";
+import { fetchRecordIn, issuesRepoPath, onIssuesHost } from "@nexus/epic-verdicts/verdict-repos";
+import { newestHldComment, type RecordComment } from "./implement-hld.js";
 import { onPath, spawnSession, type SessionEnd, type SessionSpec } from "./distill-command.js";
 
 export type Harness = "claude" | "codex";
@@ -128,6 +130,10 @@ export interface ImplementDeps {
     /** Every answer line on the pull request, through the one answer reader (G26). */
     answers(cwd: string, pr: number, repo: string): Outcome<PrAnswer[]>;
     postComment(cwd: string, pr: number, body: string): boolean;
+    /** Every comment on decision record `record` in `issuesRepo`, across all pages (G15). */
+    recordComments(cwd: string, record: number, issuesRepo: string): Outcome<RecordComment[]>;
+    /** The record's current digest, from the one record-digest program (G16). */
+    recordDigest(cwd: string, record: number, issuesRepo: string): Outcome<string>;
     /** A file's content at a commit, or null when it is absent there. */
     fileAt(cwd: string, sha: string, file: string): string | null;
     autoModeAvailable(): boolean;
@@ -413,6 +419,17 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (harness === "claude" && mode === "auto" && !deps.autoModeAvailable()) {
             fail("preflight", "auto permission mode is not available to this account. Pass --permission-mode <mode> to choose another mode.");
         }
+        // 1a. The HLD comment (epic #971, D1, D2): read before the branch exists, so a stop never blocks a re-run.
+        if (facts.record !== null) {
+            const record = facts.record.number;
+            const comments = deps.recordComments(cwd, record, facts.issuesRepo);
+            if (!comments.ok) return fail("preflight", `the comments on decision record #${record} could not be read: ${comments.message}`);
+            const newest = newestHldComment(comments.value);
+            if (newest !== null) {
+                const digest = deps.recordDigest(cwd, record, facts.issuesRepo);
+                if (!digest.ok) return fail("preflight", `the current digest of decision record #${record} could not be read: ${digest.message}`);
+            }
+        }
         if (testCommand === null) {
             const declared = deps.testCommandSetting(facts.root).trim();
             testCommand = declared === "" ? null : declared;
@@ -672,6 +689,31 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
             return r.ok ? ok(r.value.answers) : { ok: false, message: r.error.message };
         },
         postComment: (cwd, pr, body) => run("gh", ["pr", "comment", String(pr), "--body", body], { cwd }).status === 0,
+        recordComments: (cwd, record, issuesRepo) => {
+            const jq = ".[] | {body, createdAt: .created_at, authorAssociation: .author_association, url: .html_url} | @json";
+            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--paginate", `repos/${issuesRepoPath(issuesRepo)}/issues/${record}/comments?per_page=100`, "--jq", jq], { cwd });
+            if (r.status !== 0) return err(r, "gh api");
+            try {
+                const out: RecordComment[] = [];
+                for (const line of r.stdout.split(/\r?\n/)) {
+                    if (line.trim() === "") continue;
+                    const c = JSON.parse(line) as Record<string, unknown>;
+                    out.push({
+                        body: typeof c["body"] === "string" ? c["body"] : "",
+                        createdAt: typeof c["createdAt"] === "string" ? c["createdAt"] : "",
+                        authorAssociation: typeof c["authorAssociation"] === "string" ? c["authorAssociation"] : null,
+                        url: typeof c["url"] === "string" ? c["url"] : "",
+                    });
+                }
+                return ok(out);
+            } catch (e) {
+                return { ok: false, message: `the record's comments were not readable JSON: ${e instanceof Error ? e.message : String(e)}` };
+            }
+        },
+        recordDigest: (cwd, record, issuesRepo) => {
+            const r = fetchRecordIn(run, cwd, record, issuesRepo);
+            return r.ok ? ok(r.record.digest) : { ok: false, message: `${r.error.problem}: ${r.error.message}` };
+        },
         fileAt: (cwd, sha, file) => {
             const r = run("git", ["show", `${sha}:${file}`], { cwd });
             return r.status === 0 ? r.stdout : null;
