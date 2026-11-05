@@ -1,8 +1,8 @@
 ---
 title: "Issue Asset Store"
 aliases: ["asset store", "issue assets", "pinned asset reference", "asset size cap", "assets unsupported", "publish an asset"]
-touches: ["publishing-config-resolution", "settings-key-catalogue", "epic-approval-gate", "decision-record", "derived-filing-body", "borrowed-reader-access"]
-last_updated_by: "#614"
+touches: ["publishing-config-resolution", "settings-key-catalogue", "epic-approval-gate", "decision-record", "derived-filing-body", "borrowed-reader-access", "hld-build-input"]
+last_updated_by: "#971"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ Publication goes through the hosting platform's file-contents call rather than a
 - [decision-record](decision-record.md) — the other stage that carries assets, gated the same way at its own checkpoint; a revision's new files are new commits, so a superseded body still resolves.
 - [derived-filing-body](derived-filing-body.md) — where each local path is replaced by its published reference, and where a survivor fails the run before any issue exists.
 - [borrowed-reader-access](borrowed-reader-access.md) — a private store's mockups are read under each reader's own access at view time, which is where visibility is answered now that a reference form never depends on it.
+- [hld-build-input](hld-build-input.md) — reads a design page back from the store at the commit its pinned link names, under the lead's own login.
 
 ## Decision Log
 
@@ -45,3 +46,7 @@ Nexus files issues from the command line and the hosting platform offers no way 
 ### 2026-09-18 — #614 — Reciprocal link from borrowed-reader-access
 
 Mechanical reciprocity fan-out: the renderer now reads a store as the reader who opened the mockup, so a store this concept deliberately never records the visibility of is answered for, per reader and per request, at the moment it is viewed. Nothing about publishing or about a reference's shape changed.
+
+### 2026-11-05 — #971 — Reciprocal link from hld-build-input
+
+Mechanical reciprocity fan-out: the unattended implement command reads a published design page back at the commit its link pins. It turns the link back into the store, commit and path by the inverse of the address a publish returns, so a change to that address fails a test. Nothing about publishing changed.

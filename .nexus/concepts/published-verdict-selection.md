@@ -1,8 +1,8 @@
 ---
 title: "Published Verdict Selection"
 aliases: ["which verdict a pull request carries", "newest-wins verdict", "verdict trust", "repository stamp matching", "superseded verdict"]
-touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report", "unattended-epic-implementation"]
-last_updated_by: "#928"
+touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report", "implement-fix-loop"]
+last_updated_by: "#971"
 status: active
 verification: verified
 ---
@@ -34,7 +34,7 @@ Every review and comment carrying the verdict marker is collected, each with the
 - [close-and-distill-command](close-and-distill-command.md) — uses this rule to require a clean verdict before its merge option merges an open pull request.
 - [pr-verdict-answers](pr-verdict-answers.md) — reads its item IDs and earlier answers from the verdict this rule picks.
 - [story-evidence-report](story-evidence-report.md) — reads the receipt this rule selects on each pull request that claims a story.
-- [unattended-epic-implementation](unattended-epic-implementation.md) — reads the newest trusted verdict each round and again before it marks the pull request ready.
+- [implement-fix-loop](implement-fix-loop.md) — reads the newest trusted verdict each round and again before it marks the pull request ready.
 
 ## Decision Log
 
@@ -59,3 +59,7 @@ Mechanical reciprocity fan-out, two edges. The epic-wide derivation that applied
 ### 2026-10-31 — #928 — Reciprocal link from unattended-epic-implementation
 
 Mechanical reciprocity fan-out: the unattended implementation page declares that it reads the verdict this rule selects.
+
+### 2026-11-05 — #971 — Reciprocal link from implement-fix-loop
+
+Mechanical reciprocity fan-out: the unattended implementation page split, and its analyze and fix rounds moved to the implement-fix-loop page. The rounds are what read the newest trusted verdict, so this page now links the loop page instead of the command page.

@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate"]
-last_updated_by: "#987"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input"]
+last_updated_by: "#971"
 status: active
 verification: verified
 ---
@@ -49,6 +49,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [pinned-sources](pinned-sources.md) — pinned for every workbook teaching the epic when the design stage closes this record, and again when a revision re-closes it.
 - [reading-list](reading-list.md) — the pages the record is designed against, and the source of its declared concept-store changes.
 - [approval-brief](approval-brief.md) — the record's opening section, which places each ADDRESS risk in one group by who delivers its mitigation.
+- [hld-build-input](hld-build-input.md) — reads the newest trusted HLD comment on this record, and the record stays binding over the page it links.
 
 ## Decision Log
 
@@ -109,3 +110,7 @@ The stage labelled every invariant and every risk and then stripped the labels b
 ### 2026-11-04 — #987 — The checkpoint list shows what each decision chose beside what it rejected
 
 The pre-filing checkpoint listed only the refuted alternatives, so a reviewer saw the losers without the winner and had to open the draft to weigh them. Under each decision heading the list now prints a line stating what the decision chose, and each refuted alternative starts with the word rejected. A decision that states no chosen option gets no such line. The stage must paste the whole list and not a shortened copy, because a shortened copy drops the line the reviewer needs.
+
+### 2026-11-05 — #971 — Reciprocal link from hld-build-input
+
+Mechanical reciprocity fan-out: the unattended implement command now reads the newest trusted HLD comment on an approved record and builds from its page. The record body is unchanged, and the record binds wherever the page disagrees with it.
