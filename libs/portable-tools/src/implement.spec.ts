@@ -100,6 +100,8 @@ interface World {
     pages: Record<string, string>;
     /** Whether git ignores the page copy's folder. */
     ignored: boolean;
+    /** Whether writing the page copy fails. */
+    writeFails: boolean;
 }
 
 function world(over: Partial<World> = {}): World {
@@ -121,6 +123,7 @@ function world(over: Partial<World> = {}): World {
         digest: DIGEST,
         pages: { [`o/store@${STORE_SHA}:features/epic-7/hld.md`]: PAGE_TEXT },
         ignored: true,
+        writeFails: false,
         ...over,
     };
 }
@@ -195,6 +198,7 @@ function harness(w: World) {
         ignored: () => w.ignored,
         writeFile: (_c, file, text) => {
             log.push(`write ${file}`);
+            if (w.writeFails) return { ok: false, message: "EACCES: permission denied" };
             writes[file] = text;
             return { ok: true, value: null };
         },
@@ -549,7 +553,7 @@ describe("reading the HLD page, including from a private store (story #983: G10-
         expect(r.err).toContain(PAGE_URL);
         const branchAt = r.log.findIndex((l) => l.startsWith("branch"));
         expect(r.log.findIndex((l) => l.startsWith("page"))).toBeLessThan(branchAt);
-        expect(r.log.findIndex((l) => l.startsWith("write"))).toBeGreaterThan(branchAt);
+        expect(r.log.findIndex((l) => l.startsWith("write"))).toBeLessThan(branchAt);
     });
 
     it.each<[string, Partial<World>, RegExp]>([
@@ -570,6 +574,14 @@ describe("reading the HLD page, including from a private store (story #983: G10-
         expect(r.code).toBe(1);
         expect(r.err).toMatch(/does not ignore .nexus\/tmp\/epic-7\/hld-page.md.*Add .nexus\/tmp\/ to .gitignore/);
         expect(r.log.filter((l) => l.startsWith("branch"))).toHaveLength(0);
+    });
+
+    it("stops before the branch exists when the page copy cannot be written, so a re-run is not refused", async () => {
+        const r = await run(world({ comments: current, writeFails: true }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/HLD page copy could not be written to .nexus\/tmp\/epic-7\/hld-page.md: EACCES/);
+        expect(r.log.filter((l) => l.startsWith("branch"))).toHaveLength(0);
+        expect(r.sessions).toHaveLength(0);
     });
 
     it("with --record-only reads no comment and no page, says so in one line, and gives today's instructions", async () => {
