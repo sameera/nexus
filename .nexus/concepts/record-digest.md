@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "pinned-sources", "story-evidence-report"]
-last_updated_by: "#829"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "pinned-sources", "story-evidence-report", "hld-build-input"]
+last_updated_by: "#971"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [writer-stamp](writer-stamp.md) — sits beside this digest, outside the bytes it covers, so stamping changes no hash and this rule needed no exception.
 - [pinned-sources](pinned-sources.md) — reuses this record fetch's approval reading, so a record closed as not planned pins nothing.
 - [story-evidence-report](story-evidence-report.md) — takes each story fingerprint with this program, over the story's issue body.
+- [hld-build-input](hld-build-input.md) — compares the digest an HLD comment states with this program's value for the record as fetched.
 
 ## Decision Log
 
@@ -75,3 +76,7 @@ A receipt now records which story text it checked, so close can report a story e
 ### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
 
 Mechanical reciprocity fan-out: the epic-wide receipt that compared each story verdict's stamped digest with the record's current digest is retired, so the edge is removed. Close still compares that digest per story when it gathers its evidence.
+
+### 2026-11-05 — #971 — Reciprocal link from hld-build-input
+
+Mechanical reciprocity fan-out: the unattended implement command ignores a high-level design page whose comment states a digest other than this program's current value for the record.
