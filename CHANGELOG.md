@@ -16,7 +16,8 @@ behaviour says so.
   page rendered from an older record, or with any other verdict, is ignored with one output line
   giving the reason. A record with no such comment runs exactly as before.
 - **New stops before the branch exists.** The run now stops when the record's comments cannot be
-  read, when a current page cannot be read, or when git does not ignore `.nexus/tmp/`. For an
+  read, when a current page cannot be read, when git does not ignore `.nexus/tmp/`, or when the
+  page's local copy cannot be written. For an
   unreadable page it asks whether to build from the record alone: re-run with the new
   `--record-only` option to do so, which skips the page and says so in one line.
 

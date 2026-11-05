@@ -502,13 +502,14 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (!deps.clean(cwd)) fail("preflight", "the working tree has uncommitted changes. Commit or stash them first.");
         const branch = branchFor(epic);
         if (deps.branchExists(cwd, branch)) fail("preflight", `branch ${branch} already exists. Delete or rename it, or continue by hand with /nxs.analyze --pr.`);
-        const created = deps.createBranch(cwd, branch, base);
-        if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
-        const baseSha = created.value;
+        // The copy is gitignored, so writing it before the branch exists leaves the checkout clean and a failed write refuses nothing on re-run (G13).
         if (page !== null) {
             const wrote = deps.writeFile(cwd, pageCopyPath(epic), page.text);
             if (!wrote.ok) fail("preflight", `the HLD page copy could not be written to ${pageCopyPath(epic)}: ${wrote.message}`);
         }
+        const created = deps.createBranch(cwd, branch, base);
+        if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
+        const baseSha = created.value;
         say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
         const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
