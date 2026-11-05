@@ -168,8 +168,32 @@ export const UNATTENDED_CLAUSE =
     "asking which option to take, and never wait for a decision. If the stage cannot proceed, state in " +
     "your final message what blocked it and stop. Otherwise carry the stage through to its documented output.";
 
-/** The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). */
-export function implementationPrompt(epic: number, turns: number, testCommand: string | null): string {
+/** A current HLD page the command read: the copy it wrote for the agent, and the pinned link it came from. */
+export interface HldPage {
+    copy: string;
+    url: string;
+}
+
+/**
+ * The one paragraph a current HLD page adds to the implementation prompt (epic #971, D7). It says
+ * which parts of the page bind and which do not, and never asks the agent to judge the page.
+ */
+export function hldParagraph(page: HldPage): string {
+    return (
+        `A high-level design page was rendered from the current decision record. Its raw text is at \`${page.copy}\`, ` +
+        `read from ${page.url}. Read it before the first story, and follow its architecture, mechanisms, data and ` +
+        "delivery plan. The decision record is binding: wherever the page and the record disagree, follow the record. " +
+        "The choices the page lists as left open by the record, and the answers it assumes for its own open questions, " +
+        "guide the build but bind nothing. The page's delivery plan never overrides one commit per story in blocked_by " +
+        "order. Do not judge whether the page is correct; build from it."
+    );
+}
+
+/**
+ * The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). Without a
+ * current HLD page it is exactly the prompt from before epic #971 (G4, G7, G14).
+ */
+export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null): string {
     const suite =
         testCommand === null
             ? `No test command is declared. Find the repository's full test suite and run it. When you finish the stories, end your final message with one line beginning exactly '${TEST_COMMAND_PREFIX}' that names the command you ran.`
@@ -197,7 +221,8 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "issues and /nxs.distill deliver them. " +
         "Before starting each story, re-read its epic.md section and the decisions it " +
         "delivers. Stay on the current branch. Do not push and do not open a PR — the calling command does both. " +
-        `${suite} Stop after ${turns} turns.`
+        `${suite} Stop after ${turns} turns.` +
+        (page === null ? "" : `\n\n${hldParagraph(page)}`)
     );
 }
 
@@ -497,7 +522,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         };
 
         // 2. Implementation stage (D3).
-        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand));
+        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }));
         const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
         if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
         if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);

@@ -624,6 +624,46 @@ describe("ignoring a stale page or a page with violations (story #984: G6-G9, G1
     });
 });
 
+describe("telling the agent to build from a current page (story #985: G18-G22)", () => {
+    const current = [comment(hldBody(), "2026-11-03T00:00:00Z")];
+
+    it("tells the agent to read the page copy and follow its architecture, mechanisms, data and delivery plan", async () => {
+        const r = await run(world({ comments: current }));
+        const prompt = r.sessions[0].args[1];
+        expect(prompt).toContain(".nexus/tmp/epic-7/hld-page.md");
+        expect(prompt).toContain(PAGE_URL);
+        expect(prompt).toMatch(/follow its architecture, mechanisms, data and delivery plan/);
+    });
+
+    it("tells the agent the record binds where the two disagree, and that open choices and assumed answers bind nothing", async () => {
+        const prompt = (await run(world({ comments: current }))).sessions[0].args[1];
+        expect(prompt).toMatch(/decision record is binding: wherever the page and the record disagree, follow the record/);
+        expect(prompt).toMatch(/left open by the record, and the answers it assumes for its own open questions, guide the build but bind nothing/);
+    });
+
+    it("keeps one commit per story above the page's plan and does not ask the agent to judge the page", async () => {
+        const prompt = (await run(world({ comments: current }))).sessions[0].args[1];
+        expect(prompt).toMatch(/never overrides one commit per story in blocked_by order/);
+        expect(prompt).toMatch(/Do not judge whether the page is correct/);
+    });
+
+    it("adds exactly one paragraph to today's instructions", async () => {
+        const prompt = (await run(world({ comments: current }))).sessions[0].args[1];
+        const today = implementationPrompt(7, 40, "npm test");
+        expect(prompt.startsWith(today)).toBe(true);
+        expect(prompt.slice(today.length).replace(UNATTENDED_CLAUSE, "").trim().split("\n\n")).toHaveLength(1);
+    });
+
+    it("leaves the fix round's instructions unchanged, so a fix that contradicts a record decision is still an escalation", async () => {
+        const verdicts = [judged(finding("F1", "high")), judged()];
+        const withPage = await run(world({ comments: current, verdicts }));
+        const without = await run(world({ verdicts }));
+        expect(withPage.sessions[2].args[1]).toBe(without.sessions[2].args[1]);
+        expect(withPage.sessions[2].args[1]).not.toMatch(/hld-page|design page/);
+        expect(withPage.sessions[2].args[1]).toMatch(/escalation when its fix would contradict a decision or guarantee the record states/);
+    });
+});
+
 describe("the /nxs.hld comment template this reader depends on (R1)", () => {
     const skill = fs.readFileSync(path.join(REPO_ROOT, "components/skills/nxs.hld/SKILL.md"), "utf8");
     const block = /```markdown\n\s*(<!-- nxs\.hld -->[\s\S]*?)\n\s*```/.exec(skill)?.[1] ?? "";

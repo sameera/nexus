@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.127.0
+
+- **`nexus implement` now builds from the `/nxs.hld` page when the decision record has a current
+  one.** Before any agent runs on an approved epic, the command reads the newest `/nxs.hld`
+  comment on the record from someone who can speak for the repository. When its digest matches the record and its verdict is
+  the clean verdict, the command reads the page at its pinned commit with the lead's own GitHub
+  login, which works for a private store, and tells the agent to build from it. The record stays
+  binding where the two disagree, and the page's open choices guide the build but bind nothing. A
+  page rendered from an older record, or with any other verdict, is ignored with one output line
+  giving the reason. A record with no such comment runs exactly as before.
+- **New stops before the branch exists.** The run now stops when the record's comments cannot be
+  read, when a current page cannot be read, or when git does not ignore `.nexus/tmp/`. For an
+  unreadable page it asks whether to build from the record alone: re-run with the new
+  `--record-only` option to do so, which skips the page and says so in one line.
+
 ## 0.126.0
 
 - **The decision-record approval list now shows what each decision chose, above the alternatives it
