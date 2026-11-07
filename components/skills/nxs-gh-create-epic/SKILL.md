@@ -85,9 +85,11 @@ nexus create-epic --no-project "<path-to-epic.md>"
 
 The epic issue is filed into the resolved **epic-repo**: `github.epic-repo` if declared, else
 `github.issues-repo`, else the current repo (an absent target is never pinned). In a multi-repo
-workspace the resolver also consults the hub manifest's `github:` defaults as a fallback layer —
-so a member repo that declares no `epic-repo` inherits the workspace default, and a member with no
-primary code repo files its epic into the hub (its hub default `epic-repo` points at the hub).
+workspace the resolver also consults the hub layer — the hub's own `settings.yml` github block,
+then the hub manifest's `github:` defaults — so a member repo that declares no `epic-repo` inherits
+the hub's value, and a member with no primary code repo files its epic into the hub (its hub
+`epic-repo` points at the hub). The first-run write-back never records a key the hub layer supplied
+into the member's settings, so a later change on the hub still reaches the member.
 
 ## Expected Frontmatter
 

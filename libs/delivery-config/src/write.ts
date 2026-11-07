@@ -12,17 +12,25 @@
  * `none`, and an empty value is never written, so an absent target is never pinned to a concrete
  * one. The target is the given root: this walks to no ancestor, and creates the configuration
  * directory and the file when they are absent.
+ *
+ * It never writes a key the hub layer supplies (decision record #1003, D4): a copy frozen into a
+ * member's file would hide every later change on the hub. A single-repo checkout has no hub layer,
+ * so every requested key stays writable there.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { githubKeyFor } from "./keys.js";
+import { readHubDefaults } from "./hub.js";
+import { githubKeyFor, normalizedKey } from "./keys.js";
+import { type DeliveryConfig } from "./settings.js";
 
 export interface WriteReport {
     /** The github-block keys actually added, in the order they were written. */
     added: string[];
     /** The settings file the merge targeted, written or not. */
     path: string;
+    /** The github-block keys skipped because the hub layer already supplies them. */
+    inherited: string[];
 }
 
 /** True for a `key:`-style line at column 0 — a top-level key rather than an indented child. */
@@ -37,11 +45,17 @@ export function writeGithubBlock(
 ): WriteReport {
     const file: string = path.join(projectRoot, ".nexus", "config", "settings.yml");
 
-    // Normalize to github-block spelling through the catalogue's derived inverse, dropping empties.
+    // Normalize to github-block spelling through the catalogue's derived inverse, dropping empties
+    // and any key the hub layer already supplies.
+    const hub: DeliveryConfig = readHubDefaults(projectRoot);
     const wanted: Map<string, string> = new Map();
+    const inherited: string[] = [];
     for (const [rawKey, rawValue] of Object.entries(values)) {
         const value: string = (rawValue ?? "").trim();
-        if (value !== "") wanted.set(githubKeyFor(rawKey), value);
+        if (value === "") continue;
+        const key: string = githubKeyFor(rawKey);
+        if (hub[normalizedKey(key)]) inherited.push(key);
+        else wanted.set(key, value);
     }
 
     const text: string = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
@@ -54,7 +68,7 @@ export function writeGithubBlock(
     let newText: string;
 
     if (githubAt === -1) {
-        if (wanted.size === 0) return { added: [], path: file };
+        if (wanted.size === 0) return { added: [], path: file, inherited };
         const block: string[] = [];
         if (comment) block.push(`# ${comment}`);
         block.push("github:");
@@ -88,12 +102,12 @@ export function writeGithubBlock(
             inserted.push(`  ${key}: ${value}`);
             added.push(key);
         }
-        if (added.length === 0) return { added: [], path: file };
+        if (added.length === 0) return { added: [], path: file, inherited };
         lines.splice(lastChild + 1, 0, ...inserted);
         newText = lines.join("\n");
     }
 
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, newText, "utf8");
-    return { added, path: file };
+    return { added, path: file, inherited };
 }

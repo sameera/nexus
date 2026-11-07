@@ -24,6 +24,11 @@ export interface GithubKey {
     builtin?: string;
     /** The normalized key this one falls back to before its built-in — the general for a specific. */
     fallbackTo?: string;
+    /**
+     * True for a key that describes one code repository rather than the workspace, so a member
+     * never takes it from its hub (decision record #1003, D3).
+     */
+    repoSpecific?: true;
 }
 
 /** Every declared github-block key, in the order the block is conventionally written. */
@@ -50,7 +55,7 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     { githubKey: "worktree-path", normalized: "worktreePath" },
     // The full test suite `nexus implement` holds its stages to, when the invocation names
     // none (decision record #966, D14). This resolver is its only reader.
-    { githubKey: "test-command", normalized: "testCommand" },
+    { githubKey: "test-command", normalized: "testCommand", repoSpecific: true },
     // Decision-record and design-gate markers.
     { githubKey: "record-label", normalized: "recordLabel", builtin: "decision-record" },
     { githubKey: "record-type", normalized: "recordType", builtin: "Decision Record" },

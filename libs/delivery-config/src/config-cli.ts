@@ -129,8 +129,11 @@ export function runConfigWriteGithub(args: string[], io: ToolkitIo): number {
     io.stdout(
         report.added.length > 0
             ? `Seeded github block (${report.added.join(", ")}) into ${report.path}`
-            : `No changes — every requested key is already declared in ${report.path}`,
+            : `No changes — every requested key is already declared in ${report.path} or supplied by the hub`,
     );
+    if (report.inherited.length > 0) {
+        io.stdout(`Left unset, supplied by the hub: ${report.inherited.join(", ")}`);
+    }
     return 0;
 }
 

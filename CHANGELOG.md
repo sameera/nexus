@@ -5,6 +5,31 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.128.0
+
+- **A member checkout now uses the hub's own settings.** In a multi-repo workspace, a publishing
+  setting a member leaves unset (or empty) resolves in this order: the hub's own
+  settings, then the hub manifest's `github:` defaults, then the
+  built-in. A member's own value still wins. The hub's own setting wins over its manifest default,
+  so a member resolves every unset key to the value the hub checkout resolves. A key the hub
+  declares in its own settings no longer needs to be on the manifest allowlist to reach members.
+- **After upgrading, members may file with different values.** A member that relied on a built-in
+  or on a manifest default now takes the hub's own settings. Its project, epic and story labels and
+  decision-record marker can change on the first run. Check the hub's `settings.yml` before filing
+  from a member.
+- **Delete copied hub values from each member.** Before this release, `/nxs.setup` and the first
+  `/nxs.epic` or story-filing run copied `classification` and `project` into the member's own
+  settings. Those copies keep winning over the hub. Delete them from each member's `settings.yml`
+  where they match the hub.
+- **Setup and filing no longer copy hub values into a member.** `nexus config write-github` and the
+  filers' first-run record skip any key the hub supplies; `write-github` names those keys in a
+  `Left unset, supplied by the hub: …` line. In the hub checkout, setup no longer seeds a `classification` or `project` the manifest
+  already supplies.
+- **The test command never comes from the hub.** Each code repository keeps its own
+  `test-command`. Neither do the docs root, templates or product context. A missing or unreadable
+  hub checkout falls back silently to the member's value or the built-in, with the same exit code
+  as before. A single-repo checkout and the hub checkout resolve every setting as before.
+
 ## 0.127.0
 
 - **`nexus implement` now builds from the `/nxs.hld` page when the decision record has a current
