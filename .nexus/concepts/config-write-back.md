@@ -1,8 +1,8 @@
 ---
 title: "Config Write-Back"
 aliases: ["publishing config seeding", "config write-back", "gap-fill persistence", "setup config seed", "surgical settings merge"]
-touches: ["publishing-config-resolution", "settings-key-catalogue"]
-last_updated_by: "#351"
+touches: ["publishing-config-resolution", "settings-key-catalogue", "hub-settings-layer"]
+last_updated_by: "#1001"
 status: active
 verification: verified
 ---
@@ -23,7 +23,7 @@ Either write merges into the settings file surgically, leaving unrelated section
 
 ## Key Invariants
 
-1. Write-back fills only keys that were absent; any declared value, including an explicit discovery or an explicit absence, survives untouched.
+1. Write-back fills only keys that were absent and that the hub layer does not supply, so a later hub change still reaches the member; any declared value, including an explicit discovery or an explicit absence, survives untouched.
 2. Write-back never records a concrete target for the current repo, so an absent target keeps meaning the current repo across a rename or move.
 3. Setup seeds proactively and may ask before writing an ambiguous choice; the unattended path never asks.
 4. When the tooling is unreachable, setup seeds safe defaults and records why, rather than probing further.
@@ -35,6 +35,7 @@ Either write merges into the settings file surgically, leaving unrelated section
 
 - [publishing-config-resolution](publishing-config-resolution.md) — populates the declared block that resolver reads, persisting only values it resolved and only where the block was silent.
 - [settings-key-catalogue](settings-key-catalogue.md) — the one declaration these producers translate through, so a key they can resolve is a key they can seed.
+- [hub-settings-layer](hub-settings-layer.md) — every key that layer supplies is skipped and reported as supplied by the hub, never copied into the file.
 
 ## Decision Log
 
@@ -45,3 +46,7 @@ Keeping both producers is the decision: setup has a human present, so it alone c
 ### 2026-08-28 — #351 — Reciprocal link from settings-key-catalogue
 
 Both producers now translate the resolver's names back to written ones through the catalogue's derived inverse. The hand-maintained inverse they used before had drifted, so a key a consumer could resolve was one these producers silently could not seed.
+
+### 2026-11-07 — #1001 — Write-back never copies a hub-supplied key into a member
+
+Before this change, setup in a member seeded the classification and project it probed, and the first filing run recorded the classification it used, even when the hub supplied that value. Each copy then hid every later change on the hub, and nothing reported it. Both producers now skip any key the hub layer supplies and name the skipped keys. The skip sits in the one writer both producers use, so neither producer can bypass it. Skipping still respects the rule that write-back fills only absent keys. Copies written before this change stay until a lead deletes them. **Refuted alternative:** keep the add-only write-back. It is simpler, and the frozen value equals the hub's value when written, but the next change on the hub never reaches that member.

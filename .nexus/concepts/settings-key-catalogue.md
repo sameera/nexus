@@ -1,15 +1,15 @@
 ---
 title: "Settings Key Catalogue"
 aliases: ["key catalogue", "github-block key catalogue", "the key map", "one declaration per key", "derived inverse", "catalogue membership"]
-touches: ["publishing-config-resolution", "config-write-back", "issue-asset-store"]
-last_updated_by: "#594"
+touches: ["publishing-config-resolution", "config-write-back", "issue-asset-store", "hub-settings-layer"]
+last_updated_by: "#1001"
 status: active
 verification: verified
 ---
 
 # Settings Key Catalogue
 
-One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to. Every derivation reads that one table, so adding a key there makes it readable from settings, layerable from workspace-wide defaults, resolvable by name and writable by the settings writer, with no second edit inside the resolver.
+One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to. Every derivation reads that one table, so adding a key there makes it readable from settings, layerable from the hub, resolvable by name and writable by the settings writer, with no second edit inside the resolver.
 
 ## How It Works
 
@@ -24,7 +24,7 @@ Keys carrying a built-in the general precedence path does not know about are row
 ## Key Invariants
 
 1. Every key is declared exactly once, carrying its written name, the resolver's name for it, and its built-in where it has one.
-2. Adding a key to the catalogue makes it readable, layerable, resolvable by name and writable, with no second edit inside the resolver.
+2. Adding a key to the catalogue makes it readable, layerable unless marked repository-specific, resolvable by name and writable, with no second edit inside the resolver.
 3. The translation back to written names is derived, never hand-maintained.
 4. Membership is decided by lookup, never by comparing a key's two spellings; a row whose spellings coincide is as declared as any other.
 5. A key without a built-in resolves to nothing rather than an invented value, which is how an absent target keeps meaning the current repository.
@@ -35,6 +35,7 @@ Keys carrying a built-in the general precedence path does not know about are row
 - [publishing-config-resolution](publishing-config-resolution.md) — the precedence chain this catalogue supplies keys and built-ins to; that concept owns what a key resolves to, this one which keys exist at all.
 - [config-write-back](config-write-back.md) — its two producers write through this catalogue's derived inverse, so a key they can resolve is a key they can seed.
 - [issue-asset-store](issue-asset-store.md) — two rows added here: the store, declared with no built-in, and its per-file size cap, which carries one.
+- [hub-settings-layer](hub-settings-layer.md) — drops every row marked repository-specific, so the test command never crosses from the hub.
 ## Decision Log
 
 ### 2026-08-28 — #351 — One catalogue is the schema, split out from the resolution chain
@@ -44,3 +45,7 @@ Split from publishing-config-resolution, whose own content had reached its cap: 
 ### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
 
 The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.
+
+### 2026-11-07 — #1001 — A row can be marked repository-specific
+
+A member now takes publishing keys from the hub's own settings, and the test command must never cross, because it describes one code repository. The test command's row now carries a repository-specific mark, and the hub layer drops every marked row. The catalogue stays the single place a key's properties are declared. **Refuted alternative:** hard-code the test command's exclusion inside the hub layer. It works for one key, but it puts a second statement of a key's properties outside this table.

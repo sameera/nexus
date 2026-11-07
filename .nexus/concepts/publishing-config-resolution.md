@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation"]
-last_updated_by: "#928"
+touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation"]
+last_updated_by: "#1001"
 status: active
 verification: verified
 ---
@@ -13,9 +13,9 @@ Publishing config resolution replaces every discovered-by-failure GitHub-publish
 
 ## How It Works
 
-These decisions used to be discovered through live calls that could fail, and the config reader existed as two drifting copies. The logic is defined exactly once; the issue-creation scripts import it, the filing and close stages invoke it, and the toolkit's own libraries now import it rather than spawning it, retiring the entry-point lookup that seam needed. Its keys are declared in one catalogue; a key a hub may default needs registering in the manifest allowlist too. The record marker and design-gate labels resolve through the same chain, so classification never disagrees with filing.
+These decisions used to be discovered through live calls that could fail, and the config reader existed as two drifting copies. The logic is defined exactly once; the issue-creation scripts import it, the filing and close stages invoke it, and the toolkit's own libraries now import it rather than spawning it, retiring the entry-point lookup that seam needed. Its keys are declared in one catalogue; a key the manifest may default needs registering in the manifest allowlist too, while a key in the hub's own settings reaches members with no second registration. The record marker and design-gate labels resolve through the same chain, so classification never disagrees with filing.
 
-Every key resolves most-specific-first: invocation argument, per-item frontmatter, repo settings, workspace-wide hub defaults, then a built-in guaranteeing a value. The hub layer reads the resolved workspace as a value, guarded on the checkout declaring one so a single-repo checkout spawns nothing; it stays best-effort, an unresolvable workspace contributing nothing while resolution completes with the exit code it would have had.
+Every key resolves most-specific-first: invocation argument, per-item frontmatter, repo settings, the hub layer (the hub's own settings, then its workspace-wide defaults), then a built-in guaranteeing a value.
 
 Classification is an explicit issue-type mode, an explicit label mode, or the default legacy mode preserving the former discover-then-fall-back flow. The project target is deliberate absence, an explicit target, or discovery. Repo targeting resolves independently for the epic and the stories, falling back to a general issues repository, then the current repo.
 
@@ -23,7 +23,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 
 1. The logic exists in exactly one place; no consumer re-derives config by parsing settings itself.
 2. Given identical config and frontmatter, every consumer resolves any key to the same value.
-3. Precedence is invocation argument, frontmatter, repo settings, hub defaults, built-in — and the hub layer applies only where the checkout declares a workspace, never parses its manifest, and yields nothing on every failure.
+3. Precedence is invocation argument, frontmatter, repo settings, hub layer (the hub's own settings, then its workspace-wide defaults), built-in — and the hub layer applies only where the checkout declares a workspace, never parses its manifest, never carries the test command, and yields nothing on every failure.
 4. With no block declared, every consumer reaches the classification, project, and repository it reached before — with one exception.
 5. That exception is the epic's fallback label, now epic-specific and upserted before use, so filing never strands on a missing label.
 6. A deliberately-absent project target makes no lookup, no add call, no warning.
@@ -31,7 +31,8 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 
 ## Integration Points
 
-- [workspace-resolution](workspace-resolution.md) — supplies the hub-defaults layer, inherited per key.
+- [workspace-resolution](workspace-resolution.md) — locates the hub whose own settings and workspace-wide defaults form the hub layer, inherited per key.
+- [hub-settings-layer](hub-settings-layer.md) — the hub layer, split out from here: what a member takes from its hub and how each hub source fails.
 - [config-write-back](config-write-back.md) — the two producers that populate the block this resolver reads.
 - [epic-approval-gate](epic-approval-gate.md) — files epics and stories into the repositories resolved here.
 - [nexus-setup-cli](nexus-setup-cli.md) — exposes the hub defaults through a read-out seam.
@@ -102,3 +103,7 @@ Mechanical reciprocity fan-out: the initiative page names this resolver as the s
 ### 2026-10-31 — #928 — Reciprocal link from unattended-epic-implementation
 
 Mechanical reciprocity fan-out: the unattended implementation page declares that it resolves its test command and issues repository here.
+
+### 2026-11-07 — #1001 — The hub layer gains the hub's own settings and splits out
+
+A member checkout now takes every publishing key it leaves unset from the hub's own settings first, then from the manifest's workspace-wide defaults. The hub's own setting wins where both declare a key, so a member resolves what the hub checkout resolves, and the test command never crosses. This page's precedence statements, its allowlist rule and its workspace-resolution edge now say so, as the approved record rewrote them. The account of how the hub layer reads the hub and fails safely moved to [hub-settings-layer](hub-settings-layer.md). It has its own retrieval need, and this page's own content had no room for the change. **Refuted alternative:** let the workspace-wide default win in a member, as the epic first assumed. It gives the manifest a clear meaning, but a record filed from a member would carry one marker while close, run in the hub, looked for another.
