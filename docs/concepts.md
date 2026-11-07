@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 124 active concepts. Each links to its full page
+Orientation map of the concept store — 125 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -30,6 +30,7 @@ Orientation map of the concept store — 124 active concepts. Each links to its 
 - [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body or a story body, and every stage that stamps or verifies either value invokes it.
 - [Release Identity](../.nexus/concepts/release-identity.md) — One semantic version identifies the whole release — the executable and the component payload together — because they ship as one artifact and cannot be at different versions.
 - [Toolkit Location](../.nexus/concepts/toolkit-location.md) — Nexus ships one executable, and every invocation names it and a dispatch name rather than encoding where it lives.
+- [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
 - [Addition Gate](../.nexus/concepts/addition-gate.md) — At the planning gate a plain approval files the smallest usable version and nothing else.
 - [Component Invocation Gate](../.nexus/concepts/component-invocation-gate.md) — Every invocation written in a shipped component body must name the executable and a dispatch name it declares, checked by the source repository's own gate.
 - [Environment Guard](../.nexus/concepts/environment-guard.md) — An environment defect is named where a human will see it, without any verb's output contract being disturbed.
@@ -43,7 +44,6 @@ Orientation map of the concept store — 124 active concepts. Each links to its 
 - [Resumable Batch Filing](../.nexus/concepts/resumable-batch-filing.md) — Filing a folder of work items into issues is a batch that is always safe to re-run.
 - [Shipped Ledger](../.nexus/concepts/shipped-ledger.md) — What an epic shipped is written on the epic issue at the moment it ships, and read back from there.
 - [Shipped Payload](../.nexus/concepts/shipped-payload.md) — The payload is a stated set of files rather than whatever happens to be on disk, so its fingerprint means something and nothing incidental reaches an adopter.
-- [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
 - [Close-and-Distill Command](../.nexus/concepts/close-and-distill-command.md) — The close-and-distill command takes a merged epic pull request to a closed epic and an open distillation pull request, with one command and one approval.
 - [Cut Gate](../.nexus/concepts/cut-gate.md) — A gate that shows a reviewer what the model added must also let them act on it in one action, or the labelling is decoration.
 - [Delegating Port](../.nexus/concepts/delegating-port.md) — A delegating port moves a toolkit's implementation onto another runtime one capability at a time, with no flag day and no second name.
@@ -88,11 +88,13 @@ Orientation map of the concept store — 124 active concepts. Each links to its 
 - [Distill Command](../.nexus/concepts/distill-command.md) — The distill command takes a closed epic, named by its number or by any merged pull request of it, and runs the drain unattended in the worktree close prepared.
 - [Epic Issue Filing](../.nexus/concepts/epic-issue-filing.md) — Filing a single epic is a create-or-promote operation, never inferred from remote state: creation makes a new issue and promotion edits an existing one in place, clearing its unplanned marker.
 - [HLD Page as Build Input](../.nexus/concepts/hld-build-input.md) — When an approved epic's decision record carries a current high-level design page, the unattended implement command tells its implementation agent to build from that page.
+- [Hub Settings Layer](../.nexus/concepts/hub-settings-layer.md) — The hub layer is the step in the publishing precedence chain between a checkout's own settings and the built-in values.
 - [Prose Translation](../.nexus/concepts/prose-translation.md) — Nexus's plain-language rules split by who executes each rule.
 - [Release Gate](../.nexus/concepts/release-gate.md) — The tag and the public publish are blocked while any shipped component body reaches a toolkit capability by an in-repository path the payload does not carry.
 - [Remote Identity Normalization](../.nexus/concepts/remote-identity-normalization.md) — A single git remote can be written many equivalent ways — as a secure-shell address or a web address, with or without a trailing suffix, with an upper- or lower-cased host.
 - [Removal Gate](../.nexus/concepts/removal-gate.md) — At the design-record checkpoint a plain approval files the record as drafted, and a typed number cuts one line.
 - [Scratch Capture](../.nexus/concepts/scratch-capture.md) — Scratch capture is the committed per-user surface inside an epic's queue entry where an engineer's agent records decision stubs and working notes at the moment of choosing.
+- [Settings Key Catalogue](../.nexus/concepts/settings-key-catalogue.md) — One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to.
 - [Stub Promotion](../.nexus/concepts/stub-promotion.md) — Stub promotion plans an epic stub on the same issue it was filed under.
 - [Writer Stamp](../.nexus/concepts/writer-stamp.md) — Every artifact the toolkit writes that a later stage reads back records which release wrote it.
 - [Append-Only Decision Log](../.nexus/concepts/append-only-decision-log.md) — Every concept page carries a Decision Log — the append-only, immutable record of why the concept is the way it is.
@@ -100,6 +102,7 @@ Orientation map of the concept store — 124 active concepts. Each links to its 
 - [Borrowed Reader Access](../.nexus/concepts/borrowed-reader-access.md) — The renderer answers no question about who may see a mockup.
 - [Checkout-Only Path Gate](../.nexus/concepts/checkout-only-path-gate.md) — No shipped component body may send a stage to a location that resolves only inside the Nexus source checkout.
 - [Component Migration](../.nexus/concepts/component-migration.md) — A repository that still carries a committed component set is emptied of it by a gated verb — never automatically, and never as a side effect of another command.
+- [Config Write-Back](../.nexus/concepts/config-write-back.md) — Config write-back is how the declared publishing block comes to exist without anyone hand-authoring it: setup seeds it at bootstrap while a human can resolve ambiguity, and the first unattended fallback run persists what it just reached.
 - [Cookie-Carried Session](../.nexus/concepts/cookie-carried-session.md) — The reader's credential is sealed into a cookie in the reader's own browser and kept nowhere else.
 - [Distill Run Record and Cleanup](../.nexus/concepts/distill-run-record.md) — The distill run record is the scratch folder that holds one distill run's log, outcome and live-run marker, keyed by the epic's number.
 - [Epic Coverage Run](../.nexus/concepts/epic-coverage-run.md) — Analyze, addressed at an epic, reports each story as shipped, unrecorded, unshipped or excluded, read from the records on the epic issue.
@@ -110,11 +113,9 @@ Orientation map of the concept store — 124 active concepts. Each links to its 
 - [Planning Run Folder](../.nexus/concepts/planning-run-folder.md) — A planning run keeps everything it drafts inside one folder under the checkout's gitignored scratch area, named once before the run decides whether to draft a full epic or file decomposition stubs.
 - [Pointing Install](../.nexus/concepts/pointing-install.md) — The second of the two contents an account's install location can hold: one pointer per payload file at a maintainer's authored checkout, rather than a copy of a release.
 - [Prose Verification](../.nexus/concepts/prose-verification.md) — A translated artifact is proven faithful by comparing the pre- and post-translation copies, never by asking a person to read it.
-- [Settings Key Catalogue](../.nexus/concepts/settings-key-catalogue.md) — One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to.
 - [Two-Store Split](../.nexus/concepts/two-store-split.md) — Nexus keeps two knowledge surfaces that never share an artifact: a lean human-judgment surface for what a person must read and decide, and a machine knowledge surface where distilled volume is legitimate.
 - [Verdict Repository Scoping](../.nexus/concepts/verdict-repository-scoping.md) — A published verdict names the stories it covers as bare numbers, so it also names the repository those numbers resolve against.
 - [Approval Brief](../.nexus/concepts/approval-brief.md) — The approval brief is the opening section of a decision record.
-- [Config Write-Back](../.nexus/concepts/config-write-back.md) — Config write-back is how the declared publishing block comes to exist without anyone hand-authoring it: setup seeds it at bootstrap while a human can resolve ambiguity, and the first unattended fallback run persists what it just reached.
 - [Domain Taxonomy](../.nexus/concepts/domain-taxonomy.md) — Domain taxonomy is a curated, two-level grouping for concept pages — domains and optional subdomains — authored in a registry that lives beside the atlas.
 - [Issue Absence as a Fact](../.nexus/concepts/issue-absence-fact.md) — A number that names no issue is a fact the lookup reports, not a failure it raises.
 - [Navigation-Marked Credential](../.nexus/concepts/navigation-marked-credential.md) — An endpoint of the renderer reads a reader's credential only when the browser's own markers say the request is a top-level document navigation.
