@@ -12,3 +12,4 @@ Planning surfaces live on GitHub issues rather than committed files — the back
 - **Retire the Sequencing Page Into Issue State** — [#218](https://github.com/sameera/nexus/issues/218)
 - **Rename the Unplanned-Epic Label to needs-refinement** — [#466](https://github.com/sameera/nexus/issues/466)
 - **Planning Drafts Live in the Repository's Scratch Folder** — [#638](https://github.com/sameera/nexus/issues/638)
+- **A Feature Is a GitHub Issue That a New Epic Names** — [#998](https://github.com/sameera/nexus/issues/998)
