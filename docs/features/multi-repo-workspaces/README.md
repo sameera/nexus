@@ -30,6 +30,7 @@ hub docs repo holds the concept store and drains the queue.
 - **The Epic Receipt Accepts and Ranks Published Story Verdicts** — [#747](https://github.com/sameera/nexus/issues/747)
 - **A Published Verdict's Story Numbers Name the Repository They Belong To** — [#751](https://github.com/sameera/nexus/issues/751)
 - **The Epic Issue Carries the Ledger of What Shipped** — [#769](https://github.com/sameera/nexus/issues/769)
+- **A Member Repository Uses the Hub's Settings** — [#1001](https://github.com/sameera/nexus/issues/1001)
 
 ## Tooling
 
