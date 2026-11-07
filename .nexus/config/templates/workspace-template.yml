@@ -42,6 +42,10 @@
 #     rest). These are the same keys the repo-level settings.yml github block uses: `project`,
 #     `classification`, `issues-repo`, `epic-repo`, `story-repo`, `epic-type`, `story-type`,
 #     `epic-label`, `story-label` (any other key here is a reported error).
+#     - The hub's OWN `.nexus/config/settings.yml` github block reaches members too, above these
+#       defaults: a key the hub declares in both places resolves to the hub's own value, so a
+#       member resolves every key it leaves unset to what the hub checkout resolves. Any catalogued
+#       key there reaches members except `test-command`, which stays with each code repository.
 #     - `epic-repo` / `story-repo` target the epic issue and the story issues respectively
 #       (`owner/repo`); each falls back to `issues-repo`, then to the member's current repo.
 #     - The no-code-repo case: set `epic-repo` to the HUB's own repo so a member with no primary

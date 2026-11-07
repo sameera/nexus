@@ -236,8 +236,12 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
           # --comment "seeded by /nxs.setup — gh unavailable; safe defaults, review when online"
         ```
        The write is **uncommitted** — surface it in the Phase 7 summary as a config seed the user
-       reviews and commits (see Phase 7). In a multi-repo workspace, workspace-wide defaults may also
-       live in the hub manifest; this per-repo seed still only fills keys absent locally.
+       reviews and commits (see Phase 7). In a multi-repo workspace the hub layer — the hub's own
+       `settings.yml` github block, then the hub manifest's `github:` defaults — already supplies
+       keys to every member. `write-github` leaves any key the hub supplies unset, and reports it
+       as `Left unset, supplied by the hub: …`; do not write such a key by hand, because a copy
+       in the member hides every later change on the hub. In a member, run the probes only for
+       keys `nexus config resolve <key>` still resolves to nothing.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **`.nexus/discovery/`** — the pre-epic discovery store (`/nxs.discover`), also **committed, not gitignored**. It is deliberately a sibling of the queue rather than a folder inside it: the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Do not create it at setup — `/nxs.discover` creates it on first use — and do not add an ignore rule for it.
 5. **Templates** — nothing to do here. `nexus seed-templates` (Phase 1) has already placed the tool-agnostic templates under `.nexus/config/templates/`; this phase only seeds project-generated config (above).
