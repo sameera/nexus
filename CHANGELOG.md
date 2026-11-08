@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.129.0
+
+- **`nexus implement` now builds every story test-first.** The implementation stage writes the
+  tests that pin a story's acceptance criteria before the code that satisfies them, then writes
+  that code. It is told this is test-first, not test-driven development: no red-green-refactor
+  cycle per small step. The full test suite must pass before each story's commit, and the stage may
+  not weaken, skip or delete a test to get there. The fix rounds already worked test-first and are
+  unchanged. The pull request that analyze judges now carries each story's tests alongside its code.
+
 ## 0.128.0
 
 - **A member checkout now uses the hub's own settings.** In a multi-repo workspace, a publishing

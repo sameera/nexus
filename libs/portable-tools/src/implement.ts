@@ -190,8 +190,19 @@ export function hldParagraph(page: HldPage): string {
 }
 
 /**
- * The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). Without a
- * current HLD page it is exactly the prompt from before epic #971 (G4, G7, G14).
+ * How the implementation stage builds each story: test-first, not TDD. The tests for a story come
+ * before its code, without a red-green-refactor cycle, and the full suite gates every story's commit.
+ */
+export const TEST_FIRST_RULE =
+    "Build every story test-first. For each story, first write the tests that pin its acceptance criteria " +
+    "before the code that satisfies them, then write that code. This is test-first, not test-driven development: " +
+    "write the story's tests up front, then its code, with no red-green-refactor cycle per small step. " +
+    "Make sure the full test suite passes before each story's commit. Never make a failure disappear: " +
+    "do not weaken, skip or delete a test.";
+
+/**
+ * The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). A
+ * current HLD page adds one paragraph to it (G4, G7, G14).
  */
 export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null): string {
     const suite =
@@ -220,7 +231,7 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "epic' and 'Committed follow-up' items and Concept-store changes alone — other " +
         "issues and /nxs.distill deliver them. " +
         "Before starting each story, re-read its epic.md section and the decisions it " +
-        "delivers. Stay on the current branch. Do not push and do not open a PR — the calling command does both. " +
+        `delivers. ${TEST_FIRST_RULE} Stay on the current branch. Do not push and do not open a PR — the calling command does both. ` +
         `${suite} Stop after ${turns} turns.` +
         (page === null ? "" : `\n\n${hldParagraph(page)}`)
     );

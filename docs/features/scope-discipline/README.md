@@ -14,3 +14,4 @@ Keeping planning artifacts to the scope someone actually asked for.
 - **The Record Checkpoint Reads as One Checklist** — [#722](https://github.com/sameera/nexus/issues/722)
 - **The Razor Check Reads a Decision Record as a Decision Record** — [#759](https://github.com/sameera/nexus/issues/759)
 - **An Initiative Carries the Planning Context of Its Epics** — [#850](https://github.com/sameera/nexus/issues/850)
+- **An Initiative Keeps Its Planning Context on Its Own Issue** — [#1011](https://github.com/sameera/nexus/issues/1011)

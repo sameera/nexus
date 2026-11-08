@@ -296,6 +296,27 @@ describe("implementation stage (G4, G5, G6)", () => {
         expect(r.sessions[0].args[1]).toContain("Before implementation");
     });
 
+    it.each<[string, string | null]>([
+        ["a declared test command", "npm test"],
+        ["no declared test command", null],
+    ])("tells the stage to write each story's tests before its code, with %s", async (_name, testCommand) => {
+        const prompt = (await run(world({ finals: ["done\nTest command: pnpm vitest"] }), { testCommand })).sessions[0].args[1];
+        expect(prompt).toMatch(/test-first/i);
+        expect(prompt).toMatch(/write the tests that pin (its|the story's) acceptance criteria before the code that satisfies them/i);
+    });
+
+    it("asks for test-first, not a red-green-refactor TDD loop", async () => {
+        const prompt = (await run(world())).sessions[0].args[1];
+        expect(prompt).toMatch(/not test-driven development/i);
+        expect(prompt).toMatch(/red-green-refactor/i);
+    });
+
+    it("requires the full suite to pass before each story's commit and forbids weakening a test to get there", async () => {
+        const prompt = (await run(world())).sessions[0].args[1];
+        expect(prompt).toMatch(/full test suite passes before (each|every) story's commit/i);
+        expect(prompt).toMatch(/do not weaken, skip or delete a test/i);
+    });
+
     it.each<[string, Commit[], RegExp]>([
         ["one combined commit", [{ sha: "x", message: "both\n\nCloses #1\nCloses #2" }], /more than one story/],
         ["a missing story", [storyCommit(1)], /no commit claims #2/],
