@@ -188,7 +188,6 @@ export function renderVerdict(input: VerdictInput): RenderedVerdict {
         noLongerFoundSection(input),
         storiesSection(facts, judgments.results ?? []),
         evidenceSection(judgments),
-        epicLevelSection(facts, judgments.results ?? []),
         runDetailsSection(input, open),
     ];
     // A section with nothing to report is left out (D11; G19).
@@ -361,32 +360,20 @@ function collapsed(summary: string, content: string[]): string {
 }
 
 /**
- * The evidence for each criterion and guarantee, collapsed (D11; G17): where each judgment rests,
- * or the files it was judged on when the result was recorded before evidence was carried.
+ * The evidence for each criterion, guarantee and success metric, collapsed (D11; G17): where each
+ * judgment rests, or the files it was judged on when the result was recorded before evidence was
+ * carried. A metric's row says it is a success metric, since its `about` is the metric's own text.
+ * Nothing else lists these results row by row: what blocks is already an item above.
  */
 function evidenceSection(judgments: Judgments): string | null {
-    const rows = (judgments.results ?? []).filter((r) => r.kind !== "metric");
+    const rows = judgments.results ?? [];
     if (rows.length === 0) return null;
     const table = ["| Check | Result | Evidence |", "|---|---|---|"];
-    for (const r of rows) table.push(`| ${inlineText(r.about)} | ${r.verdict} | ${inlineText(r.evidence ?? r.files.join(", "))} |`);
-    return collapsed("Evidence", table);
-}
-
-/**
- * The epic-level results: one table, one row per check (D11; G18). A run that did not judge the
- * epic level shows one row saying so; a pull request that does not complete the epic shows none.
- */
-function epicLevelSection(facts: VerdictFacts, results: readonly Result[]): string | null {
-    if (facts.epicLevel.state === "skip") return null;
-    const lines = ["### Epic level", "", "| Check | Result |", "|---|---|"];
-    if (facts.epicLevel.state === "not-run") {
-        lines.push(`| Epic-level check | not run: ${inlineText(facts.epicLevel.lines.join(" ")) || "the head does not contain every merged sibling"} |`);
-        return lines.join("\n");
+    for (const r of rows) {
+        const check = r.kind === "metric" ? `Success metric: ${r.about}` : r.about;
+        table.push(`| ${inlineText(check)} | ${r.verdict} | ${inlineText(r.evidence ?? r.files.join(", "))} |`);
     }
-    const checks = results.filter((r) => r.kind === "metric" || r.kind === "guarantee");
-    for (const r of checks) lines.push(`| ${inlineText(r.about)} | ${r.verdict} |`);
-    if (checks.length === 0) lines.push("| Epic-level checks | none recorded |");
-    return lines.join("\n");
+    return collapsed("Evidence", table);
 }
 
 /** The concept-invariant sentence: how many were checked and from which pages, or that none were (G22). */

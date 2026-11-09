@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.130.0
+
+- **The analyze verdict no longer ends with an "Epic level" table.** On the pull request that
+  completes an epic, that table repeated every guarantee already in the Evidence section and every
+  "epic-level check not run" finding already under Needs action, so it ran long and split the
+  review thread. It is gone. Each success metric now sits in the collapsed Evidence section, as a
+  row named `Success metric: <metric>` with its result and evidence. A metric not moved, a broken
+  cross-story guarantee and an epic-level check not run still appear above as items that block.
+
 ## 0.129.0
 
 - **`nexus implement` now builds every story test-first.** The implementation stage writes the
