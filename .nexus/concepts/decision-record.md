@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input"]
-last_updated_by: "#971"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input", "initiative-context"]
+last_updated_by: "#850"
 status: active
 verification: verified
 ---
@@ -50,6 +50,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [reading-list](reading-list.md) — the pages the record is designed against, and the source of its declared concept-store changes.
 - [approval-brief](approval-brief.md) — the record's opening section, which places each ADDRESS risk in one group by who delivers its mitigation.
 - [hld-build-input](hld-build-input.md) — reads the newest trusted HLD comment on this record, and the record stays binding over the page it links.
+- [initiative-context](initiative-context.md) — read before analysing, as decisions already settled; a settled decision with no reasoning becomes an open clarification.
 
 ## Decision Log
 
@@ -114,3 +115,7 @@ The pre-filing checkpoint listed only the refuted alternatives, so a reviewer sa
 ### 2026-11-05 — #971 — Reciprocal link from hld-build-input
 
 Mechanical reciprocity fan-out: the unattended implement command now reads the newest trusted HLD comment on an approved record and builds from its page. The record body is unchanged, and the record binds wherever the page disagrees with it.
+
+### 2026-11-09 — #850 — Reciprocal link from initiative-context
+
+Mechanical reciprocity fan-out: the design stage now reads an initiative's kept context before analysing, the way it reads a discovery's marked comment, and states each settled decision with its reasoning. The epic wins a disagreement, and the record names the departure.
