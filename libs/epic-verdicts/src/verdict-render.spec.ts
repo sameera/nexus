@@ -110,7 +110,7 @@ describe("two verdicts over different epics share one structure (G2)", () => {
             facts: facts({ epic: { ref: "#5", title: "Other" }, record: null, stories: [{ number: 6, ref: "#6", title: "S" }] }),
             unapplied: [],
         }).body;
-        const canonical = ["### Needs action", "### Worth a look", "### Already answered", "### No longer found", "### Stories", "### Epic level"];
+        const canonical = ["### Needs action", "### Worth a look", "### Already answered", "### No longer found", "### Stories"];
         for (const body of [one, other]) {
             const shown = headings(body).slice(1);
             expect(shown).toEqual(canonical.filter((h) => shown.includes(h)));
@@ -291,22 +291,21 @@ describe("supporting detail is collapsed so the issues stay on top (epic #923, s
         expect(evidence).toContain("| #924 AC1 | met | src/a.ts:4 |");
     });
 
-    it("shows the epic-level results in one table, one row per check (G18)", () => {
+    it("shows each success metric in the collapsed evidence section, named as a success metric, and no separate table of guarantees", () => {
         const j = judgments();
-        j.results = [...j.results!, { kind: "metric", about: "verdicts lead with blockers", verdict: "met", files: [] }];
-        const body = render(j, facts({ epicLevel: { state: "judge", lines: [] } }));
-        const table = between(body, "### Epic level", "<details>\n<summary>Run details");
-        expect(table).toContain("| Check | Result |");
-        expect(table).toContain("| G1 | held |");
-        expect(table).toContain("| verdicts lead with blockers | met |");
-        expect(table.match(/^###/gm)).toHaveLength(1);
-        expect(render(j, facts({ epicLevel: { state: "not-run", lines: ["update the branch"] } }))).toMatch(/\| Epic-level check \| not run: update the branch \|/);
-        expect(render(j)).not.toContain("### Epic level");
+        j.results = [...j.results!, { kind: "metric", about: "verdicts lead with blockers", verdict: "met", files: [], evidence: "src/render.ts:12" }];
+        for (const state of ["judge", "not-run"] as const) {
+            const body = render(j, facts({ epicLevel: { state, lines: ["update the branch"] } }));
+            const evidence = between(body, "<summary>Evidence</summary>", "</details>");
+            expect(evidence).toContain("| Success metric: verdicts lead with blockers | met | src/render.ts:12 |");
+            expect(body.split("| G1 | held |")).toHaveLength(2);
+            expect(body).not.toMatch(/^### Epic level/m);
+        }
     });
 
     it("leaves out a section with nothing to report (G19)", () => {
         const body = render({ items: [], findings: [], deferred: [], keyDecisions: { record: null, stubs: [] } }, facts({ record: null }));
-        for (const h of ["### Needs action", "### Worth a look", "### Already answered", "### No longer found", "<summary>Evidence</summary>", "### Epic level"]) {
+        for (const h of ["### Needs action", "### Worth a look", "### Already answered", "### No longer found", "<summary>Evidence</summary>"]) {
             expect(body).not.toContain(h);
         }
         expect(body).not.toContain("None.");
