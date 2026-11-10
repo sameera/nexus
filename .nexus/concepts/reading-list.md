@@ -1,8 +1,8 @@
 ---
 title: "Epic Reading List"
 aliases: ["reading list", "list builder", "overflow page", "pages-read sentence", "declared change", "concept departure"]
-touches: ["epic-approval-gate", "decision-record", "conformance-gate", "grep-native-retrieval", "distiller", "pr-verdict-answers"]
-last_updated_by: "#896"
+touches: ["epic-approval-gate", "decision-record", "conformance-gate", "grep-native-retrieval", "distiller", "pr-verdict-answers", "initiative-context"]
+last_updated_by: "#850"
 status: active
 verification: verified
 ---
@@ -33,8 +33,13 @@ The epic stage builds the list without a model. A page is a direct match when it
 - [grep-native-retrieval](grep-native-retrieval.md) — the retrieval model the list follows: matched pages first, then neighbours, seven in all.
 - [distiller](distiller.md) — never reads the list; it infers its own concept mapping.
 - [pr-verdict-answers](pr-verdict-answers.md) — numbers and answers a concept departure like any other.
+- [initiative-context](initiative-context.md) — never an input: a promoted stub's list is built from its own body and the draft.
 
 ## Decision Log
 
 ### 2026-10-09 — #896 — Planning and conformance read the concept store
 The distiller wrote a page for every concept a closed epic touched, but no later stage read the pages. An architect could propose again an alternative a past epic rejected. The list is now built by a fixed phrase match and capped at seven pages. The reviewer corrects it at the digest. The conformance gate reads the listed invariants at the base of the change. Refuted alternative: let the epic-stage model judge relevance from page frontmatter. It would match paraphrase, but the list would differ between runs and could not be tested.
+
+### 2026-11-09 — #850 — Reciprocal link from initiative-context
+
+Mechanical reciprocity fan-out: a promoted stub's list is built from the stub body and the draft, never from its initiative's kept context, so a plan covering the whole initiative cannot crowd out the pages this stub needs.

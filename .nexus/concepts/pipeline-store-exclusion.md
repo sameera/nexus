@@ -1,8 +1,8 @@
 ---
 title: "Pipeline Store Exclusion"
 aliases: ["excluded stores", "withheld stores", "behavioural diff exclusion", "pipeline store set", "what a stage never reads back"]
-touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "range-entry-diff"]
-last_updated_by: "#829"
+touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "range-entry-diff", "initiative-context"]
+last_updated_by: "#850"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Some folders under the Nexus root are surfaces the pipeline writes or teaches fr
 
 ## How It Works
 
-Three stores are members: the close-time queue, the pre-epic discovery store, and the workbook a learner reads. Each member carries the reason it belongs, so membership is reviewable rather than a bare path. Analyze, close and distill all derive their diff from that one set. The exclusion used to be written twice, once in the code that derives a workspace's cross-repo diff and once as prose in the distill command, while analyze and close withheld nothing at all. A lead running either of those two against a branch that also touched a queue entry saw planning prose presented as shipped behaviour. A command body no longer lists the paths. It asks the toolkit for them, and a test fails when any body restates one. Adding a store is therefore a code change that appears in a diff. That is the point: a marker file anyone could drop would let a directory hide real application source from a gate, and the failure would be invisible, because the diff simply gets smaller.
+Four stores are members: the close-time queue, the pre-epic discovery store, the workbook a learner reads, and the initiative context store. Each member carries the reason it belongs, so membership is reviewable rather than a bare path. Analyze, close and distill all derive their diff from that one set. The exclusion used to be written twice, once in the code that derives a workspace's cross-repo diff and once as prose in the distill command, while analyze and close withheld nothing at all. A lead running either of those two against a branch that also touched a queue entry saw planning prose presented as shipped behaviour. A command body no longer lists the paths. It asks the toolkit for them, and a test fails when any body restates one. Adding a store is therefore a code change that appears in a diff. That is the point: a marker file anyone could drop would let a directory hide real application source from a gate, and the failure would be invisible, because the diff simply gets smaller.
 
 ## Key Invariants
 
@@ -30,6 +30,7 @@ Three stores are members: the close-time queue, the pre-epic discovery store, an
 - [committed-queue](committed-queue.md) — a member: an entry's own artifacts are the distiller's input, not behaviour it reads back.
 - [pre-epic-discovery](pre-epic-discovery.md) — a member: a discovery folder holds in-flight reasoning no human gate has passed.
 - [workbook-store](workbook-store.md) — the third member, and the store this set was named once for.
+- [initiative-context](initiative-context.md) — the fourth member: planning rationale a later planning run reads, never shipped behaviour.
 - [distiller](distiller.md) — derives its behavioural diff from this one definition rather than restating the store paths.
 - [conformance-gate](conformance-gate.md) — analyze now draws its verdict from a diff with every member withheld; it withheld none before.
 - [durable-close-record](durable-close-record.md) — close derives its deviation rationale from the same filtered diff.
@@ -58,3 +59,7 @@ The bodies now substitute the call on the diff line itself rather than through a
 ### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
 
 Mechanical reciprocity fan-out: the epic-wide receipt and its combined change set are retired, so the edge is removed. The conformance gate, which this page already names, still withholds every member of the set from the diff it judges.
+
+### 2026-11-09 — #850 — The initiative context store joins the set, and close's range diffs read the one definition
+
+An initiative now keeps its planning context in a committed folder, and a kept design plan reads like a description of behaviour. Without membership, analyze would show that plan as shipped behaviour and distill would mine it into pages, so the store joins the set as a reviewed code change. The one definition also moved into the library every diff-deriving library already depends on. Close's range stamping and its landed-change comparison each held a second, hard-coded copy of the set, and now read the one definition. A range whose only change is an initiative context is therefore refused as empty. Refuted alternative: add the new store to each hard-coded copy. It lost because each copy is one more place for the set to disagree with itself.

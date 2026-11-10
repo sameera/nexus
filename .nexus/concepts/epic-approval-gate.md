@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "offer list at the digest", "waits on line"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store", "planning-run-folder", "reading-list", "approved-set-filing", "initiative", "stub-promotion"]
-last_updated_by: "#705"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store", "planning-run-folder", "reading-list", "approved-set-filing", "initiative", "stub-promotion", "initiative-context"]
+last_updated_by: "#850"
 status: active
 verification: verified
 ---
@@ -50,6 +50,7 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [approved-set-filing](approved-set-filing.md) — what approval files and in what order; split from this page.
 - [initiative](initiative.md) — the parent this gate offers to file a decomposition's stubs under, with the objective the lead accepts or declines.
 - [stub-promotion](stub-promotion.md) — how a planned stub re-enters this gate, and why its successors are offered only the flat filing.
+- [initiative-context](initiative-context.md) — the consent choice also shows the split reasoning, the deferred scope and the context summary, so every kept sentence was seen.
 
 ## Decision Log
 
@@ -116,3 +117,7 @@ The digest now carries the reading list as a group in the numbered selection. Pr
 ### 2026-10-10 — #705 — The decomposition consent offers the filing under an initiative or flat
 
 When oversized scope splits into two or more goals, the consent choice now offers the filing option twice: under an initiative, or flat. The objective, the execution order and each reach statement are shown before the lead chooses, and the lead accepts or declines them as one unit. The objective is always proposed on this path, because the decomposition splits one capability the lead already described. Neither version is marked as recommended, because this gate is the only place the lead can reject the model's reading of the set. A promoted stub re-enters this gate through stub-promotion, now its own page. Refuted alternative: keep the existing options and add a separate objective question in the same prompt. It lost because the objective question means nothing when the lead files one full epic, and two independent answers can combine into a state the gate then has to explain.
+
+### 2026-11-09 — #850 — Reciprocal link from initiative-context
+
+Mechanical reciprocity fan-out: the consent choice that proposes an initiative now also shows the split reasoning, the deferred scope, the context summary and any attached plan's name, because the kept context may hold only text the lead saw.
