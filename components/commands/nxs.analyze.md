@@ -645,8 +645,8 @@ facts** in `--facts`. You hand it only what the run knows that is not a judgment
 when a critical or high item is open, else **Clear to merge**, then the open count per severity
 and the checks to make by hand, which never block. Then come the items in four sections: needs
 action, worth a look, already answered, and no longer found. Below them sit the stories table with
-counts only, the evidence per criterion in a collapsed section, one epic-level table with one row
-per check, and a collapsed run-details section holding the mode, the record and its full hash, the
+counts only, the evidence per criterion, guarantee and success metric in a collapsed section, and
+a collapsed run-details section holding the mode, the record and its full hash, the
 head, the key decisions and the concept-invariant sentence, and then the receipt and judgments
 blocks (epic #923, D11). A section with nothing to report is left out. The step prints `blocked`: true exactly when a critical or high item is open, and the
 review event follows it (Phase 3). Text you put in the draft is written as plain inline text, so a

@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "range-entry-diff", "committed-queue"]
-last_updated_by: "#829"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "hub-settings-layer", "workbook-store", "range-entry-diff", "committed-queue"]
+last_updated_by: "#1001"
 status: active
 verification: verified
 ---
@@ -38,7 +38,8 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 - [portable-tooling](portable-tooling.md) — that tooling consults this resolver at run time; the resolved context reports no location for it.
 - [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer this resolver reads, re-resolving for parity.
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
-- [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
+- [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are the lower half of that resolver's hub layer, below the hub's own settings, inherited per key.
+- [hub-settings-layer](hub-settings-layer.md) — reads the hub's own settings from the hub checkout this resolver located and verified, above the defaults carried here.
 - [workbook-store](workbook-store.md) — the resolver decides which member checkout a workbook belongs in; a hub checkout is refused.
 - [range-entry-diff](range-entry-diff.md) — resolves each repository a range entry names to its checkout, in a hub.
 
@@ -109,3 +110,7 @@ Mechanical reciprocity fan-out, both directions in one entry. A member close no 
 ### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
 
 Mechanical reciprocity fan-out: the epic-wide receipt that searched every declared repository for a story's verdict is retired, so the edge is removed. The pull request that completes an epic now carries the epic-level judgment.
+
+### 2026-11-07 — #1001 — The manifest defaults become the lower half of the hub layer
+
+A member now takes the hub's own settings as well as the workspace-wide defaults this resolver carries, and the hub's own settings win over those defaults key by key. This resolver still reads no settings file. It locates and verifies the hub checkout, and the new [hub-settings-layer](hub-settings-layer.md) page reads the hub's settings from that checkout, so the read inherits this resolver's name and remote checks. The reciprocal edge to that page is added here. **Refuted alternative:** have this resolver read the hub's settings and carry them in the workspace description. It would put a settings reader inside the one producer of workspace shape and change the description every checkout must agree on.
