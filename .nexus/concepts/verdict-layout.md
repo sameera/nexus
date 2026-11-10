@@ -2,7 +2,7 @@
 title: "Pull-Request Verdict Layout"
 aliases: ["verdict layout", "verdict headline", "blocked headline", "clear to merge", "verdict sections", "collapsed detail", "verdict body"]
 touches: ["conformance-gate", "pr-verdict-answers"]
-last_updated_by: "#923"
+last_updated_by: "#1018"
 status: active
 verification: verified
 ---
@@ -38,3 +38,7 @@ The verdict ends with two machine blocks, the receipt and then the judgments blo
 ### 2026-10-18 — #923 — Split from conformance-gate: the toolkit writes the verdict body
 
 The rule for how a published verdict is laid out grew past the gate page's cap, so it moved here. The model no longer writes the verdict's visible text. The toolkit renders the whole body from one set of judgments and the run's facts, so the same judgments give the same bytes on every run. The headline and the review event follow one rule, because the merge pre-check and close already block on open critical or high items. Before, the model worded the layout from a prose template and only the machine blocks were checked, so the layout drifted between runs. Refuted alternative: keep the layout on the gate page and drop still-true content to make room, which would lose content the gate still states.
+
+### 2026-11-10 — #1018 — The verdict no longer ends with an epic-level table
+
+On the pull request that completes an epic, the epic-level table repeated every guarantee already in the evidence section and every "epic-level check not run" finding already under needs action. The verdict ran long and split the review thread. The table is gone. Each success metric now sits in the collapsed evidence section as a row named "Success metric", with its result and evidence. A metric not moved, a broken cross-story guarantee and an epic-level check not run still appear above as items that block.
