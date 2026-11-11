@@ -10,8 +10,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { INITIATIVE_STORE_PATH } from "@nexus/workspace/pipeline-stores";
-import { parsePointer } from "./initiative-context";
+import { INITIATIVE_STORE_PATH, parsePointer } from "./initiative-context";
 import { DISPATCH_NAMES, runNexusCli, type CliIo } from "./nexus-cli";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
