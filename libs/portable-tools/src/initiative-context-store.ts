@@ -132,14 +132,25 @@ export function renderInitiativeBody(summary: string, context: string, headroom:
 export type BodyContext =
     | { kind: "none" }
     | { kind: "inline"; text: string; matches: boolean }
-    | { kind: "parts"; count: number; digests: string[]; cuts: number[] };
+    | { kind: "parts"; count: number; digests: string[]; cuts: number[] }
+    /**
+     * The body shows a context was filed, but what is left of it cannot be read: `missing` when the
+     * record names an inline context whose block is gone, `changed` when a marker or the record is garbled.
+     */
+    | { kind: "damaged"; damage: "missing" | "changed" };
 
-/** Read the context kept in a body: the collapsed block, the part record, or neither. */
+/** Any trace of a context record line, garbled or not. */
+const RECORD_TRACE: RegExp = /<!--\s*nexus:context-record\b/;
+/** Any trace of the collapsed block's markers, garbled or not. */
+const BLOCK_TRACE: RegExp = /<!--\s*nexus:context-(?:begin|end)\b/;
+
+/** Read the context kept in a body: the collapsed block, the part record, neither, or a damaged one. */
 export function parseContextFromBody(body: string): BodyContext {
     const text: string = body.replace(/\r\n?/g, "\n");
     const begin: number = text.indexOf(`${BEGIN}\n`);
     const end: number = text.lastIndexOf(`\n${END}`);
-    const outside: string = begin !== -1 && end > begin ? text.slice(0, begin) + text.slice(end + END.length + 1) : text;
+    const hasBlock: boolean = begin !== -1 && end > begin;
+    const outside: string = hasBlock ? text.slice(0, begin) + text.slice(end + END.length + 1) : text;
     const recorded: RegExpExecArray | null = RECORD_PATTERN.exec(outside);
     let record: { kind?: string; digest?: string; count?: number; digests?: string[]; cuts?: number[] } | null = null;
     if (recorded !== null) {
@@ -149,13 +160,16 @@ export function parseContextFromBody(body: string): BodyContext {
             record = null;
         }
     }
-    if (begin !== -1 && end > begin) {
+    if (hasBlock) {
         const inner: string = text.slice(begin + BEGIN.length + 1, end);
         return { kind: "inline", text: inner, matches: record?.kind === "inline" && record.digest === recordDigest(inner) };
     }
-    if (record?.kind === "parts" && typeof record.count === "number" && Array.isArray(record.digests)) {
-        return { kind: "parts", count: record.count, digests: record.digests, cuts: Array.isArray(record.cuts) ? record.cuts : [] };
+    if (record?.kind === "parts" && Number.isInteger(record.count) && (record.count as number) > 0 && Array.isArray(record.digests)) {
+        return { kind: "parts", count: record.count as number, digests: record.digests, cuts: Array.isArray(record.cuts) ? record.cuts : [] };
     }
+    // Outside the (absent) block, a surviving marker or record line means a context was filed here.
+    if (record?.kind === "inline" && !BLOCK_TRACE.test(outside)) return { kind: "damaged", damage: "missing" };
+    if (record !== null || RECORD_TRACE.test(outside) || BLOCK_TRACE.test(outside)) return { kind: "damaged", damage: "changed" };
     return { kind: "none" };
 }
 
@@ -297,7 +311,8 @@ export function runStubNumbers(argv: string[], io: RenderIo): number {
         io.stderr("usage: nexus initiative-context stub-numbers --body <file> --ledger <file>");
         return 2;
     }
-    let ledger: Record<string, { number?: number }>;
+    // The story filer's ledger stores each number as a string; a number is accepted too.
+    let ledger: Record<string, { number?: unknown } | null>;
     try {
         ledger = JSON.parse(fs.readFileSync(path.resolve(io.cwd, ledgerFile), "utf8"));
     } catch {
@@ -306,7 +321,9 @@ export function runStubNumbers(argv: string[], io: RenderIo): number {
     }
     const numbers: Record<string, number> = {};
     for (const [ref, entry] of Object.entries(ledger)) {
-        if (typeof entry?.number === "number") numbers[ref.toLowerCase()] = entry.number;
+        const raw: unknown = entry?.number;
+        const text: string = typeof raw === "number" || typeof raw === "string" ? String(raw).trim() : "";
+        if (/^[1-9]\d*$/.test(text)) numbers[ref.toLowerCase()] = Number(text);
     }
     const file: string = path.resolve(io.cwd, bodyFile);
     fs.writeFileSync(file, replaceStubRefs(fs.readFileSync(file, "utf8"), numbers));

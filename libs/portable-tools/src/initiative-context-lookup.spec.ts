@@ -180,6 +180,36 @@ describe("the context lookup reads only the initiative issue (epic #1011, story 
         expect(stop.message).toContain("#700");
     });
 
+    it("stops when the collapsed context was deleted but its record survives, rather than reading the body alone", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "a decision\n");
+        const cut = body.slice(0, body.indexOf("<details>"));
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(cut)), checkout(), 701));
+        expect(stop.problem).toBe("context-missing");
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the opening line of the collapsed context was garbled", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "a decision\n");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body.replace("<!-- nexus:context-begin -->", "<!-- nexus:context-bgin -->"))), checkout(), 701));
+        expect(stop.problem).toBe("context-changed");
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the record of the parts is no longer readable, rather than ignoring every part", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const broken = body.replace(/"digests":\[/, "\"digests\":[[");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(broken, asComments(parts))), checkout(), 701));
+        expect(stop.problem).toBe("context-changed");
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the record line itself was garbled", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const broken = body.replace("<!-- nexus:context-record {", "<!-- nexus:context-record ");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(broken, asComments(parts))), checkout(), 701));
+        expect(stop.problem).toBe("context-changed");
+    });
+
     it("stops when the comments cannot be read, rather than reading no parts", () => {
         const { body } = renderInitiativeBody(SUMMARY, BIG);
         const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body, "fail")), checkout(), 701));

@@ -88,6 +88,16 @@ export function lookupInitiativeContext(baseRun: Runner, root: string, issue: nu
 
     const kept = parseContextFromBody(issueBody);
     if (kept.kind === "none") return { ok: true, outcome: { state: "body-only", issue, initiative: parent, body: issueBody } };
+    if (kept.kind === "damaged") {
+        return {
+            ok: false,
+            problem: kept.damage === "missing" ? "context-missing" : "context-changed",
+            message:
+                kept.damage === "missing"
+                    ? `the collapsed planning context in initiative #${parent}'s body is gone, though its record says it was filed there. Restore it from the issue's edit history. Nothing was drafted.`
+                    : `the planning context in initiative #${parent}'s body, or the record of it, was damaged after filing and cannot be read. Restore it from the issue's edit history. Nothing was drafted.`,
+        };
+    }
     if (kept.kind === "inline") {
         if (!kept.matches) {
             return {

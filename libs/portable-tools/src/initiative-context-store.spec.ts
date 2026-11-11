@@ -248,12 +248,26 @@ describe("replaceStubRefs", () => {
     it("rewrites a body file from the stubs' ledger", () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-stubs-"));
         fs.writeFileSync(path.join(dir, "body.md"), renderInitiativeBody(summary, context).body);
-        fs.writeFileSync(path.join(dir, "ledger.json"), JSON.stringify({ "stub-01": { number: 11 }, "stub-02": { number: 12 } }));
+        // The story filer's ledger stores each number as a string.
+        fs.writeFileSync(path.join(dir, "ledger.json"), JSON.stringify({ "stub-01": { number: "11" }, "stub-02": { number: "12" } }));
         const code = runStubNumbers(["--body", path.join(dir, "body.md"), "--ledger", path.join(dir, "ledger.json")], { cwd: dir, stdout: () => undefined, stderr: () => undefined });
         expect(code).toBe(0);
         const written = fs.readFileSync(path.join(dir, "body.md"), "utf8");
         expect(written).toContain("2. #12 second goal");
         expect(parseContextFromBody(written)).toMatchObject({ matches: true });
+    });
+
+    it("leaves a stub whose ledger number is not a positive whole number as it is", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-stubs-bad-"));
+        fs.writeFileSync(path.join(dir, "body.md"), renderInitiativeBody(summary, context).body);
+        fs.writeFileSync(path.join(dir, "ledger.json"), JSON.stringify({ "stub-01": { number: "" }, "stub-02": { number: "12abc" } }));
+        const out: string[] = [];
+        const code = runStubNumbers(["--body", path.join(dir, "body.md"), "--ledger", path.join(dir, "ledger.json")], { cwd: dir, stdout: (l) => out.push(l), stderr: () => undefined });
+        expect(code).toBe(0);
+        const written = fs.readFileSync(path.join(dir, "body.md"), "utf8");
+        expect(written).toContain("1. STUB-01 first goal");
+        expect(written).toContain("2. STUB-02 second goal");
+        expect(JSON.parse(out.join("")).named).toBe(0);
     });
 
     it("exits 2 without a body and a ledger", () => {
