@@ -127,8 +127,9 @@ export function lookupInitiativeContext(baseRun: Runner, root: string, issue: nu
             };
         }
         const slice: string = good.body.replace(/\r\n?/g, "\n").split("\n").slice(1).join("\n");
-        // A trimmed trailing newline does not change the digest; restore it so parts never fuse.
-        slices.push(slice.endsWith("\n") ? slice : `${slice}\n`);
+        // A trimmed trailing newline does not change the digest; restore it so parts never fuse,
+        // except after a part the filer cut inside a line, which never had one.
+        slices.push(slice.endsWith("\n") || kept.cuts.includes(n) ? slice : `${slice}\n`);
     }
     for (const t of trusted) {
         if (t.total !== kept.count || t.number < 1 || t.number > kept.count) {

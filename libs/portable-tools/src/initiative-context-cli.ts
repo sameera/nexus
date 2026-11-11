@@ -11,11 +11,11 @@ import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { checkPlan, initiativeContextDir, renderPointer } from "./initiative-context.js";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup.js";
-import { postParts, runRender } from "./initiative-context-store.js";
+import { postParts, runRender, runStubNumbers } from "./initiative-context-store.js";
 import { issuesRepoSlug, canonicalIssuesRepo, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 
 /** The subverbs `nexus initiative-context` dispatches. */
-export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup", "render", "post-parts"];
+export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup", "render", "post-parts", "stub-numbers"];
 
 export const INITIATIVE_CONTEXT_USAGE: string = [
     "  nexus initiative-context path --initiative <N>",
@@ -36,10 +36,14 @@ export const INITIATIVE_CONTEXT_USAGE: string = [
     "      under a heading naming its origin. A missing or changed part, unreadable comments, or a",
     "      body that still names a context folder exits 1 (context-missing, context-changed,",
     "      comments-unreadable, legacy-folder), naming the initiative; nothing is written.",
-    "  nexus initiative-context render --body <file> --context <file> --dir <folder>",
+    "  nexus initiative-context render --body <file> --context <file> --dir <folder> [--headroom <characters>]",
     "      Render the initiative body for the context summary in <file> and the full context text.",
     "      The context stays in the body, collapsed, when it fits; otherwise it is split into",
-    "      numbered parts. Writes <folder>/body.md and <folder>/part-N.md; prints { body, parts, where }.",
+    "      numbered parts. --headroom (default 8192) is the room kept free for what the filer adds.",
+    "      Writes <folder>/body.md and <folder>/part-N.md; prints { body, parts, where }.",
+    "  nexus initiative-context stub-numbers --body <file> --ledger <file>",
+    "      Write each filed stub's issue number into the body file in place of its STUB-<NN>",
+    "      reference, leaving the collapsed context and its record untouched.",
     "  nexus initiative-context post-parts --issue <N> --dir <folder>",
     "      Post <folder>/part-N.md as comments on initiative N, in order. A part already on the",
     "      issue is skipped, and each part is read back after posting. Exits 1 on any failure.",
@@ -80,6 +84,7 @@ export async function runInitiativeContext(argv: string[], io: InitiativeContext
     if (sub === "lookup") return runLookup(argv.slice(1), io);
     if (sub === "render") return runRender(argv.slice(1), io);
     if (sub === "post-parts") return runPostParts(argv.slice(1), io);
+    if (sub === "stub-numbers") return runStubNumbers(argv.slice(1), io);
     const initiative = takeInitiative(argv.slice(1), io);
     if (initiative === null) return 2;
 

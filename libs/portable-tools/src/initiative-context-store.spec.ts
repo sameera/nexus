@@ -16,7 +16,9 @@ import {
     parsePartMarker,
     postParts,
     renderInitiativeBody,
+    replaceStubRefs,
     runRender,
+    runStubNumbers,
 } from "./initiative-context-store";
 
 const SUMMARY: string = "## Context summary\n\nThe plan in one paragraph.\n";
@@ -183,5 +185,78 @@ describe("runRender", () => {
         expect(JSON.parse(out.join("")).parts).toBe(0);
         expect(fs.readFileSync(path.join(dir, "out", "body.md"), "utf8")).toContain("short");
         expect(out.join("")).not.toMatch(/initiatives\//);
+    });
+});
+
+describe("runRender headroom", () => {
+    const run = (extra: string[]): { code: number; out: string; dir: string } => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-headroom-"));
+        fs.writeFileSync(path.join(dir, "summary.md"), SUMMARY);
+        fs.writeFileSync(path.join(dir, "context.md"), Array.from({ length: 1000 }, (_, i) => `line ${i} ${"x".repeat(40)}`).join("\n") + "\n");
+        const out: string[] = [];
+        const code = runRender(["--body", path.join(dir, "summary.md"), "--context", path.join(dir, "context.md"), "--dir", path.join(dir, "out"), ...extra], {
+            cwd: dir,
+            stdout: (l) => out.push(l),
+            stderr: (l) => out.push(l),
+        });
+        return { code, out: out.join(""), dir };
+    };
+
+    it("keeps a context that fits in the body by default", () => {
+        const r = run([]);
+        expect(r.code).toBe(0);
+        expect(JSON.parse(r.out).where).toBe("body");
+    });
+
+    it("moves the same context to comments when the filer needs more room", () => {
+        const r = run(["--headroom", "30000"]);
+        expect(r.code).toBe(0);
+        expect(JSON.parse(r.out).where).toBe("comments");
+    });
+
+    it("refuses a headroom that is not a number", () => {
+        expect(run(["--headroom", "lots"]).code).toBe(2);
+    });
+});
+
+describe("replaceStubRefs", () => {
+    const context = "# Plan\n\n1. STUB-01 first goal\n2. STUB-02 second goal\n";
+    const summary = "Objective.\n\n## Execution order\n\n1. STUB-01 first goal\n2. STUB-02 second goal\n";
+
+    it("names the stubs outside the collapsed context and leaves the context as filed", () => {
+        const { body } = renderInitiativeBody(summary, context);
+        const out = replaceStubRefs(body, { "stub-01": 11, "stub-02": 12 });
+        expect(out).toContain("1. #11 first goal");
+        const read = parseContextFromBody(out);
+        expect(read).toMatchObject({ kind: "inline", matches: true });
+        expect(read.kind === "inline" && read.text).toContain("STUB-01 first goal");
+    });
+
+    it("leaves a stub that has no number yet as it is", () => {
+        const { body } = renderInitiativeBody(summary, context);
+        expect(replaceStubRefs(body, { "stub-01": 11 })).toContain("2. STUB-02 second goal");
+    });
+
+    it("names the stubs in a body whose context sits in comments", () => {
+        const big = Array.from({ length: 4000 }, (_, i) => `line ${i} STUB-01 ${"x".repeat(40)}`).join("\n") + "\n";
+        const { body } = renderInitiativeBody(summary, big);
+        const out = replaceStubRefs(body, { "stub-01": 11, "stub-02": 12 });
+        expect(out).toContain("1. #11 first goal");
+        expect(parseContextFromBody(out)).toMatchObject({ kind: "parts" });
+    });
+
+    it("rewrites a body file from the stubs' ledger", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-stubs-"));
+        fs.writeFileSync(path.join(dir, "body.md"), renderInitiativeBody(summary, context).body);
+        fs.writeFileSync(path.join(dir, "ledger.json"), JSON.stringify({ "stub-01": { number: 11 }, "stub-02": { number: 12 } }));
+        const code = runStubNumbers(["--body", path.join(dir, "body.md"), "--ledger", path.join(dir, "ledger.json")], { cwd: dir, stdout: () => undefined, stderr: () => undefined });
+        expect(code).toBe(0);
+        const written = fs.readFileSync(path.join(dir, "body.md"), "utf8");
+        expect(written).toContain("2. #12 second goal");
+        expect(parseContextFromBody(written)).toMatchObject({ matches: true });
+    });
+
+    it("exits 2 without a body and a ledger", () => {
+        expect(runStubNumbers([], { cwd: ".", stdout: () => undefined, stderr: () => undefined })).toBe(2);
     });
 });

@@ -16,6 +16,16 @@ behaviour says so.
   posting a folder with no parts fails instead of reporting success. A large context never splits
   into a part over the comment limit, and a part whose trailing newline was trimmed still reads
   back without fusing two lines.
+- **Naming the stubs in an initiative can no longer change its saved context.** `/nxs.epic` now runs
+  `nexus initiative-context stub-numbers`, which replaces each `STUB-<NN>` only outside the
+  collapsed context, so a later lookup never stops with `context-changed` on a valid initiative.
+  The filing steps also say plainly that the filed body is the rendered one, not the summary.
+- **A context that does not fit the filed body can be moved to comments.** `render` takes
+  `--headroom <characters>`; `/nxs.epic` tells you to use it when the body is rejected as too long.
+- **A very long line in a context reads back unchanged.** A line cut between two comments no longer
+  gains a line break at the cut.
+- **The excluded-stores note is accurate.** It now says four paths are withheld, including the
+  retired `.nexus/initiatives` folder.
 
 ## 0.132.0
 

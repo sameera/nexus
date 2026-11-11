@@ -104,17 +104,25 @@ function splitText(text: string, budget: number): string[] {
 /**
  * Render the initiative body for `summary` (the body text the lead saw at the gate, ending with the
  * context summary) and the full `context` text, and split the context into parts when it will not fit.
+ * `headroom` is the room the body keeps free for what the filer adds when it files the body.
  */
-export function renderInitiativeBody(summary: string, context: string): Rendered {
+export function renderInitiativeBody(summary: string, context: string, headroom: number = BODY_HEADROOM): Rendered {
     const head: string = summary.trimEnd();
     const record: string = JSON.stringify({ kind: "inline", digest: recordDigest(context) });
     const inline: string =
         `${head}\n\n<!-- nexus:context-record ${record} -->\n<details>\n<summary>Full planning context</summary>\n\n${BEGIN}\n${context}\n${END}\n\n</details>\n`;
-    if (bytes(inline) + BODY_HEADROOM <= BODY_LIMIT) return { body: inline, parts: [] };
+    if (bytes(inline) + headroom <= BODY_LIMIT) return { body: inline, parts: [] };
 
     const slices: string[] = splitText(context, PART_BUDGET - 64);
     const parts: string[] = slices.map((s, i) => `${partMarker(i + 1, slices.length)}\n${s}`);
-    const partsRecord: string = JSON.stringify({ kind: "parts", count: parts.length, digests: parts.map((p) => recordDigest(p)) });
+    // A part cut inside a line has no trailing newline to lose; the reader must not add one.
+    const cuts: number[] = slices.flatMap((slice, i) => (i < slices.length - 1 && !slice.endsWith("\n") ? [i + 1] : []));
+    const partsRecord: string = JSON.stringify({
+        kind: "parts",
+        count: parts.length,
+        digests: parts.map((p) => recordDigest(p)),
+        ...(cuts.length > 0 ? { cuts } : {}),
+    });
     const body: string =
         `${head}\n\n<!-- nexus:context-record ${partsRecord} -->\n` +
         `The full planning context of this initiative is kept in ${parts.length} numbered comments on this issue.\n`;
@@ -124,7 +132,7 @@ export function renderInitiativeBody(summary: string, context: string): Rendered
 export type BodyContext =
     | { kind: "none" }
     | { kind: "inline"; text: string; matches: boolean }
-    | { kind: "parts"; count: number; digests: string[] };
+    | { kind: "parts"; count: number; digests: string[]; cuts: number[] };
 
 /** Read the context kept in a body: the collapsed block, the part record, or neither. */
 export function parseContextFromBody(body: string): BodyContext {
@@ -133,7 +141,7 @@ export function parseContextFromBody(body: string): BodyContext {
     const end: number = text.lastIndexOf(`\n${END}`);
     const outside: string = begin !== -1 && end > begin ? text.slice(0, begin) + text.slice(end + END.length + 1) : text;
     const recorded: RegExpExecArray | null = RECORD_PATTERN.exec(outside);
-    let record: { kind?: string; digest?: string; count?: number; digests?: string[] } | null = null;
+    let record: { kind?: string; digest?: string; count?: number; digests?: string[]; cuts?: number[] } | null = null;
     if (recorded !== null) {
         try {
             record = JSON.parse(recorded[1]);
@@ -146,7 +154,7 @@ export function parseContextFromBody(body: string): BodyContext {
         return { kind: "inline", text: inner, matches: record?.kind === "inline" && record.digest === recordDigest(inner) };
     }
     if (record?.kind === "parts" && typeof record.count === "number" && Array.isArray(record.digests)) {
-        return { kind: "parts", count: record.count, digests: record.digests };
+        return { kind: "parts", count: record.count, digests: record.digests, cuts: Array.isArray(record.cuts) ? record.cuts : [] };
     }
     return { kind: "none" };
 }
@@ -163,6 +171,24 @@ export function withoutContext(body: string): string {
         out = text.slice(0, open === -1 ? begin : open) + (close === -1 ? "" : text.slice(close + "</details>".length));
     }
     return out.replace(RECORD_PATTERN, "").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
+/**
+ * Write each stub's issue number into the body in place of its `STUB-<NN>` reference, everywhere
+ * except inside the collapsed context, whose text is digest-checked and must stay as filed. A stub
+ * with no number yet keeps its reference.
+ */
+export function replaceStubRefs(body: string, numbers: Record<string, number>): string {
+    const swap = (text: string): string =>
+        text.replace(/\bSTUB-(\d+)\b/g, (whole, nn: string) => {
+            const n: number | undefined = numbers[`stub-${nn}`];
+            return n === undefined ? whole : `#${n}`;
+        });
+    const begin: number = body.indexOf(BEGIN);
+    const end: number = body.lastIndexOf(END);
+    if (begin === -1 || end < begin) return swap(body);
+    const stop: number = end + END.length;
+    return swap(body.slice(0, begin)) + body.slice(begin, stop) + swap(body.slice(stop));
 }
 
 export interface IssueComment {
@@ -241,11 +267,16 @@ export function runRender(argv: string[], io: RenderIo): number {
     const bodyFile: string | undefined = arg("--body");
     const contextFile: string | undefined = arg("--context");
     const dir: string | undefined = arg("--dir");
-    if (bodyFile === undefined || contextFile === undefined || dir === undefined) {
-        io.stderr("usage: nexus initiative-context render --body <file> --context <file> --dir <folder>");
+    const headroomRaw: string | undefined = arg("--headroom");
+    if (bodyFile === undefined || contextFile === undefined || dir === undefined || (headroomRaw !== undefined && !/^\d+$/.test(headroomRaw))) {
+        io.stderr("usage: nexus initiative-context render --body <file> --context <file> --dir <folder> [--headroom <characters>]");
         return 2;
     }
-    const rendered: Rendered = renderInitiativeBody(fs.readFileSync(path.resolve(io.cwd, bodyFile), "utf8"), fs.readFileSync(path.resolve(io.cwd, contextFile), "utf8"));
+    const rendered: Rendered = renderInitiativeBody(
+        fs.readFileSync(path.resolve(io.cwd, bodyFile), "utf8"),
+        fs.readFileSync(path.resolve(io.cwd, contextFile), "utf8"),
+        headroomRaw === undefined ? BODY_HEADROOM : Number(headroomRaw),
+    );
     const out: string = path.resolve(io.cwd, dir);
     fs.mkdirSync(out, { recursive: true });
     for (const f of fs.readdirSync(out)) {
@@ -254,5 +285,31 @@ export function runRender(argv: string[], io: RenderIo): number {
     fs.writeFileSync(path.join(out, "body.md"), rendered.body);
     rendered.parts.forEach((p, i) => fs.writeFileSync(path.join(out, `part-${i + 1}.md`), p));
     io.stdout(JSON.stringify({ body: path.join(out, "body.md"), parts: rendered.parts.length, where: rendered.parts.length === 0 ? "body" : "comments" }));
+    return 0;
+}
+
+/** `stub-numbers --body <body.md> --ledger <.nxs-created.json>`: name the filed stubs in the body, in place. */
+export function runStubNumbers(argv: string[], io: RenderIo): number {
+    const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+    const bodyFile: string | undefined = arg("--body");
+    const ledgerFile: string | undefined = arg("--ledger");
+    if (bodyFile === undefined || ledgerFile === undefined) {
+        io.stderr("usage: nexus initiative-context stub-numbers --body <file> --ledger <file>");
+        return 2;
+    }
+    let ledger: Record<string, { number?: number }>;
+    try {
+        ledger = JSON.parse(fs.readFileSync(path.resolve(io.cwd, ledgerFile), "utf8"));
+    } catch {
+        io.stderr(`initiative-context ledger-unreadable: ${ledgerFile} is not readable JSON. Nothing was changed.`);
+        return 1;
+    }
+    const numbers: Record<string, number> = {};
+    for (const [ref, entry] of Object.entries(ledger)) {
+        if (typeof entry?.number === "number") numbers[ref.toLowerCase()] = entry.number;
+    }
+    const file: string = path.resolve(io.cwd, bodyFile);
+    fs.writeFileSync(file, replaceStubRefs(fs.readFileSync(file, "utf8"), numbers));
+    io.stdout(JSON.stringify({ body: file, named: Object.keys(numbers).length }));
     return 0;
 }

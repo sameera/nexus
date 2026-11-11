@@ -505,7 +505,7 @@ Never write the run's `source.md` or the lead's typed capability description int
 
 **Before step 4, file the initiative**, as its own one-item batch in its own folder inside `RUN_DIR`. An initiative is a planning container, not an epic: it carries the initiative marker resolved at the gate and nothing else, so neither the epic classification nor the unplanned label. It has no parent.
 
-**Render the body with its context.** Join the context files from the run folder into `${RUN_DIR}/initiative/context.md`, each under a heading that names its source. Write the body text below (everything after the frontmatter, ending with the context summary) to `${RUN_DIR}/initiative/summary.md`, then render:
+**Render the body with its context.** Join the context files from the run folder into `${RUN_DIR}/initiative/context.md`, each under a heading that names its source. Write the body text of the template below (everything after its frontmatter, ending with the context summary) to `${RUN_DIR}/initiative/summary.md`, then render:
 
 ```bash
 nexus initiative-context render --body "${RUN_DIR}/initiative/summary.md" --context "${RUN_DIR}/initiative/context.md" --dir "${RUN_DIR}/initiative/rendered"
@@ -513,7 +513,7 @@ nexus initiative-context render --body "${RUN_DIR}/initiative/summary.md" --cont
 
 It prints `{ body, parts, where }`. With `where: "body"` the whole context sits collapsed in the body. With `where: "comments"` the body keeps the summary and a sentence giving the part count, and `part-N.md` files are written beside it. Use `rendered/body.md` as the work item's body.
 
-Write `${RUN_DIR}/initiative/STORY-INITIATIVE.md`, with `rendered/body.md` as its body:
+Write `${RUN_DIR}/initiative/STORY-INITIATIVE.md` as the template's frontmatter followed by the full text of `rendered/body.md`, which already ends with the context. The template shows what `summary.md` holds after its frontmatter. Never file `summary.md` itself, which lacks the hidden record and the collapsed context, and add no second `## Planning context` heading:
 
 ```markdown
 ---
@@ -550,6 +550,8 @@ INITIATIVE=$(jq -r '.initiative.number' "${RUN_DIR}/initiative/.nxs-created.json
 INITIATIVE_URL=$(jq -r '.initiative.url' "${RUN_DIR}/initiative/.nxs-created.json")
 ```
 
+If the filer rejects the body as too long, render again with `--headroom <characters>` larger than before (the default is 8192), which moves the context to comments sooner, and repeat the filing.
+
 If the filing is `⚠️ INCOMPLETE`, or the filer warned that the initiative's issue type was not found, stop and report the run incomplete. File no stub until the initiative exists and carries its marker.
 
 **Then post the context parts, when there are any.** `render` (above) reported how many parts there are. With none, the context is already in the initiative body and there is nothing to post. Otherwise post every part and read it back before any stub is filed. The command reads the initiative's comments before each part and skips a part already there, so a repeat after an interruption posts nothing twice:
@@ -570,11 +572,11 @@ The link is made by step 4's filer and by nothing else. The filer reads what tha
 
 **In step 4, add `--keep-manifest`** to the stubs' `nexus create-story` command, so the ledger at `${RUN_DIR}/.nxs-created.json` still maps each stub's `ref` to its issue number once the batch is complete.
 
-**After step 4, write the stub numbers and the initiative's number into the initiative.** The filer rewrites names only within one batch, and the initiative's batch finished before any stub existed, so this is the run's own single edit to the initiative's body. Read the body back from GitHub, replace each `STUB-<NN>` with the `#<issue>` the stubs' ledger records for that `ref` (`jq -r '."stub-<NN>".number' "${RUN_DIR}/.nxs-created.json"`), change nothing inside the collapsed context block or the hidden context record, and write it back:
+**After step 4, write the stub numbers and the initiative's number into the initiative.** The filer rewrites names only within one batch, and the initiative's batch finished before any stub existed, so this is the run's own single edit to the initiative's body. Read the body back from GitHub, name each stub by the `#<issue>` the stubs' ledger records for its `ref` with the command below, which replaces each `STUB-<NN>` outside the collapsed context block, and change nothing inside the collapsed context block or the hidden context record, then write it back:
 
 ```bash
 gh issue view "${INITIATIVE_URL}" --json body --jq .body > "${RUN_DIR}/initiative/body.md"
-# replace each STUB-<NN> in body.md with its #<issue>
+nexus initiative-context stub-numbers --body "${RUN_DIR}/initiative/body.md" --ledger "${RUN_DIR}/.nxs-created.json"
 gh issue edit "${INITIATIVE_URL}" --body-file "${RUN_DIR}/initiative/body.md"
 ```
 

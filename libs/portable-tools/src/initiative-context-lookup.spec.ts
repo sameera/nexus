@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RunResult, type Runner } from "@nexus/epic-resolve/run";
-import { renderInitiativeBody } from "./initiative-context-store";
+import { COMMENT_LIMIT, renderInitiativeBody } from "./initiative-context-store";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup";
 
 interface FakeIssue {
@@ -120,6 +120,15 @@ describe("the context lookup reads only the initiative issue (epic #1011, story 
         const r = lookupInitiativeContext(fakeGh(initiative(body, asComments(trimmed))), checkout(), 701);
         if (!r.ok) throw new Error(r.message);
         expect(r.outcome.state === "context" && r.outcome.text.split("\n").filter((l) => l.startsWith("line ") && l.length > 60)).toEqual([]);
+    });
+
+    it("reads back a line that was cut between two parts without a line break inside it", () => {
+        const context = `${"y".repeat(COMMENT_LIMIT * 2 + 10)}\nlast line\n`;
+        const { body, parts } = renderInitiativeBody(SUMMARY, context);
+        expect(parts.length).toBeGreaterThanOrEqual(3);
+        const r = lookupInitiativeContext(fakeGh(initiative(body, asComments(parts.map((p) => p.trimEnd())))), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        expect(r.outcome.state === "context" && r.outcome.text.trimEnd()).toBe(context.trimEnd());
     });
 
     it("ignores a part from someone who cannot speak for the repository, and names who", () => {

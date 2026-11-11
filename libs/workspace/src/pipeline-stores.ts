@@ -2,10 +2,11 @@
  * The one definition of the pipeline stores a Nexus stage never reads back as behaviour
  * (decision record #450, invariants 2–6).
  *
- * Three stores under the hidden Nexus root (plus the legacy initiative store) are the pipeline's own working surface: the close-time
- * queue, the pre-epic discovery store and the workbook a learner reads. Each is something a stage
+ * Four paths under the hidden Nexus root are the pipeline's own working surface: the close-time
+ * queue, the pre-epic discovery store, the workbook a learner reads, and the retired initiative
+ * folder (still withheld, so a branch that commits to it reads as before). Each is something a stage
  * *writes* or teaches from, never behaviour a stage reads back, so every diff a stage derives —
- * analyze, close and distill alike — withholds all three.
+ * analyze, close and distill alike — withholds all four.
  *
  * The set is stated here once, in the leaf library every diff-deriving library already depends on.
  * Code consumers import `excludePathspecs()`; a command body asks the
