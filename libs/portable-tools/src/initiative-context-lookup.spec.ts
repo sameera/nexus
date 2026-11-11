@@ -9,6 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RunResult, type Runner } from "@nexus/epic-resolve/run";
+import { trustedComment } from "@nexus/epic-verdicts/close-record";
 import { COMMENT_LIMIT, renderInitiativeBody } from "./initiative-context-store";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup";
 
@@ -141,6 +142,15 @@ describe("the context lookup reads only the initiative issue (epic #1011, story 
         expect(text).not.toContain("FORGED");
         expect(r.outcome.state === "context" && r.outcome.ignored.map((i) => i.author)).toEqual(["mallory"]);
     });
+
+    it.each(["OWNER", "member", "Collaborator", "CONTRIBUTOR", "FIRST_TIMER", "NONE", ""])(
+        "reads a part by a %s author exactly when close trusts that author (decision record #1016, D5)",
+        (association: string) => {
+            const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+            const r = lookupInitiativeContext(fakeGh(initiative(body, asComments(parts, association))), checkout(), 701);
+            expect(r.ok).toBe(trustedComment({ authorAssociation: association }));
+        },
+    );
 
     it("never lets an untrusted comment hide the trusted part with the same number", () => {
         const { body, parts } = renderInitiativeBody(SUMMARY, BIG);

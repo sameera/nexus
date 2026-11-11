@@ -1,7 +1,8 @@
 /**
  * `nexus initiative-context` — the readable face of the initiative context rules (epic #850,
- * decision record #961). Command bodies ask here for the folder and the pointer sentence rather than
- * writing either out, so the epic stage and the readers cannot disagree on where a context is kept.
+ * decision record #961; kept on the initiative issue: epic #1011, decision record #1016). Command
+ * bodies render, post and read the context here, so the epic stage and the readers cannot disagree
+ * on how a context is kept on its issue.
  */
 
 import * as fs from "node:fs";
@@ -9,21 +10,15 @@ import * as path from "node:path";
 import { defaultRunner } from "@nexus/workspace/run";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
-import { checkPlan, initiativeContextDir, renderPointer } from "./initiative-context.js";
+import { checkPlan } from "./initiative-context.js";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup.js";
 import { postParts, runRender, runStubNumbers } from "./initiative-context-store.js";
 import { issuesRepoSlug, canonicalIssuesRepo, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 
 /** The subverbs `nexus initiative-context` dispatches. */
-export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup", "render", "post-parts", "stub-numbers"];
+export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["check-plan", "lookup", "render", "post-parts", "stub-numbers"];
 
 export const INITIATIVE_CONTEXT_USAGE: string = [
-    "  nexus initiative-context path --initiative <N>",
-    "      Print the folder that keeps initiative N's planning context: the initiative store of",
-    "      the checkout the issues are filed from (the hub, in a workspace).",
-    "  nexus initiative-context pointer [--initiative <N>]",
-    "      Print the one sentence an initiative body carries to name that folder. With no number",
-    "      it carries the <INITIATIVE> placeholder the epic stage fills once the initiative is filed.",
     "  nexus initiative-context check-plan --plan <path>",
     "      Check a design plan named to the epic stage before anything is drafted. Prints",
     "      { path, name, keptAs }; a missing or empty plan exits 1 as missing-plan or empty-plan,",
@@ -55,25 +50,6 @@ interface InitiativeContextIo {
     stderr: (line: string) => void;
 }
 
-/** Parse `--initiative <N>`; undefined when absent, null (after reporting) when malformed. */
-function takeInitiative(argv: string[], io: InitiativeContextIo): number | undefined | null {
-    let value: number | undefined;
-    for (let i = 0; i < argv.length; i++) {
-        if (argv[i] === "--initiative") {
-            const raw: string = (argv[++i] ?? "").replace(/^#/, "");
-            if (!/^[1-9]\d*$/.test(raw)) {
-                io.stderr(`--initiative needs an issue number, got: ${argv[i] ?? "(nothing)"}`);
-                return null;
-            }
-            value = Number(raw);
-        } else {
-            io.stderr(`unknown argument for initiative-context: ${argv[i]}\n${INITIATIVE_CONTEXT_USAGE}`);
-            return null;
-        }
-    }
-    return value;
-}
-
 export async function runInitiativeContext(argv: string[], io: InitiativeContextIo): Promise<number> {
     const sub: string | undefined = argv[0];
     if (sub === undefined || !INITIATIVE_CONTEXT_SUBVERBS.includes(sub)) {
@@ -84,22 +60,7 @@ export async function runInitiativeContext(argv: string[], io: InitiativeContext
     if (sub === "lookup") return runLookup(argv.slice(1), io);
     if (sub === "render") return runRender(argv.slice(1), io);
     if (sub === "post-parts") return runPostParts(argv.slice(1), io);
-    if (sub === "stub-numbers") return runStubNumbers(argv.slice(1), io);
-    const initiative = takeInitiative(argv.slice(1), io);
-    if (initiative === null) return 2;
-
-    if (sub === "path") {
-        if (initiative === undefined) {
-            io.stderr(`usage:\n${INITIATIVE_CONTEXT_USAGE}`);
-            return 2;
-        }
-        const root: string | null = contextRoot(io);
-        if (root === null) return 1;
-        io.stdout(path.join(root, initiativeContextDir(initiative)));
-        return 0;
-    }
-    io.stdout(renderPointer(initiative));
-    return 0;
+    return runStubNumbers(argv.slice(1), io);
 }
 
 function runCheckPlan(argv: string[], io: InitiativeContextIo): number {

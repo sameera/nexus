@@ -13,6 +13,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CONTEXT_BEGIN as BEGIN, CONTEXT_END as END, CONTEXT_MARKER_TRACE, type ContextBlockBounds, contextBlockBounds, editOutsideContext } from "@nexus/delivery-config/context-block";
+import { trustedComment } from "@nexus/epic-verdicts/close-record";
 import { recordDigest } from "@nexus/record-digest/digest";
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type Runner } from "@nexus/epic-resolve/run";
@@ -228,8 +229,8 @@ export function fetchComments(run: Runner, cwd: string, slug: RepoSlug, issue: n
     }
 }
 
-const TRUSTED: readonly string[] = ["OWNER", "MEMBER", "COLLABORATOR"];
-export const isTrustedAssociation = (association: string): boolean => TRUSTED.includes(association.toUpperCase());
+/** Whether a comment's author can speak for the repository, by the one rule close applies (record #1016, D5). */
+export const isTrustedAssociation = (association: string): boolean => trustedComment({ authorAssociation: association });
 
 const landed = (comments: IssueComment[], part: string): boolean =>
     comments.some((c) => isTrustedAssociation(c.association) && recordDigest(c.body) === recordDigest(part));

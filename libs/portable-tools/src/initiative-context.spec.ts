@@ -10,7 +10,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { INITIATIVE_STORE_PATH, parsePointer } from "./initiative-context";
 import { DISPATCH_NAMES, runNexusCli, type CliIo } from "./nexus-cli";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -41,53 +40,25 @@ async function cli(...argv: string[]): Promise<{ code: number; out: string[]; er
     return { code, out, err };
 }
 
-describe("nexus initiative-context names one folder per initiative (story #851, D1)", () => {
-    it("puts initiative N's context in the initiative store, named for its issue number", async () => {
+describe("no command prints an initiative context folder or a pointer to one (epic #1011, decision record #1016, D9, G21)", () => {
+    it("refuses the retired folder request and prints nothing", async () => {
         const r = await cli("path", "--initiative", "832");
-        expect(r.code).toBe(0);
-        expect(r.out).toEqual([path.join(REPO_ROOT, INITIATIVE_STORE_PATH, "initiative-832")]);
-    });
-
-    it("keeps the store outside the queue and the discovery store (G1)", async () => {
-        const r = await cli("path", "--initiative", "#832");
-        expect(path.relative(REPO_ROOT, r.out[0])).not.toMatch(/^\.nexus\/(queue|discovery)\//);
-    });
-
-    it("refuses a path request with no initiative number", async () => {
-        const r = await cli("path");
         expect(r.code).toBe(2);
         expect(r.out).toEqual([]);
     });
 
-    it("refuses a malformed number and an unknown subverb", async () => {
-        expect((await cli("path", "--initiative", "abc")).code).toBe(2);
+    it("refuses the retired pointer request and prints nothing", async () => {
+        expect(await cli("pointer")).toMatchObject({ code: 2, out: [] });
+        expect(await cli("pointer", "--initiative", "832")).toMatchObject({ code: 2, out: [] });
+    });
+
+    it("refuses an unknown subverb", async () => {
         expect((await cli("move")).code).toBe(2);
     });
 
-    it("is a dispatch name a command body may write", () => {
-        expect(DISPATCH_NAMES).toContain("initiative-context path");
-        expect(DISPATCH_NAMES).toContain("initiative-context pointer");
-    });
-});
-
-describe("the initiative body names where the context is kept (story #851, D3)", () => {
-    it("drafts the pointer with a placeholder before the initiative has a number", async () => {
-        const r = await cli("pointer");
-        expect(r.code).toBe(0);
-        expect(r.out[0]).toContain("<INITIATIVE>");
-        expect(parsePointer(r.out[0])).toBeNull();
-    });
-
-    it("names the same folder `path` names once the number is filled in", async () => {
-        const drafted: string = (await cli("pointer")).out[0];
-        const filled: string = drafted.replace("<INITIATIVE>", "832");
-        expect(filled).toBe((await cli("pointer", "--initiative", "832")).out[0]);
-        expect(filled).toContain(`\`${path.relative(REPO_ROOT, (await cli("path", "--initiative", "832")).out[0])}/\``);
-        expect(parsePointer(`Objective.\n\n## Planning context\n\nSummary.\n\n${filled}\n`)).toBe(832);
-    });
-
-    it("recognises no pointer in a body that never carried one", () => {
-        expect(parsePointer("Objective.\n\n## Execution order\n\n1. #12 Goal — reached\n")).toBeNull();
+    it("offers neither as a dispatch name a command body may write", () => {
+        expect(DISPATCH_NAMES).not.toContain("initiative-context path");
+        expect(DISPATCH_NAMES).not.toContain("initiative-context pointer");
     });
 });
 
@@ -173,6 +144,12 @@ describe("filing an initiative keeps the planning context that produced it (stor
     it("commits nothing, names no folder, and asks the lead to commit nothing (G1)", () => {
         expect(UNDER_FLAT).toMatch(/Name no folder and ask the lead to commit nothing/);
         expect(STUBS).not.toMatch(/commit and push the initiative's context folder/);
+    });
+
+    it("says in the stage overview that the context stays on the initiative issue, not in a committed folder (D9, G1)", () => {
+        const overview: string = flat(section(EPIC, "**Oversized scope decomposes to stubs.**", "- **"));
+        expect(overview).toMatch(/The initiative keeps the run's planning context on its own issue/);
+        expect(flat(EPIC)).not.toMatch(/committed folder/);
     });
 });
 

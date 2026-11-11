@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.134.0
+
+- **Analyze, close and distill now read changes to the retired initiative folder.** The gates no
+  longer leave an initiative context store out of the diffs they derive, so a branch that still
+  commits a context folder shows that folder in its analyze verdict and its close record.
+- **Breaking: `nexus initiative-context path` and `nexus initiative-context pointer` are gone.** No
+  stage printed or used a context folder or its pointer sentence any more; both commands now exit
+  with the usage text. An initiative keeps its context on its own issue, through `render`,
+  `post-parts` and `lookup`.
+- **Reading an initiative's context trusts exactly the authors close trusts.** `/nxs.epic` and
+  `/nxs.decision-record` read a context part only from an owner, member or collaborator, by the
+  same rule close applies, so the two can no longer drift apart.
+- **`/nxs.epic` no longer says the lead commits an initiative's context folder.** Its overview now
+  says the context stays on the initiative issue and nothing is committed.
+
 ## 0.133.0
 
 - **No stage reads or writes an initiative context folder, and the folder store is retired.** The
