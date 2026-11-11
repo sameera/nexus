@@ -2,11 +2,10 @@
  * The one definition of the pipeline stores a Nexus stage never reads back as behaviour
  * (decision record #450, invariants 2–6).
  *
- * Four stores under the hidden Nexus root are the pipeline's own working surface: the close-time
- * queue, the pre-epic discovery store, the workbook a learner reads, and the initiative context
- * store (epic #850, decision record #961, D1). Each is something a stage *writes*, teaches from or
- * plans from, never behaviour a stage reads back, so every diff a stage derives — analyze, close
- * and distill alike — withholds all four.
+ * Three stores under the hidden Nexus root are the pipeline's own working surface: the close-time
+ * queue, the pre-epic discovery store and the workbook a learner reads. Each is something a stage
+ * *writes* or teaches from, never behaviour a stage reads back, so every diff a stage derives —
+ * analyze, close and distill alike — withholds all three.
  *
  * The set is stated here once, in the leaf library every diff-deriving library already depends on.
  * Code consumers import `excludePathspecs()`; a command body asks the
@@ -28,12 +27,6 @@ export const WORKBOOK_STORE_DIRNAME: string = "workbook";
 
 /** The repo-relative path of the workbook store. */
 export const WORKBOOK_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/${WORKBOOK_STORE_DIRNAME}`;
-
-/** The initiative context store's directory name beneath the Nexus root. */
-export const INITIATIVE_STORE_DIRNAME: string = "initiatives";
-
-/** The repo-relative path of the initiative context store: one folder per initiative beneath it. */
-export const INITIATIVE_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/${INITIATIVE_STORE_DIRNAME}`;
 
 /** One member of the excluded set: the path, and the reason membership is justified. */
 export interface ExcludedStore {
@@ -58,10 +51,6 @@ export const EXCLUDED_STORES: readonly ExcludedStore[] = [
     {
         path: WORKBOOK_STORE_PATH,
         why: "a workbook is a surface the pipeline generates and teaches from, never behaviour it reads back",
-    },
-    {
-        path: INITIATIVE_STORE_PATH,
-        why: "an initiative context is planning rationale a later planning run reads, never shipped behaviour",
     },
 ];
 

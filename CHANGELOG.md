@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.133.0
+
+- **No stage reads or writes an initiative context folder, and the folder store is retired.** The
+  analyze, close and distill gates no longer list an initiative context store among the stores they
+  leave out of a diff, and the repository no longer holds any initiative context. An initiative
+  keeps its context on its own issue only.
+
 ## 0.132.0
 
 - **Planning and design now read an initiative's context from the initiative issue.** `/nxs.epic`
