@@ -7,6 +7,7 @@ import { deriveEntryDiff } from "./derive-entry-diff";
 import {
     EXCLUDED_STORES,
     EXCLUDED_STORE_PATHS,
+    INITIATIVE_STORE_PATH,
     WORKBOOK_STORE_PATH,
     excludePathspecs,
     isExcludedStorePath,
@@ -60,8 +61,9 @@ describe("the excluded-store set has exactly one definition", () => {
         expect(EXCLUDED_STORE_PATHS.slice(0, 3)).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH]);
     });
 
-    it("names exactly the queue, the discovery store and the workbook store", () => {
-        expect(EXCLUDED_STORE_PATHS).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH]);
+    it("names the queue, the discovery store, the workbook store and the legacy initiative store", () => {
+        expect(EXCLUDED_STORE_PATHS).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH, INITIATIVE_STORE_PATH]);
+        expect(isExcludedStorePath(`${INITIATIVE_STORE_PATH}/initiative-832/plan.md`)).toBe(true);
     });
 
     // Close and analyze derive their ranges in the pull-request libraries. A store list written out

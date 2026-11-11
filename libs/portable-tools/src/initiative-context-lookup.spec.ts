@@ -114,6 +114,14 @@ describe("the context lookup reads only the initiative issue (epic #1011, story 
         expect(r.outcome.state === "context" && r.outcome.ignored).toEqual([]);
     });
 
+    it("keeps the last line of a part apart from the next when a comment lost its trailing newline", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const trimmed = parts.map((p) => p.trimEnd());
+        const r = lookupInitiativeContext(fakeGh(initiative(body, asComments(trimmed))), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        expect(r.outcome.state === "context" && r.outcome.text.split("\n").filter((l) => l.startsWith("line ") && l.length > 60)).toEqual([]);
+    });
+
     it("ignores a part from someone who cannot speak for the repository, and names who", () => {
         const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
         const forged = parts[0].replace("line 0 ", "line 0 FORGED ");

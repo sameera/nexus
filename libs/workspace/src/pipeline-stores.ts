@@ -2,7 +2,7 @@
  * The one definition of the pipeline stores a Nexus stage never reads back as behaviour
  * (decision record #450, invariants 2–6).
  *
- * Three stores under the hidden Nexus root are the pipeline's own working surface: the close-time
+ * Three stores under the hidden Nexus root (plus the legacy initiative store) are the pipeline's own working surface: the close-time
  * queue, the pre-epic discovery store and the workbook a learner reads. Each is something a stage
  * *writes* or teaches from, never behaviour a stage reads back, so every diff a stage derives —
  * analyze, close and distill alike — withholds all three.
@@ -28,6 +28,9 @@ export const WORKBOOK_STORE_DIRNAME: string = "workbook";
 /** The repo-relative path of the workbook store. */
 export const WORKBOOK_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/${WORKBOOK_STORE_DIRNAME}`;
 
+/** The legacy initiative context store, kept out of every diff for branches that still commit to it. */
+export const INITIATIVE_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/initiatives`;
+
 /** One member of the excluded set: the path, and the reason membership is justified. */
 export interface ExcludedStore {
     /** Repo-relative path of the store root, with no trailing slash and no glob. */
@@ -51,6 +54,10 @@ export const EXCLUDED_STORES: readonly ExcludedStore[] = [
     {
         path: WORKBOOK_STORE_PATH,
         why: "a workbook is a surface the pipeline generates and teaches from, never behaviour it reads back",
+    },
+    {
+        path: INITIATIVE_STORE_PATH,
+        why: "legacy: an initiative context once committed here is planning rationale, never shipped behaviour",
     },
 ];
 

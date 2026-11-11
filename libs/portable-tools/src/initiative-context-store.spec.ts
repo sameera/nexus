@@ -126,7 +126,49 @@ describe("postParts", () => {
     });
 });
 
+describe("a heading late in a large context", () => {
+    it("never yields a part over the limit", () => {
+        const filler = Array.from({ length: 1400 }, (_, i) => `row ${i} ${"y".repeat(40)}`).join("\n");
+        const context = `intro\n## Late heading\n${filler}\n${"z".repeat(30000)}\nafter\n`;
+        const r = renderInitiativeBody(SUMMARY, context);
+        expect(r.parts.length).toBeGreaterThan(1);
+        for (const p of r.parts) expect(Buffer.byteLength(p, "utf8")).toBeLessThanOrEqual(COMMENT_LIMIT);
+        expect(norm(joinParts(r.parts))).toBe(norm(context));
+    });
+});
+
+describe("postParts scratch space", () => {
+    it("leaves nothing behind in the checkout, even when gh throws", () => {
+        const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-scratch-"));
+        const gh: Runner = (cmd, args) => {
+            if (args[0] === "issue") throw new Error("gh died");
+            return { status: 0, stdout: "[]", stderr: "" };
+        };
+        expect(() => postParts(gh, cwd, { owner: "acme", repo: "app" }, 7, ["<!-- nexus:context-part 1/1 -->\nx\n"])).toThrow();
+        const left = fs.readdirSync(cwd).filter((f) => f.startsWith(".ctx-part-"));
+        const tmp = fs.existsSync(path.join(cwd, ".tmp")) ? fs.readdirSync(path.join(cwd, ".tmp")) : [];
+        expect(left).toEqual([]);
+        expect(tmp).toEqual([]);
+    });
+});
+
 describe("runRender", () => {
+    it("removes parts left by an earlier render into the same folder", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-rerender-"));
+        const out = path.join(dir, "out");
+        fs.mkdirSync(out);
+        fs.writeFileSync(path.join(out, "part-3.md"), "stale\n");
+        fs.writeFileSync(path.join(dir, "summary.md"), SUMMARY);
+        fs.writeFileSync(path.join(dir, "context.md"), "# Plan\n\nshort\n");
+        const code = runRender(["--body", path.join(dir, "summary.md"), "--context", path.join(dir, "context.md"), "--dir", out], {
+            cwd: dir,
+            stdout: () => undefined,
+            stderr: () => undefined,
+        });
+        expect(code).toBe(0);
+        expect(fs.readdirSync(out)).toEqual(["body.md"]);
+    });
+
     it("writes the body and the parts and reports no folder", () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-render-"));
         fs.writeFileSync(path.join(dir, "summary.md"), SUMMARY);

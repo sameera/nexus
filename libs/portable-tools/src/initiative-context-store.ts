@@ -91,6 +91,8 @@ function splitText(text: string, budget: number): string[] {
                 }
             }
             flush(cut);
+            // The kept tail plus this line can still overflow; flush it too.
+            if (current.length > 0 && size + bytes(line) > budget) flush(current.length);
         }
         current.push(line);
         size += bytes(line);
@@ -207,10 +209,17 @@ export function postParts(run: Runner, cwd: string, slug: RepoSlug, issue: numbe
         const before = fetchComments(run, cwd, slug, issue);
         if (!before.ok) return before;
         if (landed(before.comments, parts[i])) continue;
-        const file: string = path.join(fs.mkdtempSync(path.join(cwd, ".ctx-part-")), "part.md");
-        fs.writeFileSync(file, parts[i]);
-        const r = run("gh", ["issue", "comment", String(issue), "--repo", `${slug.owner}/${slug.repo}`, "--body-file", file], { cwd });
-        fs.rmSync(path.dirname(file), { recursive: true, force: true });
+        const scratch: string = path.join(cwd, ".tmp");
+        fs.mkdirSync(scratch, { recursive: true });
+        const dir: string = fs.mkdtempSync(path.join(scratch, "ctx-part-"));
+        let r: ReturnType<Runner>;
+        try {
+            const file: string = path.join(dir, "part.md");
+            fs.writeFileSync(file, parts[i]);
+            r = run("gh", ["issue", "comment", String(issue), "--repo", `${slug.owner}/${slug.repo}`, "--body-file", file], { cwd });
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
         if (r.status !== 0) return { ok: false, message: `posting part ${i + 1} of ${parts.length} on #${issue} failed: ${r.stderr.trim() || "unknown gh error"}` };
         const after = fetchComments(run, cwd, slug, issue);
         if (!after.ok) return after;
@@ -239,6 +248,9 @@ export function runRender(argv: string[], io: RenderIo): number {
     const rendered: Rendered = renderInitiativeBody(fs.readFileSync(path.resolve(io.cwd, bodyFile), "utf8"), fs.readFileSync(path.resolve(io.cwd, contextFile), "utf8"));
     const out: string = path.resolve(io.cwd, dir);
     fs.mkdirSync(out, { recursive: true });
+    for (const f of fs.readdirSync(out)) {
+        if (/^part-\d+\.md$/.test(f)) fs.rmSync(path.join(out, f));
+    }
     fs.writeFileSync(path.join(out, "body.md"), rendered.body);
     rendered.parts.forEach((p, i) => fs.writeFileSync(path.join(out, `part-${i + 1}.md`), p));
     io.stdout(JSON.stringify({ body: path.join(out, "body.md"), parts: rendered.parts.length, where: rendered.parts.length === 0 ? "body" : "comments" }));

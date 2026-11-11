@@ -126,7 +126,9 @@ export function lookupInitiativeContext(baseRun: Runner, root: string, issue: nu
                     : `part ${n} of ${kept.count} of initiative #${parent}'s planning context is missing from its comments. Nothing was drafted.`,
             };
         }
-        slices.push(good.body.replace(/\r\n?/g, "\n").split("\n").slice(1).join("\n"));
+        const slice: string = good.body.replace(/\r\n?/g, "\n").split("\n").slice(1).join("\n");
+        // A trimmed trailing newline does not change the digest; restore it so parts never fuse.
+        slices.push(slice.endsWith("\n") ? slice : `${slice}\n`);
     }
     for (const t of trusted) {
         if (t.total !== kept.count || t.number < 1 || t.number > kept.count) {

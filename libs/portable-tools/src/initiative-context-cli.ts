@@ -193,6 +193,10 @@ function runPostParts(argv: string[], io: InitiativeContextIo): number {
         .filter((f) => /^part-\d+\.md$/.test(f))
         .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")))
         .map((f) => fs.readFileSync(path.join(folder, f), "utf8"));
+    if (parts.length === 0) {
+        io.stderr(`initiative-context no-parts: ${folder} holds no part-N.md file. Nothing was posted.`);
+        return 1;
+    }
     const result = postParts(onIssuesHost(defaultRunner, issuesRepo), root, issuesRepoSlug(issuesRepo), Number(issueRaw.replace(/^#/, "")), parts);
     if (!result.ok) {
         io.stderr(`initiative-context post-failed: ${result.message}`);

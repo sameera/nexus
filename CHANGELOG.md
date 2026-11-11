@@ -10,7 +10,12 @@ behaviour says so.
 - **No stage reads or writes an initiative context folder, and the folder store is retired.** The
   analyze, close and distill gates no longer list an initiative context store among the stores they
   leave out of a diff, and the repository no longer holds any initiative context. An initiative
-  keeps its context on its own issue only.
+  keeps its context on its own issue only. The legacy `.nexus/initiatives` folder stays out of
+  those diffs, so a branch that still commits to it reads as before.
+- **Posting an initiative context is safer to repeat.** A re-render clears the old part files, and
+  posting a folder with no parts fails instead of reporting success. A large context never splits
+  into a part over the comment limit, and a part whose trailing newline was trimmed still reads
+  back without fusing two lines.
 
 ## 0.132.0
 
