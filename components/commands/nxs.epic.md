@@ -153,10 +153,10 @@ Read the plan in full. It is part of the intent this run sizes and decomposes: t
         nexus initiative-context lookup --issue <n>
         ```
 
-      - **Non-zero exit → stop before drafting and report the diagnostic verbatim.** `context-missing` means the initiative's body names a kept context that this checkout does not hold; it names where the context was expected. The usual cause is a folder that was not committed or not pulled. Draft nothing.
+      - **Non-zero exit → stop before drafting and report the diagnostic verbatim.** The lookup reads the initiative issue only, never the checkout. `context-missing` and `context-changed` name the initiative and the part that is missing or was changed after filing; an edited part is restored by editing it back to its filed text. `comments-unreadable` means the initiative's comments could not be read. `legacy-folder` means the initiative's body still names a context folder: its context must be moved onto the issue first, and the diagnostic names the folder. Draft nothing.
       - **`no-initiative`**: the stub has no initiative above it. Promotion proceeds exactly as it does without this step.
       - **`body-only`**: the initiative has no kept context. Say that no additional context was found, and read the initiative body alone.
-      - **`context`**: say which context files were read. Record `INITIATIVE_CONTEXT = <initiative>`.
+      - **`context`**: say whether the context was read from the initiative body or from its numbered comments, and say it ignored each comment the lookup reported on stderr (a part from someone who cannot speak for the repository, or one the initiative's record does not list), naming its author. Record `INITIATIVE_CONTEXT = <initiative>`.
 
       Under an initiative, the initiative's body and its context become part of what the lead asked for, within the stub's own goal. Phase 4 writes them into the run's source text after the stub body, so an item drawn from them can be cited as asked. Scope stays bounded by the stub's goal: an item the context assigns to another stub under the same initiative goes under Out of Scope, naming that stub. It never becomes a story, and never a deferred stub. No part of the context is copied into a filed issue body or comment: an item drawn from it is written in the epic's own words, as every item is.
 
@@ -637,7 +637,7 @@ DRAFT_DIR="$RUN_DIR"
 
 **Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the discovery document plus every resolved ticket (discovery mode). When a plan is attached, write that text first, then the attached plan, verbatim, under a heading naming its file, so an item drawn from the plan can be cited as asked.
 
-**In promotion mode under an initiative** (Phase 0's lookup found `context` or `body-only`), `source.md` is the stub body under the heading `## From stub #<n>: its issue body`, then the initiative's body and each context file, each under a heading naming its origin, exactly as the lookup writes them. Write the stub body alone to `${DRAFT_DIR}/stub-source.md` too, for the reading list below:
+**In promotion mode under an initiative** (Phase 0's lookup found `context` or `body-only`), `source.md` is the stub body under the heading `## From stub #<n>: its issue body`, then the initiative's body and its planning context, each under a heading naming its origin, exactly as the lookup writes them. Write the stub body alone to `${DRAFT_DIR}/stub-source.md` too, for the reading list below:
 
 ```bash
 nexus initiative-context lookup --issue <n> --out "${DRAFT_DIR}/initiative-context.md"

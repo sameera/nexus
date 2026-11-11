@@ -1,54 +1,44 @@
 /**
  * The context lookup: the one rule stub planning and the decision-record stage both use to find an
- * initiative's kept context (epic #850, decision record #961, D5).
+ * initiative's kept context (epic #850, decision record #961, D5; read from the initiative issue by
+ * epic #1011, decision record #1016, D5–D7).
  *
  * It reads the issue's parent, checks the parent for the declared initiative marker, then reads the
- * initiative body and every file in its context folder, verbatim, in name order. A folder the lead
- * wrote by hand is read the same as one the epic stage wrote. When the body carries a context
- * pointer but the checkout has no folder, the lookup refuses: the usual cause is a copy that was not
- * committed or not pulled, and planning on without it would silently re-derive the decisions the
- * context exists to carry.
+ * context from the initiative issue alone: collapsed in its body, or in numbered comments. A comment
+ * counts only when its author can speak for the repository, and each part is checked against the
+ * digest the body recorded at filing. A missing or changed part, an unreadable comment list, or a
+ * body that still names a context folder stops the run before drafting. The checkout is never read.
  *
- * Read-only: it fetches through `gh` and reads the checkout; it writes nothing but the rendered
- * text, and only where the caller asks.
+ * Read-only: it fetches through `gh`; it writes nothing but the rendered text, and only where the
+ * caller asks.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { recordDigest } from "@nexus/record-digest/digest";
 import { isDeclaredInitiative, readKindMarkers } from "@nexus/delivery-config/issue-kind";
 import { fetchIssue, fetchIssueFacts, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type Runner } from "@nexus/epic-resolve/run";
 import { canonicalIssuesRepo, issuesRepoSlug, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
-import { initiativeContextDir, parsePointer } from "./initiative-context.js";
+import { fetchComments, isTrustedAssociation, parseContextFromBody, parsePartMarker, withoutContext } from "./initiative-context-store.js";
 
-/** One file of a kept context, read verbatim. */
-export interface ContextFile {
-    name: string;
-    text: string;
+/** A context comment the run set aside, and who posted it. */
+export interface IgnoredPart {
+    author: string;
+    reason: string;
 }
 
 export type LookupOutcome =
     /** The issue has no parent, or its parent is not an initiative: the caller runs exactly as before. */
     | { state: "no-initiative"; issue: number }
-    /** An initiative with a context folder: its body and every file in the folder. */
-    | { state: "context"; issue: number; initiative: number; folder: string; body: string; files: ContextFile[] }
-    /** An initiative with neither a pointer nor a folder: its body alone. */
-    | { state: "body-only"; issue: number; initiative: number; folder: string; body: string };
+    /** An initiative whose context is kept on its issue: the body (without the context) and the context text. */
+    | { state: "context"; issue: number; initiative: number; where: "body" | "comments"; body: string; text: string; ignored: IgnoredPart[] }
+    /** An initiative with no context beyond its summary: its body alone. */
+    | { state: "body-only"; issue: number; initiative: number; body: string };
 
 export type LookupResult =
     | { ok: true; outcome: LookupOutcome }
-    | { ok: false; problem: "context-missing" | "issue-not-found" | "gh-failed"; message: string };
+    | { ok: false; problem: "context-missing" | "context-changed" | "legacy-folder" | "comments-unreadable" | "issue-not-found" | "gh-failed"; message: string };
 
-/** The regular files directly in a context folder, sorted by name; empty when there is no folder. */
-function readFolder(absolute: string): ContextFile[] {
-    if (!fs.existsSync(absolute) || !fs.statSync(absolute).isDirectory()) return [];
-    return fs
-        .readdirSync(absolute, { withFileTypes: true })
-        .filter((entry) => entry.isFile())
-        .map((entry) => entry.name)
-        .sort()
-        .map((name) => ({ name, text: fs.readFileSync(path.join(absolute, name), "utf8") }));
-}
+const LEGACY_POINTER: RegExp = /The full planning context of this initiative is kept in the repository, in `([^`]+)`/;
 
 /**
  * Look up the initiative context of `issue`.
@@ -58,7 +48,7 @@ function readFolder(absolute: string): ContextFile[] {
  * repository has its parent there, not here.
  *
  * @param baseRun  the process seam (`gh` runs with `cwd` = `root`)
- * @param root  the checkout that holds the initiative store and declares the issues repository
+ * @param root  the checkout that declares the issues repository
  */
 export function lookupInitiativeContext(baseRun: Runner, root: string, issue: number): LookupResult {
     const repos = resolveVerdictRepos(baseRun, root);
@@ -82,34 +72,79 @@ export function lookupInitiativeContext(baseRun: Runner, root: string, issue: nu
 
     const initiative = fetchIssue(run, root, parent, "gh-failed", slug);
     if (!initiative.ok) return { ok: false, problem: "gh-failed", message: initiative.error.message };
-    const body: string = initiative.issue.body;
-    const folder: string = initiativeContextDir(parent);
-    const files: ContextFile[] = readFolder(path.join(root, folder));
+    const issueBody: string = initiative.issue.body;
 
-    if (files.length > 0) return { ok: true, outcome: { state: "context", issue, initiative: parent, folder, body, files } };
-    if (parsePointer(body) !== null) {
+    const body: string = withoutContext(issueBody);
+    const legacy: RegExpExecArray | null = LEGACY_POINTER.exec(body);
+    if (legacy !== null) {
         return {
             ok: false,
-            problem: "context-missing",
+            problem: "legacy-folder",
             message:
-                `initiative #${parent}'s body names a kept context in ${folder}/, which this checkout does not hold. ` +
-                `It is probably not committed or not pulled: pull it, or restore the folder, then run again. Nothing was drafted.`,
+                `initiative #${parent}'s body still names a context folder, ${legacy[1]}. Context is read from the initiative issue only, ` +
+                `so move that folder's text onto the issue (see the release notes), then run again. Nothing was drafted.`,
         };
     }
-    return { ok: true, outcome: { state: "body-only", issue, initiative: parent, folder, body } };
+
+    const kept = parseContextFromBody(issueBody);
+    if (kept.kind === "none") return { ok: true, outcome: { state: "body-only", issue, initiative: parent, body: issueBody } };
+    if (kept.kind === "inline") {
+        if (!kept.matches) {
+            return {
+                ok: false,
+                problem: "context-changed",
+                message: `the planning context in initiative #${parent}'s body no longer matches the digest recorded when it was filed. Restore it by editing it back to its filed text. Nothing was drafted.`,
+            };
+        }
+        return { ok: true, outcome: { state: "context", issue, initiative: parent, where: "body", body, text: kept.text, ignored: [] } };
+    }
+
+    const fetched = fetchComments(run, root, slug, parent);
+    if (!fetched.ok) return { ok: false, problem: "comments-unreadable", message: `${fetched.message}. Nothing was drafted.` };
+    const ignored: IgnoredPart[] = [];
+    const trusted: { number: number; total: number; body: string; author: string }[] = [];
+    for (const c of fetched.comments) {
+        const marker = parsePartMarker(c.body);
+        if (marker === null) continue;
+        if (!isTrustedAssociation(c.association)) {
+            ignored.push({ author: c.author, reason: `part ${marker.number} was posted by someone who cannot speak for the repository` });
+            continue;
+        }
+        trusted.push({ ...marker, body: c.body, author: c.author });
+    }
+    const slices: string[] = [];
+    for (let n = 1; n <= kept.count; n++) {
+        const mine = trusted.filter((t) => t.number === n && t.total === kept.count);
+        const good = mine.find((t) => recordDigest(t.body) === kept.digests[n - 1]);
+        if (good === undefined) {
+            const changed: boolean = mine.length > 0;
+            return {
+                ok: false,
+                problem: changed ? "context-changed" : "context-missing",
+                message: changed
+                    ? `part ${n} of ${kept.count} of initiative #${parent}'s planning context was changed after filing. Restore it by editing it back to its filed text. Nothing was drafted.`
+                    : `part ${n} of ${kept.count} of initiative #${parent}'s planning context is missing from its comments. Nothing was drafted.`,
+            };
+        }
+        slices.push(good.body.replace(/\r\n?/g, "\n").split("\n").slice(1).join("\n"));
+    }
+    for (const t of trusted) {
+        if (t.total !== kept.count || t.number < 1 || t.number > kept.count) {
+            ignored.push({ author: t.author, reason: `part ${t.number}/${t.total} is not listed in the initiative's record` });
+        }
+    }
+    return { ok: true, outcome: { state: "context", issue, initiative: parent, where: "comments", body, text: slices.join(""), ignored } };
 }
 
 /**
- * The context as source text: the initiative body, then each context file, each under a heading
- * that names where it came from. Empty when there is no initiative.
+ * The context as source text: the initiative body, then the context, each under a heading that
+ * names where it came from. Empty when there is no initiative.
  */
 export function renderContextSource(outcome: LookupOutcome): string {
     if (outcome.state === "no-initiative") return "";
     const parts: string[] = [`## From initiative #${outcome.initiative}: its issue body\n\n${outcome.body.trimEnd()}\n`];
     if (outcome.state === "context") {
-        for (const file of outcome.files) {
-            parts.push(`## From initiative #${outcome.initiative}: kept context file ${file.name}\n\n${file.text.trimEnd()}\n`);
-        }
+        parts.push(`## From initiative #${outcome.initiative}: its planning context (kept ${outcome.where === "body" ? "in its body" : "in its comments"})\n\n${outcome.text.trimEnd()}\n`);
     }
     return parts.join("\n");
 }

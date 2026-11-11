@@ -149,6 +149,20 @@ export function parseContextFromBody(body: string): BodyContext {
     return { kind: "none" };
 }
 
+/** The body with its collapsed context block and its hidden record removed. */
+export function withoutContext(body: string): string {
+    const text: string = body.replace(/\r\n?/g, "\n");
+    const begin: number = text.indexOf(`${BEGIN}\n`);
+    const end: number = text.lastIndexOf(`\n${END}`);
+    let out: string = text;
+    if (begin !== -1 && end > begin) {
+        const open: number = text.lastIndexOf("<details>", begin);
+        const close: number = text.indexOf("</details>", end);
+        out = text.slice(0, open === -1 ? begin : open) + (close === -1 ? "" : text.slice(close + "</details>".length));
+    }
+    return out.replace(RECORD_PATTERN, "").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
 export interface IssueComment {
     id: number;
     body: string;

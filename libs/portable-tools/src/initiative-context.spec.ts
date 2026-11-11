@@ -274,8 +274,10 @@ describe("planning a stub under an initiative reads the initiative's context (st
         expect(PROMOTION).toMatch(/Before anything is drafted/);
     });
 
-    it("stops before drafting, naming where the context was expected, when the checkout lacks it (D5, G15)", () => {
-        expect(PROMOTION).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* `context-missing`[^.]*names a kept context that this checkout does not hold; it names where the context was expected/);
+    it("stops before drafting, naming the initiative and the part or the folder, reading the issue and never the checkout (D6, D7, G14, G17)", () => {
+        expect(PROMOTION).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* The lookup reads the initiative issue only, never the checkout\./);
+        expect(PROMOTION).toMatch(/restored by editing it back to its filed text/);
+        expect(PROMOTION).toMatch(/`legacy-folder` means the initiative's body still names a context folder/);
     });
 
     it("reads the body alone and says so when no context is kept (D5)", () => {
@@ -322,8 +324,9 @@ describe("the decision record reads the initiative's context (story #854)", () =
         expect(flat(RECORD)).toMatch(/Then run \*\*Phase 0\.4\*\* and \*\*Phase 0\.45\*\* \(both run on every path, revision included\)/);
     });
 
-    it("stops before drafting when the checkout lacks a context the initiative names (D5, G15)", () => {
-        expect(RECORD_READ).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* `context-missing`[^.]*it names where the context was expected/);
+    it("stops before drafting on a missing or changed part, unreadable comments, or a legacy folder pointer (D6, D7, G14, G15, G17)", () => {
+        expect(RECORD_READ).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\*\s+The lookup reads the\s+initiative issue only, never the checkout\./);
+        expect(RECORD_READ).toMatch(/`legacy-folder` means its body still names a context folder/);
     });
 
     it("runs exactly as today for an epic with no initiative above it (G14)", () => {
@@ -344,6 +347,6 @@ describe("the decision record reads the initiative's context (story #854)", () =
     });
 
     it("copies no part of the context into the record or a comment, and never edits the initiative (G16)", () => {
-        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context folder,\*\* and copies no part of the context into the record or a comment/);
+        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context,\*\* and copies no part of the context into the record or a comment/);
     });
 });

@@ -30,11 +30,12 @@ export const INITIATIVE_CONTEXT_USAGE: string = [
     "      naming the file.",
     "  nexus initiative-context lookup --issue <N> [--out <file>]",
     "      Find the kept context of the initiative above issue N, for planning a stub or",
-    "      designing an epic. Prints { state, issue, initiative, folder, files }: state is",
-    "      no-initiative, context (the body and every file in the folder) or body-only.",
-    "      --out writes the initiative body and each context file there, each under a heading",
-    "      naming its origin. A body that names a context this checkout lacks exits 1 as",
-    "      context-missing, naming the expected folder; nothing is written.",
+    "      designing an epic, reading the initiative issue only. Prints { state, issue, initiative,",
+    "      where, ignored }: state is no-initiative, context (kept in the body or in numbered",
+    "      comments) or body-only. --out writes the initiative body and its context there, each",
+    "      under a heading naming its origin. A missing or changed part, unreadable comments, or a",
+    "      body that still names a context folder exits 1 (context-missing, context-changed,",
+    "      comments-unreadable, legacy-folder), naming the initiative; nothing is written.",
     "  nexus initiative-context render --body <file> --context <file> --dir <folder>",
     "      Render the initiative body for the context summary in <file> and the full context text.",
     "      The context stays in the body, collapsed, when it fits; otherwise it is split into",
@@ -139,6 +140,9 @@ function runLookup(argv: string[], io: InitiativeContextIo): number {
         fs.mkdirSync(path.dirname(written), { recursive: true });
         fs.writeFileSync(written, renderContextSource(outcome));
     }
+    if (outcome.state === "context") {
+        for (const i of outcome.ignored) io.stderr(`initiative-context ignored a context comment by ${i.author || "an unknown author"}: ${i.reason}.`);
+    }
     io.stdout(
         JSON.stringify(
             outcome.state === "no-initiative"
@@ -147,8 +151,7 @@ function runLookup(argv: string[], io: InitiativeContextIo): number {
                       state: outcome.state,
                       issue: outcome.issue,
                       initiative: outcome.initiative,
-                      folder: outcome.folder,
-                      files: outcome.state === "context" ? outcome.files.map((f) => f.name) : [],
+                      ...(outcome.state === "context" ? { where: outcome.where, ignored: outcome.ignored } : {}),
                       ...(written === undefined ? {} : { out: written }),
                   },
         ),

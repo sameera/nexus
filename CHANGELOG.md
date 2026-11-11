@@ -5,6 +5,23 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.132.0
+
+- **Planning and design now read an initiative's context from the initiative issue.** `/nxs.epic`
+  planning a stub under an initiative, and `/nxs.decision-record` designing an epic under one, read the context from the issue
+  whatever the state of your checkout, so a teammate can plan right after the initiative is filed.
+  Only parts posted by an owner, member or collaborator are read, and the run says which comments it
+  ignored. The run stops before drafting, naming the initiative and the part, when a part is missing
+  or was changed after filing. Restore a changed part by editing it back to its filed text. It also
+  stops if the initiative's comments cannot be read.
+- **Breaking: an initiative whose body still names a context folder stops planning.** `/nxs.epic`
+  and `/nxs.decision-record` now stop on an initiative filed by an earlier release, which points at a
+  folder under `.nexus/initiatives/`, and they name that folder. To move on, put the folder's text on
+  the initiative issue unchanged: run `nexus initiative-context render --body <the initiative body
+  without the pointer sentence> --context <the folder's text> --dir <out>`, paste `<out>/body.md`
+  over the initiative body, and delete the folder. A context too long for the body is posted with
+  `nexus initiative-context post-parts --issue <N> --dir <out>`.
+
 ## 0.131.0
 
 - **An initiative now keeps its planning context on its own issue.** When `/nxs.epic` files an
