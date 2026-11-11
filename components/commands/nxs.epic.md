@@ -153,10 +153,10 @@ Read the plan in full. It is part of the intent this run sizes and decomposes: t
         nexus initiative-context lookup --issue <n>
         ```
 
-      - **Non-zero exit → stop before drafting and report the diagnostic verbatim.** `context-missing` means the initiative's body names a kept context that this checkout does not hold; it names where the context was expected. The usual cause is a folder that was not committed or not pulled. Draft nothing.
+      - **Non-zero exit → stop before drafting and report the diagnostic verbatim.** The lookup reads the initiative issue only, never the checkout. `context-missing` and `context-changed` name the initiative and the part that is missing or was changed after filing; an edited part is restored by editing it back to its filed text. `comments-unreadable` means the initiative's comments could not be read. `legacy-folder` means the initiative's body still names a context folder: its context must be moved onto the issue first, and the diagnostic names the folder. Draft nothing.
       - **`no-initiative`**: the stub has no initiative above it. Promotion proceeds exactly as it does without this step.
       - **`body-only`**: the initiative has no kept context. Say that no additional context was found, and read the initiative body alone.
-      - **`context`**: say which context files were read. Record `INITIATIVE_CONTEXT = <initiative>`.
+      - **`context`**: say whether the context was read from the initiative body or from its numbered comments, and say it ignored each comment the lookup reported on stderr (a part from someone who cannot speak for the repository, or one the initiative's record does not list), naming its author. Record `INITIATIVE_CONTEXT = <initiative>`.
 
       Under an initiative, the initiative's body and its context become part of what the lead asked for, within the stub's own goal. Phase 4 writes them into the run's source text after the stub body, so an item drawn from them can be cited as asked. Scope stays bounded by the stub's goal: an item the context assigns to another stub under the same initiative goes under Out of Scope, naming that stub. It never becomes a story, and never a deferred stub. No part of the context is copied into a filed issue body or comment: an item drawn from it is written in the epic's own words, as every item is.
 
@@ -353,11 +353,7 @@ With two or more goals, **always propose an objective**. You may not withhold it
 - **Discovery mode:** the objective is the discovery's destination, copied in its own words. Do not draft a new sentence.
 - **Intent and promotion mode:** draft the objective from the lead's capability description, and from the attached plan when there is one. It may claim nothing the description and the plan do not.
 
-Render the proposal under the split, before the options, so every sentence the initiative will state, and every sentence of context the run will keep, is on screen before the lead chooses. Ask the toolkit for the pointer sentence; never write the folder out by hand:
-
-```bash
-nexus initiative-context pointer
-```
+Render the proposal under the split, before the options, so every sentence the initiative will state, and every sentence of context the run will keep, is on screen before the lead chooses.
 
 ```markdown
 **Proposed objective:** <one sentence: what completing every stub achieves>
@@ -375,14 +371,15 @@ nexus initiative-context pointer
 **Deferred:** <each piece of scope this run set aside and kept out of every goal, one per line, or "nothing">
 
 **Context summary:** <two or three sentences the initiative body will carry: what the kept context settles>
-<the pointer sentence `nexus initiative-context pointer` printed, unchanged>
+
+**Where the full context is kept:** on the initiative issue itself: collapsed in its body when it fits, otherwise in <N> numbered comments on it. Nothing is written to the repository.
 ```
 
-**The kept context.** On acceptance the run keeps a planning context for the initiative, in a committed folder named for its issue number, and the initiative body carries the context summary and the pointer sentence. The context holds only text the lead supplied or saw at this gate: the gate-shown text above (the split table, the objective, the order with its reach statements, the split reasoning, the deferred scope and the context summary); in discovery mode, the discovery document and every resolved ticket; and an attached plan. The split reasoning and the deferred scope are shown here for that reason. A sentence the lead did not see at this gate is never kept, because a later promotion treats the context as part of what the lead asked for. The lead's typed capability description is never kept: it may hold a pasted secret, and the run's source text never leaves the run folder.
+**The kept context.** On acceptance the run keeps a planning context for the initiative on the initiative issue itself, and the initiative body carries the context summary. The context stays in the body, collapsed below the summary, when the whole body fits the issue body limit; otherwise the body says how many parts there are and the context is posted as numbered comments on the initiative. It is never split between the two, and nothing is written to the repository. The context holds only text the lead supplied or saw at this gate: the gate-shown text above (the split table, the objective, the order with its reach statements, the split reasoning, the deferred scope and the context summary); in discovery mode, the discovery document and every resolved ticket; and an attached plan. The split reasoning and the deferred scope are shown here for that reason. A sentence the lead did not see at this gate is never kept, because a later promotion treats the context as part of what the lead asked for. The lead's typed capability description is never kept: it may hold a pasted secret, and the run's source text never leaves the run folder.
 
 The order respects every `blocked_by` edge between the goals; break a tie by the split's own order. Each reach statement is **cumulative** and in plain words, never a percentage. The last one says the objective is reached. The lead accepts or declines the objective, the order and the reach statements as **one unit**. An "Other" answer that rewords the objective counts as accepting it, in the lead's words.
 
-Repeat the proposal inside the `AskUserQuestion` call itself: the objective and the attached plan's file name in the question text, and the split table, the order with its reach statements, the split reasoning, the deferred scope, the context summary and the pointer sentence in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
+Repeat the proposal inside the `AskUserQuestion` call itself: the objective and the attached plan's file name in the question text, and the split table, the order with its reach statements, the split reasoning, the deferred scope, the context summary and the sentence saying where the full context is kept in the description of each initiative option. Markdown rendered before the call is not always on screen when the lead answers, and the lead must not consent to a sentence they could not see.
 
 Declining needs no reason and is not an error. Do not ask why, and do not argue for the objective.
 
@@ -491,7 +488,7 @@ The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for 
 
 ### Under an initiative (`split-initiative` / `stubs-initiative` only)
 
-The flat choices skip this section entirely. On the initiative choice the run takes its steps in a fixed order: the context is assembled in the run folder, the initiative is filed first, the context is copied into its store folder, the stubs are filed, and the stub numbers and the initiative's own number are written into the initiative last. Each step can be repeated safely.
+The flat choices skip this section entirely. On the initiative choice the run takes its steps in a fixed order: the context is assembled in the run folder, the initiative is filed first, the context is kept on the initiative issue, the stubs are filed, and the stub numbers and the initiative's own number are written into the initiative last. Each step can be repeated safely.
 
 **First, assemble the context in the run folder**, in `${RUN_DIR}/initiative/context/`. Write only these files, and only text the lead supplied or saw at the gate:
 
@@ -508,7 +505,15 @@ Never write the run's `source.md` or the lead's typed capability description int
 
 **Before step 4, file the initiative**, as its own one-item batch in its own folder inside `RUN_DIR`. An initiative is a planning container, not an epic: it carries the initiative marker resolved at the gate and nothing else, so neither the epic classification nor the unplanned label. It has no parent.
 
-Write `${RUN_DIR}/initiative/STORY-INITIATIVE.md`:
+**Render the body with its context.** Join the context files from the run folder into `${RUN_DIR}/initiative/context.md`, each under a heading that names its source. Write the body text of the template below (everything after its frontmatter, ending with the context summary) to `${RUN_DIR}/initiative/summary.md`, then render:
+
+```bash
+nexus initiative-context render --body "${RUN_DIR}/initiative/summary.md" --context "${RUN_DIR}/initiative/context.md" --dir "${RUN_DIR}/initiative/rendered"
+```
+
+It prints `{ body, parts, where }`. With `where: "body"` the whole context sits collapsed in the body. With `where: "comments"` the body keeps the summary and a sentence giving the part count, and `part-N.md` files are written beside it. Use `rendered/body.md` as the work item's body.
+
+Write `${RUN_DIR}/initiative/STORY-INITIATIVE.md` as the template's frontmatter followed by the full text of `rendered/body.md`, which already ends with the context. The template shows what `summary.md` holds after its frontmatter. Never file `summary.md` itself, which lacks the hidden record and the collapsed context, and add no second `## Planning context` heading:
 
 ```markdown
 ---
@@ -527,11 +532,9 @@ title: "<the objective, without its closing full stop>"
 ## Planning context
 
 <the context summary, exactly as shown at the gate>
-
-<the pointer sentence, exactly as shown at the gate, with its <INITIATIVE> placeholder>
 ```
 
-The body holds the objective, that one ordered list, and the context summary with its pointer: no table and no other list of the stubs, because GitHub already shows the initiative's children. Write the objective, each goal title and each reach statement exactly as they were shown at the gate, in the lead's words where the lead reworded them. Add no sentence the lead did not see: nothing on the filed initiative can be edited afterwards. `STUB-<NN>` is each stub's own `ref` from step 2, standing in until the stub has an issue number. The list is in the execution order from the gate, which respects every `blocked_by` edge the stubs carry between themselves.
+The body holds the objective, that one ordered list, and the context summary, then the full context that `render` appends (below): no table and no other list of the stubs, because GitHub already shows the initiative's children. Write the objective, each goal title and each reach statement exactly as they were shown at the gate, in the lead's words where the lead reworded them. Add no sentence the lead did not see: nothing on the filed initiative can be edited afterwards. The no-table rule applies outside the collapsed context block, which holds the context text as the lead saw it. `STUB-<NN>` is each stub's own `ref` from step 2, standing in until the stub has an issue number. The list is in the execution order from the gate, which respects every `blocked_by` edge the stubs carry between themselves.
 
 ```bash
 nexus create-story "${RUN_DIR}/initiative" \
@@ -547,17 +550,17 @@ INITIATIVE=$(jq -r '.initiative.number' "${RUN_DIR}/initiative/.nxs-created.json
 INITIATIVE_URL=$(jq -r '.initiative.url' "${RUN_DIR}/initiative/.nxs-created.json")
 ```
 
+If the filer rejects the body as too long, render again with `--headroom <characters>` larger than before (the default is 8192), which moves the context to comments sooner, and repeat the filing.
+
 If the filing is `⚠️ INCOMPLETE`, or the filer warned that the initiative's issue type was not found, stop and report the run incomplete. File no stub until the initiative exists and carries its marker.
 
-**Then copy the context into its store folder**, named for the number just recorded. Ask the toolkit for the folder; it names the folder in the checkout the issues are filed from:
+**Then post the context parts, when there are any.** `render` (above) reported how many parts there are. With none, the context is already in the initiative body and there is nothing to post. Otherwise post every part and read it back before any stub is filed. The command reads the initiative's comments before each part and skips a part already there, so a repeat after an interruption posts nothing twice:
 
 ```bash
-CONTEXT_DIR=$(nexus initiative-context path --initiative "${INITIATIVE}")
-mkdir -p "${CONTEXT_DIR}"
-cp -R "${RUN_DIR}/initiative/context/." "${CONTEXT_DIR}/"
+nexus initiative-context post-parts --issue "${INITIATIVE}" --dir "${RUN_DIR}/initiative/rendered"
 ```
 
-The store sits beside the queue and the discovery folder, inside neither, and every gate leaves it out of the diff it checks. Write nothing under the queue or the discovery folder. A repeat copies the same files over themselves, so the initiative still has exactly one context folder. Do not commit the folder: the lead commits it.
+If it exits non-zero, stop and report the run incomplete, naming the part. File no stub until every part is posted and read back. Write nothing to the repository: no folder, nothing for the lead to commit.
 
 **Then name the initiative as each stub's parent.** Add one line to the frontmatter of every `STORY-STUB-<NN>.md` from step 2, with the number just recorded:
 
@@ -569,15 +572,15 @@ The link is made by step 4's filer and by nothing else. The filer reads what tha
 
 **In step 4, add `--keep-manifest`** to the stubs' `nexus create-story` command, so the ledger at `${RUN_DIR}/.nxs-created.json` still maps each stub's `ref` to its issue number once the batch is complete.
 
-**After step 4, write the stub numbers and the initiative's number into the initiative.** The filer rewrites names only within one batch, and the initiative's batch finished before any stub existed, so this is the run's own single edit to the initiative's body. Read the body back from GitHub, replace each `STUB-<NN>` with the `#<issue>` the stubs' ledger records for that `ref` (`jq -r '."stub-<NN>".number' "${RUN_DIR}/.nxs-created.json"`), replace the pointer's `<INITIATIVE>` placeholder with `${INITIATIVE}`, and write it back:
+**After step 4, write the stub numbers and the initiative's number into the initiative.** The filer rewrites names only within one batch, and the initiative's batch finished before any stub existed, so this is the run's own single edit to the initiative's body. Read the body back from GitHub, name each stub by the `#<issue>` the stubs' ledger records for its `ref` with the command below, which replaces each `STUB-<NN>` outside the collapsed context block, and change nothing inside the collapsed context block or the hidden context record, then write it back:
 
 ```bash
 gh issue view "${INITIATIVE_URL}" --json body --jq .body > "${RUN_DIR}/initiative/body.md"
-# replace each STUB-<NN> in body.md with its #<issue>, and <INITIATIVE> with ${INITIATIVE}
+nexus initiative-context stub-numbers --body "${RUN_DIR}/initiative/body.md" --ledger "${RUN_DIR}/.nxs-created.json"
 gh issue edit "${INITIATIVE_URL}" --body-file "${RUN_DIR}/initiative/body.md"
 ```
 
-The edit changes nothing else: not the objective, not a goal title, not a reach statement, not the order, not the context summary. A body that already names every stub and the initiative by number needs no edit, so repeating this step is safe. If any stub has no number yet (step 4 was `⚠️ INCOMPLETE`), skip the edit, report the run incomplete, and re-run the same commands.
+The edit changes nothing else: not the objective, not a goal title, not a reach statement, not the order, not the context summary, not the collapsed context. A body that already names every stub and the initiative by number needs no edit, so repeating this step is safe. If any stub has no number yet (step 4 was `⚠️ INCOMPLETE`), skip the edit, report the run incomplete, and re-run the same commands.
 
 **Then confirm every stub is attached.** A parent link that fails only prints a warning in the filer's output, and the batch still reports `✅ Complete`. So read the initiative's children back and compare them with the set. `<owner>/<repo>` is the repository in `INITIATIVE_URL`:
 
@@ -587,12 +590,12 @@ gh api "repos/<owner>/<repo>/issues/${INITIATIVE}/sub_issues" --paginate --jq '.
 
 Every stub's number must be in that list. If any stub is missing, the run is **incomplete**: say so, name the missing stubs, and keep the run folder. Then re-run the same step 4 command. The filer skips the issues its ledger already shows created and retries the parent link for each of them, and an existing link counts as success, so nothing is filed twice. Read the children back again afterwards.
 
-**Step 6 runs only after** the initiative is filed, its context is in its store folder, the stubs are filed, the initiative names every stub and its own context folder by issue number, and every stub is one of its children. Short of that, keep the run folder: it holds both ledgers and the context, and a repeat that cannot read them would file everything a second time.
+**Step 6 runs only after** the initiative is filed, the stubs are filed, every context part is posted and read back, the initiative names every stub by issue number, and every stub is one of its children. Short of that, keep the run folder: it holds both ledgers and the context, and a repeat that cannot read them would file everything a second time.
 
 Then **stop**. Do **not** create a queue entry, a feature `README.md`, or a full epic issue this run. Report in the run-discipline skill's layout:
 
-- **Blocked on me:** promote one stub with `/nxs.epic <issue-number>`. **Under an initiative**, also commit and push the initiative's context folder, so a teammate who plans a stub reads it. **In discovery mode**, also that `<DISCOVERY>` has been **consumed** and can now be removed, and that removing it is a plain commit the user makes. This command does not delete the folder and **commits nothing**, which is its contract on every path. Name the folder in the report only; never write it into an issue body or a comment.
-- **Changed:** the created issue numbers with their goals. Under an initiative, report the initiative's number first, then the stubs in the initiative's order, then the context folder, uncommitted.
+- **Blocked on me:** promote one stub with `/nxs.epic <issue-number>`. **In discovery mode**, also that `<DISCOVERY>` has been **consumed** and can now be removed, and that removing it is a plain commit the user makes. This command does not delete the folder and **commits nothing**, which is its contract on every path.
+- **Changed:** the created issue numbers with their goals. Under an initiative, report the initiative's number first, then the stubs in the initiative's order, then where the context is kept (the initiative body or its numbered comments). Name no folder and ask the lead to commit nothing.
 - **Found:** the **cross-feature backlog query**: the whole backlog, this batch included, in one query. Ask for it rather than spelling the label out:
 
     ```bash
@@ -636,7 +639,7 @@ DRAFT_DIR="$RUN_DIR"
 
 **Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the discovery document plus every resolved ticket (discovery mode). When a plan is attached, write that text first, then the attached plan, verbatim, under a heading naming its file, so an item drawn from the plan can be cited as asked.
 
-**In promotion mode under an initiative** (Phase 0's lookup found `context` or `body-only`), `source.md` is the stub body under the heading `## From stub #<n>: its issue body`, then the initiative's body and each context file, each under a heading naming its origin, exactly as the lookup writes them. Write the stub body alone to `${DRAFT_DIR}/stub-source.md` too, for the reading list below:
+**In promotion mode under an initiative** (Phase 0's lookup found `context` or `body-only`), `source.md` is the stub body under the heading `## From stub #<n>: its issue body`, then the initiative's body and its planning context, each under a heading naming its origin, exactly as the lookup writes them. Write the stub body alone to `${DRAFT_DIR}/stub-source.md` too, for the reading list below:
 
 ```bash
 nexus initiative-context lookup --issue <n> --out "${DRAFT_DIR}/initiative-context.md"
@@ -973,7 +976,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
     nexus create-story "${RUN_DIR}"
     ```
 
-    The skill runs three passes. Pass 1 creates each issue (clean title), links it as a sub-issue of `#<EPIC>`, and adds it to the project, recording each `ref → issue` mapping. Pass 2 wires the **native GitHub `blocked_by` dependencies** from each story's `blocked_by` refs. Pass 3 rewrites every `STORY-<EPIC>.<SEQ>` left in a story **body**, and in the epic issue's own body, to the `#<issue>` it now resolves to, so no ref survives filing as dead text. A prose ref naming a story outside this batch fails the run closed; fix it in the source `STORY-*.md` and re-run.
+    The skill runs three passes. Pass 1 creates each issue (clean title), links it as a sub-issue of `#<EPIC>`, and adds it to the project, recording each `ref → issue` mapping. Pass 2 wires the **native GitHub `blocked_by` dependencies** from each story's `blocked_by` refs. Pass 3 rewrites every `STORY-<EPIC>.<SEQ>` left in a story **body**, and in the epic issue's own body, to the `#<issue>` it now resolves to, so no ref survives filing as dead text. An initiative's collapsed planning context is left as filed: refs inside it are neither rewritten nor checked, because its text is digest-checked. A prose ref outside it naming a story outside this batch fails the run closed; fix it in the source `STORY-*.md` and re-run.
 
     The skill is **resumable and idempotent**: it retries transient GitHub failures, records progress to a `.nxs-created.json` ledger in the folder, and ends with a SUMMARY. **If it prints `⚠️ INCOMPLETE`** (non-zero exit), do **not** hand-create the missing issues; re-run the exact same command. Already-created issues are skipped via the ledger (no duplicates) and only the remainder is filed. Discard the transient files only **after** a `✅ Complete` run. The stories live in `epic.md`; the issues are then the working surface.
 

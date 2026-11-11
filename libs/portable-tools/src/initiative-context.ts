@@ -13,7 +13,8 @@
  * initiative puts it in the same place.
  */
 
-import { INITIATIVE_STORE_PATH } from "@nexus/workspace/pipeline-stores";
+/** The retired folder store, kept only so an initiative filed by an earlier release is still recognised. */
+export const INITIATIVE_STORE_PATH: string = ".nexus/initiatives";
 
 /** What the pointer carries until the initiative has an issue number (record #961, D3). */
 export const POINTER_PLACEHOLDER: string = "<INITIATIVE>";

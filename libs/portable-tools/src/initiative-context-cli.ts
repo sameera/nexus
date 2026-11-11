@@ -11,9 +11,11 @@ import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { checkPlan, initiativeContextDir, renderPointer } from "./initiative-context.js";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup.js";
+import { postParts, runRender, runStubNumbers } from "./initiative-context-store.js";
+import { issuesRepoSlug, canonicalIssuesRepo, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 
 /** The subverbs `nexus initiative-context` dispatches. */
-export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup"];
+export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup", "render", "post-parts", "stub-numbers"];
 
 export const INITIATIVE_CONTEXT_USAGE: string = [
     "  nexus initiative-context path --initiative <N>",
@@ -28,11 +30,23 @@ export const INITIATIVE_CONTEXT_USAGE: string = [
     "      naming the file.",
     "  nexus initiative-context lookup --issue <N> [--out <file>]",
     "      Find the kept context of the initiative above issue N, for planning a stub or",
-    "      designing an epic. Prints { state, issue, initiative, folder, files }: state is",
-    "      no-initiative, context (the body and every file in the folder) or body-only.",
-    "      --out writes the initiative body and each context file there, each under a heading",
-    "      naming its origin. A body that names a context this checkout lacks exits 1 as",
-    "      context-missing, naming the expected folder; nothing is written.",
+    "      designing an epic, reading the initiative issue only. Prints { state, issue, initiative,",
+    "      where, ignored }: state is no-initiative, context (kept in the body or in numbered",
+    "      comments) or body-only. --out writes the initiative body and its context there, each",
+    "      under a heading naming its origin. A missing or changed part, unreadable comments, or a",
+    "      body that still names a context folder exits 1 (context-missing, context-changed,",
+    "      comments-unreadable, legacy-folder), naming the initiative; nothing is written.",
+    "  nexus initiative-context render --body <file> --context <file> --dir <folder> [--headroom <characters>]",
+    "      Render the initiative body for the context summary in <file> and the full context text.",
+    "      The context stays in the body, collapsed, when it fits; otherwise it is split into",
+    "      numbered parts. --headroom (default 8192) is the room kept free for what the filer adds.",
+    "      Writes <folder>/body.md and <folder>/part-N.md; prints { body, parts, where }.",
+    "  nexus initiative-context stub-numbers --body <file> --ledger <file>",
+    "      Write each filed stub's issue number into the body file in place of its STUB-<NN>",
+    "      reference, leaving the collapsed context and its record untouched.",
+    "  nexus initiative-context post-parts --issue <N> --dir <folder>",
+    "      Post <folder>/part-N.md as comments on initiative N, in order. A part already on the",
+    "      issue is skipped, and each part is read back after posting. Exits 1 on any failure.",
 ].join("\n");
 
 interface InitiativeContextIo {
@@ -68,6 +82,9 @@ export async function runInitiativeContext(argv: string[], io: InitiativeContext
     }
     if (sub === "check-plan") return runCheckPlan(argv.slice(1), io);
     if (sub === "lookup") return runLookup(argv.slice(1), io);
+    if (sub === "render") return runRender(argv.slice(1), io);
+    if (sub === "post-parts") return runPostParts(argv.slice(1), io);
+    if (sub === "stub-numbers") return runStubNumbers(argv.slice(1), io);
     const initiative = takeInitiative(argv.slice(1), io);
     if (initiative === null) return 2;
 
@@ -128,6 +145,9 @@ function runLookup(argv: string[], io: InitiativeContextIo): number {
         fs.mkdirSync(path.dirname(written), { recursive: true });
         fs.writeFileSync(written, renderContextSource(outcome));
     }
+    if (outcome.state === "context") {
+        for (const i of outcome.ignored) io.stderr(`initiative-context ignored a context comment by ${i.author || "an unknown author"}: ${i.reason}.`);
+    }
     io.stdout(
         JSON.stringify(
             outcome.state === "no-initiative"
@@ -136,8 +156,7 @@ function runLookup(argv: string[], io: InitiativeContextIo): number {
                       state: outcome.state,
                       issue: outcome.issue,
                       initiative: outcome.initiative,
-                      folder: outcome.folder,
-                      files: outcome.state === "context" ? outcome.files.map((f) => f.name) : [],
+                      ...(outcome.state === "context" ? { where: outcome.where, ignored: outcome.ignored } : {}),
                       ...(written === undefined ? {} : { out: written }),
                   },
         ),
@@ -156,4 +175,38 @@ function contextRoot(io: InitiativeContextIo): string | null {
         return null;
     }
     return resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : resolved.workspace.root;
+}
+
+function runPostParts(argv: string[], io: InitiativeContextIo): number {
+    const issueRaw: string | undefined = argv.includes("--issue") ? argv[argv.indexOf("--issue") + 1] : undefined;
+    const dir: string | undefined = argv.includes("--dir") ? argv[argv.indexOf("--dir") + 1] : undefined;
+    if (issueRaw === undefined || !/^#?[1-9]\d*$/.test(issueRaw) || dir === undefined) {
+        io.stderr(`usage:\n${INITIATIVE_CONTEXT_USAGE}`);
+        return 2;
+    }
+    const root: string | null = contextRoot(io);
+    if (root === null) return 1;
+    const repos = resolveVerdictRepos(defaultRunner, root);
+    if (!repos.ok) {
+        io.stderr(`initiative-context gh-failed: ${repos.error.message}`);
+        return 1;
+    }
+    const issuesRepo: string = canonicalIssuesRepo(repos.repos.issuesRepo);
+    const folder: string = path.resolve(io.cwd, dir);
+    const parts: string[] = fs
+        .readdirSync(folder)
+        .filter((f) => /^part-\d+\.md$/.test(f))
+        .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")))
+        .map((f) => fs.readFileSync(path.join(folder, f), "utf8"));
+    if (parts.length === 0) {
+        io.stderr(`initiative-context no-parts: ${folder} holds no part-N.md file. Nothing was posted.`);
+        return 1;
+    }
+    const result = postParts(onIssuesHost(defaultRunner, issuesRepo), root, issuesRepoSlug(issuesRepo), Number(issueRaw.replace(/^#/, "")), parts);
+    if (!result.ok) {
+        io.stderr(`initiative-context post-failed: ${result.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ parts: parts.length, posted: result.posted }));
+    return 0;
 }

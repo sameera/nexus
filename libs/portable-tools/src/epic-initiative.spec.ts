@@ -155,7 +155,8 @@ describe("the initiative states the objective, the order, and what each epic rea
 
     it("writes the stubs' issue numbers into the order once the stubs exist (D6, G8)", () => {
         expect(UNDER_FLAT).toMatch(/after step 4/i);
-        expect(UNDER_FLAT).toMatch(/replace each `STUB-<NN>` with the `#<issue>`/);
+        expect(UNDER_FLAT).toMatch(/replaces each `STUB-<NN>` outside the collapsed context block/);
+        expect(UNDER).toContain("nexus initiative-context stub-numbers");
         expect(UNDER).toMatch(/gh issue edit "\$\{INITIATIVE_URL\}" --body-file/);
         expect(UNDER_FLAT).toMatch(/changes nothing else/);
     });

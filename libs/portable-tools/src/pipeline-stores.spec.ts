@@ -61,7 +61,7 @@ describe("the excluded-store set has exactly one definition", () => {
         expect(EXCLUDED_STORE_PATHS.slice(0, 3)).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH]);
     });
 
-    it("names the initiative context store as the fourth member (record #961, D1, G2)", () => {
+    it("names the queue, the discovery store, the workbook store and the legacy initiative store", () => {
         expect(EXCLUDED_STORE_PATHS).toEqual([".nexus/queue", ".nexus/discovery", WORKBOOK_STORE_PATH, INITIATIVE_STORE_PATH]);
         expect(isExcludedStorePath(`${INITIATIVE_STORE_PATH}/initiative-832/plan.md`)).toBe(true);
     });

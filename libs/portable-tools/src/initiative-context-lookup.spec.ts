@@ -1,7 +1,7 @@
 /**
  * The context lookup stub planning and the decision record share (epic #850, story #853, decision
- * record #961, D5). GitHub is a canned `gh` runner; the checkout is a temporary folder, so what the
- * lookup finds there is what a lead's checkout would hold.
+ * record #961, D5; reading from the issue: epic #1011, decision record #1016, D5–D7). GitHub is a
+ * canned `gh` runner; the checkout is an empty temporary folder, because the lookup never reads it.
  */
 
 import * as fs from "node:fs";
@@ -9,13 +9,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RunResult, type Runner } from "@nexus/epic-resolve/run";
-import { initiativeContextDir, renderPointer } from "./initiative-context";
+import { COMMENT_LIMIT, renderInitiativeBody } from "./initiative-context-store";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup";
 
 interface FakeIssue {
     body?: string;
     parent?: number;
     labels?: string[];
+    comments?: { body: string; author_association: string; login?: string }[] | "fail";
 }
 
 /**
@@ -35,6 +36,12 @@ function fakeGh(issues: Record<number, FakeIssue>, home: string = "acme/app", ca
             const issue = repo === home ? issues[n] : undefined;
             if (issue === undefined) return { status: 1, stdout: "", stderr: "not found" };
             return ok(JSON.stringify({ number: n, title: `#${n}`, body: issue.body ?? "", state: "OPEN", stateReason: "", labels: (issue.labels ?? []).map((name) => ({ name })) }));
+        }
+        if (args[0] === "api" && /\/issues\/\d+\/comments$/.test(args[1])) {
+            const n = Number(args[1].match(/issues\/(\d+)\/comments/)?.[1]);
+            const list = issues[n]?.comments ?? [];
+            if (list === "fail") return { status: 1, stdout: "", stderr: "HTTP 502" };
+            return ok(JSON.stringify([list.map((c, i) => ({ id: i + 1, body: c.body, author_association: c.author_association, user: { login: c.login ?? "someone" } }))]));
         }
         if (args[0] === "api" && args.includes("graphql")) {
             const field = (key: string): string => args.find((a) => a.startsWith(`${key}=`))?.slice(key.length + 1) ?? "";
@@ -72,98 +79,187 @@ afterEach(() => {
     tmpDirs = [];
 });
 
-function keep(root: string, initiative: number, files: Record<string, string>): void {
-    const folder = path.join(root, initiativeContextDir(initiative));
-    fs.mkdirSync(folder, { recursive: true });
-    for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(folder, name), text);
-}
+const SUMMARY = "Ship the context.\n\n## Planning context\n\nOne store per initiative.\n";
+const BIG = Array.from({ length: 4000 }, (_, i) => `line ${i} ${"x".repeat(40)}`).join("\n") + "\n";
+const asComments = (parts: string[], association = "OWNER") => parts.map((body) => ({ body, author_association: association }));
+const initiative = (body: string, comments?: FakeIssue["comments"]): Record<number, FakeIssue> => ({
+    701: { parent: 700 },
+    700: { body, labels: ["initiative"], comments },
+});
+const stopOf = (r: ReturnType<typeof lookupInitiativeContext>): { problem: string; message: string } => {
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("expected a stop");
+    return r;
+};
 
-const FILED_BODY = `Ship the context.\n\n## Planning context\n\nOne store per initiative.\n\n${renderPointer(700)}\n`;
-
-describe("the context lookup (story #853, D5)", () => {
-    it("reads the initiative body and every context file, in name order (G21)", () => {
-        const root = checkout();
-        keep(root, 700, { "plan-session.md": "# Plan\nDecided: keep it in the repo.\n", "context.md": "**Why this split:** order.\n" });
-        const r = lookupInitiativeContext(fakeGh({ 701: { parent: 700 }, 700: { body: FILED_BODY, labels: ["initiative"] } }), root, 701);
-
-        expect(r.ok).toBe(true);
-        if (!r.ok) return;
+describe("the context lookup reads only the initiative issue (epic #1011, story #1013)", () => {
+    it("reads a context kept in the body, whatever the checkout holds", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "# Plan\nDecided: keep it on the issue.\n");
+        const r = lookupInitiativeContext(fakeGh(initiative(body)), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
         expect(r.outcome.state).toBe("context");
-        if (r.outcome.state !== "context") return;
-        expect(r.outcome.initiative).toBe(700);
-        expect(r.outcome.files.map((f) => f.name)).toEqual(["context.md", "plan-session.md"]);
-        expect(r.outcome.files[1].text).toBe("# Plan\nDecided: keep it in the repo.\n");
+        const text = renderContextSource(r.outcome);
+        expect(text).toContain("Decided: keep it on the issue.");
+        expect(text).toContain("One store per initiative.");
+        expect(text.indexOf("its issue body")).toBeLessThan(text.indexOf("Decided"));
     });
 
-    it("reads a folder the lead wrote by hand, with no pointer in the body, the same way (G17)", () => {
-        const root = checkout();
-        keep(root, 832, { "anything-named.md": "the session's plan\n" });
-        const r = lookupInitiativeContext(fakeGh({ 833: { parent: 832 }, 832: { body: "An older initiative.\n", labels: ["initiative"] } }), root, 833);
-
-        expect(r.ok && r.outcome.state).toBe("context");
+    it("reads a context kept in numbered comments, in order, even when they were posted out of order", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        expect(parts.length).toBeGreaterThan(1);
+        const r = lookupInitiativeContext(fakeGh(initiative(body, asComments([...parts].reverse()))), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        const text = renderContextSource(r.outcome);
+        expect(text).toContain(BIG.trimEnd());
+        expect(r.outcome.state === "context" && r.outcome.ignored).toEqual([]);
     });
 
-    it("reads the body alone when the initiative has neither a pointer nor a folder", () => {
-        const root = checkout();
-        const r = lookupInitiativeContext(fakeGh({ 711: { parent: 710 }, 710: { body: "Objective only.\n", labels: ["initiative"] } }), root, 711);
+    it("keeps the last line of a part apart from the next when a comment lost its trailing newline", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const trimmed = parts.map((p) => p.trimEnd());
+        const r = lookupInitiativeContext(fakeGh(initiative(body, asComments(trimmed))), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        expect(r.outcome.state === "context" && r.outcome.text.split("\n").filter((l) => l.startsWith("line ") && l.length > 60)).toEqual([]);
+    });
 
+    it("reads back a line that was cut between two parts without a line break inside it", () => {
+        const context = `${"y".repeat(COMMENT_LIMIT * 2 + 10)}\nlast line\n`;
+        const { body, parts } = renderInitiativeBody(SUMMARY, context);
+        expect(parts.length).toBeGreaterThanOrEqual(3);
+        const r = lookupInitiativeContext(fakeGh(initiative(body, asComments(parts.map((p) => p.trimEnd())))), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        expect(r.outcome.state === "context" && r.outcome.text.trimEnd()).toBe(context.trimEnd());
+    });
+
+    it("ignores a part from someone who cannot speak for the repository, and names who", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const forged = parts[0].replace("line 0 ", "line 0 FORGED ");
+        const comments = [{ body: forged, author_association: "NONE", login: "mallory" }, ...asComments(parts)];
+        const r = lookupInitiativeContext(fakeGh(initiative(body, comments)), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        const text = renderContextSource(r.outcome);
+        expect(text).not.toContain("FORGED");
+        expect(r.outcome.state === "context" && r.outcome.ignored.map((i) => i.author)).toEqual(["mallory"]);
+    });
+
+    it("never lets an untrusted comment hide the trusted part with the same number", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const comments = [...asComments(parts), { body: parts[0], author_association: "CONTRIBUTOR" }];
+        const r = lookupInitiativeContext(fakeGh(initiative(body, comments)), checkout(), 701);
+        expect(r.ok).toBe(true);
+    });
+
+    it("ignores a trusted comment that carries a part marker the body does not list", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const extra = { body: `<!-- nexus:context-part ${parts.length + 1}/${parts.length + 1} -->\nsmuggled\n`, author_association: "OWNER", login: "lead" };
+        const r = lookupInitiativeContext(fakeGh(initiative(body, [...asComments(parts), extra])), checkout(), 701);
+        if (!r.ok) throw new Error(r.message);
+        expect(renderContextSource(r.outcome)).not.toContain("smuggled");
+        expect(r.outcome.state === "context" && r.outcome.ignored).toHaveLength(1);
+    });
+
+    it("stops before drafting, naming the initiative and the part, when a part is missing", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body, asComments(parts.slice(1)))), checkout(), 701));
+        expect(stop.message).toContain("#700");
+        expect(stop.message).toMatch(/part 1\b/);
+    });
+
+    it("stops when a part changed after filing, and says it is restored by editing it back", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const edited = [parts[0] + "an afterthought\n", ...parts.slice(1)];
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body, asComments(edited))), checkout(), 701));
+        expect(stop.message).toContain("#700");
+        expect(stop.message).toMatch(/part 1\b/);
+        expect(stop.message).toMatch(/editing it back to its filed text/);
+    });
+
+    it("stops when the collapsed context in the body changed after filing", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "original decision\n");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body.replace("original", "edited"))), checkout(), 701));
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the collapsed context was deleted but its record survives, rather than reading the body alone", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "a decision\n");
+        const cut = body.slice(0, body.indexOf("<details>"));
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(cut)), checkout(), 701));
+        expect(stop.problem).toBe("context-missing");
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the opening line of the collapsed context was garbled", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "a decision\n");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body.replace("<!-- nexus:context-begin -->", "<!-- nexus:context-bgin -->"))), checkout(), 701));
+        expect(stop.problem).toBe("context-changed");
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the record of the parts is no longer readable, rather than ignoring every part", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const broken = body.replace(/"digests":\[/, "\"digests\":[[");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(broken, asComments(parts))), checkout(), 701));
+        expect(stop.problem).toBe("context-changed");
+        expect(stop.message).toContain("#700");
+    });
+
+    it("stops when the record line itself was garbled", () => {
+        const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
+        const broken = body.replace("<!-- nexus:context-record {", "<!-- nexus:context-record ");
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(broken, asComments(parts))), checkout(), 701));
+        expect(stop.problem).toBe("context-changed");
+    });
+
+    it("stops when the comments cannot be read, rather than reading no parts", () => {
+        const { body } = renderInitiativeBody(SUMMARY, BIG);
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body, "fail")), checkout(), 701));
+        expect(stop.problem).toBe("comments-unreadable");
+    });
+
+    it("stops on a body that still names a context folder, naming the folder and never reading the checkout", () => {
+        const root = checkout();
+        fs.mkdirSync(path.join(root, ".nexus", "initiatives", "initiative-700"), { recursive: true });
+        fs.writeFileSync(path.join(root, ".nexus", "initiatives", "initiative-700", "context.md"), "folder text\n");
+        const legacy = `Ship it.\n\nThe full planning context of this initiative is kept in the repository, in \`.nexus/initiatives/initiative-700/\`.\n`;
+        const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(legacy)), root, 701));
+        expect(stop.problem).toBe("legacy-folder");
+        expect(stop.message).toContain("#700");
+        expect(stop.message).toContain(".nexus/initiatives/initiative-700/");
+    });
+
+    it("reads the body alone when the initiative carries no context beyond its summary", () => {
+        const r = lookupInitiativeContext(fakeGh(initiative("Objective only.\n")), checkout(), 701);
         expect(r.ok && r.outcome.state).toBe("body-only");
         if (!r.ok) return;
         expect(renderContextSource(r.outcome)).toContain("Objective only.");
     });
 
-    it("stops, naming the expected folder, when the body names a context the checkout lacks (G15)", () => {
-        const root = checkout();
-        const r = lookupInitiativeContext(fakeGh({ 701: { parent: 700 }, 700: { body: FILED_BODY, labels: ["initiative"] } }), root, 701);
-
-        expect(r.ok).toBe(false);
-        if (r.ok) return;
-        expect(r.problem).toBe("context-missing");
-        expect(r.message).toContain(initiativeContextDir(700));
-        expect(r.message).toMatch(/not committed or not pulled/);
-    });
-
-    it("changes nothing for an issue with no parent (G14)", () => {
+    it("changes nothing for an issue with no parent", () => {
         const r = lookupInitiativeContext(fakeGh({ 5: {} }), checkout(), 5);
         expect(r.ok && r.outcome.state).toBe("no-initiative");
         if (!r.ok) return;
         expect(renderContextSource(r.outcome)).toBe("");
     });
 
-    it("changes nothing for an issue whose parent is not an initiative (G14)", () => {
-        const root = checkout();
-        keep(root, 40, { "context.md": "not an initiative's\n" });
-        const r = lookupInitiativeContext(fakeGh({ 41: { parent: 40 }, 40: { body: FILED_BODY, labels: ["epic"] } }), root, 41);
+    it("changes nothing for an issue whose parent is not an initiative", () => {
+        const { body } = renderInitiativeBody(SUMMARY, "x\n");
+        const r = lookupInitiativeContext(fakeGh({ 41: { parent: 40 }, 40: { body, labels: ["epic"] } }), checkout(), 41);
         expect(r.ok && r.outcome.state).toBe("no-initiative");
     });
 
-    it("renders each part under a heading naming where it came from (D6)", () => {
-        const root = checkout();
-        keep(root, 700, { "context.md": "Split by goal.\n" });
-        const r = lookupInitiativeContext(fakeGh({ 701: { parent: 700 }, 700: { body: FILED_BODY, labels: ["initiative"] } }), root, 701);
-        if (!r.ok) throw new Error(r.message);
-        const text = renderContextSource(r.outcome);
-
-        expect(text.indexOf("## From initiative #700: its issue body")).toBeLessThan(text.indexOf("## From initiative #700: kept context file context.md"));
-        expect(text).toContain("One store per initiative.");
-        expect(text).toContain("Split by goal.");
-    });
-
-    it("reads the issues from the configured epic-repo, not the checkout's own repository (G14)", () => {
+    it("reads the issues from the configured epic-repo, not the checkout's own repository", () => {
         const root = checkout();
         declareEpicRepo(root, "acme/issues");
-        keep(root, 700, { "context.md": "Split by goal.\n" });
-        const r = lookupInitiativeContext(fakeGh({ 701: { parent: 700 }, 700: { body: FILED_BODY, labels: ["initiative"] } }, "acme/issues"), root, 701);
-
+        const { body } = renderInitiativeBody(SUMMARY, "x\n");
+        const r = lookupInitiativeContext(fakeGh(initiative(body), "acme/issues"), root, 701);
         expect(r.ok && r.outcome.state).toBe("context");
     });
 
-    it("reaches the host a configured epic-repo names (G14)", () => {
+    it("reaches the host a configured epic-repo names", () => {
         const root = checkout();
         declareEpicRepo(root, "ghe.example.com/acme/issues");
         const calls: string[][] = [];
-        const r = lookupInitiativeContext(fakeGh({ 711: { parent: 710 }, 710: { body: "Objective only.\n", labels: ["initiative"] } }, "acme/issues", calls), root, 711);
-
+        const r = lookupInitiativeContext(fakeGh(initiative("Objective only.\n"), "acme/issues", calls), root, 701);
         expect(r.ok && r.outcome.state).toBe("body-only");
         const reads = calls.filter((args) => args[0] !== "repo");
         expect(reads.length).toBeGreaterThan(0);
@@ -171,7 +267,6 @@ describe("the context lookup (story #853, D5)", () => {
     });
 
     it("fails on an issue that does not exist, rather than reading it as unparented", () => {
-        const r = lookupInitiativeContext(fakeGh({}), checkout(), 9);
-        expect(r.ok).toBe(false);
+        expect(lookupInitiativeContext(fakeGh({}), checkout(), 9).ok).toBe(false);
     });
 });

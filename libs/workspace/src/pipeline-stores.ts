@@ -2,11 +2,11 @@
  * The one definition of the pipeline stores a Nexus stage never reads back as behaviour
  * (decision record #450, invariants 2–6).
  *
- * Four stores under the hidden Nexus root are the pipeline's own working surface: the close-time
- * queue, the pre-epic discovery store, the workbook a learner reads, and the initiative context
- * store (epic #850, decision record #961, D1). Each is something a stage *writes*, teaches from or
- * plans from, never behaviour a stage reads back, so every diff a stage derives — analyze, close
- * and distill alike — withholds all four.
+ * Four paths under the hidden Nexus root are the pipeline's own working surface: the close-time
+ * queue, the pre-epic discovery store, the workbook a learner reads, and the retired initiative
+ * folder (still withheld, so a branch that commits to it reads as before). Each is something a stage
+ * *writes* or teaches from, never behaviour a stage reads back, so every diff a stage derives —
+ * analyze, close and distill alike — withholds all four.
  *
  * The set is stated here once, in the leaf library every diff-deriving library already depends on.
  * Code consumers import `excludePathspecs()`; a command body asks the
@@ -29,11 +29,8 @@ export const WORKBOOK_STORE_DIRNAME: string = "workbook";
 /** The repo-relative path of the workbook store. */
 export const WORKBOOK_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/${WORKBOOK_STORE_DIRNAME}`;
 
-/** The initiative context store's directory name beneath the Nexus root. */
-export const INITIATIVE_STORE_DIRNAME: string = "initiatives";
-
-/** The repo-relative path of the initiative context store: one folder per initiative beneath it. */
-export const INITIATIVE_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/${INITIATIVE_STORE_DIRNAME}`;
+/** The legacy initiative context store, kept out of every diff for branches that still commit to it. */
+export const INITIATIVE_STORE_PATH: string = `${NEXUS_ROOT_DIRNAME}/initiatives`;
 
 /** One member of the excluded set: the path, and the reason membership is justified. */
 export interface ExcludedStore {
@@ -61,7 +58,7 @@ export const EXCLUDED_STORES: readonly ExcludedStore[] = [
     },
     {
         path: INITIATIVE_STORE_PATH,
-        why: "an initiative context is planning rationale a later planning run reads, never shipped behaviour",
+        why: "legacy: an initiative context once committed here is planning rationale, never shipped behaviour",
     },
 ];
 

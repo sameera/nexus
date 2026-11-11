@@ -5,6 +5,65 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.133.0
+
+- **No stage reads or writes an initiative context folder, and the folder store is retired.** The
+  analyze, close and distill gates no longer list an initiative context store among the stores they
+  leave out of a diff, and the repository no longer holds any initiative context. An initiative
+  keeps its context on its own issue only. The legacy `.nexus/initiatives` folder stays out of
+  those diffs, so a branch that still commits to it reads as before.
+- **Posting an initiative context is safer to repeat.** A re-render clears the old part files, and
+  posting a folder with no parts fails instead of reporting success. A large context never splits
+  into a part over the comment limit, and a part whose trailing newline was trimmed still reads
+  back without fusing two lines.
+- **Naming the stubs in an initiative can no longer change its saved context.** `/nxs.epic` now runs
+  `nexus initiative-context stub-numbers`, which replaces each `STUB-<NN>` only outside the
+  collapsed context, so a later lookup never stops with `context-changed` on a valid initiative.
+  The filing steps also say plainly that the filed body is the rendered one, not the summary.
+- **Filing stories under an initiative no longer changes its saved context.** `nexus create-story`
+  still turns each `STORY-` reference in the initiative body into its issue number, but it leaves
+  the collapsed context as filed. A `STORY-` reference inside the context no longer breaks later
+  lookups with `context-changed`, and one that names no filed story no longer makes the run report
+  ⚠️ INCOMPLETE.
+- **`stub-numbers` leaves `STORY-STUB-<NN>` alone.** A story ref that contains a stub key, in any
+  letter case, no longer becomes a broken `STORY-#<N>`. A stub key in a range (`STUB-01-STUB-02`) or
+  written `#STUB-<NN>` is still named, with a single `#`.
+- **Posting context parts writes no file.** `post-parts` hands each part to `gh` on standard input,
+  so an interrupted run leaves no context file in your checkout for `git add` to pick up.
+- **A context that does not fit the filed body can be moved to comments.** `render` takes
+  `--headroom <characters>`; `/nxs.epic` tells you to use it when the body is rejected as too long.
+- **A very long line in a context reads back unchanged.** A line cut between two comments no longer
+  gains a line break at the cut.
+- **The excluded-stores note is accurate.** It now says four paths are withheld, including the
+  retired `.nexus/initiatives` folder.
+
+## 0.132.0
+
+- **Planning and design now read an initiative's context from the initiative issue.** `/nxs.epic`
+  planning a stub under an initiative, and `/nxs.decision-record` designing an epic under one, read the context from the issue
+  whatever the state of your checkout, so a teammate can plan right after the initiative is filed.
+  Only parts posted by an owner, member or collaborator are read, and the run says which comments it
+  ignored. The run stops before drafting, naming the initiative and the part, when a part is missing
+  or was changed after filing. Restore a changed part by editing it back to its filed text. It also
+  stops if the initiative's comments cannot be read.
+- **Breaking: an initiative whose body still names a context folder stops planning.** `/nxs.epic`
+  and `/nxs.decision-record` now stop on an initiative filed by an earlier release, which points at a
+  folder under `.nexus/initiatives/`, and they name that folder. To move on, put the folder's text on
+  the initiative issue unchanged: run `nexus initiative-context render --body <the initiative body
+  without the pointer sentence> --context <the folder's text> --dir <out>`, paste `<out>/body.md`
+  over the initiative body, and delete the folder. A context too long for the body is posted with
+  `nexus initiative-context post-parts --issue <N> --dir <out>`.
+
+## 0.131.0
+
+- **An initiative now keeps its planning context on its own issue.** When `/nxs.epic` files an
+  initiative, the full context sits collapsed in the initiative body, below the context summary,
+  when it fits. When it does not fit, the context is posted as numbered comments on the initiative,
+  and the body says how many parts there are. The run writes nothing to the repository, names no
+  folder, and no longer asks you to commit anything. Every part is posted and read back before the
+  first stub is filed, and repeating an interrupted run posts no part twice. The body also carries
+  a hidden digest of the context, so a later read can tell a part that changed after filing.
+
 ## 0.130.0
 
 - **The analyze verdict no longer ends with an "Epic level" table.** On the pull request that

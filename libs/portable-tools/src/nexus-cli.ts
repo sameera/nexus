@@ -803,7 +803,7 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
     },
     "initiative-context": {
-        summary: "Locate, check and read the planning context an initiative keeps in the repository.",
+        summary: "Locate, check and read the planning context an initiative keeps on its issue.",
         usage: INITIATIVE_CONTEXT_USAGE,
         subverbs: INITIATIVE_CONTEXT_SUBVERBS,
         run: runInitiativeContext,

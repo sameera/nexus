@@ -10,8 +10,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { INITIATIVE_STORE_PATH } from "@nexus/workspace/pipeline-stores";
-import { parsePointer } from "./initiative-context";
+import { INITIATIVE_STORE_PATH, parsePointer } from "./initiative-context";
 import { DISPATCH_NAMES, runNexusCli, type CliIo } from "./nexus-cli";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -105,12 +104,13 @@ describe("filing an initiative keeps the planning context that produced it (stor
         expect(GATE).toContain("**Why this split:**");
         expect(GATE).toContain("**Deferred:**");
         expect(GATE).toContain("**Context summary:**");
-        expect(GATE).toContain("nexus initiative-context pointer");
+        expect(GATE).toContain("**Where the full context is kept:**");
+        expect(GATE).not.toContain("nexus initiative-context pointer");
     });
 
     it("repeats all of it inside the consent question, so nothing kept was off screen (D2, D3, G5)", () => {
         expect(GATE_FLAT).toMatch(
-            /Repeat the proposal inside the `AskUserQuestion` call itself[^.]*the split reasoning, the deferred scope, the context summary and the pointer sentence/,
+            /Repeat the proposal inside the `AskUserQuestion` call itself[^.]*the split reasoning, the deferred scope, the context summary and the sentence saying where the full context is kept/,
         );
     });
 
@@ -135,39 +135,44 @@ describe("filing an initiative keeps the planning context that produced it (stor
         expect(GATE_FLAT).toMatch(/filed flat: exactly the issues, labels and links a flat filing files, with no initiative and no parent link\. No context is kept anywhere/);
     });
 
-    it("files the initiative first, then copies the context into the folder the toolkit names (D1, D3, G1)", () => {
+    it("files the initiative first, then posts any context parts before a stub is filed, writing nothing to the repository (D1, D4, G1, G6)", () => {
+        const rendered: number = UNDER.indexOf("nexus initiative-context render");
         const filed: number = UNDER.indexOf('nexus create-story "${RUN_DIR}/initiative"');
-        const copied: number = UNDER.indexOf('nexus initiative-context path --initiative "${INITIATIVE}"');
-        expect(filed).toBeGreaterThan(-1);
-        expect(copied).toBeGreaterThan(filed);
-        expect(UNDER_FLAT).toMatch(/Write nothing under the queue or the discovery folder/);
+        const posted: number = UNDER.indexOf("nexus initiative-context post-parts");
+        expect(rendered).toBeGreaterThan(-1);
+        expect(filed).toBeGreaterThan(rendered);
+        expect(posted).toBeGreaterThan(filed);
+        expect(UNDER_FLAT).toMatch(/File no stub until every part is posted and read back/);
+        expect(UNDER).not.toContain("initiative-context path");
+        expect(UNDER_FLAT).toMatch(/Write nothing to the repository: no folder, nothing for the lead to commit/);
     });
 
-    it("carries the summary and the placeholder pointer in the body, and still no table (D3, G8)", () => {
+    it("carries the summary in the body with the rendered context, and still no table outside it (D1)", () => {
         expect(ITEM).toContain("## Planning context");
         expect(ITEM).toContain("<the context summary, exactly as shown at the gate>");
-        expect(ITEM).toMatch(/<the pointer sentence[^>]*<INITIATIVE> placeholder>/);
+        expect(ITEM).not.toContain("pointer sentence");
         expect(ITEM).not.toMatch(/^\|/m);
+        expect(UNDER_FLAT).toMatch(/The no-table rule applies outside the collapsed context block/);
     });
 
-    it("fills the number in the run's existing single body edit, and nowhere else (D3, G8, G28)", () => {
-        expect(UNDER_FLAT).toMatch(/replace the pointer's `<INITIATIVE>` placeholder with `\$\{INITIATIVE\}`/);
+    it("makes the run's existing single body edit, touching neither the collapsed context nor its record (D1, G8)", () => {
         expect(UNDER_FLAT).toMatch(/this is the run's own single edit to the initiative's body/);
+        expect(UNDER_FLAT).toMatch(/change nothing inside the collapsed context block or the hidden context record/);
         expect(UNDER.match(/gh issue edit/g)).toHaveLength(1);
     });
 
     it("repeats safely: one initiative, one context folder (G9)", () => {
         expect(UNDER_FLAT).toMatch(/never files a second initiative/);
-        expect(UNDER_FLAT).toMatch(/A repeat copies the same files over themselves, so the initiative still has exactly one context folder/);
+        expect(UNDER_FLAT).toMatch(/The command reads the initiative's comments before each part and skips a part already there/);
     });
 
     it("deletes the run folder only once the context is in place and the body names the number (G10)", () => {
-        expect(UNDER_FLAT).toMatch(/\*\*Step 6 runs only after\*\*[^.]*its context is in its store folder[^.]*names every stub and its own context folder by issue number/);
+        expect(UNDER_FLAT).toMatch(/\*\*Step 6 runs only after\*\*[^.]*the stubs are filed, every context part is posted and read back, the initiative names every stub by issue number/);
     });
 
-    it("commits nothing, and leaves the folder for the lead to commit (G3)", () => {
-        expect(UNDER_FLAT).toMatch(/Do not commit the folder: the lead commits it/);
-        expect(STUBS).toMatch(/also commit and push the initiative's context folder/);
+    it("commits nothing, names no folder, and asks the lead to commit nothing (G1)", () => {
+        expect(UNDER_FLAT).toMatch(/Name no folder and ask the lead to commit nothing/);
+        expect(STUBS).not.toMatch(/commit and push the initiative's context folder/);
     });
 });
 
@@ -268,8 +273,10 @@ describe("planning a stub under an initiative reads the initiative's context (st
         expect(PROMOTION).toMatch(/Before anything is drafted/);
     });
 
-    it("stops before drafting, naming where the context was expected, when the checkout lacks it (D5, G15)", () => {
-        expect(PROMOTION).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* `context-missing`[^.]*names a kept context that this checkout does not hold; it names where the context was expected/);
+    it("stops before drafting, naming the initiative and the part or the folder, reading the issue and never the checkout (D6, D7, G14, G17)", () => {
+        expect(PROMOTION).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* The lookup reads the initiative issue only, never the checkout\./);
+        expect(PROMOTION).toMatch(/restored by editing it back to its filed text/);
+        expect(PROMOTION).toMatch(/`legacy-folder` means the initiative's body still names a context folder/);
     });
 
     it("reads the body alone and says so when no context is kept (D5)", () => {
@@ -316,8 +323,9 @@ describe("the decision record reads the initiative's context (story #854)", () =
         expect(flat(RECORD)).toMatch(/Then run \*\*Phase 0\.4\*\* and \*\*Phase 0\.45\*\* \(both run on every path, revision included\)/);
     });
 
-    it("stops before drafting when the checkout lacks a context the initiative names (D5, G15)", () => {
-        expect(RECORD_READ).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* `context-missing`[^.]*it names where the context was expected/);
+    it("stops before drafting on a missing or changed part, unreadable comments, or a legacy folder pointer (D6, D7, G14, G15, G17)", () => {
+        expect(RECORD_READ).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\*\s+The lookup reads the\s+initiative issue only, never the checkout\./);
+        expect(RECORD_READ).toMatch(/`legacy-folder` means its body still names a context folder/);
     });
 
     it("runs exactly as today for an epic with no initiative above it (G14)", () => {
@@ -338,6 +346,6 @@ describe("the decision record reads the initiative's context (story #854)", () =
     });
 
     it("copies no part of the context into the record or a comment, and never edits the initiative (G16)", () => {
-        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context folder,\*\* and copies no part of the context into the record or a comment/);
+        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context,\*\* and copies no part of the context into the record or a comment/);
     });
 });
