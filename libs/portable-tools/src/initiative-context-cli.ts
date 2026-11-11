@@ -11,9 +11,11 @@ import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { checkPlan, initiativeContextDir, renderPointer } from "./initiative-context.js";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup.js";
+import { postParts, runRender } from "./initiative-context-store.js";
+import { issuesRepoSlug, canonicalIssuesRepo, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 
 /** The subverbs `nexus initiative-context` dispatches. */
-export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup"];
+export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["path", "pointer", "check-plan", "lookup", "render", "post-parts"];
 
 export const INITIATIVE_CONTEXT_USAGE: string = [
     "  nexus initiative-context path --initiative <N>",
@@ -33,6 +35,13 @@ export const INITIATIVE_CONTEXT_USAGE: string = [
     "      --out writes the initiative body and each context file there, each under a heading",
     "      naming its origin. A body that names a context this checkout lacks exits 1 as",
     "      context-missing, naming the expected folder; nothing is written.",
+    "  nexus initiative-context render --body <file> --context <file> --dir <folder>",
+    "      Render the initiative body for the context summary in <file> and the full context text.",
+    "      The context stays in the body, collapsed, when it fits; otherwise it is split into",
+    "      numbered parts. Writes <folder>/body.md and <folder>/part-N.md; prints { body, parts, where }.",
+    "  nexus initiative-context post-parts --issue <N> --dir <folder>",
+    "      Post <folder>/part-N.md as comments on initiative N, in order. A part already on the",
+    "      issue is skipped, and each part is read back after posting. Exits 1 on any failure.",
 ].join("\n");
 
 interface InitiativeContextIo {
@@ -68,6 +77,8 @@ export async function runInitiativeContext(argv: string[], io: InitiativeContext
     }
     if (sub === "check-plan") return runCheckPlan(argv.slice(1), io);
     if (sub === "lookup") return runLookup(argv.slice(1), io);
+    if (sub === "render") return runRender(argv.slice(1), io);
+    if (sub === "post-parts") return runPostParts(argv.slice(1), io);
     const initiative = takeInitiative(argv.slice(1), io);
     if (initiative === null) return 2;
 
@@ -156,4 +167,34 @@ function contextRoot(io: InitiativeContextIo): string | null {
         return null;
     }
     return resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : resolved.workspace.root;
+}
+
+function runPostParts(argv: string[], io: InitiativeContextIo): number {
+    const issueRaw: string | undefined = argv.includes("--issue") ? argv[argv.indexOf("--issue") + 1] : undefined;
+    const dir: string | undefined = argv.includes("--dir") ? argv[argv.indexOf("--dir") + 1] : undefined;
+    if (issueRaw === undefined || !/^#?[1-9]\d*$/.test(issueRaw) || dir === undefined) {
+        io.stderr(`usage:\n${INITIATIVE_CONTEXT_USAGE}`);
+        return 2;
+    }
+    const root: string | null = contextRoot(io);
+    if (root === null) return 1;
+    const repos = resolveVerdictRepos(defaultRunner, root);
+    if (!repos.ok) {
+        io.stderr(`initiative-context gh-failed: ${repos.error.message}`);
+        return 1;
+    }
+    const issuesRepo: string = canonicalIssuesRepo(repos.repos.issuesRepo);
+    const folder: string = path.resolve(io.cwd, dir);
+    const parts: string[] = fs
+        .readdirSync(folder)
+        .filter((f) => /^part-\d+\.md$/.test(f))
+        .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")))
+        .map((f) => fs.readFileSync(path.join(folder, f), "utf8"));
+    const result = postParts(onIssuesHost(defaultRunner, issuesRepo), root, issuesRepoSlug(issuesRepo), Number(issueRaw.replace(/^#/, "")), parts);
+    if (!result.ok) {
+        io.stderr(`initiative-context post-failed: ${result.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ parts: parts.length, posted: result.posted }));
+    return 0;
 }

@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.131.0
+
+- **An initiative now keeps its planning context on its own issue.** When `/nxs.epic` files an
+  initiative, the full context sits collapsed in the initiative body, below the context summary,
+  when it fits. When it does not fit, the context is posted as numbered comments on the initiative,
+  and the body says how many parts there are. The run writes nothing to the repository, names no
+  folder, and no longer asks you to commit anything. Every part is posted and read back before the
+  first stub is filed, and repeating an interrupted run posts no part twice. The body also carries
+  a hidden digest of the context, so a later read can tell a part that changed after filing.
+
 ## 0.130.0
 
 - **The analyze verdict no longer ends with an "Epic level" table.** On the pull request that
