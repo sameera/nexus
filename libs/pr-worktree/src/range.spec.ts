@@ -103,7 +103,7 @@ describe("deriveRange", () => {
         expect(r.error.problem).toBe("range-empty-diff");
     });
 
-    it("treats a range whose only content is a legacy initiative folder as an empty diff (record #961, G2; kept by #1016)", () => {
+    it("reads a commit to the retired initiative folder as part of the change (decision record #1016, D9, G20)", () => {
         const parent: string = makeParent(tracked);
         const repo: string = path.join(parent, "initiative-only-repo");
         initRepo(repo);
@@ -116,8 +116,6 @@ describe("deriveRange", () => {
         const t: Topology = { repo, mergeCommit, prHead, baseRefOid: c0, prCommitCount: 1, expectedFiles: [] };
 
         const r: DeriveRangeResult = deriveRange(defaultRunner, t.repo, prFor(t));
-        expect(r.ok).toBe(false);
-        if (r.ok) return;
-        expect(r.error.problem).toBe("range-empty-diff");
+        expect(r.ok).toBe(true);
     });
 });
