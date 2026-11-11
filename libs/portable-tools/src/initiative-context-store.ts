@@ -12,6 +12,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { CONTEXT_BEGIN as BEGIN, CONTEXT_END as END, CONTEXT_MARKER_TRACE, type ContextBlockBounds, contextBlockBounds, editOutsideContext } from "@nexus/delivery-config/context-block";
 import { recordDigest } from "@nexus/record-digest/digest";
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type Runner } from "@nexus/epic-resolve/run";
@@ -25,8 +26,6 @@ const BODY_HEADROOM: number = 8192;
 /** Room a part leaves for its marker line; sizes are measured in bytes, which never undercounts. */
 const PART_BUDGET: number = COMMENT_LIMIT - 1024;
 
-const BEGIN: string = "<!-- nexus:context-begin -->";
-const END: string = "<!-- nexus:context-end -->";
 const RECORD_PATTERN: RegExp = /^<!-- nexus:context-record (\{.*\}) -->$/m;
 const MARKER_PATTERN: RegExp = /^<!-- nexus:context-part (\d+)\/(\d+) -->$/;
 
@@ -141,16 +140,13 @@ export type BodyContext =
 
 /** Any trace of a context record line, garbled or not. */
 const RECORD_TRACE: RegExp = /<!--\s*nexus:context-record\b/;
-/** Any trace of the collapsed block's markers, garbled or not. */
-const BLOCK_TRACE: RegExp = /<!--\s*nexus:context-(?:begin|end)\b/;
 
 /** Read the context kept in a body: the collapsed block, the part record, neither, or a damaged one. */
 export function parseContextFromBody(body: string): BodyContext {
+    // The reader works on LF text, so the text it returns and digests has one line-break style.
     const text: string = body.replace(/\r\n?/g, "\n");
-    const begin: number = text.indexOf(`${BEGIN}\n`);
-    const end: number = text.lastIndexOf(`\n${END}`);
-    const hasBlock: boolean = begin !== -1 && end > begin;
-    const outside: string = hasBlock ? text.slice(0, begin) + text.slice(end + END.length + 1) : text;
+    const block: ContextBlockBounds | null = contextBlockBounds(text);
+    const outside: string = block === null ? text : text.slice(0, block.start) + text.slice(block.stop);
     const recorded: RegExpExecArray | null = RECORD_PATTERN.exec(outside);
     let record: { kind?: string; digest?: string; count?: number; digests?: string[]; cuts?: number[] } | null = null;
     if (recorded !== null) {
@@ -160,29 +156,29 @@ export function parseContextFromBody(body: string): BodyContext {
             record = null;
         }
     }
-    if (hasBlock) {
-        const inner: string = text.slice(begin + BEGIN.length + 1, end);
+    if (block !== null) {
+        const inner: string = text.slice(block.innerStart, block.innerEnd);
         return { kind: "inline", text: inner, matches: record?.kind === "inline" && record.digest === recordDigest(inner) };
     }
     if (record?.kind === "parts" && Number.isInteger(record.count) && (record.count as number) > 0 && Array.isArray(record.digests)) {
         return { kind: "parts", count: record.count as number, digests: record.digests, cuts: Array.isArray(record.cuts) ? record.cuts : [] };
     }
     // Outside the (absent) block, a surviving marker or record line means a context was filed here.
-    if (record?.kind === "inline" && !BLOCK_TRACE.test(outside)) return { kind: "damaged", damage: "missing" };
-    if (record !== null || RECORD_TRACE.test(outside) || BLOCK_TRACE.test(outside)) return { kind: "damaged", damage: "changed" };
+    if (record?.kind === "inline" && !CONTEXT_MARKER_TRACE.test(outside)) return { kind: "damaged", damage: "missing" };
+    if (record !== null || RECORD_TRACE.test(outside) || CONTEXT_MARKER_TRACE.test(outside)) return { kind: "damaged", damage: "changed" };
     return { kind: "none" };
 }
 
 /** The body with its collapsed context block and its hidden record removed. */
 export function withoutContext(body: string): string {
+    // The reader works on LF text, so the text it returns and digests has one line-break style.
     const text: string = body.replace(/\r\n?/g, "\n");
-    const begin: number = text.indexOf(`${BEGIN}\n`);
-    const end: number = text.lastIndexOf(`\n${END}`);
+    const block: ContextBlockBounds | null = contextBlockBounds(text);
     let out: string = text;
-    if (begin !== -1 && end > begin) {
-        const open: number = text.lastIndexOf("<details>", begin);
-        const close: number = text.indexOf("</details>", end);
-        out = text.slice(0, open === -1 ? begin : open) + (close === -1 ? "" : text.slice(close + "</details>".length));
+    if (block !== null) {
+        const open: number = text.lastIndexOf("<details>", block.start);
+        const close: number = text.indexOf("</details>", block.stop);
+        out = text.slice(0, open === -1 ? block.start : open) + (close === -1 ? "" : text.slice(close + "</details>".length));
     }
     return out.replace(RECORD_PATTERN, "").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 }
@@ -190,19 +186,18 @@ export function withoutContext(body: string): string {
 /**
  * Write each stub's issue number into the body in place of its `STUB-<NN>` reference, everywhere
  * except inside the collapsed context, whose text is digest-checked and must stay as filed. A stub
- * with no number yet keeps its reference.
+ * with no number yet keeps its reference. A `STUB-` inside a story ref in any case (`STORY-STUB-01`,
+ * `story-STUB-01`), a word in any script (`MY_STUB-01`, `éSTUB-01`, `issue#STUB-01`, `STUB-01_notes`) or a
+ * path (`issues/STUB-01`, `STUB-01/x`) or a sub-key (`STUB-01.02`, `STUB-01-02`) is left alone; one in a
+ * range (`STUB-01-STUB-02`) is named, and a `#STUB-01` keeps one `#`.
  */
 export function replaceStubRefs(body: string, numbers: Record<string, number>): string {
-    const swap = (text: string): string =>
-        text.replace(/\bSTUB-(\d+)\b/g, (whole, nn: string) => {
+    const swap: (text: string) => string = (text: string): string =>
+        text.replace(/(?<![\p{L}\p{N}_#/]|(?<![A-Za-z])[Ss][Tt][Oo][Rr][Yy]-)#?STUB-(\d+)(?![\p{L}\p{N}_/]|[.-]\d)/gu, (whole: string, nn: string): string => {
             const n: number | undefined = numbers[`stub-${nn}`];
             return n === undefined ? whole : `#${n}`;
         });
-    const begin: number = body.indexOf(BEGIN);
-    const end: number = body.lastIndexOf(END);
-    if (begin === -1 || end < begin) return swap(body);
-    const stop: number = end + END.length;
-    return swap(body.slice(0, begin)) + body.slice(begin, stop) + swap(body.slice(stop));
+    return editOutsideContext(body, swap);
 }
 
 export interface IssueComment {
@@ -240,30 +235,26 @@ const landed = (comments: IssueComment[], part: string): boolean =>
     comments.some((c) => isTrustedAssociation(c.association) && recordDigest(c.body) === recordDigest(part));
 
 /**
- * Post each part once, in order. Before a part, the issue's comments are read and a part already
- * carried by a trusted comment with the same digest is skipped; after it, the part is read back.
+ * Post each part once, in order. The issue's comments are read once at the start and again after
+ * each post, to read the part back; a part already carried by a trusted comment with the same
+ * digest is skipped.
  */
 export function postParts(run: Runner, cwd: string, slug: RepoSlug, issue: number, parts: string[]): { ok: true; posted: number } | { ok: false; message: string } {
     let posted: number = 0;
+    const first: ReturnType<typeof fetchComments> = fetchComments(run, cwd, slug, issue);
+    if (!first.ok) return first;
+    // The comments as last read: a part's read-back is the next part's starting point.
+    let known: IssueComment[] = first.comments;
     for (let i = 0; i < parts.length; i++) {
-        const before = fetchComments(run, cwd, slug, issue);
-        if (!before.ok) return before;
-        if (landed(before.comments, parts[i])) continue;
-        const scratch: string = path.join(cwd, ".tmp");
-        fs.mkdirSync(scratch, { recursive: true });
-        const dir: string = fs.mkdtempSync(path.join(scratch, "ctx-part-"));
-        let r: ReturnType<Runner>;
-        try {
-            const file: string = path.join(dir, "part.md");
-            fs.writeFileSync(file, parts[i]);
-            r = run("gh", ["issue", "comment", String(issue), "--repo", `${slug.owner}/${slug.repo}`, "--body-file", file], { cwd });
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
+        if (landed(known, parts[i])) continue;
+        // The part goes to gh on standard input, so nothing is staged on disk and an interrupted run
+        // leaves no context file in the checkout.
+        const r: ReturnType<Runner> = run("gh", ["issue", "comment", String(issue), "--repo", `${slug.owner}/${slug.repo}`, "--body-file", "-"], { cwd, input: parts[i] });
         if (r.status !== 0) return { ok: false, message: `posting part ${i + 1} of ${parts.length} on #${issue} failed: ${r.stderr.trim() || "unknown gh error"}` };
-        const after = fetchComments(run, cwd, slug, issue);
+        const after: ReturnType<typeof fetchComments> = fetchComments(run, cwd, slug, issue);
         if (!after.ok) return after;
         if (!landed(after.comments, parts[i])) return { ok: false, message: `part ${i + 1} of ${parts.length} on #${issue} did not read back as posted` };
+        known = after.comments;
         posted++;
     }
     return { ok: true, posted };

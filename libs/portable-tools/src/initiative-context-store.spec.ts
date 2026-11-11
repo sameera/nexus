@@ -82,14 +82,14 @@ describe("renderInitiativeBody", () => {
 
 /** A canned `gh` holding one issue's comments. */
 function fakeGh(comments: { id: number; body: string; author_association: string }[], posts: string[]): Runner {
-    return (cmd: string, args: string[], opts?: { cwd?: string }): RunResult => {
-        void opts;
+    return (cmd: string, args: string[], opts: { cwd: string; input?: string }): RunResult => {
         if (cmd !== "gh") return { status: 1, stdout: "", stderr: "unexpected" };
         if (args[0] === "api" && args[1].endsWith("/comments") && !args.includes("POST")) {
             return { status: 0, stdout: JSON.stringify(comments), stderr: "" };
         }
-        if (args[0] === "issue" && args[1] === "comment") {
-            const body = fs.readFileSync(args[args.indexOf("--body-file") + 1], "utf8");
+        // Only a part handed over on standard input is posted; a path would be a file gh must read.
+        if (args[0] === "issue" && args[1] === "comment" && args[args.indexOf("--body-file") + 1] === "-") {
+            const body: string = opts.input ?? "";
             posts.push(body);
             comments.push({ id: comments.length + 1, body, author_association: "OWNER" });
             return { status: 0, stdout: "", stderr: "" };
@@ -136,21 +136,6 @@ describe("a heading late in a large context", () => {
         expect(r.parts.length).toBeGreaterThan(1);
         for (const p of r.parts) expect(Buffer.byteLength(p, "utf8")).toBeLessThanOrEqual(COMMENT_LIMIT);
         expect(norm(joinParts(r.parts))).toBe(norm(context));
-    });
-});
-
-describe("postParts scratch space", () => {
-    it("leaves nothing behind in the checkout, even when gh throws", () => {
-        const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ctx-scratch-"));
-        const gh: Runner = (cmd, args) => {
-            if (args[0] === "issue") throw new Error("gh died");
-            return { status: 0, stdout: "[]", stderr: "" };
-        };
-        expect(() => postParts(gh, cwd, { owner: "acme", repo: "app" }, 7, ["<!-- nexus:context-part 1/1 -->\nx\n"])).toThrow();
-        const left = fs.readdirSync(cwd).filter((f) => f.startsWith(".ctx-part-"));
-        const tmp = fs.existsSync(path.join(cwd, ".tmp")) ? fs.readdirSync(path.join(cwd, ".tmp")) : [];
-        expect(left).toEqual([]);
-        expect(tmp).toEqual([]);
     });
 });
 
@@ -230,6 +215,34 @@ describe("replaceStubRefs", () => {
         const read = parseContextFromBody(out);
         expect(read).toMatchObject({ kind: "inline", matches: true });
         expect(read.kind === "inline" && read.text).toContain("STUB-01 first goal");
+    });
+
+    it("names a standalone stub or one in a range, and leaves one inside a story ref or a word", () => {
+        const numbers: Record<string, number> = { "stub-01": 11, "stub-02": 12 };
+        const kept: string = "STORY-STUB-01, Story-STUB-01, MY_STORY-STUB-01, éSTORY-STUB-01, STUB-01.02, MY_STUB-01, éSTUB-01, STUB-01é, issues/STUB-01, STUB-01/x, STUB-01-02, STUB-01_notes, issue#STUB-01, ##STUB-01";
+        const out: string = replaceStubRefs(`${kept}; STUB-01, #STUB-01, STUB-01-STUB-02, goal-STUB-02, HISTORY-STUB-01.\n`, numbers);
+        expect(out).toBe(`${kept}; #11, #11, #11-#12, goal-#12, HISTORY-#11.\n`);
+    });
+
+    it("reads a context written with CRLF or bare-CR line breaks as matching its record", () => {
+        for (const eol of ["\r\n", "\r"]) {
+            const body: string = renderInitiativeBody(summary, context.replace(/\n/g, eol)).body;
+            expect(parseContextFromBody(body)).toMatchObject({ kind: "inline", matches: true });
+        }
+    });
+
+    it("reads the context after a summary line that ends by quoting the opening marker", () => {
+        const body: string = renderInitiativeBody(`${summary}\nThe block opens with <!-- nexus:context-begin -->\n`, context).body;
+        expect(parseContextFromBody(body)).toMatchObject({ kind: "inline", matches: true });
+    });
+
+    it("leaves the context as filed in a body with CRLF or bare-CR line breaks", () => {
+        const body: string = renderInitiativeBody(summary, context).body;
+        for (const eol of ["\r\n", "\r"]) {
+            const out: string = replaceStubRefs(body.replace(/\n/g, eol), { "stub-01": 11 });
+            expect(out).toContain("1. #11 first goal");
+            expect(parseContextFromBody(out)).toMatchObject({ kind: "inline", matches: true });
+        }
     });
 
     it("leaves a stub that has no number yet as it is", () => {

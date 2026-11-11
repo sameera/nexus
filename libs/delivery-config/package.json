@@ -84,6 +84,11 @@
       "import": "./src/epic-filer/run.ts",
       "default": "./src/epic-filer/run.ts"
     },
+    "./context-block": {
+      "types": "./src/context-block.ts",
+      "import": "./src/context-block.ts",
+      "default": "./src/context-block.ts"
+    },
     "./stub-key": {
       "types": "./src/stub-key.ts",
       "import": "./src/stub-key.ts",

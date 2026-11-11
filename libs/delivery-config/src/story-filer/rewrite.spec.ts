@@ -7,6 +7,7 @@
 
 import * as fs from "node:fs";
 import { describe, expect, it } from "vitest";
+import { CONTEXT_BEGIN, CONTEXT_END } from "../context-block";
 import { type RunResult } from "../gh";
 import { OK, FAIL, checkoutWith, fakePlatform, recordingIo, scratch, story, writeItem } from "./fixtures";
 import { rewriteStoryRefs } from "./rewrite";
@@ -108,6 +109,17 @@ describe("pass 3 over a filed batch", () => {
         const gh = platform({ "353": "The epic sequences STORY-353.01 first." });
         runCreateStory([scratch(root)], recordingIo(root), gh.env);
         expect(gh.written["353"]).toBe("The epic sequences #100 first.");
+    });
+
+    it("leaves an initiative's collapsed planning context as filed, refs included", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-353.01.md", story("353.01", { parent: "\"#353\"" }, "A story.\n"));
+        const block: string = `${CONTEXT_BEGIN}\nThe plan starts with STORY-353.01, then STORY-999.99.\n${CONTEXT_END}`;
+        const gh: ReturnType<typeof platform> = platform({ "353": `Starts with STORY-353.01.\n\n<details>\n\n${block}\n\n</details>\n` });
+        // A ref inside the context that names no filed story leaves the run complete.
+        expect(runCreateStory([scratch(root)], recordingIo(root), gh.env)).toBe(0);
+        expect(gh.written["353"]).toContain("Starts with #100.");
+        expect(gh.written["353"]).toContain(block);
     });
 
     it("leaves an unresolvable ref in place, reporting it against the issue that carries it", () => {

@@ -20,6 +20,16 @@ behaviour says so.
   `nexus initiative-context stub-numbers`, which replaces each `STUB-<NN>` only outside the
   collapsed context, so a later lookup never stops with `context-changed` on a valid initiative.
   The filing steps also say plainly that the filed body is the rendered one, not the summary.
+- **Filing stories under an initiative no longer changes its saved context.** `nexus create-story`
+  still turns each `STORY-` reference in the initiative body into its issue number, but it leaves
+  the collapsed context as filed. A `STORY-` reference inside the context no longer breaks later
+  lookups with `context-changed`, and one that names no filed story no longer makes the run report
+  ⚠️ INCOMPLETE.
+- **`stub-numbers` leaves `STORY-STUB-<NN>` alone.** A story ref that contains a stub key, in any
+  letter case, no longer becomes a broken `STORY-#<N>`. A stub key in a range (`STUB-01-STUB-02`) or
+  written `#STUB-<NN>` is still named, with a single `#`.
+- **Posting context parts writes no file.** `post-parts` hands each part to `gh` on standard input,
+  so an interrupted run leaves no context file in your checkout for `git add` to pick up.
 - **A context that does not fit the filed body can be moved to comments.** `render` takes
   `--headroom <characters>`; `/nxs.epic` tells you to use it when the body is rejected as too long.
 - **A very long line in a context reads back unchanged.** A line cut between two comments no longer

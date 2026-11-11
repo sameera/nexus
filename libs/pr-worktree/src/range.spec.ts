@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { deriveRange } from "./range.js";
+import { type DeriveRangeResult, deriveRange } from "./range.js";
 import { type PrInfo } from "./pr.js";
 import { defaultRunner, git } from "./run.js";
 import { buildMergeCommit, buildRebase, buildSquash, initRepo, makeParent, sh, writeCommit, type Topology } from "./git-fixtures.js";
@@ -98,6 +98,24 @@ describe("deriveRange", () => {
         const t: Topology = { repo, mergeCommit, prHead, baseRefOid: c0, prCommitCount: 1, expectedFiles: [] };
 
         const r = deriveRange(defaultRunner, t.repo, prFor(t));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("range-empty-diff");
+    });
+
+    it("treats a range whose only content is a legacy initiative folder as an empty diff (record #961, G2; kept by #1016)", () => {
+        const parent: string = makeParent(tracked);
+        const repo: string = path.join(parent, "initiative-only-repo");
+        initRepo(repo);
+        const c0: string = writeCommit(repo, "base.txt", "base\n", "C0");
+        sh(repo, "git", "checkout", "-q", "-b", "feature", c0);
+        const prHead: string = writeCommit(repo, ".nexus/initiatives/initiative-832/plan.md", "# the session's plan\n", "F1");
+        sh(repo, "git", "checkout", "-q", "main");
+        sh(repo, "git", "merge", "--no-ff", "-q", "-m", "Merge feature", "feature");
+        const mergeCommit: string = sh(repo, "git", "rev-parse", "HEAD");
+        const t: Topology = { repo, mergeCommit, prHead, baseRefOid: c0, prCommitCount: 1, expectedFiles: [] };
+
+        const r: DeriveRangeResult = deriveRange(defaultRunner, t.repo, prFor(t));
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("range-empty-diff");

@@ -10,6 +10,7 @@
  * created later in the same batch, so no number exists for it at creation time.
  */
 
+import { editOutsideContext } from "../context-block.js";
 import { type ToolkitIo } from "../io.js";
 import { type CreatedRecord } from "./create.js";
 import { normalizeRef } from "./frontmatter.js";
@@ -33,10 +34,13 @@ const BODY_REF =
  * Backticks around a ref are dropped along with it: GitHub does not autolink inside a code span, so
  * a wrapped `#173` would render as literal text rather than a link. An unresolvable ref is left
  * verbatim, so the author fixes it at the source file rather than hunting a mangled body.
+ *
+ * An initiative's collapsed planning context is left as filed, refs included, and its refs are not
+ * reported: its text is digest-checked, so a rewritten ref would make it unreadable for planning.
  */
 export function rewriteStoryRefs(body: string, refToNumber: Map<string, string>): [string, string[]] {
     const unresolved: string[] = [];
-    const rewritten: string = body.replace(BODY_REF, (match: string, ...rest: unknown[]): string => {
+    const swap: (text: string) => string = (text: string): string => text.replace(BODY_REF, (match: string, ...rest: unknown[]): string => {
         const groups = rest[rest.length - 1] as Record<string, string | undefined>;
         const raw: string = groups["quoted"] ?? groups["plain"] ?? "";
         const number: string | undefined = refToNumber.get(normalizeRef(raw));
@@ -46,7 +50,7 @@ export function rewriteStoryRefs(body: string, refToNumber: Map<string, string>)
         }
         return `#${number}`;
     });
-    return [rewritten, unresolved];
+    return [editOutsideContext(body, swap), unresolved];
 }
 
 /** Normalized ref → issue number, spanning this run and every prior one. */
