@@ -1,19 +1,19 @@
 ---
 title: "Nexus Setup CLI"
 aliases: ["nexus cli", "nexus install", "nexus uninstall", "migrate-components", "nexus deploy", "component-deploy primitive", "workspace init", "workspace add-repo", "workspace writer"]
-touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard", "install-location", "component-mirror", "template-seeding"]
-last_updated_by: "#258"
+touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard", "install-location", "component-mirror", "release-template-lookup"]
+last_updated_by: "#1028"
 status: active
 verification: verified
 ---
 
 # Nexus Setup CLI
 
-The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, declaring or growing a multi-repo workspace, and seeding one repository's templates. It is the counterpart to the judgment-owning setup interview, which runs it: one owns placement and files, the other stack docs, standards, and product context.
+The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, and declaring or growing a multi-repo workspace. It is the counterpart to the judgment-owning setup interview, which runs it: one owns placement and files, the other stack docs, standards, and product context.
 
 ## How It Works
 
-A single entrypoint exposes its verbs over two capabilities it never duplicates: the workspace resolver (the sole authority on workspace shape) and one component-deploy primitive (the sole component installer). Three verbs place, empty, and migrate a component set through that one mirror. `init` declares a workspace only — the human designates a hub and members from the discovered sibling checkouts, and nothing is deployed into any of them; its output names the account-scoped install instead, and names the migration verb for a repository still carrying a committed set. `add-repo` adds one member. The repository-targeted deploy verb still works, and its own usage text states that a per-repository set is no longer the supported arrangement. The rest are read-outs over resolver-owned values: workspace status, the resolved docs root, and the hub's publishing defaults, that last emitted as machine-readable output for a consumer in another language.
+A single entrypoint exposes its verbs over two capabilities it never duplicates: the workspace resolver (the sole authority on workspace shape) and one component-deploy primitive (the sole component installer). Three verbs place, empty, and migrate a component set through that one mirror. `init` declares a workspace only — the human designates a hub and members from the discovered sibling checkouts, and nothing is deployed into any of them; its output names the account-scoped install instead, and names the migration verb for a repository still carrying a committed set. `add-repo` adds one member. The repository-targeted deploy verb still works, and its own usage text states that a per-repository set is no longer the supported arrangement. The rest are read-outs over resolver-owned values: workspace status, the resolved docs root, a release template's location, and the hub's publishing defaults, that last emitted as machine-readable output for a consumer in another language.
 
 Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshes managed files and drops retired ones, converging to an identical set on re-run, and never touches user-owned files. Every workspace-writing verb renders a candidate, runs it back through the resolver, and writes only if resolution accepts it unchanged — so the resolver, not the CLI, judges every artifact.
 
@@ -36,7 +36,7 @@ Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshe
 - [environment-guard](environment-guard.md) — counts the component sets this CLI owns, by its own namespace predicate, and reports a duplicate this CLI resolves.
 - [install-location](install-location.md) — the account-scoped destination this CLI's install and removal verbs act on, replacing per-repository placement.
 - [component-mirror](component-mirror.md) — the one operation behind every one of this CLI's component verbs, install, removal and migration alike.
-- [template-seeding](template-seeding.md) — the one repo-bound verb on this otherwise account- and workspace-scoped CLI, writing into a project rather than the install location.
+- [release-template-lookup](release-template-lookup.md) — hosts the lookup verb stages ask for a template, and keeps the retired seeding verb as a refusal naming it.
 
 ## Decision Log
 
@@ -63,3 +63,7 @@ The fan-out seam was removed rather than made a no-op: its injection point, its 
 ### 2026-08-28 — #258 — A repo-bound verb joins an otherwise account- and workspace-scoped CLI
 
 Placing the templates a project's stages read is structural work, so it belongs here — but it is the first verb whose target is one repository rather than the account or the workspace, and the summary said so only after being rewritten. Folding it into the account-scoped placement was refuted: that placement writes once per account at a location no repository owns, so it would have to guess which repository to seed. The judgment-owning setup interview now runs this verb rather than seeding the templates itself, which keeps the split intact — this CLI still writes only structure, the interview still writes only per-repo judgment — and makes the interview's own statement that it does not seed them true again by naming the step that does. Recorded here as the reciprocal edge to the seeding concept.
+
+### 2026-11-14 — #1028 — Template seeding retired; the CLI gains a template lookup and writes into no repository
+
+The stages now read their templates from the installed release, so the one repo-bound verb this CLI had lost its purpose. It is not deleted. It keeps its name and refuses: with or without arguments it writes nothing, says where templates come from now, and exits non-zero, following the precedent of earlier retired verbs. An unknown verb would read as a broken install, and a verb that exits zero would tell a script that a step which does nothing is still required. A new lookup verb prints where the installed release keeps a named template, and like the other read-outs it changes nothing. Refuted: a refusal that exits zero, which keeps old scripts working but hides from them that the step no longer does anything.

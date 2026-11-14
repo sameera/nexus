@@ -1,8 +1,8 @@
 ---
 title: "Shipped Payload"
 aliases: ["defined payload", "payload filter", "payload fingerprint", "stated set", "empty ignore filter", "payload manifest", "what ships"]
-touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "authored-component-root", "template-seeding", "checkout-only-path-gate", "inert-declaration-removal"]
-last_updated_by: "#354"
+touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "authored-component-root", "release-template-lookup", "checkout-only-path-gate", "inert-declaration-removal"]
+last_updated_by: "#1028"
 status: active
 verification: verified
 ---
@@ -36,7 +36,7 @@ The pin carries one entry for the executable and one for the payload, and stays 
 - [portable-tooling](portable-tooling.md) — shares the two-entry fingerprint pin: one entry for the built executable, one for this payload.
 - [release-gate](release-gate.md) — reads what this payload carries to decide whether a shipped body's path reference still resolves after an install.
 - [authored-component-root](authored-component-root.md) — the tree this payload's component half is assembled from, whose relocation this manifest is the before-image for.
-- [template-seeding](template-seeding.md) — carries the template masters as a third part, so a repository is seeded from the release rather than a source tree.
+- [release-template-lookup](release-template-lookup.md) — carries the release template set beside the executable, the copy an ordinary install's template lookup answers from.
 - [checkout-only-path-gate](checkout-only-path-gate.md) — this stated set decides exactly which bodies that gate scans for a checkout-only location.
 - [inert-declaration-removal](inert-declaration-removal.md) — the one shape that rule spares: this filter's mechanism outlives its entries, which empty rather than stand as patterns that can never match.
 
@@ -62,3 +62,7 @@ Mechanical reciprocity fan-out, two edges in one entry. The template-seeding pag
 ### 2026-08-31 — #354 — The second runtime's tree leaves the payload, and the filter empties without being deleted
 
 Every entry the ignore filter carried existed to keep a second runtime's byte-code and its tests out of the payload, and the tree holding them is gone, so the entries went with it. Removing the filter, its constant and its call site outright was the viable alternative — nothing matches any more, and a mechanism with no entries reads as dead configuration. It was refuted because the payload walk would then have no stated exclusion point at all, and reinstating one when the next incidental category appears costs more than an empty list does now. The entries themselves could not stay on the same reasoning: a pattern naming an interpreter's output, in a release that carries no interpreter, reads to the next maintainer as though the payload still carried it.
+
+### 2026-11-14 — #1028 — Reciprocal link from release-template-lookup, replacing template-seeding
+
+Mechanical reciprocity fan-out. Template seeding was retired, so its edge is removed. The release template lookup names this stated set as the carrier of the templates an ordinary install answers from, so the edge to it takes the old one's place. The set of templates this payload carries did not change.
