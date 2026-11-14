@@ -9,35 +9,36 @@ packages:
 overrides:
   # GHSA-gcfj-64vw-6mp9, GHSA-7q8q-rj6j-mhjq, GHSA-mmx7-hfxf-jppx,
   # GHSA-f4gw-2p7v-4548, GHSA-xj6q-8x83-jv6g — pinned to 1.16.x by nx.
-  axios: '^1.18.0'
-  # GHSA-3jxr-9vmj-r5cp (exponential-time expansion) and GHSA-mh99-v99m-4gvg /
-  # CVE-2026-14257 (unbounded expansion length, OOM crash). The second advisory
-  # covers every version <= 5.0.7 across all majors and was fixed only in 5.0.8
-  # — there is no 1.x or 2.x backport, so the whole tree has to move to 5.x.
-  # 5.x is a rewrite that publishes `expand` as a named export only, while every
-  # minimatch below 10 wants a callable default (3.x/5.x `require()` it and call
-  # the result; 9.x default-imports it). The patch restores that shape on both
-  # the CommonJS and the ESM build. Drop the patch (and this note) once every
-  # minimatch below 10.x is out of the tree.
-  #
-  # Two consequences of pinning exactly rather than by range. It is deliberate:
-  # `patchedDependencies` keys on brace-expansion@5.0.8, so a range that drifted
-  # to a later release would silently stop applying the patch. But it also means
-  # Dependabot cannot bump this package — a future advisory against 5.0.8 stays
-  # open until someone manually moves the override, renames the patch file and
-  # re-runs `pnpm patch`. Nothing automated watches for that.
-  brace-expansion: '5.0.8'
+  axios: '^1.20.0'
+  # GHSA-q2hr-2g5m-vwhr and the earlier expansion DoS advisories require
+  # 5.0.12. Legacy minimatch 3.x still calls require('brace-expansion') as a
+  # function, so retain the callable CommonJS and ESM default exports. Pin the
+  # version exactly to keep the compatibility patch attached on every install.
+  # Move the pin and regenerate the patch together for future security fixes.
+  brace-expansion: '5.0.12'
+  # Patched releases for the remaining Dependabot advisories. Keep old
+  # minimatch 3.x consumers on their callable API; 7+ use the named API.
+  'minimatch@>=7 <11.0.1': '^11.0.1'
+  nx: '23.2.1'
+  follow-redirects: '^1.16.2'
+  smol-toml: '^1.9.0'
+  katex: '^0.18.2'
+  piscina: '^4.9.4'
+  '@xhmikosr/decompress': '^11.1.4'
+  js-yaml@4: '^4.3.2'
+  baseline-browser-mapping: '^2.11.0'
+  browserslist: '^4.28.7'
   # GHSA-v422-hmwv-36x6 / CVE-2026-12590 — invalid `limit` silently disables
   # size enforcement. Only the 1.x line is affected, via nx's express 4.x. Keep
   # this capped below 2.0.0: express 4.x cannot take body-parser 2.x, and a bare
   # '>=1.20.6' resolves to the 2.x line.
   body-parser@1: '^1.20.6'
 
-patchedDependencies:
-  brace-expansion@5.0.8: patches/brace-expansion@5.0.8.patch
-
 allowBuilds:
   '@swc/core': true
   esbuild: true
   node-pty: true
   nx: true
+
+patchedDependencies:
+  brace-expansion@5.0.12: patches/brace-expansion@5.0.12.patch
