@@ -23,6 +23,7 @@ How Nexus components and their tooling are packaged, installed, and addressed ou
 - **Port the epic filer to TypeScript** — [#352](https://github.com/sameera/nexus/issues/352)
 - **Retire the Python runtime and fold the toolkit into one executable** — [#354](https://github.com/sameera/nexus/issues/354)
 - **Run Nexus on native Windows** — [#697](https://github.com/sameera/nexus/issues/697)
+- **Read stage templates from the installed release instead of per-repository copies** — [#1028](https://github.com/sameera/nexus/issues/1028)
 
 ## Running a verb from source
 
