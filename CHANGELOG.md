@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.137.0
+
+- **Breaking: `nexus seed-templates` is retired.** With or without arguments it writes nothing,
+  says that templates are read from the installed release, names `nexus template-path`, and exits
+  non-zero, so a script that still calls it notices. Remove the call.
+- **Existing template folders are left in place, no longer read, and may be deleted.** No stage
+  reads the decision-record or standards templates from a repository's `.nexus/config/templates/`
+  folder any more. The folder's other files, such as the workspace and hub templates, are read and
+  written as before.
+- **A release always ships every template a stage asks for.** The release build now stops when a
+  stage asks `nexus template-path` for a template the release does not ship, or reads a release
+  template from a repository's template folder.
+
 ## 0.136.0
 
 - **`/nxs.setup` generates standards from the template in the installed release.** It asks
