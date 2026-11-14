@@ -1,8 +1,8 @@
 ---
 title: "Pointing Install"
 aliases: ["pointing install", "checkout-pointing mode", "two possible contents", "maintainer's edit-and-rerun loop", "pointers at a checkout", "point the install location at a checkout"]
-touches: ["install-location", "authored-component-root", "environment-guard"]
-last_updated_by: "#256"
+touches: ["install-location", "authored-component-root", "environment-guard", "release-template-lookup"]
+last_updated_by: "#1028"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ The release read-out names which content is present and, here, the checkout the 
 - [install-location](install-location.md) — the single account-scoped location this is one of the two contents of; its resolution rules and explicit-placement rule apply unchanged here.
 - [authored-component-root](authored-component-root.md) — the directory inside the checkout these pointers resolve, reached through that root's one definition rather than a name repeated here.
 - [environment-guard](environment-guard.md) — the duplicate diagnostic that compares resolved real paths, which is why this arrangement needs no exemption from the one-set rule.
+- [release-template-lookup](release-template-lookup.md) — answers from the checkout these pointers name, so a maintainer's template edit is live with no rebuild.
 
 ## Decision Log
 
 ### 2026-08-28 — #256 — Split from install-location as the maintainer's arrangement gained substance
 
 Born of the split at install-location's capacity: once the authored tree moved out of the directory the harness loads, this content became the whole mechanism by which Nexus is developed, with a derivation of its own, a read-out of its own and a standing reason it needs no exemption from the one-set rule. Its derivation of a checkout's authored tree and the tree's location were made to move together, because sequencing them apart breaks the maintainer's loop inside exactly the window the epic's ordering gate exists to protect — and breaks it after that gate has been recorded as passed. Refuted: a maintainer-only mode flag on the toolkit, which reads as more explicit and loses because every flag is a branch the adopter path never exercises, and it re-introduces the exemption this design removed.
+
+### 2026-11-14 — #1028 — Reciprocal link from release-template-lookup
+
+Mechanical reciprocity fan-out. The release template lookup answers from the checkout these pointers name, whichever executable is running, so templates follow the same edit-and-rerun loop as components. Nothing about this content's own behaviour changed.
