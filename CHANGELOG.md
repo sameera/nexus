@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.135.0
+
+- **`/nxs.decision-record` now drafts from the templates in the installed release.** It asks
+  `nexus template-path` for the approval-first template, or for the old-format template when it
+  revises a record approved in that format. A repository needs no template folder of its own, and
+  a template change reaches every repository with the next release.
+- **Breaking: a repository's own decision-record template copies are no longer read.** The copies
+  under `.nexus/config/templates/` stay where they are, but local edits in them no longer apply, and
+  nothing at run time says so. Carry any tuning you depend on into a request to change the release
+  template.
+- **The stage no longer stops on a stale template copy.** The checks for a copy without a
+  Guarantees section, for a copy with its sections out of order, and for a missing old-format copy
+  are gone, and so is the advice to move a copy aside and seed again. The stage now stops only when
+  the template lookup fails or prints nothing, and reports why.
+- **New: `nexus template-path <name>`** prints where the installed release keeps a stage template.
+  On a maintainer's pointer install it answers from the checkout, so a template edit is live with no
+  rebuild. It never answers from the repository and never falls back to another source.
+
 ## 0.134.0
 
 - **Analyze, close and distill now read changes to the retired initiative folder.** The gates no

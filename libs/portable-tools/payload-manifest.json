@@ -1,11 +1,11 @@
 {
-  "claude-components/agents/nxs-architect.md": "e16b0308ac4d71fa8850ce8defbea7799a161250213252e70127c1bee1d3d572",
+  "claude-components/agents/nxs-architect.md": "67e428a1f2383df7030d3ce0dff2c69fcddb1f190f0a7e09236119d073227f9f",
   "claude-components/agents/nxs-epic-gate.md": "ec70dd4566755a58e0b745f8f3c91d3ac3a4ff491b45a42b5edc2872fda12cc4",
   "claude-components/agents/nxs-pm.md": "ed1e17fb5f1d3ca8f3c4c3d6da91b30ea413058178bf6d59a5b148a380a0977f",
   "claude-components/commands/nxs.analyze.md": "6ef5c99ec006d0bd81f27ca28dff452802779f21fce2b5332cd17d2de206b14d",
   "claude-components/commands/nxs.close.md": "b631fa3706bdf4cb550247096c2f1f24afc3b08aab4074492c5f6ee0503c6c95",
   "claude-components/commands/nxs.council.md": "14bf0c092b01517ac09aad424dd16a129d7c0925c56c54c16c9e0c9cb71bbf27",
-  "claude-components/commands/nxs.decision-record.md": "4cb2795cf279ba6f38f6d20428c272637fefb627dc8a2df024dbb300307e011f",
+  "claude-components/commands/nxs.decision-record.md": "3f2bb426ceab5296815690441accf4e308a14878fa71c6e9f28452863b0c8c02",
   "claude-components/commands/nxs.discover.md": "65eda5cb7f35f76c2302925c4831e4913969d79a6c3dfa8d053bb2976e4c7579",
   "claude-components/commands/nxs.distill.md": "e39c51051e4e747d3d8be32251522b826424956aa5287f6dc48f5373a5f34ce6",
   "claude-components/commands/nxs.epic.md": "cf75739681317a5b6f7b1c1b7fd1bf4d3329dd74827a74fe86bc95698425d6dd",

@@ -23,8 +23,8 @@ and guarantees must hold across every story; that is what coverage means. The **
 of *implementation* and of the GitHub issue (0009), and there is no task layer below it. The story is
 not the unit of design. Read all stories together and design for the epic.
 
-You delegate the analysis to the `nxs-architect` agent, then format its output into the seeded
-decision-record template and file it as the record sub-issue. For an old-contract epic that has a
+You delegate the analysis to the `nxs-architect` agent, then format its output into the
+decision-record template the installed release ships, and file it as the record sub-issue. For an old-contract epic that has a
 committed queue entry, write the record into that entry as before.
 
 **Finish line:** the record is filed as a sub-issue of the epic, closed as approved or left open
@@ -325,7 +325,7 @@ Invoke `nxs-architect` in **decision-record mode**. The architect produces the d
 the "why", not a 16-section document.
 
 **Choose the record's template before the call** (Phase 3 step 1). The choice tells the architect
-which format to return, and a stale seeded template stops the run there, before any analysis is
+which format to return, and a failed template lookup stops the run there, before any analysis is
 spent.
 
 **Import mode (`--from`):** pass `IMPORT_DOC` (Phase 0.5) as the FIRST, authoritative input and tell
@@ -459,32 +459,33 @@ Not "closure instantiates the entry, whose subsequent ingestion populates the st
 creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
 machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
-1. **Choose the template, then read it.** Both are seeded project copies under
-   `.nexus/config/templates/`, not the `common/templates/` masters.
+1. **Choose the template, ask the installed release where it is, then read it.** Templates come
+   from the installed release, through the template lookup, and never from a copy in this
+   repository. Read the template only at the path the lookup prints, never at a path you build
+   yourself, such as one under `common/templates/`.
 
-    - **Every record, by default:** `.nexus/config/templates/decision-record-template.md`, the
-      approval-first format.
+    - **Every record, by default:** the approval-first format.
+
+        ```bash
+        TEMPLATE="$(nexus template-path decision-record-template.md)"
+        ```
+
     - **A `--revise` of a record approved in the old format:** its approved body
       (`gh issue view <record> $REPO_ARG --json body --jq .body`, or the committed
       `decision-record.md` on the old-contract path) has a `## Constraints & Invariants` section and
-      no `## Guarantees` section. Draft the revision from
-      `.nexus/config/templates/decision-record-template-v1.md`, and tell the architect in Phase 1
-      that the record is in the old format. A revision keeps the format its record was approved in.
-      The checkpoint marks the approved lines as frozen by matching their text, and a record
-      converted to the new format would match none of them.
+      no `## Guarantees` section. Draft the revision from the old-format template, and tell the
+      architect in Phase 1 that the record is in the old format. A revision keeps the format its
+      record was approved in. The checkpoint marks the approved lines as frozen by matching their
+      text, and a record converted to the new format would match none of them.
 
-    For the default template, verify it keeps the approval-first section order: How it works,
-    Approval brief, Guarantees, Risks and dependencies, Concept-store changes, and Design
-    rationale and mechanism. A template with those headings out of order stops the draft; move the old copy
-    aside, run `nexus seed-templates`, then carry local tuning into the new copy. This check matters
-    even when the Guarantees heading exists, because a reordered brief can hide the approval surface
-    below the appendix.
+        ```bash
+        TEMPLATE="$(nexus template-path decision-record-template-v1.md)"
+        ```
 
-    If the default template has no `## Guarantees` section, it is a copy seeded before the
-    approval-first format shipped, because seeding never overwrites a project's copy. Stop and say
-    so: the lead moves that copy aside, runs `nexus seed-templates`, and carries any local tuning
-    over into the new copy. If the old-format template is needed and absent, stop and name
-    `nexus seed-templates` as the remedy; it adds only the templates a project does not have.
+    If the lookup exits non-zero or prints nothing, stop and report the lookup's message, and draft
+    nothing. Printing nothing means the `nexus` on the path predates the template lookup; the remedy
+    is to upgrade the release, or for a maintainer to rebuild it. Do not look for the template
+    anywhere else.
 2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
    and selects the **required-section tier**. Apply the tier explicitly, not as a heuristic. If
    `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta`
@@ -497,7 +498,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 
     The **Approval brief appears at every size whenever any of its groups has an entry**, because it
     is a list fixed by rule and a tier cannot make it optional. At L or XL an empty brief states
-    why, like any other empty section. Concept-store changes is present in every new-format record at every size: it opens with the pages-read sentence, then lists the changes the design makes to concept-store statements. The rule lives here, not in the template, so a project's seeded template copy keeps working.
+    why, like any other empty section. Concept-store changes is present in every new-format record at every size: it opens with the pages-read sentence, then lists the changes the design makes to concept-store statements. The rule lives here, not in the template.
 
     An old-format revision keeps the old tiers: **Key Decisions** and **Constraints & Invariants**
     at S or M, and every section at L or XL.

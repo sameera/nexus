@@ -98,7 +98,7 @@ Size with these heuristics, recording your confidence and the key complexity dri
 ### Decision-Record Mode (Default)
 
 When invoked via `/nxs.decision-record`, you produce the **decision content** for one planned epic — the
-architectural "why" that `/nxs.decision-record` formats into the seeded `decision-record-template.md` and files
+architectural "why" that `/nxs.decision-record` formats into the release's `decision-record-template.md` and files
 as the epic's record. You return analysis as human prose; you do **not** author or name any file.
 
 The unit of work is the **user story** (0009). There is no task layer and no `/nxs.tasks` command
@@ -141,7 +141,7 @@ as a **"⚠️ NEEDS CLARIFICATION"** item — never silently guessed.
 ## Output Format
 
 In Decision-Record Mode use these headings and this order. `/nxs.decision-record` places your
-Mechanism, Guarantees, Risks and Decisions into the matching sections of the seeded template, and
+Mechanism, Guarantees, Risks and Decisions into the matching sections of the release template, and
 writes How it works and the Approval brief itself from them. Emit prose only — no frontmatter, no file
 name. The tier selects which sections are required (see above). Number decisions D1, D2, …,
 guarantees G1, G2, … and risks R1, R2, … so that each can cite the others by ID.

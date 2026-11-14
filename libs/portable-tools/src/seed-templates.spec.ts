@@ -133,24 +133,6 @@ describe("the seeded copy is the master's own bytes (AC4)", () => {
     });
 });
 
-describe("every stage finds the template it reads (AC5)", () => {
-    it("seeds each path the setup, decision-record and close bodies name", () => {
-        const repo: string = makeAdopterRepo();
-        seedTemplates(MASTER_DIR, repo);
-        const named: string[] = [];
-        for (const component of ["nxs.setup.md", "nxs.decision-record.md", "nxs.close.md"]) {
-            for (const match of componentBody(component).matchAll(/\.nexus\/config\/templates\/([\w.-]+\.md)/g)) {
-                named.push(match[1]);
-            }
-        }
-
-        expect(named.length).toBeGreaterThanOrEqual(3);
-        for (const name of new Set(named)) {
-            expect(fs.existsSync(path.join(projectTemplateDir(repo), name)), name).toBe(true);
-        }
-    });
-});
-
 describe("the masters travel inside the release", () => {
     it("ships every seeded template in the payload", () => {
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
