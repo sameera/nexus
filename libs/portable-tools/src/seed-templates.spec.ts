@@ -13,14 +13,8 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 import { listPayloadFiles } from "./release-payload";
-import {
-    authoredTemplateMasterDir,
-    projectTemplateDir,
-    seedTemplates,
-    SEEDED_TEMPLATES,
-    TEMPLATE_PAYLOAD_DIRNAME,
-    type SeedTemplatesResult,
-} from "./seed-templates";
+import { projectTemplateDir, seedTemplates, SEEDED_TEMPLATES, type SeedTemplatesResult } from "./seed-templates";
+import { authoredTemplateMasterDir, TEMPLATE_PAYLOAD_DIRNAME } from "./template-lookup";
 import { authoredComponentRoot } from "./vendor-components";
 
 const SRC_DIR: string = import.meta.dirname;

@@ -19,7 +19,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { TEMPLATE_MASTER_SEGMENTS } from "./seed-templates.js";
+import { TEMPLATE_MASTER_SEGMENTS } from "./template-lookup.js";
 import { listComponentFiles } from "./vendor-components.js";
 
 /** The directory no shipped component may read a template from. */

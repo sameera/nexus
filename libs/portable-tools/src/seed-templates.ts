@@ -26,34 +26,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { RELEASE_TEMPLATES } from "./template-lookup.js";
 
-/**
- * The tool-agnostic templates a project's stages read. One copy serves every project — there is no
- * per-tool variant — so this is the whole seeded set, named here and nowhere else.
- *
- * The decision-record stage reads two: the approval-first template every new record is drafted
- * from, and the old-format one a revision of a record approved in that format keeps (epic #787,
- * D11), because a revision's frozen lines match only in the format they were approved in.
- */
-export const SEEDED_TEMPLATES: readonly string[] = [
-    "decision-record-template.md",
-    "decision-record-template-v1.md",
-    "standard.template.md",
-];
-
-/** Directory name the template masters travel under, beside the bundled entrypoints. */
-export const TEMPLATE_PAYLOAD_DIRNAME = "templates";
-
-/** The repository-root path segments holding the template masters in a checkout. */
-export const TEMPLATE_MASTER_SEGMENTS: readonly string[] = ["common", "templates"];
+/** The seeded set is the release template set; it is declared once, in the template lookup. */
+export const SEEDED_TEMPLATES: readonly string[] = RELEASE_TEMPLATES;
 
 /** The project-root path segments the stages read their templates from. */
 export const PROJECT_TEMPLATE_SEGMENTS: readonly string[] = [".nexus", "config", "templates"];
-
-/** The authored master set in a checkout whose sources live under `srcDir`. */
-export function authoredTemplateMasterDir(srcDir: string): string {
-    return path.resolve(srcDir, "..", "..", "..", ...TEMPLATE_MASTER_SEGMENTS);
-}
 
 /** Where a repository's stages read their templates. */
 export function projectTemplateDir(repoRoot: string): string {

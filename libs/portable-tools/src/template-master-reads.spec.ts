@@ -17,7 +17,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyMasterMention, scanTemplateMasterMentions, templateMasterReads, type MasterMention } from "./template-master-reads";
-import { PROJECT_TEMPLATE_SEGMENTS, TEMPLATE_MASTER_SEGMENTS } from "./seed-templates";
+import { PROJECT_TEMPLATE_SEGMENTS } from "./seed-templates";
+import { TEMPLATE_MASTER_SEGMENTS } from "./template-lookup";
 import { authoredComponentRoot } from "./vendor-components";
 
 const AUTHORED_ROOT: string = authoredComponentRoot(import.meta.dirname);

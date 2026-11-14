@@ -113,12 +113,8 @@ import { EXCLUDED_STORES, excludePathspecs } from "@nexus/workspace/pipeline-sto
 import { INITIATIVE_CONTEXT_SUBVERBS, INITIATIVE_CONTEXT_USAGE, runInitiativeContext } from "./initiative-context-cli.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
-import {
-    projectTemplateDir,
-    seedTemplates,
-    TEMPLATE_PAYLOAD_DIRNAME,
-    type SeedTemplatesResult,
-} from "./seed-templates.js";
+import { projectTemplateDir, seedTemplates, type SeedTemplatesResult } from "./seed-templates.js";
+import { lookupTemplate, RELEASE_TEMPLATES, TEMPLATE_PAYLOAD_DIRNAME, type TemplateLookupResult } from "./template-lookup.js";
 import { runConceptInvariants } from "./concept-invariants.js";
 import { runRecordConceptCheck } from "./record-concept-check.js";
 import { readingListPath, renderReadingGroup, runReadingList, type ReadingList } from "./reading-list.js";
@@ -879,6 +875,17 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: REVIEW_POST_USAGE,
         run: (argv, io) => Promise.resolve(runReviewPost(argv, io)),
     },
+    "template-path": {
+        summary: "Print where the installed release keeps a stage template.",
+        usage: [
+            "  nexus template-path <name>",
+            "      Print the absolute location of a template the installed release ships, read from",
+            "      the release beside this executable, or from the checkout a pointer install names.",
+            "      Never answers from the repository. An unknown name, a missing template or an",
+            `      unreadable install location exits 1. Templates: ${RELEASE_TEMPLATES.join(", ")}.`,
+        ].join("\n"),
+        run: runTemplatePath,
+    },
     "seed-templates": {
         summary: "Place the tool-agnostic templates the pipeline stages read into a repository.",
         usage: [
@@ -1042,6 +1049,24 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
         `deployed ${result.written.length} component file(s) into ${componentRoot}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
     );
+    return 0;
+}
+
+/**
+ * `nexus template-path <name>` — the template lookup (epic #1028, story #1029). The executable's
+ * own directory decides the release source; the current repository plays no part.
+ */
+async function runTemplatePath(argv: string[], io: CliIo): Promise<number> {
+    if (argv.length !== 1 || argv[0].startsWith("-")) {
+        io.stderr(`template-path takes exactly one template name\n${USAGE}`);
+        return 2;
+    }
+    const result: TemplateLookupResult = lookupTemplate(argv[0], { executableDir: import.meta.dirname });
+    if (!result.ok) {
+        io.stderr(`template-path ${result.problem}: ${result.message}`);
+        return 1;
+    }
+    io.stdout(result.path);
     return 0;
 }
 

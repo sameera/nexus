@@ -14,7 +14,7 @@
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { authoredTemplateMasterDir, SEEDED_TEMPLATES, TEMPLATE_PAYLOAD_DIRNAME } from "./seed-templates.js";
+import { authoredTemplateMasterDir, RELEASE_TEMPLATES, TEMPLATE_PAYLOAD_DIRNAME } from "./template-lookup.js";
 import { authoredComponentRoot, COMPONENT_PAYLOAD_DIRNAME, listComponentFiles } from "./vendor-components.js";
 
 /** Key of the payload entry in the committed fingerprint pin — one entry for the whole payload. */
@@ -96,7 +96,7 @@ export function listPayloadFiles(repoRoot: string): PayloadFile[] {
     }
 
     const masterDir: string = authoredTemplateMasterDir(srcDir);
-    for (const name of SEEDED_TEMPLATES) {
+    for (const name of RELEASE_TEMPLATES) {
         files.push({ staged: `${TEMPLATE_PAYLOAD_DIRNAME}/${name}`, source: path.join(masterDir, name) });
     }
     // Code-unit order, not locale order: a locale-sensitive comparison would make the
