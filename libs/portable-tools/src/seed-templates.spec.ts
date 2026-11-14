@@ -83,13 +83,6 @@ describe("the templates arrive in a repository that was never a Nexus checkout (
             expect(fs.existsSync(path.join(projectTemplateDir(repo), name)), name).toBe(true);
         }
     });
-
-    it("is what the setup stage tells an adopter to run (AC3)", () => {
-        const body: string = componentBody("nxs.setup.md");
-
-        expect(body).toContain("nexus seed-templates");
-        expect(body).not.toContain("install/update script");
-    });
 });
 
 describe("a template the project has tuned survives (AC2)", () => {

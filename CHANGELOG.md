@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.136.0
+
+- **`/nxs.setup` generates standards from the template in the installed release.** It asks
+  `nexus template-path` for the standards template in its prerequisites, before it writes anything,
+  and stops with the lookup's message if the lookup fails. A failed lookup now stops the whole
+  setup run, not only the standards step.
+- **Setup no longer seeds templates into the repository.** It runs no seeding step, creates no
+  `.nexus/config/templates/` folder, and its completion report names no template step. A template
+  folder a repository already holds is left exactly as it is.
+
 ## 0.135.0
 
 - **`/nxs.decision-record` now drafts from the templates in the installed release.** It asks

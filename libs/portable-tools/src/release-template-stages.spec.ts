@@ -78,6 +78,38 @@ describe("the decision-record stage drafts from the release templates (story #10
     });
 });
 
+describe("setup generates standards from the release template (story #1031, D5)", () => {
+    const setup: string = command("nxs.setup.md");
+    const phase = (from: string, to: string): string => setup.slice(setup.indexOf(from), setup.indexOf(to));
+    const prerequisites: string = phase("## Phase 1:", "## Phase 2:");
+    const standards: string = phase("## Phase 3:", "## Phase 4:");
+    const summary: string = phase("## Phase 7:", "## Quality requirements");
+
+    it("asks the template lookup for the standards template in its prerequisites, before it writes anything", () => {
+        expect(lookedUp(prerequisites)).toEqual(["standard.template.md"]);
+        expect(lookedUp(setup)).toEqual(["standard.template.md"]);
+    });
+
+    it("stops and reports, writing nothing, when the lookup exits non-zero or prints nothing", () => {
+        expect(flat(prerequisites)).toMatch(/exits non-zero or prints nothing, stop/i);
+        expect(flat(prerequisites)).toMatch(/write nothing/i);
+    });
+
+    it("reads the standards template from the location the lookup printed (G12)", () => {
+        expect(flat(standards)).toMatch(/the standards template at the location Phase 1 looked up/);
+    });
+
+    it("writes no template folder and reads none from the repository (G12, G13)", () => {
+        expect(setup).not.toContain(REPOSITORY_TEMPLATE_FOLDER);
+    });
+
+    it("names no template seeding step, in its phases or its completion report (G14)", () => {
+        expect(setup).not.toContain("seed-templates");
+        expect(flat(summary)).not.toMatch(/template/i);
+        expect(setup).not.toContain("install/update script");
+    });
+});
+
 describe("every stage finds the template it reads", () => {
     it("ships, in the release payload, each template the setup, decision-record and close bodies name", () => {
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
