@@ -5,4 +5,4 @@ github:
   classification: labels
   unplanned-label: needs-refinement
   project: Nexus
-  worktree-path: ~/projects/worktrees/nexus
+  worktree-path: ~/.worktrees/nexus
