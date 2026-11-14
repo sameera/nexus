@@ -1,8 +1,8 @@
 ---
 title: "Resumable Batch Filing"
 aliases: ["resume ledger", "batch filing", "re-runnable batch", "half-filed batch", "duplicate-issue guard", "keep manifest"]
-touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention", "report-free-shared-layer", "filing-preflight", "initiative"]
-last_updated_by: "#705"
+touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention", "report-free-shared-layer", "filing-preflight", "initiative", "initiative-filing"]
+last_updated_by: "#1011"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ The run then reports what it created, reused, wired and rewrote, and — where a
 - [report-free-shared-layer](report-free-shared-layer.md) — this contract's own platform calls and lookups, generalised into a shared layer once a second capability needed them.
 - [filing-preflight](filing-preflight.md) — the legality check and label establishment every batch passes before its first issue, split from this page.
 - [initiative](initiative.md) — filed as its own one-item batch before the stubs that name it, whose parent links a repeat retries.
+- [initiative-filing](initiative-filing.md) — the run that files an initiative and then its stubs through this batch path.
 
 ## Decision Log
 
@@ -52,3 +53,7 @@ Mechanical reciprocity fan-out: the report-free-shared-layer page names this con
 ### 2026-10-10 — #705 — A repeat retries a failed parent link, and the preflight moves to its own page
 
 A parent link that failed used to print a warning only. The batch still reported complete, and a repeat never retried the link. So a stub could silently drop out of its initiative. A repeat now retries the link for every issue the ledger already records, and a link that already exists counts as success, so the retry is safe to repeat. The approved narrowing of the parent rule pushed this page past the word cap, so the page was split. The legality check and label establishment moved to filing-preflight, with the two invariants that state them. This page keeps the ledger and the three passes. Refuted alternative: report a failed parent link in the run's summary and exit non-zero. It lost because that summary is a frozen surface and the change would alter every story batch. The stage that files under an initiative reads the children back instead.
+
+### 2026-11-14 — #1011 — Reciprocal link from initiative-filing
+
+Mechanical reciprocity fan-out: the initiative filing run, split from the initiative page, files the initiative and then its stubs through this batch path.

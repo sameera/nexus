@@ -1,8 +1,8 @@
 ---
 title: "Initiative"
-aliases: ["initiative issue", "coherent decomposition", "proposed objective", "execution order", "reach statement", "stubs under an initiative", "flat filing", "planning container"]
-touches: ["backlog-stub", "epic-approval-gate", "issue-kind-classification", "resumable-batch-filing", "issue-sourced-planning", "publishing-config-resolution", "filing-preflight", "stub-promotion", "initiative-context"]
-last_updated_by: "#850"
+aliases: ["initiative issue", "coherent decomposition", "proposed objective", "execution order", "reach statement", "flat filing", "planning container"]
+touches: ["backlog-stub", "epic-approval-gate", "issue-kind-classification", "resumable-batch-filing", "issue-sourced-planning", "publishing-config-resolution", "filing-preflight", "stub-promotion", "initiative-context", "initiative-filing"]
+last_updated_by: "#1011"
 status: active
 verification: verified
 ---
@@ -15,19 +15,18 @@ An initiative is the parent issue of a decomposition's stubs when the lead accep
 
 When the epic stage splits oversized scope into two or more stubs, it always proposes an objective. The lead's decline is the only filter. The consent choice offers the filing twice: under an initiative, or flat. The gate shows the objective, the order, every reach statement, the split reasoning, the deferred scope and a context summary, and the lead accepts or declines them as one unit. In discovery mode the objective is the discovery's own destination. From typed intent it claims nothing beyond the lead's description.
 
-On accept, the run files the initiative first, keeps its planning context, then files the stubs as its children, then writes the stub numbers into its ordered list. It reads back the initiative's children and reports the run incomplete if any stub is missing. Repeating the run finishes it without filing a second copy of anything.
+On accept, the initiative and its stubs are filed in a fixed order, described on the initiative-filing page.
 
 A stub under an initiative is promoted by the usual steps and stays where it is. If that stub proves larger than one epic, its successors join the same initiative, and no new objective is proposed.
 
 ## Key Invariants
 
-1. Nothing is created or kept before the lead accepts or declines the proposed objective, and every sentence the initiative states was shown at the gate.
+1. Nothing is created or kept before the lead accepts or declines the proposed objective, and every sentence the initiative states outside its planning context was shown at the gate, and its planning context holds only text the lead supplied or saw at the gate.
 2. Only a decomposition with two or more goals proposes an objective. Deferred stubs, close's stubs, intake follow-ups and a one-goal split are filed flat.
 3. A declined proposal files exactly what a flat filing files today.
-4. The order respects every blocking edge between the stubs, each entry states its reach in words rather than a percentage, and the body holds no table and no second list of children.
-5. Every stub of an accepted set is a child of that initiative and of nothing else.
-6. Every stage refuses an initiative as its epic, and names it as an initiative.
-7. The initiative body is never edited after filing, including when successors join it.
+4. The order respects every blocking edge between the stubs, each entry states its reach in words rather than a percentage, and the body, outside its collapsed planning context, holds no table and no second list of children.
+5. Every stage refuses an initiative as its epic, and names it as an initiative.
+6. The initiative body is never edited after filing, including when successors join it.
 
 ## Integration Points
 
@@ -38,7 +37,8 @@ A stub under an initiative is promoted by the usual steps and stays where it is.
 - [filing-preflight](filing-preflight.md) — allows an initiative as a stub's parent and refuses every other parent.
 - [stub-promotion](stub-promotion.md) — promotes a stub under an initiative without moving it, and files a split stub's successors under the same initiative.
 - [issue-sourced-planning](issue-sourced-planning.md) — its resolver refuses an initiative by name instead of reconstructing it as an epic whose stubs read as stories.
-- [initiative-context](initiative-context.md) — the planning context this issue keeps, summarised in its body and read when its stubs are planned.
+- [initiative-context](initiative-context.md) — the planning context this issue carries in its body or in numbered comments, read when its stubs are planned.
+- [initiative-filing](initiative-filing.md) — files this issue with its context, then its stubs as children; split from this page.
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the initiative label or issue type; with no issue type declared under type mode, only the flat filing is offered.
 
 ## Decision Log
@@ -50,3 +50,7 @@ Stubs from one decomposition used to land as a flat set of open issues. Nothing 
 ### 2026-11-09 — #850 — An initiative keeps the planning context that produced it
 
 A long planning session ended in stubs that kept a one-line goal each, and the session's decisions, deferrals and split reasoning were lost. The initiative sits above every stub of the set, so it is the place to keep them. Its body now carries a short summary and one sentence naming where the full context is kept, because a full plan does not fit in an issue body. The split reasoning and the deferred scope are shown at the gate beside the objective, because the kept context may hold only text the lead saw. The issue number in that sentence is filled in the same single edit that writes the stub numbers, so the body is still never edited after the run. Refuted alternative: show only the summary at the gate, and let the lead review the full context in the commit diff. It lost because a diff nobody is required to read would be the only human check on text a later plan cites as asked.
+
+### 2026-11-14 — #1011 — The initiative carries its planning context itself
+
+The planning context used to sit in a committed folder that the body named, and that pointer would name nothing once the folder was removed. The initiative now files with its context in the body, collapsed below the summary, or in numbered comments when the context does not fit. The consent rule and the no-table rule are narrowed to text outside the context, because the context holds the lead's own plan, which may contain tables and text the lead supplied rather than saw. The narrowed rules pushed this page past the word cap, so the filing order, the read-back and the rule that every stub is a child of the initiative moved to the initiative-filing page. Refuted alternative: publish the context as a file in the issue asset store. It lost because that store is optional and the link would again point at a file.
