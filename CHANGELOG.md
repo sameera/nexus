@@ -5,6 +5,47 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.137.0
+
+- **Breaking: `nexus seed-templates` is retired.** With or without arguments it writes nothing,
+  says that templates are read from the installed release, names `nexus template-path`, and exits
+  non-zero, so a script that still calls it notices. Remove the call.
+- **Existing template folders are left in place, no longer read, and may be deleted.** No stage
+  reads the decision-record or standards templates from a repository's `.nexus/config/templates/`
+  folder any more. The folder's other files, such as the workspace and hub templates, are read and
+  written as before.
+- **A release always ships every template a stage asks for.** The release build now stops when a
+  stage asks `nexus template-path` for a template the release does not ship, or reads a release
+  template from a repository's template folder.
+
+## 0.136.0
+
+- **`/nxs.setup` generates standards from the template in the installed release.** It asks
+  `nexus template-path` for the standards template in its prerequisites, before it writes anything,
+  and stops with the lookup's message if the lookup fails. A failed lookup now stops the whole
+  setup run, not only the standards step.
+- **Setup no longer seeds templates into the repository.** It runs no seeding step, creates no
+  `.nexus/config/templates/` folder, and its completion report names no template step. A template
+  folder a repository already holds is left exactly as it is.
+
+## 0.135.0
+
+- **`/nxs.decision-record` now drafts from the templates in the installed release.** It asks
+  `nexus template-path` for the approval-first template, or for the old-format template when it
+  revises a record approved in that format. A repository needs no template folder of its own, and
+  a template change reaches every repository with the next release.
+- **Breaking: a repository's own decision-record template copies are no longer read.** The copies
+  under `.nexus/config/templates/` stay where they are, but local edits in them no longer apply, and
+  nothing at run time says so. Carry any tuning you depend on into a request to change the release
+  template.
+- **The stage no longer stops on a stale template copy.** The checks for a copy without a
+  Guarantees section, for a copy with its sections out of order, and for a missing old-format copy
+  are gone, and so is the advice to move a copy aside and seed again. The stage now stops only when
+  the template lookup fails or prints nothing, and reports why.
+- **New: `nexus template-path <name>`** prints where the installed release keeps a stage template.
+  On a maintainer's pointer install it answers from the checkout, so a template edit is live with no
+  rebuild. It never answers from the repository and never falls back to another source.
+
 ## 0.134.0
 
 - **Analyze, close and distill now read changes to the retired initiative folder.** The gates no

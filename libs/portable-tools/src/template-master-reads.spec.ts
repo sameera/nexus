@@ -16,13 +16,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { classifyMasterMention, scanTemplateMasterMentions, templateMasterReads, type MasterMention } from "./template-master-reads";
-import { PROJECT_TEMPLATE_SEGMENTS, TEMPLATE_MASTER_SEGMENTS } from "./seed-templates";
+import { classifyMasterMention, REPOSITORY_TEMPLATE_PATH, scanTemplateMasterMentions, templateMasterReads, type MasterMention } from "./template-master-reads";
+import { TEMPLATE_MASTER_SEGMENTS } from "./template-lookup";
 import { authoredComponentRoot } from "./vendor-components";
 
 const AUTHORED_ROOT: string = authoredComponentRoot(import.meta.dirname);
 const MASTER_PATH: string = TEMPLATE_MASTER_SEGMENTS.join("/");
-const PROJECT_PATH: string = PROJECT_TEMPLATE_SEGMENTS.join("/");
+const PROJECT_PATH: string = REPOSITORY_TEMPLATE_PATH;
 
 function closeBody(): string {
     return fs.readFileSync(path.join(AUTHORED_ROOT, "commands", "nxs.close.md"), "utf8");

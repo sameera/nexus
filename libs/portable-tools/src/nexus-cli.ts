@@ -113,12 +113,7 @@ import { EXCLUDED_STORES, excludePathspecs } from "@nexus/workspace/pipeline-sto
 import { INITIATIVE_CONTEXT_SUBVERBS, INITIATIVE_CONTEXT_USAGE, runInitiativeContext } from "./initiative-context-cli.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
-import {
-    projectTemplateDir,
-    seedTemplates,
-    TEMPLATE_PAYLOAD_DIRNAME,
-    type SeedTemplatesResult,
-} from "./seed-templates.js";
+import { lookupTemplate, RELEASE_TEMPLATES, type TemplateLookupResult } from "./template-lookup.js";
 import { runConceptInvariants } from "./concept-invariants.js";
 import { runRecordConceptCheck } from "./record-concept-check.js";
 import { readingListPath, renderReadingGroup, runReadingList, type ReadingList } from "./reading-list.js";
@@ -879,14 +874,24 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: REVIEW_POST_USAGE,
         run: (argv, io) => Promise.resolve(runReviewPost(argv, io)),
     },
-    "seed-templates": {
-        summary: "Place the tool-agnostic templates the pipeline stages read into a repository.",
+    "template-path": {
+        summary: "Print where the installed release keeps a stage template.",
         usage: [
-            "  nexus seed-templates [--target <dir>] [--masters <dir>]",
-            "      Copy the templates the setup, decision-record and close stages read into",
-            "      .nexus/config/templates/ in the target repo (default: the current directory).",
-            "      Seeds only what is absent — a template your project has tuned is never",
-            "      overwritten — so it is safe to re-run. The masters travel inside the release.",
+            "  nexus template-path <name>",
+            "      Print the absolute location of a template the installed release ships, read from",
+            "      the release beside this executable, or from the checkout a pointer install names.",
+            "      Never answers from the repository. An unknown name, a missing template or an",
+            `      unreadable install location exits 1. Templates: ${RELEASE_TEMPLATES.join(", ")}.`,
+        ].join("\n"),
+        run: runTemplatePath,
+    },
+    "seed-templates": {
+        summary: "Retired (epic #1028) — the stages read their templates from the installed release.",
+        usage: [
+            "  nexus seed-templates ...   RETIRED — writes nothing and exits 1, with or without arguments.",
+            "      The stages read their templates from the installed release through",
+            "      `nexus template-path <name>`, so a repository needs no template copy. A template",
+            "      folder a repository already holds is left in place and is no longer read.",
         ].join("\n"),
         run: runSeedTemplates,
     },
@@ -973,11 +978,6 @@ export function defaultPayloadDir(): string {
     return path.join(import.meta.dirname, COMPONENT_PAYLOAD_DIRNAME);
 }
 
-/** Where the template masters live when running as a distributed artifact (story #323). */
-export function defaultTemplateMasterDir(): string {
-    return path.join(import.meta.dirname, TEMPLATE_PAYLOAD_DIRNAME);
-}
-
 /** Extract `--flag value` pairs; returns null (after reporting) on a flag missing its value. */
 function takeOption(argv: string[], flag: string, io: CliIo): { present: boolean; value?: string } | null {
     const index: number = argv.indexOf(flag);
@@ -1046,40 +1046,36 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
 }
 
 /**
- * `nexus seed-templates` — the arrival of the three tool-agnostic templates (story #323).
- *
- * Repo-bound on purpose: the templates belong to the project, not to the account, so this is not
- * part of `nexus install`, which writes once per account at a location no repository owns. It is
- * the step `/nxs.setup` runs, and the step its own body now names.
+ * `nexus template-path <name>` — the template lookup (epic #1028, story #1029). The executable's
+ * own directory decides the release source; the current repository plays no part.
  */
-async function runSeedTemplates(argv: string[], io: CliIo): Promise<number> {
-    const rest: string[] = [...argv];
-    const targetOpt = takeOption(rest, "--target", io);
-    if (targetOpt === null) {
+async function runTemplatePath(argv: string[], io: CliIo): Promise<number> {
+    if (argv.length !== 1 || argv[0].startsWith("-")) {
+        io.stderr(`template-path takes exactly one template name\n${USAGE}`);
         return 2;
     }
-    const mastersOpt = takeOption(rest, "--masters", io);
-    if (mastersOpt === null) {
-        return 2;
-    }
-    if (rest.length > 0) {
-        io.stderr(`unknown argument for seed-templates: ${rest[0]}\n${USAGE}`);
-        return 2;
-    }
-
-    const targetRepoRoot: string = path.resolve(io.cwd, targetOpt.value ?? io.cwd);
-    let result: SeedTemplatesResult;
-    try {
-        result = seedTemplates(mastersOpt.value ?? defaultTemplateMasterDir(), targetRepoRoot);
-    } catch (error) {
-        io.stderr(error instanceof Error ? error.message : String(error));
+    const result: TemplateLookupResult = lookupTemplate(argv[0], { executableDir: import.meta.dirname });
+    if (!result.ok) {
+        io.stderr(`template-path ${result.problem}: ${result.message}`);
         return 1;
     }
-    io.stdout(
-        `seeded ${result.seeded.length} template(s) into ${projectTemplateDir(targetRepoRoot)}` +
-            (result.kept.length > 0 ? `; kept ${result.kept.length} the project already has (${result.kept.join(", ")})` : ""),
-    );
+    io.stdout(result.path);
     return 0;
+}
+
+/**
+ * `nexus seed-templates` — retired (epic #1028, D6). The stages read their templates from the
+ * installed release through `nexus template-path`, so nothing is seeded any more. The name is kept
+ * so a lead or a script that still calls it is told what replaced it, and the non-zero exit tells a
+ * script the step no longer does anything. Every argument, and none, hits this same refusal.
+ */
+async function runSeedTemplates(_argv: string[], io: CliIo): Promise<number> {
+    io.stderr(
+        "seed-templates is retired: templates are read from the installed release, so nothing was written. " +
+            "A stage asks for a template with `nexus template-path <name>`. A template folder this repository " +
+            "already holds is left in place and is no longer read; you may delete it.",
+    );
+    return 1;
 }
 
 /**

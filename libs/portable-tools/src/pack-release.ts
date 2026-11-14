@@ -19,6 +19,8 @@ import { buildAllBundles } from "./build-bundles.js";
 import { isDirectRun } from "./entry-point.js";
 import { listPayloadFiles } from "./release-payload.js";
 import { listSharedLibraryFiles } from "./shared-library-payload.js";
+import { assertReleaseTemplates } from "./template-master-reads.js";
+import { authoredComponentRoot } from "./vendor-components.js";
 
 /** The staged directory, relative to the package root. Named in the manifest's `files`. */
 export const RELEASE_TREE_DIRNAME = "dist";
@@ -32,10 +34,13 @@ export const BIN_NAMES: readonly string[] = ["nexus"];
  */
 export async function buildReleaseTree(repoRoot: string, outDir?: string): Promise<string[]> {
     const releaseDir: string = outDir ?? path.join(repoRoot, RELEASE_TREE_DIRNAME);
+    const srcDir: string = path.join(repoRoot, "libs", "portable-tools", "src");
+    // Every template a stage asks for must ship, and none may be read from a repository copy
+    // (epic #1028, D7). Checked before the old tree is removed, so a failed build changes nothing.
+    assertReleaseTemplates(authoredComponentRoot(srcDir));
     fs.rmSync(releaseDir, { recursive: true, force: true });
     fs.mkdirSync(releaseDir, { recursive: true });
 
-    const srcDir: string = path.join(repoRoot, "libs", "portable-tools", "src");
     const written: string[] = await buildAllBundles(srcDir, releaseDir);
     for (const bundle of written) {
         fs.chmodSync(bundle, 0o755);

@@ -31,8 +31,8 @@ describe('Codex decision-record pipeline', () => {
       'Concept-store changes',
       'Design rationale and mechanism',
     ]);
-    expect(draft).toContain('.nexus/config/templates/decision-record-template.md');
-    expect(draft).toContain('For the default template, verify it keeps the approval-first section order');
+    expect(draft).toContain('nexus template-path decision-record-template.md');
+    expect(draft).not.toContain('.nexus/config/templates/');
     expect(draft).toMatch(/reader who skips\s+the appendix can locate blockers, pending amendments, accepted costs, and guarantees/);
     expect(draft).toMatch(/How it works.+epic's vocabulary/s);
     expect(draft).toMatch(/every decision whose trade-off is not `none`/);

@@ -19,11 +19,19 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { TEMPLATE_MASTER_SEGMENTS } from "./seed-templates.js";
+import { RELEASE_TEMPLATES, TEMPLATE_MASTER_SEGMENTS } from "./template-lookup.js";
 import { listComponentFiles } from "./vendor-components.js";
 
 /** The directory no shipped component may read a template from. */
 export const TEMPLATE_MASTER_PATH: string = TEMPLATE_MASTER_SEGMENTS.join("/");
+
+/**
+ * The repository's own template folder (epic #1028, D7). The stages read their templates from the
+ * installed release, so no shipped component may read a release template from here. The folder's
+ * other files, such as the workspace and hub templates, are not release templates and stay out of
+ * the check.
+ */
+export const REPOSITORY_TEMPLATE_PATH = ".nexus/config/templates";
 
 /** Words that turn a mention into a contrast — "this is not the thing the stage reads". */
 export const CONTRAST_MARKERS: readonly string[] = ["not", "never", "rather than", "instead of", "no longer"];
@@ -69,20 +77,21 @@ export function classifyMasterMention(text: string, index: number): { excluded: 
 }
 
 /**
- * Every mention of the master directory across the shipped component payload, classified. The
- * whole payload is scanned, not only the markdown bodies: a path a stage is sent to read is a read
- * whatever kind of file carries it.
+ * Every mention of `needle` across the shipped component payload, classified. The whole payload
+ * is scanned, not only the markdown bodies: a path a stage is sent to read is a read whatever kind
+ * of file carries it. `relevant` decides, from the text that follows a mention, whether it counts.
  *
  * Classification reads the whole text while the location is reported per line, because a contrast
  * marker and the mention it governs are one sentence that a body may well have wrapped.
  */
-export function scanTemplateMasterMentions(componentRoot: string): MasterMention[] {
+function scanMentions(componentRoot: string, needle: string, relevant: (after: string) => boolean): MasterMention[] {
     const mentions: MasterMention[] = [];
     for (const rel of listComponentFiles(componentRoot)) {
         const text: string = fs.readFileSync(path.join(componentRoot, ...rel.split("/")), "utf8");
         let offset = 0;
         text.split("\n").forEach((line: string, index: number) => {
-            for (let at: number = line.indexOf(TEMPLATE_MASTER_PATH); at >= 0; at = line.indexOf(TEMPLATE_MASTER_PATH, at + 1)) {
+            for (let at: number = line.indexOf(needle); at >= 0; at = line.indexOf(needle, at + 1)) {
+                if (!relevant(line.slice(at + needle.length))) continue;
                 mentions.push({
                     file: rel,
                     line: index + 1,
@@ -96,7 +105,65 @@ export function scanTemplateMasterMentions(componentRoot: string): MasterMention
     return mentions;
 }
 
+/** Every mention of the master directory across the shipped component payload, classified. */
+export function scanTemplateMasterMentions(componentRoot: string): MasterMention[] {
+    return scanMentions(componentRoot, TEMPLATE_MASTER_PATH, () => true);
+}
+
 /** The mentions that are reads — the gate fails when this is not empty. */
 export function templateMasterReads(componentRoot: string): MasterMention[] {
     return scanTemplateMasterMentions(componentRoot).filter((mention) => !mention.excluded);
+}
+
+/**
+ * True when the text after a mention of the repository's template folder names a release template,
+ * or names no file at all, so the mention points at the folder as a whole.
+ */
+function namesReleaseTemplate(after: string): boolean {
+    const file: RegExpMatchArray | null = after.match(/^\/([\w.-]+)/);
+    return file === null || RELEASE_TEMPLATES.includes(file[1]);
+}
+
+/** Reads of a release template from the repository's template folder — none may ship (D7, G11). */
+export function repositoryTemplateReads(componentRoot: string): MasterMention[] {
+    return scanMentions(componentRoot, REPOSITORY_TEMPLATE_PATH, namesReleaseTemplate).filter((mention) => !mention.excluded);
+}
+
+const LOOKUP_PATTERN = /nexus template-path\s+["']?([^\s"'`)]+)/g;
+
+/** Template lookups in the shipped payload that ask for a name the release does not ship (D7, G17). */
+export function unshippedTemplateLookups(componentRoot: string): MasterMention[] {
+    const found: MasterMention[] = [];
+    for (const rel of listComponentFiles(componentRoot)) {
+        const text: string = fs.readFileSync(path.join(componentRoot, ...rel.split("/")), "utf8");
+        text.split("\n").forEach((line: string, index: number) => {
+            for (const match of line.matchAll(LOOKUP_PATTERN)) {
+                if (RELEASE_TEMPLATES.includes(match[1])) continue;
+                found.push({ file: rel, line: index + 1, excerpt: line.trim(), excluded: false });
+            }
+        });
+    }
+    return found;
+}
+
+/** Every way the shipped payload breaks the release template set, one line per finding. */
+export function releaseTemplateFindings(componentRoot: string): string[] {
+    const where = (mention: MasterMention): string => `${mention.file}:${mention.line} — ${mention.excerpt}`;
+    return [
+        ...unshippedTemplateLookups(componentRoot).map(
+            (m: MasterMention) => `asks for a template the release does not ship (it ships ${RELEASE_TEMPLATES.join(", ")}): ${where(m)}`,
+        ),
+        ...repositoryTemplateReads(componentRoot).map(
+            (m: MasterMention) => `reads a release template from the repository's ${REPOSITORY_TEMPLATE_PATH}/: ${where(m)}`,
+        ),
+        ...templateMasterReads(componentRoot).map((m: MasterMention) => `reads a template from the checkout's ${TEMPLATE_MASTER_PATH}/: ${where(m)}`),
+    ];
+}
+
+/** The build-time check: throws, naming every finding, when the payload breaks the template set. */
+export function assertReleaseTemplates(componentRoot: string): void {
+    const findings: string[] = releaseTemplateFindings(componentRoot);
+    if (findings.length > 0) {
+        throw new Error(`the release build stops: the component payload breaks the release template set.\n  ${findings.join("\n  ")}`);
+    }
 }

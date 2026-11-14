@@ -68,17 +68,19 @@ Detect this repo's workspace role **through the resolver** — never by asking t
     > "This project has no CLAUDE.md. I recommend running `/init` first to generate baseline documentation. Proceed anyway, or stop so you can run `/init`? (proceed / stop)"
 
 3. If the user stops, end here. Otherwise continue.
-4. **Seed the tool-agnostic templates** the pipeline stages read, so the rest of this run — and
-   `/nxs.decision-record` and `/nxs.close` later — find them:
+4. **Look up the standards template** in the installed release, before anything is written.
+   Phase 3 reads it from the location printed here:
 
     ```bash
-    nexus seed-templates
+    STANDARD_TEMPLATE="$(nexus template-path standard.template.md)"
     ```
 
-    It places `.nexus/config/templates/` from the masters that travel inside the release. It seeds
-    only what is absent, so a template this project has already tuned is left exactly as it is; it
-    is safe to run on every setup. Phase 3 reads `standard.template.md` from there, so this runs
-    before it.
+    The release answers with its own copy, so this repository needs no template files, and setup
+    creates none. If the lookup exits non-zero or prints nothing, stop, report the lookup's message,
+    and write nothing. Printing nothing means the `nexus` on the path predates the template lookup;
+    the remedy is to upgrade the release, or for a maintainer to rebuild it. A failed lookup means
+    the executable or the install location is broken, and every later phase calls the same
+    executable.
 
 ## Phase 2: Stack detection
 
@@ -201,7 +203,7 @@ The code is ground truth and self-updating. A coding agent re-reads these files 
 
 **Default to one `standards.md`** with short normative sections. Split into separate files only when a section grows large, or when it is loaded independently by work-type (the dev agent loads `unit-testing.md` always, `api-testing.md` for API work). Do not pre-generate files for capabilities that don't exist yet (no `auth.md` until there is auth work and a command path that loads it).
 
-Use `.nexus/config/templates/standard.template.md` for structural guidance; adapt it toward decisions-and-constraints, not pattern description.
+Use the standards template at the location Phase 1 looked up (`$STANDARD_TEMPLATE`) for structural guidance; adapt it toward decisions-and-constraints, not pattern description.
 
 ## Phase 4: Scaffold the Nexus surfaces
 
@@ -244,14 +246,12 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
        keys `nexus config resolve <key>` still resolves to nothing.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **`.nexus/discovery/`** — the pre-epic discovery store (`/nxs.discover`), also **committed, not gitignored**. It is deliberately a sibling of the queue rather than a folder inside it: the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Do not create it at setup — `/nxs.discover` creates it on first use — and do not add an ignore rule for it.
-5. **Templates** — nothing to do here. `nexus seed-templates` (Phase 1) has already placed the tool-agnostic templates under `.nexus/config/templates/`; this phase only seeds project-generated config (above).
-
-5a. **`.nexus/tmp/` is gitignored.** `/nxs.epic` drafts a planning run's scratch (decision record
-    #646) under `.nexus/tmp/planning/`, and the resolver materializes epics under `.nexus/tmp/epic-<n>/`
-    — both assume the tree already excludes `.nexus/tmp/` from version control. Making that true is
-    this stage's job, done once, rather than a check every planning run repeats: if `.gitignore` has
-    no `.nexus/tmp/` line (exact match, any leading `/`), append one. Idempotent — do nothing when
-    the line is already present.
+5. **`.nexus/tmp/` is gitignored.** `/nxs.epic` drafts a planning run's scratch (decision record
+   #646) under `.nexus/tmp/planning/`, and the resolver materializes epics under `.nexus/tmp/epic-<n>/`
+   — both assume the tree already excludes `.nexus/tmp/` from version control. Making that true is
+   this stage's job, done once, rather than a check every planning run repeats: if `.gitignore` has
+   no `.nexus/tmp/` line (exact match, any leading `/`), append one. Idempotent — do nothing when
+   the line is already present.
 6. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
    committed-path ignore for `.nexus/queue/**` — the whole point is that the per-user decision
    scratch (`.nexus/queue/epic-<epic-issue-number>/<username>/`) rides ordinary commits. Keep any pre-existing
