@@ -273,11 +273,17 @@ the same lookup stub planning uses:
 nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-context.md"
 ```
 
-- **Non-zero exit → stop before drafting and report the diagnostic verbatim.** The lookup reads the
-  initiative issue only, never the checkout. `context-missing` and `context-changed` name the
-  initiative and the part that is missing or was changed after filing (an edited part is restored by
-  editing it back to its filed text); `comments-unreadable` means its comments could not be read;
-  `legacy-folder` means its body still names a context folder, which must be moved onto the issue.
+- **`context-changed` → ask the lead to accept or restore.** The diagnostic names the initiative. Preview the edit:
+
+  ```bash
+  nexus initiative-context restamp --issue <initiative>
+  ```
+
+  Show the lead every change it prints: the part (or the body), the editors, and the diff. When `baseline` is `not-found`, say that the filed version is no longer in the edit history, so the diff shows the whole context as new. Ask once: accept the edited context, or stop and restore it. On accept, run `nexus initiative-context restamp --issue <initiative> --accept <token>` with the preview's token, run the lookup again, and continue from its result. On stop, or when no lead can be asked, stop before drafting and report the diagnostic verbatim. A non-zero restamp exit (an editor without write access, a missing part, an unreadable history, or a context that changed after the preview) stops the run the same way; report it verbatim.
+- **Any other non-zero exit → stop before drafting and report the diagnostic verbatim.** The lookup
+  reads the initiative issue only, never the checkout. `context-missing` names the initiative and the
+  part that is missing; `comments-unreadable` means its comments could not be read; `legacy-folder`
+  means its body still names a context folder, which must be moved onto the issue.
 - **`no-initiative`**: the epic has no initiative above it. Continue exactly as today: no new prompt,
   no new question, and **no empty section** anywhere in the record. Skip the rest of this phase.
 - **`body-only`**: say that no additional context was found. Keep the initiative's body, which the
@@ -286,7 +292,8 @@ nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-c
   and name each comment the lookup ignored on stderr with its author. Keep
   `${QDIR}/initiative-context.md`, the initiative's body and its context, as **`INITIATIVE_CONTEXT`** for Phase 1.
 
-**This command never edits the initiative or its context,** and copies no part of the context
+**This command never edits the initiative or its context,** except the restamp the lead accepts
+above, which rewrites only the context's record. It copies no part of the context
 into the record or a comment. A decision the context settled is restated in the record's own words,
 with its reasoning.
 

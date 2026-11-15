@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.138.0
+
+- **An edited initiative context can be accepted instead of reverted.** `/nxs.decision-record` and
+  `/nxs.epic` used to stop on a changed context and tell you to edit it back to its filed text. Now,
+  when you are there to answer, they show you what changed since filing and who changed it, and ask
+  whether to accept it. Accepting rewrites only the context's hidden record, so later runs read the
+  edited context and do not ask again. Declining stops the run as before. The same check runs
+  directly as `nexus initiative-context restamp --issue <initiative>`, which previews the change,
+  and `--accept <token>` with the preview's token, which records it.
+- **Only an edit by someone with write access can be accepted.** An edit by anyone else, a missing
+  part, an unreadable edit history, or a context that changed again after the preview still stops
+  the run, naming why.
+- **The changed-context stop names `restamp`.** `nexus initiative-context lookup` now names the
+  restamp command as the way to accept a deliberate edit, and the edit history as the way to restore
+  an accidental one.
+
 ## 0.137.0
 
 - **Breaking: `nexus seed-templates` is retired.** With or without arguments it writes nothing,
