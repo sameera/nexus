@@ -5,8 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.135.0
+## 0.135.1
 
+- **Codex implementation stages can reach GitHub.** `nexus implement` enables outbound network
+  access in its workspace-write sessions, including analyze and fix rounds, so unattended runs
+  do not stop at epic resolution with a sandbox socket denial.
+- **Codex implementation approvals use automatic review.** Workspace-write stages pass
+  `--approve-for-me`, allowing unattended approval review during implementation, analyze and fix
+  rounds. Explicit alternative sandbox modes keep their selected policy.
+
+## 0.135.0
 - **Windows supports the Codex harness.** The package accepts Windows installs, generated Codex
   skills for epic, decision-record, analyze, close and distill bind shell examples to PowerShell,
   and `nexus implement` selects Codex by default on Windows.

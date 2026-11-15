@@ -502,6 +502,8 @@ describe("harness and configuration (G20, G21)", () => {
         expect(r.sessions[0].command).toBe("codex");
         expect(r.sessions[0].args).toEqual(expect.arrayContaining(["--sandbox", "workspace-write"]));
         for (const session of r.sessions) {
+            expect(session.args).toContain('--approve-for-me');
+            expect(session.args).toEqual(expect.arrayContaining(['-c', 'sandbox_workspace_write.network_access=true']));
             expect(session.args).toContain('--add-dir');
             expect(session.args[session.args.indexOf('--add-dir') + 1]).toBe('/shared/project.git');
         }
@@ -509,6 +511,16 @@ describe("harness and configuration (G20, G21)", () => {
         expect(prompt.startsWith("/goal")).toBe(false);
         expect(prompt).toContain("$nxs-epic-resolve 7");
         expect(r.sessions[1].args[r.sessions[1].args.length - 1]).toContain("$nxs-analyze --pr 5");
+    });
+
+    it.each(['read-only', 'danger-full-access'])("preserves the explicit Codex %s mode without the workspace-write approval preset", async (permissionMode) => {
+        const r = await run(world(), { harness: 'codex', permissionMode });
+        expect(r.code).toBe(0);
+        for (const session of r.sessions) {
+            expect(session.args[session.args.indexOf('--sandbox') + 1]).toBe(permissionMode);
+            expect(session.args).not.toContain('--approve-for-me');
+            expect(session.args).not.toContain('sandbox_workspace_write.network_access=true');
+        }
     });
 
     it("reads the test command from the setting when the invocation names none", async () => {

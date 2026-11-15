@@ -249,7 +249,12 @@ export function stageSpec(harness: Harness, prompt: string, mode: string, harnes
             .replace(/\/nxs\.distill/g, "$nxs-distill")
             .replace(/\/nxs\.decision-record/g, "$nxs-decision-record")
             .replace(/\/nxs-epic-resolve/g, "$nxs-epic-resolve");
-        return { command: "codex", args: ["exec", "--sandbox", mode, "--json", "--add-dir", gitDir, ...harnessArgs, "--", text], cwd };
+        // Every stage reads GitHub. Headless exec cannot ask to retry a blocked network call.
+        // Keep filesystem confinement, enabling networking only for workspace-write sessions.
+        const permissionArgs = mode === "workspace-write"
+            ? ["--approve-for-me", "-c", "sandbox_workspace_write.network_access=true"]
+            : [];
+        return { command: "codex", args: ["exec", "--sandbox", mode, ...permissionArgs, "--json", "--add-dir", gitDir, ...harnessArgs, "--", text], cwd };
     }
     return { command: "claude", args: ["-p", prompt, "--permission-mode", mode, "--output-format", "stream-json", "--verbose", ...harnessArgs], cwd };
 }

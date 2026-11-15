@@ -379,8 +379,11 @@ Claude; an explicit `--harness` selects either harness. The generated Codex skil
 shared workflow's shell examples to PowerShell when running on Windows; Bash and WSL are not required.
 
 It uses [`codex exec`](https://learn.chatgpt.com/docs/non-interactive-mode) with a fresh session for
-each stage and a `workspace-write` sandbox. It explicitly includes the checkout's shared Git
+each stage and a `workspace-write` sandbox with outbound network access enabled so stages can
+read GitHub and publish analysis. It explicitly includes the checkout's shared Git
 directory with `--add-dir`, so stages can commit from ordinary checkouts and linked worktrees.
+Workspace-write stages pass `--approve-for-me` to route approval requests through automatic
+review during unattended execution. This requires a Codex CLI that supports that flag.
 Pass additional `codex exec` options after `--`.
 The command pushes the implementation branch and opens a draft pull request; run it only when
 that publication is intended.
