@@ -2,7 +2,7 @@
 title: "Initiative Context"
 aliases: ["initiative context", "kept context", "context summary", "context pointer", "context lookup", "attached plan", "design plan", "initiative context store", "context part", "collapsed context block", "part record", "legacy folder pointer"]
 touches: ["initiative", "stub-promotion", "decision-record", "citation-check", "epic-approval-gate", "reading-list"]
-last_updated_by: "#1011"
+last_updated_by: "#1039"
 status: active
 verification: verified
 ---
@@ -45,3 +45,7 @@ A decomposition used to file stubs that carried a one-line goal, an estimate and
 ### 2026-11-14 — #1011 — The context moves from a committed folder onto the initiative issue
 
 The committed folder was meant to be removed when the initiative's last child closed, which would leave the body's pointer naming nothing. Teammates also could not see the folder until the lead pushed it. The context now lives on the issue: all in the body when it fits, otherwise all in numbered comments, so the reader has two cases and one hash scheme. A hidden number on each part sets the order, because a repeated run may post a missing middle part last. The body records each part's hash at filing, and the reader checks it, because the platform's edited marker cannot be read reliably and the run's own stub-number edit marks the body as edited. Trust reuses the owner, member and collaborator rule close applies, so there is one trust rule. A body that still names a folder stops the run; the folder is never read as a fallback. #997 was moved by hand, and the folder store was deleted. Refuted alternative: publish the context as a file in the issue asset store, linked at a pinned commit. It lost because that store is optional, and the link would again point at a file the reader must reach.
+
+### 2026-11-15 — #1039 — A deliberate edit to the context can be accepted instead of reverted
+
+A context edited after filing stopped planning and design, and the only way out was to edit it back to its filed text. That was wrong when the lead had made the edit on purpose, for example to record a decision approved after filing. The stop now names a restamp command. Run on its own, it previews what changed, who changed it and a token for that text. Run again with the token, it records the edited text as the new filed text, and only the hidden record changes. The two stages that read the context offer the restamp to a lead who is there to answer. They stop as before when the lead declines or nobody can be asked. The restamp refuses an edit by someone without write access, a missing part, an unreadable edit history, or a context that changed again after the preview, so the hash check still stops an edit nobody approved. Refuted alternative: have the readers accept any edit by a trusted author without asking. It lost because the lead would then never see that the settled decisions had changed.
