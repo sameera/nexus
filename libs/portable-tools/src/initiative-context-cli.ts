@@ -13,10 +13,11 @@ import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { checkPlan } from "./initiative-context.js";
 import { lookupInitiativeContext, renderContextSource } from "./initiative-context-lookup.js";
 import { postParts, runRender, runStubNumbers } from "./initiative-context-store.js";
+import { restampInitiativeContext } from "./initiative-context-restamp.js";
 import { issuesRepoSlug, canonicalIssuesRepo, onIssuesHost, resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 
 /** The subverbs `nexus initiative-context` dispatches. */
-export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["check-plan", "lookup", "render", "post-parts", "stub-numbers"];
+export const INITIATIVE_CONTEXT_SUBVERBS: readonly string[] = ["check-plan", "lookup", "render", "post-parts", "stub-numbers", "restamp"];
 
 export const INITIATIVE_CONTEXT_USAGE: string = [
     "  nexus initiative-context check-plan --plan <path>",
@@ -42,6 +43,14 @@ export const INITIATIVE_CONTEXT_USAGE: string = [
     "  nexus initiative-context post-parts --issue <N> --dir <folder>",
     "      Post <folder>/part-N.md as comments on initiative N, in order. A part already on the",
     "      issue is skipped, and each part is read back after posting. Exits 1 on any failure.",
+    "  nexus initiative-context restamp --issue <N> [--accept <token>]",
+    "      Accept a deliberate edit to initiative N's planning context. Without --accept it writes",
+    "      nothing and prints { state, initiative, where, changes, token }: state is unchanged or",
+    "      preview, and each change gives the part (null for the body), whether the filed version",
+    "      was found in the edit history, the editors who changed it, and a line diff. With the",
+    "      preview's token it rewrites only the context record, so later lookups read the edited",
+    "      context. Refuses (exit 1) an editor without write access, a missing part, an unreadable",
+    "      edit history, or a token from a preview of different text.",
 ].join("\n");
 
 interface InitiativeContextIo {
@@ -60,6 +69,7 @@ export async function runInitiativeContext(argv: string[], io: InitiativeContext
     if (sub === "lookup") return runLookup(argv.slice(1), io);
     if (sub === "render") return runRender(argv.slice(1), io);
     if (sub === "post-parts") return runPostParts(argv.slice(1), io);
+    if (sub === "restamp") return runRestamp(argv.slice(1), io);
     return runStubNumbers(argv.slice(1), io);
 }
 
@@ -169,5 +179,31 @@ function runPostParts(argv: string[], io: InitiativeContextIo): number {
         return 1;
     }
     io.stdout(JSON.stringify({ parts: parts.length, posted: result.posted }));
+    return 0;
+}
+
+function runRestamp(argv: string[], io: InitiativeContextIo): number {
+    let issue: number | undefined;
+    let accept: string | undefined;
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--issue" && /^#?[1-9]\d*$/.test(argv[i + 1] ?? "")) issue = Number(argv[++i].replace(/^#/, ""));
+        else if (argv[i] === "--accept" && /^[0-9a-f]+$/.test(argv[i + 1] ?? "")) accept = argv[++i];
+        else {
+            issue = undefined;
+            break;
+        }
+    }
+    if (issue === undefined) {
+        io.stderr(`usage:\n${INITIATIVE_CONTEXT_USAGE}`);
+        return 2;
+    }
+    const root: string | null = contextRoot(io);
+    if (root === null) return 1;
+    const result = restampInitiativeContext(defaultRunner, root, issue, accept);
+    if (!result.ok) {
+        io.stderr(`initiative-context ${result.problem}: ${result.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify(result));
     return 0;
 }
