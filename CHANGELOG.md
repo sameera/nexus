@@ -19,6 +19,15 @@ behaviour says so.
   `epic-resolve` stops with `is-a-feature`, and `close` stops saying the issue is filed as a feature,
   and both ask for one of the epics related to it. Before, a feature issue with no parent would have
   resolved as an epic with no stories.
+- **`/nxs.epic` files a feature issue for a new feature in an opted-in repository.** Before the
+  digest it looks for the feature's issue, and the digest and the stubs consent say whether a new one
+  will be filed or which existing one is used. After approval the feature issue is filed first, open,
+  titled with the feature name and holding the capability statement, before the epic and any stub.
+  A repeated run reuses it. A feature that already has a README gets no feature issue yet, and two
+  issues recording the same feature stop the run with nothing filed. A repository that files by issue
+  type and declares no `feature-type` gets one line saying so, and the epic is filed as before.
+- **New verb: `nexus feature-issue`.** `lookup` finds a feature path's issue; `work-item` writes the
+  work item a new one is filed from.
 
 ## 0.137.0
 

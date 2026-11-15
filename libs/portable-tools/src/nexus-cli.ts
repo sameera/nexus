@@ -110,6 +110,7 @@ import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { cleanupDeps, runDistillCleanup } from "./distill-cleanup.js";
 import { distillDeps, runDetachedFromEnv, runDistillCommand, type DistillHarness, type DistillTarget } from "./distill-command.js";
 import { EXCLUDED_STORES, excludePathspecs } from "@nexus/workspace/pipeline-stores";
+import { FEATURE_ISSUE_SUBVERBS, FEATURE_ISSUE_USAGE, runFeatureIssue } from "./feature-issue-cli.js";
 import { INITIATIVE_CONTEXT_SUBVERBS, INITIATIVE_CONTEXT_USAGE, runInitiativeContext } from "./initiative-context-cli.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
@@ -796,6 +797,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      than writing the paths out, so no second statement of it can drift.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
+    },
+    "feature-issue": {
+        summary: "Find a feature's issue and write the work item a new one is filed from.",
+        usage: FEATURE_ISSUE_USAGE,
+        subverbs: FEATURE_ISSUE_SUBVERBS,
+        run: (argv, io) => runFeatureIssue(argv, io),
     },
     "initiative-context": {
         summary: "Locate, check and read the planning context an initiative keeps on its issue.",

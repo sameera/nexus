@@ -17,3 +17,13 @@
 - **Choice:** The manifest's `github:` block accepts a YAML boolean for `features-as-issues` and stores it as the text `true`.
 - **Why:** A lead writes `features-as-issues: true`, which YAML reads as a boolean; the rule for every other key (non-empty string) would refuse it.
 - **Refuted alternative:** Require the quoted spelling `"true"` on a hub.
+
+## 2026-11-15 — Feature listing reads the REST issues endpoint
+- **Choice:** `nexus feature-issue lookup` lists feature issues with `gh api repos/<repo>/issues?state=all&labels=…` (or `type=…`), paginated.
+- **Why:** D5 asks for a direct listing that skips the search index, and the REST endpoint filters by label and by issue type alike.
+- **Refuted alternative:** `gh issue list --search`, which goes through the search index and misses an issue filed moments earlier.
+
+## 2026-11-15 — The feature batch reuses the initiative's filing shape
+- **Choice:** The feature issue is filed by `nexus create-story` on its own folder with `--classification-label/--classification-type` set to the feature marker and `--keep-manifest`; the filer is unchanged.
+- **Why:** The classification flags already let one batch carry a non-story marker, as the initiative batch does, and the kept ledger gives the repeat-reuse D6 needs.
+- **Refuted alternative:** A feature-specific mode in the filer.

@@ -214,6 +214,38 @@ nexus planning-dir ensure --name "nxs-epic-${RUN_NAME}"
 
 It creates (or, on a resume, reuses) the folder and prints `{ path }`. Capture that as **`RUN_DIR`**. It is repository-relative, under the gitignored `.nexus/tmp/planning/`, never renamed once created, and every later phase in this run reads and writes inside it and nowhere else.
 
+### Feature issue lookup
+
+Look up the feature issue once for each distinct feature path the run files under (discovery mode can give stubs different features), once `RUN_DIR` exists and before the Phase 2 gate. The command applies the opt-in, the marker and the lookup order itself; never decide any of them here:
+
+```bash
+nexus feature-issue lookup --feature-path "<feature-path>" \
+    --ledger "${RUN_DIR}/feature/.nxs-created.json"
+```
+
+It prints `{ outcome, line, ... }`. Keep `line` for the digest and the stubs consent text, and act on `outcome`:
+
+- **`off`**: the repository has not opted in. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
+- **`no-marker`**: opted in, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
+- **`file-new`**: no feature issue and no feature README. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
+- **`reuse`**: `issue` is the feature issue to use, open or closed as `state` says. File no feature issue.
+- **`unmigrated`**: the feature has a README and no feature issue. File none, and name none on the epic or the stubs.
+
+A non-zero exit (`ambiguous`, `not-a-feature`, or a listing GitHub did not answer) stops the run: report the stderr line and **file nothing**. Never file a feature issue by hand to get past it.
+
+**The feature batch.** On `file-new`, only after the lead approved the epic (Phase 6) or consented to the stubs (Phase 2b), and before the epic, any initiative and any stub, write the work item and file it as its own one-item batch with a kept ledger:
+
+```bash
+nexus feature-issue work-item --name "<Feature Name>" --statement "<one-line capability statement>" \
+    --feature-path "<feature-path>" --dir "${RUN_DIR}/feature"
+nexus create-story "${RUN_DIR}/feature" \
+    --classification-label "<label>" \
+    --classification-type "<type>" \
+    --keep-manifest
+```
+
+The work item has no parent and no labels, so the issue carries only the feature marker. It is filed open, into the epic repository, and no stage ever closes it. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
+
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
 Before generating any epic content, assess the scope yourself using the rubric below. This is a judgment step. Read `<docs-root>/product/context.md` and `<docs-root>/system/stack.md` (the `<docs-root>` resolved in Phase 0) if present, to calibrate against existing patterns.
@@ -387,6 +419,8 @@ Declining needs no reason and is not an error. Do not ask why, and do not argue 
 
 **An attached plan with no initiative.** A plan is kept only when an initiative is filed. When a plan is attached and no initiative is filed, the plan was kept nowhere, and the run says so in its completion report: "the attached plan <PLAN_NAME> was kept nowhere, because no initiative was filed". That holds when the lead declines the initiative with a flat choice, when this repository cannot mark an initiative, on a one-goal split, and when the scope fits a single epic (`proceed`, `full`, or a scope sized M or smaller that never reached a split).
 
+**The feature line.** When the feature issue lookup printed a non-empty `line`, show it above the options and repeat it in the description of every `split` and `stubs` option, so the stubs consent covers whether a new feature issue is filed or which existing one is used.
+
 **Do NOT proceed without an explicit choice.** Nothing is created on GitHub before it, and no context is kept anywhere before it.
 
 - **proceed** (L) → Phase 3, and include the utilization-risk banner in the epic.
@@ -450,7 +484,9 @@ The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for 
 
     Hold this text as `GIST_BODY_<NN>`. Step 5 writes **the same text**, unedited, a second time as a comment.
 
-4. **File the batch** through the shared filer, classified as an **epic** rather than a story:
+4. **File the feature batch first, when the lookup answered `file-new`** (see "Feature issue lookup" in Phase 1). It runs before the initiative, when there is one, and before the stubs.
+
+    **Then file the batch** through the shared filer, classified as an **epic** rather than a story:
 
     ```bash
     nexus create-story "${RUN_DIR}" \
@@ -719,6 +755,8 @@ Then render the digest:
 
 <the one-line capability statement recorded in Phase 1 (the README is not written yet)>
 
+<when the feature issue lookup printed a non-empty `line`, that line, verbatim>
+
 # Proposal
 
 ## <Epic Title>   ·   complexity: <S|M|L|XL>
@@ -905,6 +943,8 @@ A non-zero exit stops the run: **file nothing**, fix the derived body, and re-as
 Because the derived file is rebuilt each run, the epic issue number is recorded on the labelled `epic.md`, not on the derived file. Step 1 says how.
 
 Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this one step. There is no separate task command. The story is the implementation unit (0009), so each story becomes one GitHub issue, child of the epic issue.
+
+0. **File the feature batch, when the lookup answered `file-new`** (see "Feature issue lookup" in Phase 1), before the epic issue. A repeat reuses the issue the batch's ledger records.
 
 1. **Create (or reuse) the epic issue (idempotent).** If `${DRAFT_DIR}/epic.md`'s frontmatter already carries `link`, the epic issue was filed in a prior run of this command: **reuse that number; do not create a second epic issue** (Success Metric / AC: a re-run reuses the recorded number). Otherwise:
 
