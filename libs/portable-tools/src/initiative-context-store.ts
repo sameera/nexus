@@ -170,6 +170,39 @@ export function parseContextFromBody(body: string): BodyContext {
     return { kind: "none" };
 }
 
+/** The context record a body carries outside its collapsed block, or null when it has none or it is garbled. */
+export function readContextRecord(body: string): Record<string, unknown> | null {
+    const text: string = body.replace(/\r\n?/g, "\n");
+    const block: ContextBlockBounds | null = contextBlockBounds(text);
+    const outside: string = block === null ? text : text.slice(0, block.start) + text.slice(block.stop);
+    const m: RegExpExecArray | null = RECORD_PATTERN.exec(outside);
+    if (m === null) return null;
+    try {
+        const parsed: unknown = JSON.parse(m[1]);
+        return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * The body (as LF text) with its context record replaced by `record`, leaving the collapsed context
+ * and every other line as they are. Null when the body has no record outside the block.
+ */
+export function replaceContextRecord(body: string, record: Record<string, unknown>): string | null {
+    const text: string = body.replace(/\r\n?/g, "\n");
+    const line: string = `<!-- nexus:context-record ${JSON.stringify(record)} -->`;
+    const block: ContextBlockBounds | null = contextBlockBounds(text);
+    const segments: [string, string, string] = block === null ? [text, "", ""] : [text.slice(0, block.start), text.slice(block.start, block.stop), text.slice(block.stop)];
+    for (const i of [0, 2]) {
+        if (RECORD_PATTERN.test(segments[i])) {
+            segments[i] = segments[i].replace(RECORD_PATTERN, () => line);
+            return segments.join("");
+        }
+    }
+    return null;
+}
+
 /** The body with its collapsed context block and its hidden record removed. */
 export function withoutContext(body: string): string {
     // The reader works on LF text, so the text it returns and digests has one line-break style.
@@ -203,6 +236,8 @@ export function replaceStubRefs(body: string, numbers: Record<string, number>): 
 
 export interface IssueComment {
     id: number;
+    /** The GraphQL node id, which reads the comment's edit history. */
+    nodeId: string;
     body: string;
     author: string;
     association: string;
@@ -219,6 +254,7 @@ export function fetchComments(run: Runner, cwd: string, slug: RepoSlug, issue: n
             ok: true,
             comments: flat.map((c) => ({
                 id: Number(c.id),
+                nodeId: String(c.node_id ?? ""),
                 body: String(c.body ?? ""),
                 author: String((c.user as { login?: string } | undefined)?.login ?? ""),
                 association: String(c.author_association ?? ""),

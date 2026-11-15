@@ -5,28 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.135.3
-
-- **Stages read shared account templates.** Setup and decision-record use
-  `~/.agents/common/templates/` instead of project-local `.nexus/config/templates/`.
-  `nexus seed-templates` seeds the shared folder regardless of the current repository.
-
-## 0.135.2
-
-- **Codex implementation sessions start with automatic review.** The launcher uses
-  `--approve-for-me` to select workspace-write without also passing the conflicting `--sandbox`
-  option. Explicit alternative sandbox modes still use `--sandbox`.
-
-## 0.135.1
-
-- **Codex implementation stages can reach GitHub.** `nexus implement` enables outbound network
-  access in its workspace-write sessions, including analyze and fix rounds, so unattended runs
-  do not stop at epic resolution with a sandbox socket denial.
-- **Codex implementation approvals use automatic review.** Workspace-write stages pass
-  `--approve-for-me`, allowing unattended approval review during implementation, analyze and fix
-  rounds. Explicit alternative sandbox modes keep their selected policy.
-
-## 0.135.0
+## 0.139.0
 - **Windows supports the Codex harness.** The package accepts Windows installs, generated Codex
   skills for epic, decision-record, analyze, close and distill bind shell examples to PowerShell,
   and `nexus implement` selects Codex by default on Windows.
@@ -43,6 +22,74 @@ behaviour says so.
   a new page when Windows TEMP uses a short path. It also accepts concept pages saved with CRLF.
 - **Analyze, close and distill reuse Windows worktrees correctly.** Worktree registration compares
   the resolved filesystem paths, and configured worktree bases accept the Windows home-path form.
+- **Codex implementation sessions start with automatic review.** The launcher uses
+  `--approve-for-me` to select workspace-write without also passing the conflicting `--sandbox`
+  option. Explicit alternative sandbox modes still use `--sandbox`.
+
+
+- **Codex implementation stages can reach GitHub.** `nexus implement` enables outbound network
+  access in its workspace-write sessions, including analyze and fix rounds, so unattended runs
+  do not stop at epic resolution with a sandbox socket denial.
+- **Codex implementation approvals use automatic review.** Workspace-write stages pass
+  `--approve-for-me`, allowing unattended approval review during implementation, analyze and fix
+  rounds. Explicit alternative sandbox modes keep their selected policy.
+
+## 0.138.0
+
+- **An edited initiative context can be accepted instead of reverted.** `/nxs.decision-record` and
+  `/nxs.epic` used to stop on a changed context and tell you to edit it back to its filed text. Now,
+  when you are there to answer, they show you what changed since filing and who changed it, and ask
+  whether to accept it. Accepting rewrites only the context's hidden record, so later runs read the
+  edited context and do not ask again. Declining stops the run as before. The same check runs
+  directly as `nexus initiative-context restamp --issue <initiative>`, which previews the change,
+  and `--accept <token>` with the preview's token, which records it.
+- **Only an edit by someone with write access can be accepted.** An edit by anyone else, a missing
+  part, an unreadable edit history, or a context that changed again after the preview still stops
+  the run, naming why.
+- **The changed-context stop names `restamp`.** `nexus initiative-context lookup` now names the
+  restamp command as the way to accept a deliberate edit, and the edit history as the way to restore
+  an accidental one.
+
+## 0.137.0
+
+- **Breaking: `nexus seed-templates` is retired.** With or without arguments it writes nothing,
+  says that templates are read from the installed release, names `nexus template-path`, and exits
+  non-zero, so a script that still calls it notices. Remove the call.
+- **Existing template folders are left in place, no longer read, and may be deleted.** No stage
+  reads the decision-record or standards templates from a repository's `.nexus/config/templates/`
+  folder any more. The folder's other files, such as the workspace and hub templates, are read and
+  written as before.
+- **A release always ships every template a stage asks for.** The release build now stops when a
+  stage asks `nexus template-path` for a template the release does not ship, or reads a release
+  template from a repository's template folder.
+
+## 0.136.0
+
+- **`/nxs.setup` generates standards from the template in the installed release.** It asks
+  `nexus template-path` for the standards template in its prerequisites, before it writes anything,
+  and stops with the lookup's message if the lookup fails. A failed lookup now stops the whole
+  setup run, not only the standards step.
+- **Setup no longer seeds templates into the repository.** It runs no seeding step, creates no
+  `.nexus/config/templates/` folder, and its completion report names no template step. A template
+  folder a repository already holds is left exactly as it is.
+
+## 0.135.0
+
+- **`/nxs.decision-record` now drafts from the templates in the installed release.** It asks
+  `nexus template-path` for the approval-first template, or for the old-format template when it
+  revises a record approved in that format. A repository needs no template folder of its own, and
+  a template change reaches every repository with the next release.
+- **Breaking: a repository's own decision-record template copies are no longer read.** The copies
+  under `.nexus/config/templates/` stay where they are, but local edits in them no longer apply, and
+  nothing at run time says so. Carry any tuning you depend on into a request to change the release
+  template.
+- **The stage no longer stops on a stale template copy.** The checks for a copy without a
+  Guarantees section, for a copy with its sections out of order, and for a missing old-format copy
+  are gone, and so is the advice to move a copy aside and seed again. The stage now stops only when
+  the template lookup fails or prints nothing, and reports why.
+- **New: `nexus template-path <name>`** prints where the installed release keeps a stage template.
+  On a maintainer's pointer install it answers from the checkout, so a template edit is live with no
+  rebuild. It never answers from the repository and never falls back to another source.
 
 ## 0.134.0
 

@@ -23,8 +23,8 @@ and guarantees must hold across every story; that is what coverage means. The **
 of *implementation* and of the GitHub issue (0009), and there is no task layer below it. The story is
 not the unit of design. Read all stories together and design for the epic.
 
-You delegate the analysis to the `nxs-architect` agent, then format its output into the seeded
-decision-record template and file it as the record sub-issue. For an old-contract epic that has a
+You delegate the analysis to the `nxs-architect` agent, then format its output into the
+decision-record template the installed release ships, and file it as the record sub-issue. For an old-contract epic that has a
 committed queue entry, write the record into that entry as before.
 
 **Finish line:** the record is filed as a sub-issue of the epic, closed as approved or left open
@@ -273,11 +273,17 @@ the same lookup stub planning uses:
 nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-context.md"
 ```
 
-- **Non-zero exit → stop before drafting and report the diagnostic verbatim.** The lookup reads the
-  initiative issue only, never the checkout. `context-missing` and `context-changed` name the
-  initiative and the part that is missing or was changed after filing (an edited part is restored by
-  editing it back to its filed text); `comments-unreadable` means its comments could not be read;
-  `legacy-folder` means its body still names a context folder, which must be moved onto the issue.
+- **`context-changed` → ask the lead to accept or restore.** The diagnostic names the initiative. Preview the edit:
+
+  ```bash
+  nexus initiative-context restamp --issue <initiative>
+  ```
+
+  Show the lead every change it prints: the part (or the body), the editors, and the diff. When `baseline` is `not-found`, say that the filed version is no longer in the edit history, so the diff shows the whole context as new. Ask once: accept the edited context, or stop and restore it. On accept, run `nexus initiative-context restamp --issue <initiative> --accept <token>` with the preview's token, run the lookup again, and continue from its result. On stop, or when no lead can be asked, stop before drafting and report the diagnostic verbatim. A non-zero restamp exit (an editor without write access, a missing part, an unreadable history, or a context that changed after the preview) stops the run the same way; report it verbatim.
+- **Any other non-zero exit → stop before drafting and report the diagnostic verbatim.** The lookup
+  reads the initiative issue only, never the checkout. `context-missing` names the initiative and the
+  part that is missing; `comments-unreadable` means its comments could not be read; `legacy-folder`
+  means its body still names a context folder, which must be moved onto the issue.
 - **`no-initiative`**: the epic has no initiative above it. Continue exactly as today: no new prompt,
   no new question, and **no empty section** anywhere in the record. Skip the rest of this phase.
 - **`body-only`**: say that no additional context was found. Keep the initiative's body, which the
@@ -286,7 +292,8 @@ nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-c
   and name each comment the lookup ignored on stderr with its author. Keep
   `${QDIR}/initiative-context.md`, the initiative's body and its context, as **`INITIATIVE_CONTEXT`** for Phase 1.
 
-**This command never edits the initiative or its context,** and copies no part of the context
+**This command never edits the initiative or its context,** except the restamp the lead accepts
+above, which rewrites only the context's record. It copies no part of the context
 into the record or a comment. A decision the context settled is restated in the record's own words,
 with its reasoning.
 
@@ -325,7 +332,7 @@ Invoke `nxs-architect` in **decision-record mode**. The architect produces the d
 the "why", not a 16-section document.
 
 **Choose the record's template before the call** (Phase 3 step 1). The choice tells the architect
-which format to return, and a stale seeded template stops the run there, before any analysis is
+which format to return, and a failed template lookup stops the run there, before any analysis is
 spent.
 
 **Import mode (`--from`):** pass `IMPORT_DOC` (Phase 0.5) as the FIRST, authoritative input and tell
@@ -459,33 +466,33 @@ Not "closure instantiates the entry, whose subsequent ingestion populates the st
 creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
 machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
-1. **Choose the template, then read it.** Both are shared account copies under
-   `~/.agents/common/templates/`. Resolve `~` to the user home directory (on Windows,
-   `$env:USERPROFILE`); never resolve this path relative to the current project.
+1. **Choose the template, ask the installed release where it is, then read it.** Templates come
+   from the installed release, through the template lookup, and never from a copy in this
+   repository. Read the template only at the path the lookup prints, never at a path you build
+   yourself, such as one under `common/templates/`.
 
-    - **Every record, by default:** `~/.agents/common/templates/decision-record-template.md`, the
-      approval-first format.
+    - **Every record, by default:** the approval-first format.
+
+        ```bash
+        TEMPLATE="$(nexus template-path decision-record-template.md)"
+        ```
+
     - **A `--revise` of a record approved in the old format:** its approved body
       (`gh issue view <record> $REPO_ARG --json body --jq .body`, or the committed
       `decision-record.md` on the old-contract path) has a `## Constraints & Invariants` section and
-      no `## Guarantees` section. Draft the revision from
-      `~/.agents/common/templates/decision-record-template-v1.md`, and tell the architect in Phase 1
-      that the record is in the old format. A revision keeps the format its record was approved in.
-      The checkpoint marks the approved lines as frozen by matching their text, and a record
-      converted to the new format would match none of them.
+      no `## Guarantees` section. Draft the revision from the old-format template, and tell the
+      architect in Phase 1 that the record is in the old format. A revision keeps the format its
+      record was approved in. The checkpoint marks the approved lines as frozen by matching their
+      text, and a record converted to the new format would match none of them.
 
-    For the default template, verify it keeps the approval-first section order: How it works,
-    Approval brief, Guarantees, Risks and dependencies, Concept-store changes, and Design
-    rationale and mechanism. A template with those headings out of order stops the draft; move the old copy
-    aside, run `nexus seed-templates`, then carry local tuning into the new copy. This check matters
-    even when the Guarantees heading exists, because a reordered brief can hide the approval surface
-    below the appendix.
+        ```bash
+        TEMPLATE="$(nexus template-path decision-record-template-v1.md)"
+        ```
 
-    If the default template has no `## Guarantees` section, it is a copy seeded before the
-    approval-first format shipped, because seeding never overwrites the account's copy. Stop and say
-    so: the lead moves that copy aside, runs `nexus seed-templates`, and carries any local tuning
-    over into the new copy. If the old-format template is needed and absent, stop and name
-    `nexus seed-templates` as the remedy; it adds only the templates the account does not have.
+    If the lookup exits non-zero or prints nothing, stop and report the lookup's message, and draft
+    nothing. Printing nothing means the `nexus` on the path predates the template lookup; the remedy
+    is to upgrade the release, or for a maintainer to rebuild it. Do not look for the template
+    anywhere else.
 2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
    and selects the **required-section tier**. Apply the tier explicitly, not as a heuristic. If
    `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta`
@@ -498,7 +505,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 
     The **Approval brief appears at every size whenever any of its groups has an entry**, because it
     is a list fixed by rule and a tier cannot make it optional. At L or XL an empty brief states
-    why, like any other empty section. Concept-store changes is present in every new-format record at every size: it opens with the pages-read sentence, then lists the changes the design makes to concept-store statements. The rule lives here, not in the template, so a project's seeded template copy keeps working.
+    why, like any other empty section. Concept-store changes is present in every new-format record at every size: it opens with the pages-read sentence, then lists the changes the design makes to concept-store statements. The rule lives here, not in the template.
 
     An old-format revision keeps the old tiers: **Key Decisions** and **Constraints & Invariants**
     at S or M, and every section at L or XL.

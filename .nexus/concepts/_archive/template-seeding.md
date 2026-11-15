@@ -1,9 +1,9 @@
 ---
 title: "Template Seeding"
 aliases: ["seed templates", "seed-never-clobber", "template masters", "tool-agnostic templates", "repo-bound seeding", "whole set or none"]
-touches: ["nexus-setup-cli", "shipped-payload", "install-location", "durable-close-record", "checkout-only-path-gate"]
-last_updated_by: "#258"
-status: active
+touches: []
+last_updated_by: "#1028"
+status: deprecated
 verification: verified
 ---
 
@@ -33,14 +33,14 @@ An existing destination is kept rather than overwritten, and reported separately
 
 ## Integration Points
 
-- [nexus-setup-cli](nexus-setup-cli.md) — carries the seeding step as its one repo-bound verb, and its judgment-owning counterpart runs it before reading a template.
-- [shipped-payload](shipped-payload.md) — carries the template masters as a third part, so a seed reads what the adopter installed.
-- [install-location](install-location.md) — the account-scoped placement seeding sits beside; templates belong to a repository, so they are never written there.
-- [durable-close-record](durable-close-record.md) — the close stage reads a seeded template it may have tuned, and stops rather than falls back when it is absent.
-- [checkout-only-path-gate](checkout-only-path-gate.md) — keeps the removed fallback from returning, by refusing any shipped body that reads the source checkout's master set.
+None. This page is retired.
 
 ## Decision Log
 
 ### 2026-08-28 — #258 — Seeding is its own repo-bound step, and it seeds the whole set or none of it
 
 The templates the stages read had no way to arrive: the gap was hidden only by the Nexus checkout, where they happen to be present, so every adopter's decision-record stage had no template and the close stage reached for a master that ships in no release. Seeding became its own repo-bound step rather than part of the account-scoped component placement, because that placement writes once per account at a location no repository owns and would have to guess which repository to seed, while the templates are a project resource; making it a separate step also satisfies both readings the epic left open, since the setup stage runs it and an adopter wanting only the templates can run it directly. The set is validated whole before anything is written, and seeding an existing template is refused rather than skipped silently, with kept and written reported apart. Refuted: seed what is present and warn about the rest, which converts a loud failure into a quiet one — a half-seeded configuration leaves a stage reading a file nothing will ever place, the exact failure this work removes.
+
+### 2026-11-14 — #1028 — Retired: stages read templates from the installed release
+
+Seeding placed a first copy of each template into the repository and never overwrote it, so a copy seeded before a template changed kept the old shape for good, and the decision-record stage had to detect the stale copy and stop. The stages now ask the installed release for a template by name, so no repository needs a copy and nothing is seeded. The seeding verb keeps its name only to refuse: with or without arguments it writes nothing, says that templates are read from the installed release, names the lookup, and exits non-zero, so a script that still calls it notices. A template folder a repository already holds is left in place and is no longer read, and local edits in it stop applying. The Nexus repository deleted its own copies of the three stage templates, because they were already stale. Refuted: a refusal that exits zero, which keeps old scripts working but tells a script that a step which no longer does anything still succeeded. The behaviour now lives on the release template lookup page, and this page's edges to the active store were removed with it.

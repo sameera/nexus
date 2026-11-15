@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input", "initiative-context"]
-last_updated_by: "#850"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input", "initiative-context", "release-template-lookup"]
+last_updated_by: "#1028"
 status: active
 verification: verified
 ---
@@ -51,6 +51,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [approval-brief](approval-brief.md) — the record's opening section, which places each ADDRESS risk in one group by who delivers its mitigation.
 - [hld-build-input](hld-build-input.md) — reads the newest trusted HLD comment on this record, and the record stays binding over the page it links.
 - [initiative-context](initiative-context.md) — read before analysing, as decisions already settled; a settled decision with no reasoning becomes an open clarification.
+- [release-template-lookup](release-template-lookup.md) — supplies the template every record is drafted from; the stage stops when the lookup fails.
 
 ## Decision Log
 
@@ -119,3 +120,7 @@ Mechanical reciprocity fan-out: the unattended implement command now reads the n
 ### 2026-11-09 — #850 — Reciprocal link from initiative-context
 
 Mechanical reciprocity fan-out: the design stage now reads an initiative's kept context before analysing, the way it reads a discovery's marked comment, and states each settled decision with its reasoning. The epic wins a disagreement, and the record names the departure.
+
+### 2026-11-14 — #1028 — Reciprocal link from release-template-lookup
+
+Mechanical reciprocity fan-out. The decision-record stage now drafts from the template the installed release returns, the old-format one for a revision of an old-format record, and stops when the lookup fails or returns nothing. Its checks for a stale repository copy are gone. Nothing about the record's own life as a sub-issue changed.

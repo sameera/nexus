@@ -11,11 +11,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { SEEDED_TEMPLATES } from "./seed-templates";
+import { RELEASE_TEMPLATES } from "./template-lookup";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 const MASTER_DIR: string = path.join(REPO_ROOT, "common", "templates");
-const PROJECT_DIR: string = path.join(REPO_ROOT, ".nexus", "config", "templates");
 const NEW_TEMPLATE = "decision-record-template.md";
 const OLD_TEMPLATE = "decision-record-template-v1.md";
 
@@ -45,7 +44,6 @@ function section(template: string, name: string): string {
 
 const TEMPLATES: [string, string][] = [
     ["the master", path.join(MASTER_DIR, NEW_TEMPLATE)],
-    ["the project copy", path.join(PROJECT_DIR, NEW_TEMPLATE)],
 ];
 
 describe.each(TEMPLATES)("%s of the record template (D1)", (_label: string, file: string) => {
@@ -169,13 +167,12 @@ describe("a revision re-groups an approved record's risks (epic #934, story #936
 
 describe("the old-format record template (D11)", () => {
     it("ships beside the new one, so a revision of an old-format record has its template", () => {
-        expect(SEEDED_TEMPLATES).toContain(NEW_TEMPLATE);
-        expect(SEEDED_TEMPLATES).toContain(OLD_TEMPLATE);
+        expect(RELEASE_TEMPLATES).toContain(NEW_TEMPLATE);
+        expect(RELEASE_TEMPLATES).toContain(OLD_TEMPLATE);
     });
 
     it.each([
         ["the master", path.join(MASTER_DIR, OLD_TEMPLATE)],
-        ["the project copy", path.join(PROJECT_DIR, OLD_TEMPLATE)],
     ])("keeps the old sections in %s", (_label: string, file: string) => {
         const sections: string[] = headings(read(file), "##");
         expect(sections).toContain("Key Decisions");
@@ -185,7 +182,7 @@ describe("the old-format record template (D11)", () => {
 
     it("is what the stage drafts a revision of a record approved in the old format from", () => {
         const stage: string = component("commands/nxs.decision-record.md").replace(/\s+/g, " ");
-        expect(stage).toContain(`~/.agents/common/templates/${OLD_TEMPLATE}`);
+        expect(stage).toContain(`nexus template-path ${OLD_TEMPLATE}`);
         expect(stage).toMatch(/approved in the old format/i);
     });
 });

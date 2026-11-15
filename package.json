@@ -1,6 +1,6 @@
 {
     "name": "@sameeraperera/nexus",
-    "version": "0.135.3",
+    "version": "0.139.0",
     "description": "A System of Intentional Friction for the Age of AI Agents",
     "license": "ISC",
     "repository": {
@@ -81,8 +81,8 @@
         "@swc/core": "~1.15.5",
         "@swc/helpers": "~0.5.18",
         "@types/node": "^22.0.0",
-        "@vitest/coverage-v8": "~4.1.0",
-        "@vitest/ui": "~4.1.0",
+        "@vitest/coverage-v8": "~4.1.12",
+        "@vitest/ui": "~4.1.12",
         "esbuild": "^0.28.1",
         "eslint": "^9.8.0",
         "eslint-config-prettier": "^10.0.0",
@@ -96,6 +96,6 @@
         "typescript": "~5.9.2",
         "typescript-eslint": "^8.40.0",
         "vite": "^8.0.0",
-        "vitest": "~4.1.0"
+        "vitest": "~4.1.12"
     }
 }

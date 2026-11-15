@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding", "pipeline-store-exclusion", "multi-pr-close", "shipped-ledger"]
-last_updated_by: "#769"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "pipeline-store-exclusion", "multi-pr-close", "shipped-ledger"]
+last_updated_by: "#1028"
 status: active
 verification: verified
 ---
@@ -34,7 +34,6 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [record-digest](record-digest.md) — the approved-body hash stamped in full beside the record reference.
 - [backlog-stub](backlog-stub.md) — the deferred-scope issues filed before this comment is composed, whose numbers and backlog query it then carries.
 - [writer-stamp](writer-stamp.md) — the record of which release wrote this comment's block and the mirrored file, placed beside the record hash rather than inside it.
-- [template-seeding](template-seeding.md) — places the close-record template this stage fills; the stage now stops on its absence rather than falling back.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — close derives its deviation rationale from a diff withholding every member.
 - [multi-pr-close](multi-pr-close.md) — supplies the list-shaped range and every waived story this comment carries onto the epic issue.
 - [shipped-ledger](shipped-ledger.md) — the records the stamped range originates in, one per merged pull request.
@@ -76,3 +75,7 @@ comment moved.
 
 Mechanical reciprocity fan-out: the shipped ledger names this comment as where its range is stamped
 durably, so a reader arriving at either page learns that the two carry the same revisions.
+
+### 2026-11-14 — #1028 — Reciprocal link removed: template-seeding retired
+
+Mechanical reciprocity fan-out. Template seeding was retired, so its edge is removed. The close record's shape already lives in code rather than in a seeded template, so this stage reads no template and gains no replacement edge.

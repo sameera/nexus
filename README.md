@@ -438,15 +438,17 @@ once inside each such repository. It removes the Nexus-namespaced files it finds
 
 For multi-repo workspaces, the same CLI declares and inspects the workspace: `nexus workspace init`, `nexus workspace status`, and `nexus workspace add-repo`. Workspace initialisation deploys no components — they come from the install location. After the components are installed, run `/nxs.setup` inside a repo for the per-repo judgment pass (stack docs, standards, product context).
 
-## Shared templates the stages read
+## The templates the stages read
 
-Two stages — setup and `/nxs.decision-record` — read a template out of the shared account configuration, under `~/.agents/common/templates/`. `/nxs.setup` places them for you by running
+Two stages, setup and `/nxs.decision-record`, read a template: the standards template, and the decision-record templates. They are read from the installed release, so a repository needs no template files of its own, and a template change reaches every repository with the next release. A stage asks for a template by name:
 
 ```bash
-nexus seed-templates
+nexus template-path decision-record-template.md
 ```
 
-The masters travel inside the package, so this works in a repository that has never been a Nexus checkout. It seeds only what is absent: a template you have tuned is never overwritten, and re-running it adds anything a later release introduced without touching your edits. Run it directly if you want the templates without a full setup pass. The folder is shared by Claude and Codex across projects. On Windows, `~` is `%USERPROFILE%`. Use `--target <home>` only to seed another account home.
+It prints where the installed release keeps that template. It never answers from the repository and never falls back to another source; if the release lacks the template, it exits non-zero and says where it looked.
+
+`nexus seed-templates` is retired. It writes nothing and exits non-zero. A `.nexus/config/templates/` folder a repository already holds is left in place and is no longer read, so you may delete the decision-record and standards templates in it.
 
 # Upgrading
 

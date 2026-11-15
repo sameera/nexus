@@ -1,8 +1,8 @@
 ---
 title: "Install Location"
 aliases: ["one component set per account", "configuration directory", "account-scoped install", "install location resolution", "explicit placement verb"]
-touches: ["component-mirror", "component-migration", "environment-guard", "nexus-setup-cli", "published-package", "pointing-install", "release-identity", "template-seeding"]
-last_updated_by: "#258"
+touches: ["component-mirror", "component-migration", "environment-guard", "nexus-setup-cli", "published-package", "pointing-install", "release-identity", "release-template-lookup"]
+last_updated_by: "#1028"
 status: active
 verification: verified
 ---
@@ -37,7 +37,7 @@ Placement is a deliberate verb rather than a package lifecycle step, because suc
 - [published-package](published-package.md) — installing the package delivers the payload; this location is where the explicit second step puts it.
 - [pointing-install](pointing-install.md) — the second of this location's two contents, split out from this page: pointers at a maintainer's checkout rather than a copied release.
 - [release-identity](release-identity.md) — the release read-out that reports this location and its content, so an owner sees what is present without inspecting the files.
-- [template-seeding](template-seeding.md) — the repo-bound placement this account-scoped one sits beside; a project's templates are never written here.
+- [release-template-lookup](release-template-lookup.md) — reads this location to choose where a template comes from, and refuses when it cannot be read; templates are never copied here.
 
 ## Decision Log
 
@@ -52,3 +52,7 @@ This page reached its capacity on its own content, and the half under pressure w
 ### 2026-08-28 — #258 — Reciprocal link from template-seeding
 
 Mechanical reciprocity fan-out: the template-seeding page names this account-scoped location as the placement it deliberately sits beside, because a location serving every repository cannot own a resource that belongs to one. Nothing about this location changed.
+
+### 2026-11-14 — #1028 — Reciprocal link from release-template-lookup, replacing template-seeding
+
+Mechanical reciprocity fan-out. Template seeding was retired, so its edge is removed. The release template lookup reads this location to decide whether a template comes from the running release or from a pointed-at checkout, and it refuses when the location cannot be read. Nothing about this location's own resolution or content changed.

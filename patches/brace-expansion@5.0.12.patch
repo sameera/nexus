@@ -1,0 +1,22 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+index 48cf0d3dabc885249c65909c4912712c834786f5..522e170286aefc819e106aa3b02f6fde0e92332a 100644
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -331,3 +331,7 @@ function expand_(str, max, maxLength, maxDepth, depth, maxRewrites, isTop) {
+     return acc;
+ }
+ //# sourceMappingURL=index.js.map
++// Nexus compatibility: minimatch 3.x requires a callable default export.
++const __namespace = Object.assign({}, exports);
++module.exports = __namespace.expand;
++Object.assign(module.exports, __namespace);
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index 0e0cc962307eb697dc8139ef4c1f86b82380e5cc..16175a30dfda033d991612fce7275a9237fbc8d6 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -327,3 +327,5 @@ function expand_(str, max, maxLength, maxDepth, depth, maxRewrites, isTop) {
+     return acc;
+ }
+ //# sourceMappingURL=index.js.map
++// Nexus compatibility: minimatch 3.x requires a callable default export.
++export default expand;
