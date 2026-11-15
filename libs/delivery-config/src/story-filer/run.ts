@@ -79,7 +79,7 @@ export function runCreateStory(
     // A named feature issue must read as a feature before anything exists (decision record #1010,
     // D8). It reads from GitHub only when an item names one.
     const legalFeatures: boolean = featureIssuesAreFeatures(
-        { items: ready.items, projectRoot: ready.projectRoot, issuesRepo: config.issuesRepo, runner: () => env.runnerFor(ready.projectRoot) },
+        { items: ready.items, projectRoot: ready.projectRoot, issuesRepo: config.featureRepo, runner: () => env.runnerFor(ready.projectRoot) },
         io,
     );
     if (!legalFeatures) return 1;
@@ -137,7 +137,7 @@ export function runCreateStory(
     const pass2: WireResult = wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
     const pass3: RewriteResult = rewritePass(pass1.created, refToNumber(pass1.created, ledger), platform, io);
     // After the ledger holds every issue, so a link step can never lose one (G23). Warn-only (G17).
-    featureLinkPass(ready.items, pass1.created, run, config.issuesRepo, io);
+    featureLinkPass(ready.items, pass1.created, run, config.featureRepo, io);
 
     const seeded: WriteReport = writeBackDecisions(ready.projectRoot, {
         classification: config.classification,

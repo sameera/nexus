@@ -38,9 +38,8 @@ describe("the manifest declares a publishable package (AC2, AC3)", () => {
         expect(manifest.private).toBeUndefined();
     });
 
-    it("publishes under the single version it declares, off its never-bumped initial value", () => {
+    it("publishes under the single semantic version it declares", () => {
         expect(manifest.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-        expect(manifest.version).not.toBe("1.0.0");
     });
 
     it("declares exactly the two toolkit names as binaries", () => {

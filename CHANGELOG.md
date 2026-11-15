@@ -5,8 +5,12 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.138.0
+## 1.0.0
 
+- **Nexus is 1.0.** From this release the version follows semantic versioning against how the
+  stages behave. A change that makes a lead run `epic`, `decision-record`, `analyze`, `close`,
+  `distill` or any other stage differently in a way that breaks a working pipeline raises the
+  major version, and its entry says what the lead has to do differently.
 - **A repository can opt in to features as issues.** Setting `features-as-issues: true` in the
   publishing settings, or in a hub's workspace defaults, switches it on. With the setting absent or
   not `true`, every stage behaves as before and no issue is read as a feature.
@@ -22,7 +26,7 @@ behaviour says so.
 - **`/nxs.epic` files a feature issue for a new feature in an opted-in repository.** Before the
   digest it looks for the feature's issue, and the digest and the stubs consent say whether a new one
   will be filed or which existing one is used. After approval the feature issue is filed first, open,
-  titled with the feature name and holding the capability statement, before the epic and any stub.
+  into the epic repository even when stories file elsewhere, titled with the feature name and holding the capability statement, before the epic and any stub.
   A repeated run reuses it. A feature that already has a README gets no feature issue yet, and two
   issues recording the same feature stop the run with nothing filed. A repository that files by issue
   type and declares no `feature-type` gets one line saying so, and the epic is filed as before.

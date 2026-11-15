@@ -42,3 +42,13 @@
 - **Choice:** Epic drafts and stub work items carry `feature_issue: "#N"`; stubs also carry a `feature issue` Meta line for promotion to read.
 - **Why:** The epic-meta block already round-trips the draft frontmatter, so the resolver returns it with no shape change (G14, G22).
 - **Refuted alternative:** A body line on the epic, which the resolver does not return as a field.
+
+## 2026-11-15 — Feature references resolve against the epic repository
+- **Choice:** The feature batch files with `--issues-repo <epic-repo>`, and the story filer resolves a bare `feature_issue:` against `epic-repo`, falling back to its own issues repository.
+- **Why:** Analyze DV1 on PR #1038: with split epic and story repositories the feature issue landed in the story repository, outside where lookup, the epic filer and the read-back look (G10, G9).
+- **Refuted alternative:** Writing `feature_issue` qualified as `owner/repo#N` on every stub, which leaves the feature issue itself filed in the wrong repository.
+
+## 2026-11-15 — Release as 1.0.0 and drop the never-bumped version guard
+- **Choice:** The epic ships as 1.0.0; `pack-release.spec.ts` no longer refuses the literal `1.0.0`.
+- **Why:** The lead declared features as issues a major change; the guard only caught the npm placeholder before the first real release, and the changelog-agreement check still pins the version.
+- **Refuted alternative:** Releasing 1.0.1 to sidestep the guard.

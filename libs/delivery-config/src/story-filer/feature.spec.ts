@@ -102,6 +102,31 @@ describe("create-story — stubs that name their feature issue", () => {
         expect(g.related["5"]).toContain(`${REPO}#100`);
     });
 
+    it("reads a bare feature reference in the epic repository when stubs file into another story repository (G9, G10)", () => {
+        const root: string = checkoutWith({
+            classification: "labels",
+            "story-repo": "acme/specs",
+            "epic-repo": REPO,
+            project: "none",
+            "features-as-issues": "true",
+        });
+        writeItem(root, "STORY-STUB-01.md", stub("STUB-01", 'feature_issue: "#5"\n'));
+        const g: Graph = graph();
+        const answer = graphAnswers(g);
+        const asked: string[] = [];
+        const gh = filingPlatform((args: string[]): RunResult | undefined => {
+            const repoArg: string | undefined = args.find((a) => a.startsWith("repo="));
+            if (repoArg !== undefined) asked.push(repoArg.slice(5));
+            if (repoArg !== undefined && repoArg !== "repo=tracker") return FAIL("Could not resolve to an Issue");
+            return answer(args);
+        });
+
+        expect(runCreateStory([scratch(root), "--classification-label", "epic"], recordingIo(root), gh.env)).toBe(0);
+        expect(asked.length).toBeGreaterThan(0);
+        expect(asked.every((r) => r === "tracker")).toBe(true);
+        expect(g.related["5"]).toBeDefined();
+    });
+
     it("makes no feature call for a batch that names no feature issue (G1)", () => {
         const root: string = repo();
         writeItem(root, "STORY-STUB-01.md", stub("STUB-01"));
