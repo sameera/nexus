@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.138.0
+
+- **A repository can opt in to features as issues.** Setting `features-as-issues: true` in the
+  publishing settings, or in a hub's workspace defaults, switches it on. With the setting absent or
+  not `true`, every stage behaves as before and no issue is read as a feature.
+- **A feature issue has its own marker.** An opted-in repository that files by label marks a feature
+  issue with the `feature` label, or the label `feature-label` declares. One that files by issue type
+  marks it with the type `feature-type` declares, and has no built-in type, so until it declares one
+  no issue is read as a feature. An issue that also carries the epic, story, decision-record or
+  initiative marker is read as that kind.
+- **`epic-resolve` and `close` refuse a feature issue as an epic.** Handed a feature issue's number,
+  `epic-resolve` stops with `is-a-feature`, and `close` stops saying the issue is filed as a feature,
+  and both ask for one of the epics related to it. Before, a feature issue with no parent would have
+  resolved as an epic with no stories.
+
 ## 0.137.0
 
 - **Breaking: `nexus seed-templates` is retired.** With or without arguments it writes nothing,

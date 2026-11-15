@@ -712,3 +712,74 @@ describe("resolveEpic — an initiative is never resolved as an epic (decision r
         expect(calls.some((args) => args.join(" ").includes("parent{number}"))).toBe(false);
     });
 });
+
+describe("resolveEpic — a feature issue is never resolved as an epic (decision record #1010, D4)", () => {
+    const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
+    const feature = (labels: string[], issueType?: string): FixtureGraph => ({
+        // A feature issue has no parent, so the pre-classification rule would resolve it as an epic.
+        epic: { number: 998, title: "Issue-Sourced Planning", body: "A capability.", labels, issueType },
+    });
+
+    it("refuses an issue read as a feature, naming it as a feature, on every path (G7)", () => {
+        const root: string = repoDeclaring(OPTED_IN);
+        for (const opts of [{}, { requireEpic: true }]) {
+            const r = resolveEpic(makeGhRunner(feature(["feature"])), root, 998, opts);
+            expect(r.ok).toBe(false);
+            if (r.ok) return;
+            expect(r.error.problem).toBe("is-a-feature");
+            expect(r.error.message).toContain("#998");
+            expect(r.error.message).toMatch(/feature/);
+        }
+    });
+
+    it("refuses by the declared label, not an assumed one", () => {
+        const root: string = repoDeclaring(`${OPTED_IN}  feature-label: capability\n`);
+        const r = resolveEpic(makeGhRunner(feature(["capability"])), root, 998);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("is-a-feature");
+        expect(resolveEpic(makeGhRunner(feature(["feature"])), root, 998).ok).toBe(true);
+    });
+
+    it("refuses by the declared issue type where the repository classifies by type", () => {
+        const root: string = repoDeclaring(
+            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n  feature-type: Feature\n",
+        );
+        const r = resolveEpic(makeGhRunner(feature([], "Feature")), root, 998);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("is-a-feature");
+    });
+
+    it("adds no failure where the repository declares no feature type under type mode", () => {
+        const root: string = repoDeclaring(
+            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n",
+        );
+        expect(resolveEpic(makeGhRunner(feature(["feature"], "Feature")), root, 998).ok).toBe(true);
+    });
+
+    it("reads no issue as a feature in a repository that has not opted in (G2)", () => {
+        const root: string = repoDeclaring("  classification: labels\n");
+        for (const opts of [{}, { requireEpic: true }]) {
+            expect(resolveEpic(makeGhRunner(feature(["feature"])), root, 998, opts).ok).toBe(true);
+        }
+    });
+
+    it("still resolves an epic that carries the feature label beside its epic label", () => {
+        const root: string = repoDeclaring(OPTED_IN);
+        const r = resolveEpic(makeGhRunner({ ...graph(), epic: { ...graph().epic, labels: ["epic", "feature"] } }), root, 115, {
+            requireEpic: true,
+        });
+        expect(r.ok).toBe(true);
+    });
+
+    it("makes no additional read to decide it where the label alone answers", () => {
+        const count = (dir: string): number => {
+            const calls: string[][] = [];
+            const inner = makeGhRunner(graph());
+            resolveEpic((cmd, args, cwd) => (calls.push(args), inner(cmd, args, cwd)), dir, 115);
+            return calls.length;
+        };
+        expect(count(repoDeclaring(OPTED_IN))).toBe(count(repoDeclaring("  classification: labels\n")));
+    });
+});

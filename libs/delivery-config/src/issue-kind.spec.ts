@@ -7,9 +7,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { resolvePublishingKey } from "./resolve.js";
 import {
     classifyIssueKind,
+    featureNeedsIssueType,
     initiativeNeedsIssueType,
+    isDeclaredFeature,
     isDeclaredInitiative,
     readKindMarkers,
     resolveKindClassification,
@@ -139,6 +142,8 @@ describe("classifyIssueKind — what an issue is filed as, under the declared mo
         recordType: "Decision Record",
         initiativeLabel: "initiative",
         initiativeType: "",
+        featureLabel: "",
+        featureType: "",
     };
     const types = { ...labels, mode: "types" as const };
     const legacy = { ...labels, mode: "legacy-auto" as const };
@@ -308,5 +313,162 @@ describe("isDeclaredInitiative — the one question the filer and the resolver b
         expect(initiativeNeedsIssueType(readKindMarkers(repoWith("github:\n  project: none\n")))).toBe(false);
         expect(initiativeNeedsIssueType(readKindMarkers(repoWith("github:\n  initiative-type: Initiative\n")))).toBe(true);
         expect(initiativeNeedsIssueType(readKindMarkers(repoWith("github:\n  classification: types\n  initiative-type: Initiative\n")))).toBe(true);
+    });
+});
+
+describe("the feature kind — opt-in, marker and kind (decision record #1010, D1-D3)", () => {
+    const OPT_IN = "  features-as-issues: true\n";
+
+    describe("a repository that has not opted in (G1, G2)", () => {
+        it("resolves no feature marker, though the built-in label exists", () => {
+            for (const settings of [
+                "github:\n  classification: labels\n",
+                "github:\n  classification: labels\n  features-as-issues: false\n",
+                "github:\n  classification: labels\n  features-as-issues: yes\n",
+                "github:\n  classification: labels\n  features-as-issues: \n  feature-label: feature\n",
+            ]) {
+                const r = resolveKindClassification(repoWith(settings));
+                expect(r.ok).toBe(true);
+                if (!r.ok) return;
+                expect(r.classification.featureLabel).toBe("");
+                expect(r.classification.featureType).toBe("");
+                expect(readKindMarkers(repoWith(settings)).featureLabel).toBe("");
+            }
+        });
+
+        it("reads no issue as a feature, whatever it carries", () => {
+            const root: string = repoWith("github:\n  classification: labels\n  feature-label: feature\n  feature-type: Feature\n");
+            const r = resolveKindClassification(root);
+            expect(r.ok).toBe(true);
+            if (!r.ok) return;
+            const issue = { number: 12, labels: ["feature"], issueType: "Feature" };
+            expect(classifyIssueKind(r.classification, issue)).toEqual({ ok: true, kind: "other" });
+            expect(isDeclaredFeature(r.classification, issue)).toBe(false);
+            expect(featureNeedsIssueType(r.classification)).toBe(false);
+        });
+    });
+
+    describe("the marker an opted-in repository resolves (G3, G4)", () => {
+        it("is the built-in label `feature` under label mode when none is declared", () => {
+            const r = resolveKindClassification(repoWith(`github:\n  classification: labels\n${OPT_IN}`));
+            expect(r.ok).toBe(true);
+            if (!r.ok) return;
+            expect(r.classification.featureLabel).toBe("feature");
+        });
+
+        it("is the declared label under label mode and under the legacy mode", () => {
+            for (const mode of ["labels", "legacy-auto"]) {
+                const r = resolveKindClassification(
+                    repoWith(`github:\n  classification: ${mode}\n${OPT_IN}  feature-label: capability\n`),
+                );
+                expect(r.ok).toBe(true);
+                if (!r.ok) return;
+                expect(r.classification.featureLabel).toBe("capability");
+            }
+        });
+
+        it("is the declared issue type under type mode", () => {
+            const r = resolveKindClassification(
+                repoWith(
+                    `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${OPT_IN}  feature-type: Feature\n`,
+                ),
+            );
+            expect(r.ok).toBe(true);
+            if (!r.ok) return;
+            expect(r.classification.featureType).toBe("Feature");
+            const issue = { number: 12, labels: [], issueType: "feature" };
+            expect(classifyIssueKind(r.classification, issue)).toEqual({ ok: true, kind: "feature" });
+            expect(featureNeedsIssueType(r.classification)).toBe(true);
+        });
+
+        it("has no built-in issue type, so type mode with none declared marks nothing", () => {
+            const root: string = repoWith(
+                `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${OPT_IN}`,
+            );
+            const r = resolveKindClassification(root);
+            expect(r.ok).toBe(true);
+            if (!r.ok) return;
+            expect(r.classification.featureType).toBe("");
+            const issue = { number: 12, labels: ["feature"], issueType: "Feature" };
+            // Not even an issue carrying the built-in label, since that is not the declared mode.
+            expect(classifyIssueKind(r.classification, issue)).toEqual({ ok: true, kind: "other" });
+            expect(isDeclaredFeature(r.classification, issue)).toBe(false);
+            expect(featureNeedsIssueType(r.classification)).toBe(false);
+        });
+
+        it("resolves the opt-in through the one shared publishing resolver, as any publishing key", () => {
+            const root: string = repoWith(`github:\n  classification: labels\n${OPT_IN}`);
+            expect(resolvePublishingKey(root, "features-as-issues")).toBe("true");
+            expect(resolvePublishingKey(repoWith("github:\n  classification: labels\n"), "features-as-issues")).toBe("");
+        });
+    });
+
+    describe("what an opted-in repository reads an issue as (G5, G6, G24)", () => {
+        const optedIn = { ...labelsMarkers(), featureLabel: "feature" };
+        function labelsMarkers() {
+            return {
+                mode: "labels" as const,
+                epicLabel: "epic",
+                epicType: "Epic",
+                storyLabel: "story",
+                storyType: "Story",
+                recordLabel: "decision-record",
+                recordType: "Decision Record",
+                initiativeLabel: "initiative",
+                initiativeType: "",
+                featureLabel: "",
+                featureType: "",
+            };
+        }
+
+        it("calls an issue carrying the feature marker and no other kind's marker a feature", () => {
+            const issue = { number: 12, labels: ["Feature"], issueType: null };
+            expect(classifyIssueKind(optedIn, issue)).toEqual({ ok: true, kind: "feature" });
+            expect(isDeclaredFeature(optedIn, issue)).toBe(true);
+        });
+
+        it("keeps every other marker ahead of the feature marker", () => {
+            for (const [label, kind] of [
+                ["epic", "epic"],
+                ["story", "story"],
+                ["decision-record", "record"],
+                ["initiative", "initiative"],
+            ] as const) {
+                const issue = { number: 12, labels: ["feature", label], issueType: null };
+                expect(classifyIssueKind(optedIn, issue)).toEqual({ ok: true, kind });
+                expect(isDeclaredFeature(optedIn, issue)).toBe(false);
+            }
+        });
+
+        it("keeps an epic or an initiative in a repository whose label for it is the feature word", () => {
+            const sharedEpic = { ...optedIn, epicLabel: "feature" };
+            expect(classifyIssueKind(sharedEpic, { number: 1, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "epic" });
+            const sharedInitiative = { ...optedIn, initiativeLabel: "feature" };
+            expect(classifyIssueKind(sharedInitiative, { number: 1, labels: ["feature"], issueType: null })).toEqual({
+                ok: true,
+                kind: "initiative",
+            });
+        });
+
+        it("reads an initiative marker as an initiative still, ahead of the feature (G24)", () => {
+            const issue = { number: 12, labels: ["initiative"], issueType: null };
+            expect(isDeclaredInitiative(optedIn, issue)).toBe(true);
+        });
+
+        it("reads a feature marker carried the undeclared way as none of these, and never stops on a mismatch", () => {
+            const typed = { ...optedIn, mode: "types" as const, featureType: "Feature" };
+            // Declared by type; this issue carries the label alone.
+            expect(classifyIssueKind(typed, { number: 12, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "other" });
+            // Declared by label; this issue carries the type alone.
+            expect(
+                classifyIssueKind({ ...optedIn, featureType: "Feature" }, { number: 12, labels: [], issueType: "Feature" }),
+            ).toEqual({ ok: true, kind: "other" });
+        });
+
+        it("under the legacy mode reads the label first, then the type", () => {
+            const legacy = { ...optedIn, mode: "legacy-auto" as const, featureType: "Feature" };
+            expect(classifyIssueKind(legacy, { number: 1, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "feature" });
+            expect(classifyIssueKind(legacy, { number: 1, labels: [], issueType: "Feature" })).toEqual({ ok: true, kind: "feature" });
+        });
     });
 });

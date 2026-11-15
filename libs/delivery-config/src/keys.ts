@@ -45,6 +45,15 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // none, like the epic type, because a guessed type name marks nothing.
     { githubKey: "initiative-type", normalized: "initiativeType" },
     { githubKey: "initiative-label", normalized: "initiativeLabel", builtin: "initiative" },
+    // The opt-in to features as issues (decision record #1010, D1). Off unless it reads `true`, and
+    // deliberately without a built-in: an absent key is "not opted in", which is what keeps every
+    // repository that never set it planning, filing and closing exactly as before.
+    { githubKey: "features-as-issues", normalized: "featuresAsIssues" },
+    // The marker on a feature issue (decision record #1010, D2). Like the initiative: the label
+    // carries a built-in, the issue type deliberately carries none, because a guessed type name
+    // marks nothing.
+    { githubKey: "feature-type", normalized: "featureType" },
+    { githubKey: "feature-label", normalized: "featureLabel", builtin: "feature" },
     // The specific epic-repo/story-repo win over the general issues-repo, which stays the fallback
     // for whichever is unspecified.
     { githubKey: "epic-repo", normalized: "epicRepo", fallbackTo: "issuesRepo" },

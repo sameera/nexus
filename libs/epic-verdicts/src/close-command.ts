@@ -381,6 +381,9 @@ function epicReadStop(
     // An initiative is a planning container above the epics; nothing is delivered against it, so
     // there is nothing for close to close (decision record #786, D11).
     if (kind !== null && kind.ok && kind.kind === "initiative") return notEpic("is filed as an initiative, not an epic", "; pass one of the epics under it");
+    // A feature issue is a planning record related to its epics, never one of them, so there is
+    // nothing for close to close (decision record #1010, D4).
+    if (kind !== null && kind.ok && kind.kind === "feature") return notEpic("is filed as a feature, not an epic", "; pass one of the epics related to it");
     if (!comments.ok) {
         const why = kind !== null && !kind.ok ? `${comments.message}; what it is filed as could not be determined either: ${kind.message}` : comments.message;
         return { reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${why}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` };
