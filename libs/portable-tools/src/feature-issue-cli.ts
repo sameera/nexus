@@ -11,6 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
+import { type IssueAt, missingFromFeature, parseIssueAt } from "@nexus/delivery-config/feature-link";
 import {
     type FeatureIssueRef,
     type FeatureLookup,
@@ -23,7 +24,7 @@ import {
     resolveFeatureSetting,
 } from "./feature-issue.js";
 
-export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item"];
+export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related"];
 
 export const FEATURE_ISSUE_USAGE: string = [
     "  nexus feature-issue lookup --feature-path <path> [--ledger <file>] [--named <N>]",
@@ -36,6 +37,10 @@ export const FEATURE_ISSUE_USAGE: string = [
     "      listing exits 1, naming why; nothing may be filed then.",
     "  nexus feature-issue work-item --name <name> --statement <text> --feature-path <path> --dir <folder>",
     "      Write the work item a new feature issue is filed from into <folder>. Prints { file, ref }.",
+    "  nexus feature-issue check-related --feature <N|owner/repo#N> --issues <n,n,...>",
+    "      Read the feature issue's related list and confirm every listed issue of the epic",
+    "      repository is on it. Prints { feature, missing }; any missing issue, or a feature that",
+    "      cannot be read, exits 1.",
 ].join("\n");
 
 interface FeatureIssueIo {
@@ -52,6 +57,7 @@ export async function runFeatureIssue(argv: string[], io: FeatureIssueIo, run: R
         return 2;
     }
     if (sub === "lookup") return runLookup(flags, io, run);
+    if (sub === "check-related") return runCheckRelated(flags, io, run);
     return runWorkItem(flags, io);
 }
 
@@ -105,6 +111,42 @@ function runLookup(flags: Map<string, string>, io: FeatureIssueIo, run: Runner):
         return 1;
     }
     return 0;
+}
+
+function runCheckRelated(flags: Map<string, string>, io: FeatureIssueIo, run: Runner): number {
+    const featureRef: string | undefined = flags.get("feature");
+    const listed: string[] = (flags.get("issues") ?? "").split(",").map((n) => n.trim().replace(/^#/, "")).filter((n) => n !== "");
+    if (featureRef === undefined || listed.length === 0 || listed.some((n) => !/^[1-9]\d*$/.test(n))) {
+        io.stderr(`usage:\n${FEATURE_ISSUE_USAGE}`);
+        return 2;
+    }
+    const root: string = checkoutRoot(io.cwd);
+    const gh = (args: string[]) => run("gh", args, { cwd: root });
+    const home = homeRepo(root, gh);
+    const feature: IssueAt | null = home === null ? null : parseIssueAt(featureRef, home);
+    if (home === null || feature === null) {
+        io.stderr(`feature-issue unresolved: the epic repository or '${featureRef}' could not be resolved.`);
+        return 1;
+    }
+    const featureKey = `${feature.owner}/${feature.name}#${feature.number}`;
+    const missing: string[] | null = missingFromFeature(gh, feature, listed.map((number) => ({ ...home, number })));
+    if (missing === null) {
+        io.stderr(`feature-issue gh-failed: ${featureKey} could not be read, so its related list is unconfirmed. Report the run incomplete.`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ feature: featureKey, missing }));
+    if (missing.length === 0) return 0;
+    io.stderr(`feature-issue incomplete: ${featureKey} does not list ${missing.join(", ")} as related. Repeat the filing to add the link.`);
+    return 1;
+}
+
+/** The epic repository as owner and name: the declared one, or the checkout's own. */
+function homeRepo(root: string, gh: (args: string[]) => { status: number; stdout: string }): { owner: string; name: string } | null {
+    const declared: string[] = resolvePublishingKey(root, "epic-repo").trim().replace(/\.git$/, "").split("/").filter((p) => p !== "");
+    if (declared.length >= 2) return { owner: declared[declared.length - 2], name: declared[declared.length - 1] };
+    const viewed = gh(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]);
+    const [owner, name] = viewed.status === 0 ? viewed.stdout.trim().split("/") : [];
+    return owner && name ? { owner, name } : null;
 }
 
 function runWorkItem(flags: Map<string, string>, io: FeatureIssueIo): number {

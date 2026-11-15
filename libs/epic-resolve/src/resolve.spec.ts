@@ -262,6 +262,15 @@ describe("resolveEpic — Story 2: meta block round-trips the full frontmatter",
         expect(r.markdown).toContain('link: "#115"');
     });
 
+    it("gives back the feature issue number the epic was filed with (decision record #1010, G14)", () => {
+        const graph: FixtureGraph = graphWithMeta();
+        graph.epic.body = graph.epic.body.replace("feature_path: docs/features/mrw", 'feature_path: docs/features/mrw\nfeature_issue: "#90"');
+        const r = resolveEpic(makeGhRunner(graph), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain('feature_issue: "#90"');
+    });
+
     it("does not leave the meta block in the materialized body", () => {
         const r = resolveEpic(makeGhRunner(graphWithMeta()), "/repo", 115);
         expect(r.ok).toBe(true);

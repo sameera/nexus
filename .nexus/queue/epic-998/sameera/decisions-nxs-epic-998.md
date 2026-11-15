@@ -27,3 +27,18 @@
 - **Choice:** The feature issue is filed by `nexus create-story` on its own folder with `--classification-label/--classification-type` set to the feature marker and `--keep-manifest`; the filer is unchanged.
 - **Why:** The classification flags already let one batch carry a non-story marker, as the initiative batch does, and the kept ledger gives the repeat-reuse D6 needs.
 - **Refuted alternative:** A feature-specific mode in the filer.
+
+## 2026-11-15 — One shared feature-link module for both filers
+- **Choice:** `libs/delivery-config/src/feature-link.ts` holds the feature check, the `addRelatesTo` link and the related-list read; both filers and `nexus feature-issue check-related` call it.
+- **Why:** One reading of "is this a feature" and one link path keep the two filers and the read-back from disagreeing.
+- **Refuted alternative:** A copy of the link step inside each filer.
+
+## 2026-11-15 — The link is idempotent by reading both sides first
+- **Choice:** Before `addRelatesTo`, the link step reads both issues' `relatesTo` lists and counts an existing link as success; a failed mutation re-reads the feature before reporting failure.
+- **Why:** G17 makes an existing link success, and a repeat must not depend on how GitHub answers a duplicate add.
+- **Refuted alternative:** Always call the mutation and parse its error text for "already exists".
+
+## 2026-11-15 — The feature reference is a `feature_issue` frontmatter key
+- **Choice:** Epic drafts and stub work items carry `feature_issue: "#N"`; stubs also carry a `feature issue` Meta line for promotion to read.
+- **Why:** The epic-meta block already round-trips the draft frontmatter, so the resolver returns it with no shape change (G14, G22).
+- **Refuted alternative:** A body line on the epic, which the resolver does not return as a field.

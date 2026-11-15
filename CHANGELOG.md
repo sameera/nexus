@@ -26,8 +26,18 @@ behaviour says so.
   A repeated run reuses it. A feature that already has a README gets no feature issue yet, and two
   issues recording the same feature stop the run with nothing filed. A repository that files by issue
   type and declares no `feature-type` gets one line saying so, and the epic is filed as before.
+- **An epic and a stub name their feature issue and are related to it.** In an opted-in repository,
+  every epic and stub `/nxs.epic` files under a feature with a feature issue (the deferral stub and a
+  split stub's successors included) names it by number beside the feature path, and is linked to it
+  by GitHub's relates-to relationship, never as its sub-issue. A promoted stub and an epic rebuilt
+  from its number keep the same feature issue, and a second epic under the feature reuses it. The run
+  then checks the feature issue's related list, and reports incomplete, keeping its run folder, when
+  a link is missing; repeating it adds the link and files nothing twice.
+- **`create-epic` and `create-story` link to a feature issue.** A draft or work item with
+  `feature_issue:` is refused, with nothing created, unless that issue reads as a feature. After the
+  issue is recorded the filer adds the relates-to link; a failed link warns and a re-run retries it.
 - **New verb: `nexus feature-issue`.** `lookup` finds a feature path's issue; `work-item` writes the
-  work item a new one is filed from.
+  work item a new one is filed from; `check-related` confirms the feature lists every filed issue.
 
 ## 0.137.0
 

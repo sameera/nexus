@@ -29,6 +29,7 @@ import { type RewriteResult, refToNumber, rewritePass } from "./rewrite.js";
 import { type WireResult, refToDbId, wirePass } from "./wire.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { stubParentsAreInitiatives } from "./stub-parent.js";
+import { featureIssuesAreFeatures, featureLinkPass } from "./feature.js";
 import { resolveKeyFromLayers } from "../resolve.js";
 import { previewLine } from "./preview.js";
 import { type WriteReport } from "../write.js";
@@ -74,6 +75,14 @@ export function runCreateStory(
         io,
     );
     if (!legalParents) return 1;
+
+    // A named feature issue must read as a feature before anything exists (decision record #1010,
+    // D8). It reads from GitHub only when an item names one.
+    const legalFeatures: boolean = featureIssuesAreFeatures(
+        { items: ready.items, projectRoot: ready.projectRoot, issuesRepo: config.issuesRepo, runner: () => env.runnerFor(ready.projectRoot) },
+        io,
+    );
+    if (!legalFeatures) return 1;
 
     if (args.dryRun) {
         // A rehearsal reaches nothing: no type probe, no label upsert, no write-back.
@@ -127,6 +136,8 @@ export function runCreateStory(
 
     const pass2: WireResult = wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
     const pass3: RewriteResult = rewritePass(pass1.created, refToNumber(pass1.created, ledger), platform, io);
+    // After the ledger holds every issue, so a link step can never lose one (G23). Warn-only (G17).
+    featureLinkPass(ready.items, pass1.created, run, config.issuesRepo, io);
 
     const seeded: WriteReport = writeBackDecisions(ready.projectRoot, {
         classification: config.classification,

@@ -160,3 +160,38 @@ describe("nexus feature-issue work-item", () => {
         expect(JSON.parse(result.out).ref).toBe(featureRef(FEATURE_PATH));
     });
 });
+
+describe("nexus feature-issue check-related — the read-back (D9, G18)", () => {
+    function relatedGh(related: string[] | null): Runner {
+        return (_cmd, args) => {
+            if (related === null) return { status: 1, stdout: "", stderr: "Not Found" };
+            const issue = {
+                id: "ID_5",
+                issueType: null,
+                labels: { nodes: [{ name: "feature" }] },
+                relatesTo: { nodes: related.map((r) => ({ number: Number(r.split("#")[1]), repository: { nameWithOwner: r.split("#")[0] } })) },
+            };
+            void args;
+            return { status: 0, stdout: JSON.stringify({ data: { repository: { issue } } }), stderr: "" };
+        };
+    }
+    const settings = "  classification: labels\n  features-as-issues: true\n  epic-repo: acme/tracker\n";
+
+    it("passes when the feature lists every filed issue as related", async () => {
+        const result = await call(["check-related", "--feature", "#5", "--issues", "9,10"], repoWith(settings), relatedGh(["acme/tracker#9", "acme/tracker#10"]));
+        expect(result.code).toBe(0);
+        expect(JSON.parse(result.out)).toEqual({ feature: "acme/tracker#5", missing: [] });
+    });
+
+    it("exits 1 naming each issue the feature does not list", async () => {
+        const result = await call(["check-related", "--feature", "#5", "--issues", "9,10"], repoWith(settings), relatedGh(["acme/tracker#9"]));
+        expect(result.code).toBe(1);
+        expect(JSON.parse(result.out).missing).toEqual(["acme/tracker#10"]);
+        expect(result.err).toContain("acme/tracker#10");
+    });
+
+    it("exits 1 when the feature cannot be read, never reporting complete", async () => {
+        const result = await call(["check-related", "--feature", "#5", "--issues", "9"], repoWith(settings), relatedGh(null));
+        expect(result.code).toBe(1);
+    });
+});

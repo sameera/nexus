@@ -104,7 +104,12 @@
       "import": "./src/story-filer/run.ts",
       "default": "./src/story-filer/run.ts"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./feature-link": {
+      "types": "./src/feature-link.ts",
+      "import": "./src/feature-link.ts",
+      "default": "./src/feature-link.ts"
+    }
   },
   "dependencies": {
     "@nexus/release-identity": "workspace:*",

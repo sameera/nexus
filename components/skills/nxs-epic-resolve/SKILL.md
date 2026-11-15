@@ -33,7 +33,9 @@ an ephemeral, gitignored path. The output is:
 
 Frontmatter carries only what a bare epic issue recoverably provides — the `epic` title and the
 `link` number. Fields the filing skills strip (`complexity`, `feature_path`, `slug`, …) are omitted,
-never fabricated.
+never fabricated. When the issue carries its `nexus:epic-meta` block, the planning frontmatter in it
+comes back as filed, with only `link` reset. That includes `feature_issue`, so a rebuilt epic names
+the same feature issue it was filed with (epic #998).
 
 ## The decision-record sub-issue
 
