@@ -98,6 +98,13 @@ pointer workflow above stays live and can coexist with Codex. Do not deploy into
 `.agents/skills`; keep the authored tree as the single source. `AGENTS.md` directs Codex to the
 same contributor conventions Claude reads.
 
+On Windows, the generated snapshot lives under `%USERPROFILE%\.agents\skills`. The install
+command above works in PowerShell. A successful `version --harness codex` reports the account's
+`.agents` path and `content: "copy"`; `content: null` means the Codex skillset is still missing.
+The plain `install --from-checkout .` command targets Claude only, so run the Codex command
+explicitly even if Claude already points at this checkout. Restart Codex after the first install
+to load the new skills.
+
 ### Build the shared executable
 
 Pointing the install location at your checkout makes the *components* live. It does nothing for the
