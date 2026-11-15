@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.135.3
+
+- **Stages read shared account templates.** Setup and decision-record use
+  `~/.agents/common/templates/` instead of project-local `.nexus/config/templates/`.
+  `nexus seed-templates` seeds the shared folder regardless of the current repository.
+
+## 0.135.2
+
+- **Codex implementation sessions start with automatic review.** The launcher uses
+  `--approve-for-me` to select workspace-write without also passing the conflicting `--sandbox`
+  option. Explicit alternative sandbox modes still use `--sandbox`.
+
 ## 0.135.1
 
 - **Codex implementation stages can reach GitHub.** `nexus implement` enables outbound network

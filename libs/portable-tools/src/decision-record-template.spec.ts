@@ -185,7 +185,7 @@ describe("the old-format record template (D11)", () => {
 
     it("is what the stage drafts a revision of a record approved in the old format from", () => {
         const stage: string = component("commands/nxs.decision-record.md").replace(/\s+/g, " ");
-        expect(stage).toContain(`.nexus/config/templates/${OLD_TEMPLATE}`);
+        expect(stage).toContain(`~/.agents/common/templates/${OLD_TEMPLATE}`);
         expect(stage).toMatch(/approved in the old format/i);
     });
 });

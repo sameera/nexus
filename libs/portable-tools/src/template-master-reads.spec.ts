@@ -17,12 +17,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifyMasterMention, scanTemplateMasterMentions, templateMasterReads, type MasterMention } from "./template-master-reads";
-import { PROJECT_TEMPLATE_SEGMENTS, TEMPLATE_MASTER_SEGMENTS } from "./seed-templates";
+import { SHARED_TEMPLATE_SEGMENTS, TEMPLATE_MASTER_SEGMENTS } from "./seed-templates";
 import { authoredComponentRoot } from "./vendor-components";
 
 const AUTHORED_ROOT: string = authoredComponentRoot(import.meta.dirname);
 const MASTER_PATH: string = TEMPLATE_MASTER_SEGMENTS.join("/");
-const PROJECT_PATH: string = PROJECT_TEMPLATE_SEGMENTS.join("/");
+const PROJECT_PATH: string = SHARED_TEMPLATE_SEGMENTS.join("/");
 
 function closeBody(): string {
     return fs.readFileSync(path.join(AUTHORED_ROOT, "commands", "nxs.close.md"), "utf8");
@@ -66,11 +66,16 @@ describe("the whole component payload reads no master (AC3)", () => {
     });
 });
 
+it("allows the shared account directory without treating it as a checkout master", () => {
+    const text = `Read ~/.agents/common/templates/x.md`;
+    expect(classifyMasterMention(text, text.indexOf(MASTER_PATH)).excluded).toBe(true);
+});
+
 describe("naming the master to rule it out is not a read (AC3)", () => {
     it("exempts a passage that says the master is not what the stage reads", () => {
         const contrast = `1. Read the seeded project template: \`${PROJECT_PATH}/x.md\` (the\n   project copy, not the \`${MASTER_PATH}/\` master).`;
 
-        expect(classifyMasterMention(contrast, contrast.indexOf(MASTER_PATH)).excluded).toBe(true);
+        expect(classifyMasterMention(contrast, contrast.lastIndexOf(MASTER_PATH)).excluded).toBe(true);
     });
 
     it.each(["never", "rather than", "instead of", "no longer"])("exempts a passage ruling the master out with '%s'", (marker: string) => {
@@ -82,7 +87,7 @@ describe("naming the master to rule it out is not a read (AC3)", () => {
     it("flags a fallback onto the master", () => {
         const fallback = `1. Read the seeded project template: \`${PROJECT_PATH}/x.md\`. (If the\n   seeded copy is absent, fall back to the toolkit master \`${MASTER_PATH}/x.md\`.)`;
 
-        expect(classifyMasterMention(fallback, fallback.indexOf(MASTER_PATH)).excluded).toBe(false);
+        expect(classifyMasterMention(fallback, fallback.lastIndexOf(MASTER_PATH)).excluded).toBe(false);
     });
 
     it("flags a plain read of the master", () => {

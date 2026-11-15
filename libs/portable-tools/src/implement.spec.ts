@@ -500,9 +500,9 @@ describe("harness and configuration (G20, G21)", () => {
         const r = await run(world(), { harness: "codex" });
         expect(r.code).toBe(0);
         expect(r.sessions[0].command).toBe("codex");
-        expect(r.sessions[0].args).toEqual(expect.arrayContaining(["--sandbox", "workspace-write"]));
         for (const session of r.sessions) {
             expect(session.args).toContain('--approve-for-me');
+            expect(session.args).not.toContain('--sandbox');
             expect(session.args).toEqual(expect.arrayContaining(['-c', 'sandbox_workspace_write.network_access=true']));
             expect(session.args).toContain('--add-dir');
             expect(session.args[session.args.indexOf('--add-dir') + 1]).toBe('/shared/project.git');

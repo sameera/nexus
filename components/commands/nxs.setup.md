@@ -75,10 +75,11 @@ Detect this repo's workspace role **through the resolver** — never by asking t
     nexus seed-templates
     ```
 
-    It places `.nexus/config/templates/` from the masters that travel inside the release. It seeds
-    only what is absent, so a template this project has already tuned is left exactly as it is; it
+    It places `~/.agents/common/templates/` from the masters that travel inside the release. It seeds
+    only what is absent, so a shared template you have already tuned is left exactly as it is; it
     is safe to run on every setup. Phase 3 reads `standard.template.md` from there, so this runs
-    before it.
+    before it. Resolve `~` to the user home directory (`$env:USERPROFILE` on Windows),
+    never the current project.
 
 ## Phase 2: Stack detection
 
@@ -201,7 +202,7 @@ The code is ground truth and self-updating. A coding agent re-reads these files 
 
 **Default to one `standards.md`** with short normative sections. Split into separate files only when a section grows large, or when it is loaded independently by work-type (the dev agent loads `unit-testing.md` always, `api-testing.md` for API work). Do not pre-generate files for capabilities that don't exist yet (no `auth.md` until there is auth work and a command path that loads it).
 
-Use `.nexus/config/templates/standard.template.md` for structural guidance; adapt it toward decisions-and-constraints, not pattern description.
+Use `~/.agents/common/templates/standard.template.md` for structural guidance; adapt it toward decisions-and-constraints, not pattern description.
 
 ## Phase 4: Scaffold the Nexus surfaces
 
@@ -244,7 +245,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
        keys `nexus config resolve <key>` still resolves to nothing.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **`.nexus/discovery/`** — the pre-epic discovery store (`/nxs.discover`), also **committed, not gitignored**. It is deliberately a sibling of the queue rather than a folder inside it: the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Do not create it at setup — `/nxs.discover` creates it on first use — and do not add an ignore rule for it.
-5. **Templates** — nothing to do here. `nexus seed-templates` (Phase 1) has already placed the tool-agnostic templates under `.nexus/config/templates/`; this phase only seeds project-generated config (above).
+5. **Templates** — nothing to do here. `nexus seed-templates` (Phase 1) has already placed the tool-agnostic templates under `~/.agents/common/templates/`; this phase only seeds project-generated config (above).
 
 5a. **`.nexus/tmp/` is gitignored.** `/nxs.epic` drafts a planning run's scratch (decision record
     #646) under `.nexus/tmp/planning/`, and the resolver materializes epics under `.nexus/tmp/epic-<n>/`

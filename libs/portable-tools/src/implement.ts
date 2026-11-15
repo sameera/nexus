@@ -253,8 +253,9 @@ export function stageSpec(harness: Harness, prompt: string, mode: string, harnes
         // Keep filesystem confinement, enabling networking only for workspace-write sessions.
         const permissionArgs = mode === "workspace-write"
             ? ["--approve-for-me", "-c", "sandbox_workspace_write.network_access=true"]
-            : [];
-        return { command: "codex", args: ["exec", "--sandbox", mode, ...permissionArgs, "--json", "--add-dir", gitDir, ...harnessArgs, "--", text], cwd };
+            : ["--sandbox", mode];
+        // --approve-for-me already selects workspace-write and conflicts with --sandbox.
+        return { command: "codex", args: ["exec", ...permissionArgs, "--json", "--add-dir", gitDir, ...harnessArgs, "--", text], cwd };
     }
     return { command: "claude", args: ["-p", prompt, "--permission-mode", mode, "--output-format", "stream-json", "--verbose", ...harnessArgs], cwd };
 }

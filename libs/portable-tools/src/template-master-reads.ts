@@ -51,6 +51,8 @@ const CONTRAST_PATTERN = new RegExp(`\\b(${CONTRAST_MARKERS.join("|")})\\b`, "i"
  * nothing here.
  */
 export function classifyMasterMention(text: string, index: number): { excluded: boolean } {
+    // The account copy shares a suffix with the checkout masters.
+    if (text.slice(0, index).endsWith("~/.agents/")) return { excluded: true };
     const start: number = Math.max(0, index - CONTRAST_WINDOW);
     let window: string = text.slice(start, index);
     const boundary: number = Math.max(

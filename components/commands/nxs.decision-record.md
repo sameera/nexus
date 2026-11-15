@@ -459,16 +459,17 @@ Not "closure instantiates the entry, whose subsequent ingestion populates the st
 creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
 machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
-1. **Choose the template, then read it.** Both are seeded project copies under
-   `.nexus/config/templates/`, not the `common/templates/` masters.
+1. **Choose the template, then read it.** Both are shared account copies under
+   `~/.agents/common/templates/`. Resolve `~` to the user home directory (on Windows,
+   `$env:USERPROFILE`); never resolve this path relative to the current project.
 
-    - **Every record, by default:** `.nexus/config/templates/decision-record-template.md`, the
+    - **Every record, by default:** `~/.agents/common/templates/decision-record-template.md`, the
       approval-first format.
     - **A `--revise` of a record approved in the old format:** its approved body
       (`gh issue view <record> $REPO_ARG --json body --jq .body`, or the committed
       `decision-record.md` on the old-contract path) has a `## Constraints & Invariants` section and
       no `## Guarantees` section. Draft the revision from
-      `.nexus/config/templates/decision-record-template-v1.md`, and tell the architect in Phase 1
+      `~/.agents/common/templates/decision-record-template-v1.md`, and tell the architect in Phase 1
       that the record is in the old format. A revision keeps the format its record was approved in.
       The checkpoint marks the approved lines as frozen by matching their text, and a record
       converted to the new format would match none of them.
@@ -481,10 +482,10 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     below the appendix.
 
     If the default template has no `## Guarantees` section, it is a copy seeded before the
-    approval-first format shipped, because seeding never overwrites a project's copy. Stop and say
+    approval-first format shipped, because seeding never overwrites the account's copy. Stop and say
     so: the lead moves that copy aside, runs `nexus seed-templates`, and carries any local tuning
     over into the new copy. If the old-format template is needed and absent, stop and name
-    `nexus seed-templates` as the remedy; it adds only the templates a project does not have.
+    `nexus seed-templates` as the remedy; it adds only the templates the account does not have.
 2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
    and selects the **required-section tier**. Apply the tier explicitly, not as a heuristic. If
    `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta`

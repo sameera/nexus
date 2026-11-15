@@ -1,21 +1,14 @@
-/**
- * Seeding the tool-agnostic templates the pipeline stages read (story #323).
- *
- * The stages read three templates out of the project's own configuration and nothing put them
- * there, so every stage worked only in a repository that happened to be a Nexus checkout. These
- * tests pin the arrival: the masters ship inside the release, a repo-bound verb places them, and a
- * template a project has tuned survives a re-run untouched.
- */
+/** Shared account templates are available across repositories and preserve local edits. */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 import { listPayloadFiles } from "./release-payload";
 import {
     authoredTemplateMasterDir,
-    projectTemplateDir,
+    sharedTemplateDir,
     seedTemplates,
     SEEDED_TEMPLATES,
     TEMPLATE_PAYLOAD_DIRNAME,
@@ -23,11 +16,18 @@ import {
 } from "./seed-templates";
 import { authoredComponentRoot } from "./vendor-components";
 
+vi.mock("node:os", { spy: true });
+
 const SRC_DIR: string = import.meta.dirname;
 const REPO_ROOT: string = path.resolve(SRC_DIR, "..", "..", "..");
 const MASTER_DIR: string = authoredTemplateMasterDir(SRC_DIR);
 
 let tmpDirs: string[] = [];
+let accountHome: string;
+beforeEach(() => {
+    accountHome = makeTmpDir("template-home-");
+    vi.mocked(os.homedir).mockReturnValue(accountHome);
+});
 function makeTmpDir(prefix: string): string {
     const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
     tmpDirs.push(dir);
@@ -38,6 +38,7 @@ afterEach(() => {
         fs.rmSync(dir, { recursive: true, force: true });
     }
     tmpDirs = [];
+    vi.restoreAllMocks();
 });
 
 interface CapturedIo extends CliIo {
@@ -78,6 +79,10 @@ function componentBody(name: string): string {
     return fs.readFileSync(path.join(authoredComponentRoot(SRC_DIR), "commands", name), "utf8");
 }
 
+it("uses the shared account template directory", () => {
+    expect(sharedTemplateDir("account-home")).toBe(path.join("account-home", ".agents", "common", "templates"));
+});
+
 describe("the templates arrive in a repository that was never a Nexus checkout (AC1)", () => {
     it("places every template the stages read where they read it", () => {
         const repo: string = makeAdopterRepo();
@@ -86,7 +91,7 @@ describe("the templates arrive in a repository that was never a Nexus checkout (
 
         expect(result.seeded.sort()).toEqual([...SEEDED_TEMPLATES].sort());
         for (const name of SEEDED_TEMPLATES) {
-            expect(fs.existsSync(path.join(projectTemplateDir(repo), name)), name).toBe(true);
+            expect(fs.existsSync(path.join(sharedTemplateDir(repo), name)), name).toBe(true);
         }
     });
 
@@ -103,12 +108,12 @@ describe("a template the project has tuned survives (AC2)", () => {
         const repo: string = makeAdopterRepo();
         const masters: string = makeMasters();
         const tuned: string = SEEDED_TEMPLATES[0];
-        fs.mkdirSync(projectTemplateDir(repo), { recursive: true });
-        fs.writeFileSync(path.join(projectTemplateDir(repo), tuned), "tuned by the project\n");
+        fs.mkdirSync(sharedTemplateDir(repo), { recursive: true });
+        fs.writeFileSync(path.join(sharedTemplateDir(repo), tuned), "tuned by the project\n");
 
         const result: SeedTemplatesResult = seedTemplates(masters, repo);
 
-        expect(fs.readFileSync(path.join(projectTemplateDir(repo), tuned), "utf8")).toBe("tuned by the project\n");
+        expect(fs.readFileSync(path.join(sharedTemplateDir(repo), tuned), "utf8")).toBe("tuned by the project\n");
         expect(result.kept).toEqual([tuned]);
         expect(result.seeded.sort()).toEqual(SEEDED_TEMPLATES.filter((n) => n !== tuned).sort());
     });
@@ -132,7 +137,7 @@ describe("the seeded copy is the master's own bytes (AC4)", () => {
         seedTemplates(MASTER_DIR, repo);
 
         for (const name of SEEDED_TEMPLATES) {
-            expect(fs.readFileSync(path.join(projectTemplateDir(repo), name)), name).toEqual(
+            expect(fs.readFileSync(path.join(sharedTemplateDir(repo), name)), name).toEqual(
                 fs.readFileSync(path.join(MASTER_DIR, name)),
             );
         }
@@ -145,14 +150,14 @@ describe("every stage finds the template it reads (AC5)", () => {
         seedTemplates(MASTER_DIR, repo);
         const named: string[] = [];
         for (const component of ["nxs.setup.md", "nxs.decision-record.md", "nxs.close.md"]) {
-            for (const match of componentBody(component).matchAll(/\.nexus\/config\/templates\/([\w.-]+\.md)/g)) {
+            for (const match of componentBody(component).matchAll(/~\/\.agents\/common\/templates\/([\w.-]+\.md)/g)) {
                 named.push(match[1]);
             }
         }
 
         expect(named.length).toBeGreaterThanOrEqual(3);
         for (const name of new Set(named)) {
-            expect(fs.existsSync(path.join(projectTemplateDir(repo), name)), name).toBe(true);
+            expect(fs.existsSync(path.join(sharedTemplateDir(repo), name)), name).toBe(true);
         }
     });
 });
@@ -173,7 +178,7 @@ describe("a master set that cannot be found is an error, never a partial seed", 
         const missing: string = path.join(makeTmpDir("no-masters-"), "absent");
 
         expect(() => seedTemplates(missing, repo)).toThrow(missing);
-        expect(fs.existsSync(projectTemplateDir(repo))).toBe(false);
+        expect(fs.existsSync(sharedTemplateDir(repo))).toBe(false);
     });
 
     it("refuses when the master set is incomplete", () => {
@@ -182,12 +187,12 @@ describe("a master set that cannot be found is an error, never a partial seed", 
         fs.rmSync(path.join(masters, SEEDED_TEMPLATES[1]));
 
         expect(() => seedTemplates(masters, repo)).toThrow(SEEDED_TEMPLATES[1]);
-        expect(fs.existsSync(projectTemplateDir(repo))).toBe(false);
+        expect(fs.existsSync(sharedTemplateDir(repo))).toBe(false);
     });
 });
 
 describe("nexus seed-templates", () => {
-    it("seeds the invoking repository and reports what it placed", async () => {
+    it("seeds the shared account folder regardless of the invoking repository", async () => {
         const repo: string = makeAdopterRepo();
         const io: CapturedIo = makeIo(repo);
 
@@ -195,9 +200,11 @@ describe("nexus seed-templates", () => {
 
         expect(code).toBe(0);
         for (const name of SEEDED_TEMPLATES) {
-            expect(fs.existsSync(path.join(projectTemplateDir(repo), name)), name).toBe(true);
+            expect(fs.existsSync(path.join(sharedTemplateDir(accountHome), name)), name).toBe(true);
         }
-        expect(io.out.join("\n")).toContain(projectTemplateDir(repo));
+        expect(io.out.join("\n")).toContain(sharedTemplateDir(accountHome));
+        expect(fs.existsSync(path.join(repo, ".nexus"))).toBe(false);
+        expect(fs.existsSync(path.join(repo, ".agents"))).toBe(false);
     });
 
     it("reports the templates it left alone rather than claiming to have written them", async () => {
@@ -212,14 +219,14 @@ describe("nexus seed-templates", () => {
         expect(io.out.join("\n")).toContain("kept");
     });
 
-    it("seeds a repository named by --target rather than the invoking one", async () => {
+    it("seeds an account home named by --target rather than the default", async () => {
         const target: string = makeAdopterRepo();
         const io: CapturedIo = makeIo(makeAdopterRepo());
 
         await runNexusCli(["seed-templates", "--masters", makeMasters(), "--target", target], io);
 
-        expect(fs.existsSync(path.join(projectTemplateDir(target), SEEDED_TEMPLATES[0]))).toBe(true);
-        expect(fs.existsSync(path.join(projectTemplateDir(io.cwd), SEEDED_TEMPLATES[0]))).toBe(false);
+        expect(fs.existsSync(path.join(sharedTemplateDir(target), SEEDED_TEMPLATES[0]))).toBe(true);
+        expect(fs.existsSync(path.join(sharedTemplateDir(io.cwd), SEEDED_TEMPLATES[0]))).toBe(false);
     });
 
     it("names the master set it could not find", async () => {
@@ -246,7 +253,7 @@ describe("nexus seed-templates", () => {
         const code: number = await runNexusCli(["seed-templates", flag], io);
 
         expect(code).toBe(2);
-        expect(fs.existsSync(projectTemplateDir(io.cwd))).toBe(false);
+        expect(fs.existsSync(sharedTemplateDir(io.cwd))).toBe(false);
     });
 });
 
@@ -259,13 +266,13 @@ describe("the close-record template is no longer seeded (#872 D4, R5)", () => {
         seedTemplates(MASTER_DIR, repo);
 
         expect(SEEDED_TEMPLATES).not.toContain("close-record-template.md");
-        expect(fs.existsSync(path.join(projectTemplateDir(repo), "close-record-template.md"))).toBe(false);
+        expect(fs.existsSync(path.join(sharedTemplateDir(repo), "close-record-template.md"))).toBe(false);
     });
 
     it("leaves a close-record template a repository already holds exactly as it is", () => {
         const repo: string = makeAdopterRepo();
-        fs.mkdirSync(projectTemplateDir(repo), { recursive: true });
-        const kept: string = path.join(projectTemplateDir(repo), "close-record-template.md");
+        fs.mkdirSync(sharedTemplateDir(repo), { recursive: true });
+        const kept: string = path.join(sharedTemplateDir(repo), "close-record-template.md");
         fs.writeFileSync(kept, "tuned by the project\n");
 
         seedTemplates(MASTER_DIR, repo);

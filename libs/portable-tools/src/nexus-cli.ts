@@ -25,6 +25,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as os from "node:os";
 import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
@@ -114,7 +115,7 @@ import { INITIATIVE_CONTEXT_SUBVERBS, INITIATIVE_CONTEXT_USAGE, runInitiativeCon
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import {
-    projectTemplateDir,
+    sharedTemplateDir,
     seedTemplates,
     TEMPLATE_PAYLOAD_DIRNAME,
     type SeedTemplatesResult,
@@ -881,12 +882,12 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: (argv, io) => Promise.resolve(runReviewPost(argv, io)),
     },
     "seed-templates": {
-        summary: "Place the tool-agnostic templates the pipeline stages read into a repository.",
+        summary: "Place the tool-agnostic templates in the shared account folder.",
         usage: [
             "  nexus seed-templates [--target <dir>] [--masters <dir>]",
-            "      Copy the templates the setup, decision-record and close stages read into",
-            "      .nexus/config/templates/ in the target repo (default: the current directory).",
-            "      Seeds only what is absent — a template your project has tuned is never",
+            "      Copy the templates the setup and decision-record stages read into",
+            "      .agents/common/templates/ under --target (default: the user home directory).",
+            "      Seeds only what is absent — a template you have tuned is never",
             "      overwritten — so it is safe to re-run. The masters travel inside the release.",
         ].join("\n"),
         run: runSeedTemplates,
@@ -1049,9 +1050,8 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
 /**
  * `nexus seed-templates` — the arrival of the three tool-agnostic templates (story #323).
  *
- * Repo-bound on purpose: the templates belong to the project, not to the account, so this is not
- * part of `nexus install`, which writes once per account at a location no repository owns. It is
- * the step `/nxs.setup` runs, and the step its own body now names.
+ * Account-scoped: setup and decision-record share one template set across repositories.
+ * --target overrides the account home for an explicitly selected installation.
  */
 async function runSeedTemplates(argv: string[], io: CliIo): Promise<number> {
     const rest: string[] = [...argv];
@@ -1068,17 +1068,17 @@ async function runSeedTemplates(argv: string[], io: CliIo): Promise<number> {
         return 2;
     }
 
-    const targetRepoRoot: string = path.resolve(io.cwd, targetOpt.value ?? io.cwd);
+    const targetAccountHome: string = path.resolve(io.cwd, targetOpt.value ?? os.homedir());
     let result: SeedTemplatesResult;
     try {
-        result = seedTemplates(mastersOpt.value ?? defaultTemplateMasterDir(), targetRepoRoot);
+        result = seedTemplates(mastersOpt.value ?? defaultTemplateMasterDir(), targetAccountHome);
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
     }
     io.stdout(
-        `seeded ${result.seeded.length} template(s) into ${projectTemplateDir(targetRepoRoot)}` +
-            (result.kept.length > 0 ? `; kept ${result.kept.length} the project already has (${result.kept.join(", ")})` : ""),
+        `seeded ${result.seeded.length} template(s) into ${sharedTemplateDir(targetAccountHome)}` +
+            (result.kept.length > 0 ? `; kept ${result.kept.length} the account already has (${result.kept.join(", ")})` : ""),
     );
     return 0;
 }

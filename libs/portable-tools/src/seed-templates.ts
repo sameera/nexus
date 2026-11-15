@@ -1,34 +1,9 @@
-/**
- * The template seed (story #323): the tool-agnostic templates the pipeline stages read out of the
- * project's own configuration get there.
- *
- * Two stages read a template from `.nexus/config/templates/` — setup its standards template and the
- * decision-record stage its record templates — and nothing seeded any of them. Close read a
- * close-record template too, until its record's shape moved into code (epic #830, decision record
- * #872, D4): it is no longer seeded, and a copy a repository already holds is left alone. That gap was hidden by the Nexus checkout, where the files happen to be present; in
- * any other repository the stages read a path that never existed. So the masters now travel inside
- * the release (`TEMPLATE_PAYLOAD_DIRNAME`, beside the bundled entrypoints, exactly as the component
- * payload travels) and this module places a first copy into the repository.
- *
- * Two shapes are deliberate:
- *
- * - **Seed, never clobber.** A project may tune a template; a re-run must not discard that. Every
- *   destination that already exists is kept and reported as kept — the caller can see the
- *   difference between "written" and "already yours", which a silent skip would hide.
- * - **The whole set is validated before anything is written.** A master directory that cannot be
- *   found, or one missing a member of the set, throws naming it and leaves the repository
- *   untouched. A half-seeded configuration is the state that would send a stage looking for a file
- *   nobody will ever put there — the same reasoning that makes the component mirror throw on a
- *   missing payload rather than treat it as emptiness.
- *
- * Node builtins only; bundled into the `nexus` entrypoint.
- */
-
+/** Shared account templates for setup and decision-record; seed absent files without overwriting edits. */
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * The tool-agnostic templates a project's stages read. One copy serves every project — there is no
+ * The tool-agnostic templates the stages read. One copy serves every project — there is no
  * per-tool variant — so this is the whole seeded set, named here and nowhere else.
  *
  * The decision-record stage reads two: the approval-first template every new record is drafted
@@ -47,31 +22,31 @@ export const TEMPLATE_PAYLOAD_DIRNAME = "templates";
 /** The repository-root path segments holding the template masters in a checkout. */
 export const TEMPLATE_MASTER_SEGMENTS: readonly string[] = ["common", "templates"];
 
-/** The project-root path segments the stages read their templates from. */
-export const PROJECT_TEMPLATE_SEGMENTS: readonly string[] = [".nexus", "config", "templates"];
+/** The account-home path segments the stages read their templates from. */
+export const SHARED_TEMPLATE_SEGMENTS: readonly string[] = [".agents", "common", "templates"];
 
 /** The authored master set in a checkout whose sources live under `srcDir`. */
 export function authoredTemplateMasterDir(srcDir: string): string {
     return path.resolve(srcDir, "..", "..", "..", ...TEMPLATE_MASTER_SEGMENTS);
 }
 
-/** Where a repository's stages read their templates. */
-export function projectTemplateDir(repoRoot: string): string {
-    return path.join(repoRoot, ...PROJECT_TEMPLATE_SEGMENTS);
+/** Shared templates, rooted in the account home rather than the working repository. */
+export function sharedTemplateDir(accountHome: string): string {
+    return path.join(accountHome, ...SHARED_TEMPLATE_SEGMENTS);
 }
 
 export interface SeedTemplatesResult {
-    /** Filenames written, sorted — the templates the repository did not have. */
+    /** Filenames written, sorted — the templates the account did not have. */
     seeded: string[];
-    /** Filenames left as the project has them, sorted. */
+    /** Filenames left as the account has them, sorted. */
     kept: string[];
 }
 
 /**
- * Place a first copy of every seeded template into `repoRoot`, never overwriting one that is
+ * Place a first copy of every seeded template under `accountHome`, never overwriting one that is
  * already there. Throws — before writing anything — when the master set cannot be read whole.
  */
-export function seedTemplates(masterDir: string, repoRoot: string): SeedTemplatesResult {
+export function seedTemplates(masterDir: string, accountHome: string): SeedTemplatesResult {
     if (!fs.existsSync(masterDir) || !fs.statSync(masterDir).isDirectory()) {
         throw new Error(
             `no template master set at ${masterDir}. The templates travel inside the Nexus release; ` +
@@ -90,7 +65,7 @@ export function seedTemplates(masterDir: string, repoRoot: string): SeedTemplate
         masters.set(name, fs.readFileSync(master));
     }
 
-    const destDir: string = projectTemplateDir(repoRoot);
+    const destDir: string = sharedTemplateDir(accountHome);
     const seeded: string[] = [];
     const kept: string[] = [];
     for (const [name, content] of masters) {
