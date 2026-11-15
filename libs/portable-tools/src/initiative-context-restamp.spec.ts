@@ -31,7 +31,8 @@ interface FakeIssue {
     body?: string;
     parent?: number;
     labels?: string[];
-    edits?: Version[] | "fail";
+    /** Oldest first; a null entry is an edit GitHub returns as a null node. */
+    edits?: (Version | null)[] | "fail";
     comments?: FakeComment[];
 }
 
@@ -65,8 +66,8 @@ function fakeGh(issues: Record<number, FakeIssue>): Fake {
         if (args[0] === "api" && args[1] === "graphql") {
             const field = (key: string): string => args.find((a) => a.startsWith(`${key}=`))?.slice(key.length + 1) ?? "";
             const query = field("query");
-            const asNodes = (edits: Version[]): unknown => ({
-                nodes: [...edits].reverse().map((v) => ({ editedAt: v.at, editor: v.login === null ? null : { login: v.login }, diff: v.body })),
+            const asNodes = (edits: (Version | null)[]): unknown => ({
+                nodes: [...edits].reverse().map((v) => (v === null ? null : { editedAt: v.at, editor: v.login === null ? null : { login: v.login }, diff: v.body })),
             });
             if (query.includes("userContentEdits") && query.includes("node(id")) {
                 const id = field("id");
@@ -188,9 +189,19 @@ describe("restamp previews a changed context before anything is written", () => 
         expect(r.changes[0].editors.map((e) => e.login)).toEqual(["lead"]);
     });
 
-    it("still previews when the filed text is not in the edit history, showing the whole context as new", () => {
+    it("keeps GitHub's order for edits made in the same second", () => {
         const issues = editedInline();
         const history = issues[700].edits as Version[];
+        history[1].at = history[0].at;
+        const r = restampInitiativeContext(fakeGh(issues).run, checkout(), 700);
+        if (!r.ok || r.state !== "preview") throw new Error(JSON.stringify(r));
+        expect(r.changes[0].baseline).toBe("found");
+        expect(r.changes[0].editors.map((e) => e.login)).toEqual(["lead"]);
+    });
+
+    it("still previews when the filed text is not in the edit history, showing the whole context as new", () => {
+        const issues = editedInline();
+        const history = issues[700].edits as (Version | null)[];
         issues[700].edits = history.slice(1);
         const r = restampInitiativeContext(fakeGh(issues).run, checkout(), 700);
         if (!r.ok || r.state !== "preview") throw new Error(JSON.stringify(r));
@@ -212,6 +223,12 @@ describe("restamp accepts the edit only for the context the lead previewed", () 
         const looked = lookupInitiativeContext(gh.run, root, 701);
         if (!looked.ok) throw new Error(looked.message);
         expect(looked.outcome.state === "context" && looked.outcome.text).toContain("resolve lazily");
+    });
+
+    it("prints the token as a full digest, never a truncated one", () => {
+        const preview = restampInitiativeContext(fakeGh(editedInline()).run, checkout(), 700);
+        if (!preview.ok || preview.state !== "preview") throw new Error(JSON.stringify(preview));
+        expect(preview.token).toMatch(/^[0-9a-f]{64}$/);
     });
 
     it("refuses a token from a preview of different text, and writes nothing", () => {
@@ -256,6 +273,13 @@ describe("restamp refuses what it cannot vouch for", () => {
     it("refuses when the edit history cannot be read", () => {
         const issues = editedInline();
         issues[700].edits = "fail";
+        const r = refusal(restampInitiativeContext(fakeGh(issues).run, checkout(), 700));
+        expect(r.problem).toBe("history-unreadable");
+    });
+
+    it("refuses when the edit history holds an edit it cannot read", () => {
+        const issues = editedInline();
+        (issues[700].edits as (Version | null)[]).splice(1, 0, null);
         const r = refusal(restampInitiativeContext(fakeGh(issues).run, checkout(), 700));
         expect(r.problem).toBe("history-unreadable");
     });

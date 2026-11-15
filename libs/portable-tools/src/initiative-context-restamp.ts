@@ -166,7 +166,7 @@ export function restampInitiativeContext(baseRun: Runner, root: string, initiati
         );
     }
 
-    const token: string = recordDigest(JSON.stringify(newRecord)).slice(0, 16);
+    const token: string = recordDigest(JSON.stringify(newRecord));
     if (accept === undefined) return { ok: true, state: "preview", initiative, where, changes, token };
     if (accept !== token) {
         return refuse("token-mismatch", `initiative #${initiative}'s planning context is not the one that preview showed; it changed since. Preview it again. Nothing was written.`);
@@ -202,12 +202,13 @@ function readHistory(run: Runner, cwd: string, args: string[], path: string[], w
     }
     for (const key of [...path, "userContentEdits", "nodes"]) node = node !== null && typeof node === "object" ? (node as Record<string, unknown>)[key] : undefined;
     if (!Array.isArray(node)) return unreadable("the answer held no edit list");
-    const versions: Version[] = node.map((n: Record<string, unknown>) => ({
+    if (node.some((n: unknown) => n === null || typeof n !== "object")) return unreadable("the answer held an edit that could not be read");
+    // GitHub lists edits newest first; reversing keeps the order of edits made in the same second.
+    const versions: Version[] = [...node].reverse().map((n: Record<string, unknown>) => ({
         editedAt: String(n.editedAt ?? ""),
         editor: typeof (n.editor as { login?: unknown } | null)?.login === "string" ? (n.editor as { login: string }).login : null,
         text: typeof n.diff === "string" ? n.diff : "",
     }));
-    versions.sort((a, b) => a.editedAt.localeCompare(b.editedAt));
     return { ok: true, versions };
 }
 
