@@ -36,7 +36,7 @@ describe("resolving the install location", () => {
             harness: "codex",
             env: { CLAUDE_CONFIG_DIR: "invalid", CODEX_HOME: "/opt/codex-config" },
             homedir: () => "/home/adopter",
-        })).toMatchObject({ ok: true, path: "/home/adopter/.agents", source: "home-default" });
+        })).toMatchObject({ ok: true, path: path.join('/home/adopter', '.agents'), source: "home-default" });
     });
 
     it("reports an unavailable home for Codex instead of suggesting Claude configuration", () => {
@@ -52,7 +52,7 @@ describe("resolving the install location", () => {
 
     it("takes an absolute value from the variable", () => {
         const resolved = resolveInstallLocation({ env: { [CONFIG_DIR_VAR]: "/opt/claude-config" }, homedir: () => "/home/adopter" });
-        expect(resolved).toMatchObject({ ok: true, path: "/opt/claude-config", source: "environment" });
+        expect(resolved).toMatchObject({ ok: true, path: path.resolve('/opt/claude-config'), source: "environment" });
     });
 
     it("errors rather than falling back when the variable is set but empty", () => {
@@ -105,7 +105,7 @@ describe("reading what the install location holds", () => {
         expect(inspectInstallLocation(location)).toMatchObject({ populated: true, content: "copy", checkout: null });
     });
 
-    it("reports a pointer at a checkout, naming the tree pointed at", () => {
+    it.skipIf(process.platform === 'win32')("reports a pointer at a checkout, naming the tree pointed at", () => {
         const checkout: string = makeTmpDir("install-checkout-");
         const claude: string = path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands");
         fs.mkdirSync(claude, { recursive: true });

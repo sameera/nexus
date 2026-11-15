@@ -24,6 +24,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { resolveHarnessInvocation } from "./harness-process.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
@@ -349,7 +350,7 @@ export interface RunOutcome {
 }
 
 /** Read the outcome from GitHub, never from the session (D4, G11–G13). */
-export function decideOutcome(plan: Pick<DistillPlan, "wtPath" | "branch" | "files">, end: SessionEnd, read: OpenPrRead): RunOutcome {
+export function decideOutcome(plan: Pick<DistillPlan, "epic" | "wtPath" | "branch" | "files">, end: SessionEnd, read: OpenPrRead): RunOutcome {
     const cleanup = cleanupLine(plan.epic);
     const sessionTrouble = !end.started
         ? `the session could not start: ${end.error ?? "unknown cause"}`
@@ -516,6 +517,7 @@ export function detachRunner(plan: DistillPlan, entry: { command: string; args: 
         const child = spawn(entry.command, [...entry.args, "distill", "--detached-runner"], {
             cwd: plan.mainRoot,
             detached: true,
+            windowsHide: true,
             stdio: ["ignore", "ignore", "inherit"],
             env: { ...process.env, [PLAN_ENV]: JSON.stringify(plan) },
         });
@@ -631,7 +633,9 @@ export function spawnSession(spec: SessionSpec, line: (text: string) => void): P
         let error: string | null = null;
         let child;
         try {
-            child = spawn(spec.command, spec.args, { cwd: spec.cwd, stdio: ["ignore", "pipe", "pipe"] });
+            const invocation = resolveHarnessInvocation(spec.command, spec.args);
+            if (invocation === null) throw new Error(`executable not found for ${spec.command}`);
+            child = spawn(invocation.command, invocation.args, { cwd: spec.cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
         } catch (e) {
             resolve({ started: false, exitCode: null, error: e instanceof Error ? e.message : String(e), finalMessage: null });
             return;
@@ -658,17 +662,7 @@ export function spawnSession(spec: SessionSpec, line: (text: string) => void): P
 
 /** Whether `command` resolves to an executable file on the PATH. */
 export function onPath(command: string, envPath: string = process.env["PATH"] ?? ""): boolean {
-    return envPath
-        .split(path.delimiter)
-        .filter((d) => d !== "")
-        .some((d) => {
-            try {
-                fs.accessSync(path.join(d, command), fs.constants.X_OK);
-                return true;
-            } catch {
-                return false;
-            }
-        });
+    return resolveHarnessInvocation(command, [], envPath) !== null;
 }
 
 /** The worktree registered on `branch`, from git's porcelain list. */

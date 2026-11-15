@@ -207,7 +207,7 @@ export function linkDependencyClosure(clonePath: string, sourceRepoRoot: string)
         if (existing.isSymbolicLink() && fs.readlinkSync(target) === source) return ok(undefined);
         fs.rmSync(target, { recursive: true, force: true });
     }
-    fs.symlinkSync(source, target, "dir");
+    fs.symlinkSync(source, target, process.platform === 'win32' ? 'junction' : 'dir');
     return ok(undefined);
 }
 

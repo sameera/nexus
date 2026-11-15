@@ -56,6 +56,7 @@
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
+import { shellWord } from "@nexus/workspace/shell-word";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
 import { matchLandedChangeWaiver, matchRecordWaiver, readPrWaivers, type PrWaivers, type RejectedWaiver, type WaiverMatch } from "@nexus/pr-acceptance/waiver";
 import { compareLandedChange, landedOnTrunk, type LandedChangeInput, type LandedChangeResult, type LandedFile } from "@nexus/pr-worktree/landed-change";
@@ -781,7 +782,7 @@ export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, r
         readClaims: (story) => readStoryClaims(run, root, slug, story),
         checkoutFor: (repo) => resolveRepoCheckout(root, run, repo),
         hasCommit: (checkout, sha) => run("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: checkout }).status === 0,
-        fetchCommand: (checkout) => `git -C ${checkout} fetch ${canonicalRemote(run, checkout)}`,
+        fetchCommand: (checkout) => `git -C ${shellWord(checkout)} fetch ${shellWord(canonicalRemote(run, checkout))}`,
         derive: (checkout, pr) => {
             const info = resolvePr(run, checkout, pr.pr, { requireMerged: true });
             if (!info.ok) return { ok: false, problem: info.error.problem, message: info.error.message };

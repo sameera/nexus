@@ -99,7 +99,7 @@ describe("the plain-register rule block", () => {
     it("appears in those five stages and in no other component", () => {
         const carriers: string[] = componentFiles()
             .filter((file) => fs.readFileSync(file, "utf8").includes(BLOCK_OPENS))
-            .map((file) => path.relative(ROOT, file))
+            .map((file) => path.relative(ROOT, file).split(path.sep).join('/'))
             .sort();
         expect(carriers).toEqual(DRAFTING_STAGES.map((stem) => `commands/${stem}.md`).sort());
     });

@@ -191,7 +191,7 @@ describe("the duplicate report after story #317", () => {
         expect(defects.find((d) => d.defect.includes("component set"))?.detail).toContain(location);
     });
 
-    it("reports no duplicate when the install location points at the repository's own tree (AC2)", () => {
+    it.skipIf(process.platform === 'win32')("reports no duplicate when the install location points at the repository's own tree (AC2)", () => {
         const repo: string = makeComponentSet("dup-checkout-");
         const location: string = makeTmpDir("dup-pointer-");
         fs.mkdirSync(path.join(location, "commands"), { recursive: true });

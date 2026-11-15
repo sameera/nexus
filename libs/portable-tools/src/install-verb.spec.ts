@@ -108,7 +108,7 @@ describe("nexus install", () => {
         expect(fs.readFileSync(path.join(location, "commands", "my-own.md"), "utf8")).toBe("mine\n");
     });
 
-    it("points the location at a checkout's authored tree and names it (AC4)", async () => {
+    it.skipIf(process.platform === 'win32')("points the location at a checkout's authored tree and names it (AC4)", async () => {
         const checkout: string = makeTmpDir("install-checkout-");
         fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
         fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
@@ -125,7 +125,7 @@ describe("nexus install", () => {
         expect(io.out.join("\n")).toContain(checkout);
     });
 
-    it("never writes through a pointer when a later install copies over it", async () => {
+    it.skipIf(process.platform === 'win32')("never writes through a pointer when a later install copies over it", async () => {
         const checkout: string = makeTmpDir("install-checkout-");
         fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
         fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");

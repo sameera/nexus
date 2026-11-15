@@ -9,11 +9,17 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { JUDGMENTS_MARKER, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { buildBundle } from "./bundle";
 import { DISPATCH_NAMES, epicVerdictsPayload, runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
 import { copyComponentTree, COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
+
+vi.mock('@nexus/workspace/run', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@nexus/workspace/run')>();
+    const { nodeFixtureRunner } = await import('./node-process-fixtures');
+    return {...actual, defaultRunner: nodeFixtureRunner(actual.defaultRunner)};
+});
 
 let tmpDirs: string[] = [];
 
@@ -2240,7 +2246,7 @@ describe("nexus close (story #864)", () => {
         expect(await runNexusCli(["close", "--pr", "5"], io)).toBe(1);
         const err = io.err.join("\n");
         expect(err).toMatch(/reason: .*member/);
-        expect(err).toContain(fs.realpathSync(repo));
+        expect(err).toContain(fs.realpathSync.native(repo).split(path.sep).join('/'));
         expect(err).toMatch(/remedy: .*hub/);
         expect(io.out).toEqual([]);
     });

@@ -8,7 +8,7 @@ import { buildAllBundles, ENTRY_POINTS } from "./build-bundles";
 const SRC_DIR: string = __dirname;
 const LIB_ROOT: string = path.resolve(__dirname, "..");
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
-const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 
 let tmpDirs: string[] = [];
 
@@ -53,7 +53,7 @@ describe("buildAllBundles", () => {
 
 describe("CLI entry (matches the nx \"bundle\" target's invocation)", () => {
     it("builds the executable into dist/bundle when launched via tsx", () => {
-        const stdout: string = execFileSync(TSX_BIN, ["src/build-bundles.ts"], {
+        const stdout: string = execFileSync(process.execPath, [TSX_BIN, "src/build-bundles.ts"], {
             cwd: LIB_ROOT,
             encoding: "utf8",
         });

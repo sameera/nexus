@@ -232,7 +232,7 @@ export function integrationBullets(section: string[]): string[] {
 }
 
 function decisionLogHeadings(content: string): string[] {
-    const lines: string[] = content.split("\n");
+    const lines: string[] = content.split(/\r?\n/);
     const fm: Frontmatter | null = parseFrontmatter(lines);
     const bodyLines: string[] = lines.slice(fm?.bodyStart ?? 0);
     const log: string[] | null = sectionLines(bodyLines, "Decision Log");
@@ -249,7 +249,7 @@ function decisionLogHeadings(content: string): string[] {
  * inside the opening frontmatter block is dropped; a body line is never touched.
  */
 function stripDomainLine(content: string): string {
-    const lines: string[] = content.split("\n");
+    const lines: string[] = content.split(/\r?\n/);
     const kept: string[] = [];
     let delimiters = 0;
     for (const line of lines) {
@@ -267,7 +267,7 @@ function stripDomainLine(content: string): string {
 }
 
 export function checkForbiddenContent(file: string, text: string, findings: Finding[]): void {
-    const lines: string[] = text.split("\n");
+    const lines: string[] = text.split(/\r?\n/);
     let inFence = false;
     for (const line of lines) {
         if (/^\s*(```|~~~)/.test(line)) {
@@ -301,6 +301,22 @@ export function checkForbiddenContent(file: string, text: string, findings: Find
     }
 }
 
+/** Git reports long Windows paths even when TEMP uses an 8.3 alias. Compare one spelling. */
+function gitRelativePath(repoRoot: string, file: string): string {
+    const canonical = (target: string): string => {
+        const resolved = path.resolve(target);
+        try { return fs.realpathSync.native(resolved); }
+        catch {
+            const parent = path.dirname(resolved);
+            return parent === resolved ? resolved : path.join(canonical(parent), path.basename(resolved));
+        }
+    };
+    // Resolve the containing directory, not the file: Git tracks a symlink at its own path.
+    const absolute = path.resolve(file);
+    const located = path.join(canonical(path.dirname(absolute)), path.basename(absolute));
+    return path.relative(canonical(repoRoot), located).split(path.sep).join('/');
+}
+
 function gitShow(ref: string, relPath: string): string | null {
     try {
         return execFileSync("git", ["show", `${ref}:${relPath}`], {
@@ -319,7 +335,7 @@ export function isAnchorFile(file: string): boolean {
 
 export function validateAnchor(file: string, findings: Finding[]): void {
     const content: string = fs.readFileSync(file, "utf8");
-    const lines: string[] = content.split("\n");
+    const lines: string[] = content.split(/\r?\n/);
     const slug: string = path.basename(file, ".md");
 
     const fm: Frontmatter | null = parseFrontmatter(lines);
@@ -419,7 +435,7 @@ export function pagesInStore(dir: string): Set<string> {
 
 export function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[], validDomainPaths: Set<string> | null = null, storePages: Set<string> | null = null): void {
     const content: string = fs.readFileSync(file, "utf8");
-    const lines: string[] = content.split("\n");
+    const lines: string[] = content.split(/\r?\n/);
 
     const slug: string = path.basename(file, ".md");
     if (!SLUG_PATTERN.test(slug)) {
@@ -523,7 +539,7 @@ export function validatePage(file: string, base: string | null, repoRoot: string
         const bullets: string[] = integrationBullets(integration);
         for (const bullet of bullets) {
             const words: number = countWords(bullet);
-            const excerpt: string = bullet.split("\n")[0].trim().slice(0, 60);
+            const excerpt: string = bullet.split(/\r?\n/)[0].trim().slice(0, 60);
             if (words > BULLET_WORD_CEILING) {
                 findings.push({ file, message: `Integration Points: bullet "${excerpt}" is ${words} words, over the ${BULLET_WORD_CEILING}-word ceiling — say the interaction in fewer words, or declare two edges if it is really two interactions (0003 §2.2)` });
             } else if (words > BULLET_WORD_ADVISORY) {
@@ -597,7 +613,7 @@ export function validatePage(file: string, base: string | null, repoRoot: string
 
     // Changed-page checks against --base: exactly one new Decision Log entry, append-only.
     if (base !== null) {
-        const relPath: string = path.relative(repoRoot, path.resolve(file)).split(path.sep).join("/");
+        const relPath: string = gitRelativePath(repoRoot, file);
         let previous: string | null = gitShow(base, relPath);
         if (previous === null && relPath.includes("/_archive/")) {
             previous = gitShow(base, relPath.replace("/_archive/", "/"));
@@ -661,7 +677,7 @@ export function gitStatusMap(base: string, repoRoot: string): Map<string, string
         }
     };
     const absorb = (raw: string): void => {
-        for (const line of raw.split("\n")) {
+        for (const line of raw.split(/\r?\n/)) {
             if (line.trim() === "") continue;
             const parts: string[] = line.split("\t");
             const letter: string = (parts[0] ?? "").charAt(0);
@@ -672,7 +688,7 @@ export function gitStatusMap(base: string, repoRoot: string): Map<string, string
 
     // A page the drain has written but not yet staged is untracked, so `git diff` cannot see it at
     // all — it is read separately rather than silently passing as unchanged.
-    for (const line of read(["ls-files", "--others", "--exclude-standard"]).split("\n")) {
+    for (const line of read(["ls-files", "--others", "--exclude-standard"]).split(/\r?\n/)) {
         if (line.trim() !== "") statuses.set(line.trim(), "A");
     }
     absorb(read(["diff", "--name-status", "-M", base, "--"]));
@@ -686,7 +702,7 @@ export function gitStatusMap(base: string, repoRoot: string): Map<string, string
 function stripLastUpdatedByLine(content: string): string {
     const kept: string[] = [];
     let delimiters = 0;
-    for (const line of content.split("\n")) {
+    for (const line of content.split(/\r?\n/)) {
         if (line.trim() === "---") {
             delimiters++;
             kept.push(line);
@@ -701,7 +717,7 @@ function stripLastUpdatedByLine(content: string): string {
 /** Trailing whitespace normalisation: per line, and at the end of the content. */
 function normalizeTrailing(content: string): string {
     return content
-        .split("\n")
+        .split(/\r?\n/)
         .map((line: string) => line.replace(/[ \t]+$/, ""))
         .join("\n")
         .replace(/\n+$/, "");
@@ -723,7 +739,7 @@ export function checkAppendOnlyLog(
     statuses: Map<string, string>,
     findings: Finding[],
 ): void {
-    const relPath: string = path.relative(repoRoot, path.resolve(file)).split(path.sep).join("/");
+    const relPath: string = gitRelativePath(repoRoot, file);
     const letter: string | undefined = statuses.get(relPath);
     if (letter !== undefined && letter !== "M") {
         const name: string = STATUS_NAMES[letter] ?? letter;
@@ -749,7 +765,7 @@ export function checkAppendOnlyLog(
     }
 
     const heading: string = newHeadings[newHeadings.length - 1];
-    const lines: string[] = content.split("\n");
+    const lines: string[] = content.split(/\r?\n/);
     const start: number = lines.lastIndexOf(heading);
     const ahead: string = lines.slice(0, start).join("\n");
     if (normalizeTrailing(stripLastUpdatedByLine(ahead)) !== normalizeTrailing(stripLastUpdatedByLine(previous))) {
@@ -821,7 +837,7 @@ export function storeLevelFindings(conceptsDir: string): Finding[] {
     let hub = "";
 
     for (const name of fs.readdirSync(conceptsDir).filter((n: string) => n.endsWith(".md") && n !== "README.md")) {
-        const lines: string[] = fs.readFileSync(path.join(conceptsDir, name), "utf8").split("\n");
+        const lines: string[] = fs.readFileSync(path.join(conceptsDir, name), "utf8").split(/\r?\n/);
         const fm: Frontmatter | null = parseFrontmatter(lines);
         if (fm === null) {
             continue;

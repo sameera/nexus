@@ -114,6 +114,8 @@ export interface ImplementDeps {
     /** The test command the settings declare, or "" when none does. */
     testCommandSetting(root: string): string;
     defaultBranch(cwd: string): string | null;
+    /** Git metadata may live outside this checkout when it is a linked worktree. */
+    commonGitDir(cwd: string): string;
     clean(cwd: string): boolean;
     branchExists(cwd: string, branch: string): boolean;
     /** Create `branch` off `base` and check it out; the base commit it was cut from. */
@@ -238,7 +240,7 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
 }
 
 /** One harness call for `prompt` (D12): the prompt is written once and turned into the harness's form. */
-export function stageSpec(harness: Harness, prompt: string, mode: string, harnessArgs: string[], cwd: string): SessionSpec {
+export function stageSpec(harness: Harness, prompt: string, mode: string, harnessArgs: string[], cwd: string, gitDir = path.join(cwd, '.git')): SessionSpec {
     if (harness === "codex") {
         // Codex has skills, not Claude slash commands or its /goal extension.
         const text = prompt
@@ -247,7 +249,7 @@ export function stageSpec(harness: Harness, prompt: string, mode: string, harnes
             .replace(/\/nxs\.distill/g, "$nxs-distill")
             .replace(/\/nxs\.decision-record/g, "$nxs-decision-record")
             .replace(/\/nxs-epic-resolve/g, "$nxs-epic-resolve");
-        return { command: "codex", args: ["exec", "--sandbox", mode, "--json", ...harnessArgs, "--", text], cwd };
+        return { command: "codex", args: ["exec", "--sandbox", mode, "--json", "--add-dir", gitDir, ...harnessArgs, "--", text], cwd };
     }
     return { command: "claude", args: ["-p", prompt, "--permission-mode", mode, "--output-format", "stream-json", "--verbose", ...harnessArgs], cwd };
 }
@@ -525,7 +527,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
 
         const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
             say(`>>> ${stage}`);
-            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd), (l) => io.stdout(l));
+            const gitDir = harness === 'codex' ? deps.commonGitDir(cwd) : undefined;
+            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd, gitDir), (l) => io.stdout(l));
             if (!end.started) fail(stage, `the ${harness} harness could not start: ${end.error ?? "unknown error"}`);
             return end;
         };
@@ -813,6 +816,7 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
             const r = run("git", ["show", `${sha}:${file}`], { cwd });
             return r.status === 0 ? r.stdout : null;
         },
+        commonGitDir: (cwd) => git(run, cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir') ?? path.join(cwd, '.git'),
         autoModeAvailable: () => claudeOffersAuto(run),
         onPath: (command) => onPath(command),
         session: spawnSession,

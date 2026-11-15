@@ -11,9 +11,15 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli.js";
 import { authoredComponentRoot } from "./vendor-components.js";
+
+vi.mock('@nexus/workspace/run', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@nexus/workspace/run')>();
+    const { nodeFixtureRunner } = await import('./node-process-fixtures');
+    return {...actual, defaultRunner: nodeFixtureRunner(actual.defaultRunner)};
+});
 
 const COMPONENTS: string = authoredComponentRoot(import.meta.dirname);
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -117,7 +123,7 @@ process.exit(1);
 `;
         fs.writeFileSync(path.join(bin, "gh"), gh, { mode: 0o755 });
         savedPath = process.env["PATH"];
-        process.env["PATH"] = `${bin}:${savedPath ?? ""}`;
+        process.env["PATH"] = [bin, savedPath ?? ''].join(path.delimiter);
     });
     afterEach(() => {
         process.env["PATH"] = savedPath;

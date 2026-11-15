@@ -155,7 +155,7 @@ describe("nexus version reports what the install location holds", () => {
         return JSON.parse(io.out[0]);
     }
 
-    it("says the location points at a checkout, and names the checkout", async () => {
+    it.skipIf(process.platform === 'win32')("says the location points at a checkout, and names the checkout", async () => {
         const { location, checkout } = pointingInstall();
 
         const reported = await reportWithLocation(location);

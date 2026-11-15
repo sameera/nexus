@@ -2898,10 +2898,6 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             subcommand === "open" &&
             flags.mode === "close" &&
             (flags.prRef === undefined || flags.prRef.includes(","));
-        if (flags.prRef === undefined && !closeEpicOpen) {
-            io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
-            return 2;
-        }
 
         // A comma-separated `--pr` list (story #503, decision record #509) opens ONE worktree/branch
         // for the whole epic, never one per PR. Order-inversion is the whole point: every range is
@@ -2988,6 +2984,11 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             return 0;
         }
 
+        if (flags.prRef === undefined) {
+            io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
+            return 2;
+        }
+
         // Analyze accepts a member (a bare number self-selects this checkout; a repo-qualified
         // reference or a PR URL may name any declared member) — the role-per-mode split decision
         // record #495 calls for. Close keeps refusing a member outright until #215.
@@ -3005,7 +3006,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             ({ repoRoot, repoIdentity, role: roleName } = target.target);
             prNumber = (parsedRef as { number: number }).number;
         } else {
-            const role = resolveRole(flags.root, closeMigrationRunner, "close");
+            const role = resolveRole(flags.root, closeMigrationRunner);
             if (!role.ok) {
                 io.stderr(renderPrWorktreeDiagnostic(role.error));
                 return 1;
@@ -3345,6 +3346,10 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
 
 
 /** `nexus distill` — distill a closed epic with one command (epic #909, decision record #946). */
+export function defaultImplementHarness(platform: NodeJS.Platform = process.platform): ImplementHarness {
+    return platform === "win32" ? "codex" : "claude";
+}
+
 /** `nexus implement` — parse the invocation and run the command (decision record #966). */
 async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
     const refuse = (message: string): number => {
@@ -3355,7 +3360,7 @@ async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
     const own = dashes === -1 ? argv : argv.slice(0, dashes);
     const harnessArgs = dashes === -1 ? [] : argv.slice(dashes + 1);
     let epic: number | null = null;
-    let harness: ImplementHarness = "claude";
+    let harness: ImplementHarness = defaultImplementHarness();
     let permissionMode: string | null = null;
     let testCommand: string | null = null;
     let base: string | null = null;

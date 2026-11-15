@@ -40,8 +40,15 @@ function harnessTempRoots(): string[] {
 }
 
 function isHarnessOwned(wtPath: string): boolean {
-    const resolved = path.resolve(wtPath);
-    return harnessTempRoots().some((root) => resolved === root || resolved.startsWith(root + path.sep));
+    const canonical = (value: string): string => {
+        try { return fs.realpathSync.native(value); }
+        catch { return path.resolve(value); }
+    };
+    const resolved = canonical(wtPath);
+    return harnessTempRoots().some((candidate) => {
+        const root = canonical(candidate);
+        return resolved === root || resolved.startsWith(root + path.sep);
+    });
 }
 
 function registeredWorktrees(run: Runner, repoDir: string): string[] {

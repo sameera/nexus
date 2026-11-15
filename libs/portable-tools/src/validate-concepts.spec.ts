@@ -381,6 +381,12 @@ describe("anchor routing", () => {
 });
 
 describe("validatePage", () => {
+    it('accepts a well-formed concept page saved with Windows CRLF line endings', () => {
+        const dir = makeTmpDir();
+        const body = page().replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+        const file = writeFile(dir, 'alpha.md', body);
+        expect(validate(file)).toEqual([]);
+    });
     it("reports no findings for a well-formed page", () => {
         const dir = makeTmpDir();
         const file = writeFile(dir, "alpha.md", page());
@@ -1525,7 +1531,7 @@ describe("domain registry (epic #89, STORY-89.01)", () => {
 describe("CLI (subprocess)", () => {
     function runViaTsx(args: string[]): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/nexus-cli.ts", "validate-concepts", ...args], {
+            const stdout: string = execFileSync(process.execPath, [path.join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'), "libs/portable-tools/src/nexus-cli.ts", "validate-concepts", ...args], {
                 cwd: REPO_ROOT,
                 encoding: "utf8",
             });

@@ -18,7 +18,7 @@ import { buildBundle } from "./bundle";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
-const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const NEXUS_CLI_SRC: string = path.join(REPO_ROOT, "libs", "portable-tools", "src", "nexus-cli.ts");
 
 let tmpDirs: string[] = [];
@@ -122,7 +122,7 @@ interface CliResult {
 /** Run the verb through the from-source command shape, with cwd pointed at a checkout. */
 function runScript(cwd: string): CliResult {
     try {
-        const stdout = execFileSync(TSX_BIN, [NEXUS_CLI_SRC, "workspace", "docs-root"], { cwd, encoding: "utf8" });
+        const stdout = execFileSync(process.execPath, [TSX_BIN, NEXUS_CLI_SRC, "workspace", "docs-root"], { cwd, encoding: "utf8" });
         return { status: 0, stdout, stderr: "" };
     } catch (error) {
         const err = error as { status: number; stdout: string; stderr: string };

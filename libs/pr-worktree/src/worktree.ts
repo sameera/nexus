@@ -79,7 +79,7 @@ function normalizeDeclaredBase(raw: string, repoRoot: string): string {
         value.length >= 2 &&
         ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")));
     if (quoted) value = value.slice(1, -1).trim();
-    if (value === "~" || value.startsWith("~/")) value = path.join(os.homedir(), value.slice(1));
+    if (value === "~" || value.startsWith("~/") || (process.platform === 'win32' && value.startsWith("~\\"))) value = path.join(os.homedir(), value.slice(1));
     return path.resolve(repoRoot, value);
 }
 
@@ -142,7 +142,6 @@ function prepareWorktreeDir(
     repoRoot: string,
 ): { ok: true; dir: string } | { ok: false; error: PrWorktreeDiagnostic } {
     const resolved = resolveWorktreeBase(repoRoot);
-    if (!resolved.ok) return resolved;
     const base: string = resolved.base;
     const dir: string = path.join(base, checkoutSegment(repoRoot));
 
@@ -178,16 +177,23 @@ function branchSlug(branch: string): string {
     return branch.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
+/** Git's long Windows paths and the caller's 8.3 aliases can identify the same worktree. */
+function worktreeIdentity(value: string): string {
+    const resolved = path.resolve(value);
+    try { return fs.realpathSync.native(resolved); }
+    catch { return resolved; }
+}
+
 function listWorktrees(run: Runner, fromDir: string): string[] {
     const out = git(run, fromDir, "worktree", "list", "--porcelain") ?? "";
     return out
         .split("\n")
         .filter((l) => l.startsWith("worktree "))
-        .map((l) => path.resolve(l.slice("worktree ".length)));
+        .map((l) => worktreeIdentity(l.slice("worktree ".length)));
 }
 
 function isRegistered(run: Runner, fromDir: string, wtPath: string): boolean {
-    return listWorktrees(run, fromDir).includes(path.resolve(wtPath));
+    return listWorktrees(run, fromDir).includes(worktreeIdentity(wtPath));
 }
 
 /** The repo's primary worktree — the safe cwd for `git worktree` mutations. */

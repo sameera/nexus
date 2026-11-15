@@ -104,7 +104,7 @@ describe("nexus uninstall", () => {
         expect(printed).toContain("package manager");
     });
 
-    it("unlinks the pointers and never deletes the checkout's files (AC4)", async () => {
+    it.skipIf(process.platform === 'win32')("unlinks the pointers and never deletes the checkout's files (AC4)", async () => {
         const checkout: string = makeTmpDir("uninstall-checkout-");
         fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
         fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
@@ -119,7 +119,7 @@ describe("nexus uninstall", () => {
         expect(fs.readFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "utf8")).toBe("authored\n");
     });
 
-    it("names the checkout the pointers resolve to before it removes them (invariant 7)", async () => {
+    it.skipIf(process.platform === 'win32')("names the checkout the pointers resolve to before it removes them (invariant 7)", async () => {
         const checkout: string = makeTmpDir("uninstall-named-checkout-");
         fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
         fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");

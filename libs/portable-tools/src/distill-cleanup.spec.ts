@@ -21,7 +21,7 @@ afterEach(() => {
 function makeDir(): string {
     const d = fs.mkdtempSync(path.join(os.tmpdir(), "nexus-distill-cleanup-"));
     tmp.push(d);
-    return fs.realpathSync(d);
+    return fs.realpathSync.native(d);
 }
 
 const EPIC = 830;
@@ -45,7 +45,7 @@ function makeRepo(): string {
 function addWorktree(repo: string, branch: string): string {
     const wt = path.join(makeDir(), "wt");
     git(repo, "worktree", "add", "-q", "-b", branch, wt);
-    return fs.realpathSync(wt);
+    return fs.realpathSync.native(wt);
 }
 
 /** The worktrees git lists for the repository, the main one included. */
@@ -53,7 +53,7 @@ function listed(repo: string): string[] {
     return git(repo, "worktree", "list", "--porcelain")
         .split("\n")
         .filter((l) => l.startsWith("worktree "))
-        .map((l) => fs.realpathSync(l.slice("worktree ".length)));
+        .map((l) => fs.realpathSync.native(l.slice("worktree ".length)));
 }
 
 function branches(repo: string): string[] {
@@ -89,7 +89,7 @@ describe("nexus distill cleanup — the epic's distill worktree is removed by it
         const wt = addWorktree(repo, BRANCH);
         const { code, out } = cleanup(EPIC, repo);
         expect(code).toBe(0);
-        expect(out).toContain(wt);
+        expect(out).toContain(wt.split(path.sep).join('/'));
         expect(listed(repo)).not.toContain(wt);
         expect(listed(repo)).toContain(repo);
         expect(branches(repo)).toContain(BRANCH);

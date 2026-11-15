@@ -30,14 +30,19 @@ describe("defaultRunner", () => {
         expect(r.stdout.length).toBe(big.length);
     });
 
-    it("says a command was killed when it was", () => {
+    it("reports termination as failure, with the signal where the OS exposes it", () => {
         const r: RunResult = defaultRunner(process.execPath, ["-e", "process.kill(process.pid, 'SIGTERM')"], { cwd: os.tmpdir() });
-        expect(r.stderr).toContain("SIGTERM");
+        expect(r.status).not.toBe(0);
+        // Windows TerminateProcess reports an exit code, not a POSIX signal.
+        if (process.platform !== 'win32') expect(r.stderr).toContain("SIGTERM");
+        else expect(r.status).toBe(1);
     });
 
     it("keeps what a killed command printed beside why it stopped", () => {
         const r: RunResult = defaultRunner(process.execPath, ["-e", "console.error('a warning'); process.kill(process.pid, 'SIGTERM')"], { cwd: os.tmpdir() });
         expect(r.stderr).toContain("a warning");
-        expect(r.stderr).toContain("SIGTERM");
+        expect(r.status).not.toBe(0);
+        if (process.platform !== 'win32') expect(r.stderr).toContain("SIGTERM");
+        else expect(r.status).toBe(1);
     });
 });

@@ -101,7 +101,7 @@ function headingText(raw: string): string {
 /** Every line of the body, with the headings open above it. */
 function locate(body: string): Located[] {
     const open: { h2: string; h3: string; h4: string; h3Line: number; h4Line: number } = { h2: "", h3: "", h4: "", h3Line: 0, h4Line: 0 };
-    return body.split("\n").map((text: string, index: number) => {
+    return body.split(/\r?\n/).map((text: string, index: number) => {
         const match: RegExpMatchArray | null = text.match(/^(#+) (.*)$/);
         if (match !== null) {
             const depth: number = match[1].length;

@@ -16,6 +16,14 @@ function write(rel: string, content: string | Buffer): void {
 }
 
 describe('Codex payload validation', () => {
+  it('makes Windows shell execution explicit for every generated workflow', () => {
+    write('commands/nxs.epic.md', '---\ndescription: Epic\n---\nRun Bash commands.\n');
+    const body = renderCodexComponents(payload).get('skills/nxs-epic/SKILL.md')!.toString();
+    expect(body).toMatch(/PowerShell/);
+    expect(body).toMatch(/POSIX.*examples/is);
+    expect(body).toMatch(/exit code/i);
+    expect(body).toMatch(/UTF-8/);
+  });
   it('keeps a compound approval and its numbered changes in one self-contained interaction', () => {
     write(
       'commands/nxs.epic.md',

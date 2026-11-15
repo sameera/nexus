@@ -8,6 +8,10 @@ export default defineConfig({
         watch: false,
         globals: true,
         environment: "node",
+        // Real git repositories and worktrees need time for Windows filesystem operations.
+        maxWorkers: process.platform === 'win32' ? 2 : undefined,
+        testTimeout: process.platform === 'win32' ? 60000 : 5000,
+        hookTimeout: process.platform === 'win32' ? 60000 : 10000,
         include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}"],
         reporters: ["default"],
         coverage: {

@@ -50,6 +50,15 @@ const OLD: string = [
 ].join("\n");
 
 describe("telling a record's format apart by its headings", () => {
+    it('reads Windows CRLF records with the same sections, IDs and line numbers as LF', () => {
+        for (const source of [NEW, OLD, OLD_FILED]) {
+            const lf = source.replace(/\r\n/g, '\n');
+            const crlf = lf.replace(/\n/g, '\r\n');
+            expect(recordFormat(crlf)).toBe(recordFormat(lf));
+            expect(readRecord(crlf)).toEqual(readRecord(lf));
+            expect(recordSections(crlf)).toEqual(recordSections(lf));
+        }
+    });
     it("reads a body with a Guarantees section as the new format", () => {
         expect(recordFormat(NEW)).toBe("new");
     });
@@ -102,7 +111,7 @@ describe("reading a new-format record", () => {
     });
 
     it("names the body line each item sits on", () => {
-        const lines: string[] = NEW.split("\n");
+        const lines: string[] = NEW.split(/\r?\n/);
         expect(lines[record.guarantees[3].line - 1]).toContain("G4. Database and network failures");
         expect(lines[record.decisions[1].line - 1]).toBe("#### D2 — Match in the store, keyed by the batch's own values");
     });
