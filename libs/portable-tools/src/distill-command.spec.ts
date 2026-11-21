@@ -11,7 +11,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { spawn, spawnSync } from "node:child_process";
-import { condenseEvent, detachRunner, distillDeps, PLAN_ENV, runDetached, runDistillCommand, runFiles, spawnSession, type DistillDeps, type DistillInput, type DistillPlan, type SessionEnd, type SessionSpec } from "./distill-command.js";
+import { condenseEvent, detachRunner, distillDeps, PLAN_ENV, processAlive, runDetached, runDistillCommand, runFiles, spawnSession, type DistillDeps, type DistillInput, type DistillPlan, type SessionEnd, type SessionSpec } from "./distill-command.js";
 import { runNexusCli } from "./nexus-cli.js";
 
 const tmp: string[] = [];
@@ -464,6 +464,10 @@ describe("nexus distill --background (story #912, D5, D6, D7)", () => {
         const got = JSON.parse(fs.readFileSync(out, "utf8")) as { args: string[]; plan: DistillPlan };
         expect(got.args).toEqual(["distill", "--detached-runner"]);
         expect(got.plan.pr).toBe(PR);
+        if (started.ok) {
+            for (let i = 0; i < 100 && processAlive(started.pid); i++) await new Promise((r) => setTimeout(r, 20));
+            expect(processAlive(started.pid)).toBe(false);
+        }
     });
 });
 
@@ -483,7 +487,7 @@ console.log(JSON.stringify({ type: "assistant", message: { content: [{ type: "to
 console.log(JSON.stringify({ type: "result", subtype: "success", num_turns: 3, duration_ms: 60000, result: "Distillation PR opened" }));`,
         );
         const lines: string[] = [];
-        const end = await spawnSession({ command: path.join(bin, "claude"), args: ["-p", "/nxs.distill --unattended"], cwd: wt }, (l) => lines.push(l));
+        const end = await spawnSession({ command: process.execPath, args: [path.join(bin, "claude"), "-p", "/nxs.distill --unattended"], cwd: wt }, (l) => lines.push(l));
         expect(end).toMatchObject({ started: true, exitCode: 0, error: null, finalMessage: "Distillation PR opened" });
         const got = JSON.parse(fs.readFileSync(seen, "utf8")) as { cwd: string; args: string[] };
         expect(fs.realpathSync(got.cwd)).toBe(fs.realpathSync(wt));

@@ -8,8 +8,12 @@
  */
 
 import { type CloseRoleDiagnostic } from "@nexus/workspace/close-role";
+import { type DiagnosticProblem } from "@nexus/workspace/manifest";
+import { type EpicResolveProblem } from "@nexus/epic-resolve/diagnostic";
 
 export type PrWorktreeProblem =
+    | DiagnosticProblem
+    | EpicResolveProblem
     | "not-a-git-repo"
     | "member-unsupported"
     | "malformed-pr-reference"

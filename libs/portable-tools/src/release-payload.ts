@@ -63,21 +63,6 @@ export interface PayloadFile {
     source: string;
 }
 
-function walk(dir: string, stagedPrefix: string, out: PayloadFile[]): void {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
-        if (isIgnoredPayloadEntry(entry.name)) {
-            continue;
-        }
-        const abs: string = path.join(dir, entry.name);
-        const staged: string = `${stagedPrefix}/${entry.name}`;
-        if (entry.isDirectory()) {
-            walk(abs, staged, out);
-        } else {
-            out.push({ staged, source: abs });
-        }
-    }
-}
-
 /**
  * Every file the release payload carries, sorted by staged path. Two parts: the managed component
  * subtrees, which `listComponentFiles` already defines; and the tool-agnostic template masters,

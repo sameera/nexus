@@ -1,0 +1,2 @@
+# Release payload hashes and authored workflow fixtures must be identical on every OS.
+* text=auto eol=lf

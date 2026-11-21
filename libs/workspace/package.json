@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./shell-word": {
+      "types": "./src/shell-word.ts",
+      "import": "./src/shell-word.ts",
+      "default": "./src/shell-word.ts"
+    },
     "./manifest": {
       "types": "./src/manifest.ts",
       "import": "./src/manifest.ts",

@@ -7,10 +7,11 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildBundle, type BuiltBundle } from "./bundle";
 import { computeLinkPrefix, generateAtlas } from "./generate-atlas";
+import { plainProcessEnvironment } from './node-process-fixtures';
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const SRC_DIR: string = __dirname;
-const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const GENERATE_ATLAS_SRC: string = path.join(SRC_DIR, "generate-atlas.ts");
 const VALIDATE_CONCEPTS_SRC: string = path.join(SRC_DIR, "validate-concepts.ts");
 // The capability files above carry no process boundary of their own, so `nexus-cli.ts` can
@@ -205,7 +206,7 @@ describe("AC1 — atlas bundle parity", () => {
 describe("AC2 — validator bundle parity", () => {
     function runSource(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync(TSX_BIN, [NEXUS_CLI_SRC, "validate-concepts", ...args], { cwd, encoding: "utf8" });
+            const stdout: string = execFileSync(process.execPath, [TSX_BIN, NEXUS_CLI_SRC, "validate-concepts", ...args], { cwd, encoding: "utf8", env: plainProcessEnvironment() });
             return { status: 0, stdout, stderr: "" };
         } catch (error) {
             const err = error as { status: number; stdout: string; stderr: string };
@@ -215,7 +216,7 @@ describe("AC2 — validator bundle parity", () => {
 
     function runBundle(bundlePath: string, args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("node", [bundlePath, "validate-concepts", ...args], { cwd, encoding: "utf8" });
+            const stdout: string = execFileSync(process.execPath, [bundlePath, "validate-concepts", ...args], { cwd, encoding: "utf8", env: plainProcessEnvironment() });
             return { status: 0, stdout, stderr: "" };
         } catch (error) {
             const err = error as { status: number; stdout: string; stderr: string };

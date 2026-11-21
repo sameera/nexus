@@ -69,9 +69,8 @@ describe("the manifest and the readme declare the environment a release supports
         return next === -1 ? rest : rest.slice(0, next + 1);
     }
 
-    it("targets POSIX-like platforms only", () => {
-        expect(manifest.os ?? []).toEqual(expect.arrayContaining(["darwin", "linux"]));
-        expect(manifest.os ?? []).not.toContain("win32");
+    it("supports Windows alongside macOS and Linux", () => {
+        expect(manifest.os ?? []).toEqual(expect.arrayContaining(["darwin", "linux", "win32"]));
     });
 
     it("declares exactly one engine, the Node floor", () => {
@@ -84,6 +83,8 @@ describe("the manifest and the readme declare the environment a release supports
         const nodeFloor: string = (manifest.engines?.node ?? "").replace(/^>=/, "");
         expect(requirements).toMatch(/macOS/i);
         expect(requirements).toMatch(/Linux/i);
+        expect(requirements).toMatch(/Windows/i);
+        expect(requirements).toMatch(/Codex/i);
         expect(requirements).toContain(nodeFloor);
     });
 
@@ -113,7 +114,8 @@ let prefix: string;
 function runInstalled(bin: string, args: string[]): { status: number; stdout: string; stderr: string } {
     const elsewhere: string = fs.mkdtempSync(path.join(scratch, "elsewhere-"));
     try {
-        const stdout: string = execFileSync(path.join(prefix, "bin", bin), args, {
+        const installedPackage = path.join(prefix, process.platform === 'win32' ? '' : 'lib', 'node_modules', manifest.name);
+        const stdout: string = execFileSync(process.execPath, [path.join(installedPackage, manifest.bin![bin]), ...args], {
             cwd: elsewhere,
             encoding: "utf8",
             env: { ...process.env, NODE_ENV: "production" },
@@ -125,6 +127,11 @@ function runInstalled(bin: string, args: string[]): { status: number; stdout: st
     }
 }
 
+function npm(args: string[], cwd: string): string {
+    const cli = process.env['npm_execpath'] ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    return execFileSync(process.execPath, [cli, ...args], { cwd, encoding: 'utf8', timeout: 120_000 });
+}
+
 beforeAll(async () => {
     scratch = fs.mkdtempSync(path.join(os.tmpdir(), "nexus-pack-"));
     await buildReleaseTree(REPO_ROOT);
@@ -132,11 +139,7 @@ beforeAll(async () => {
     fs.mkdirSync(packDir);
     // --ignore-scripts: the release tree is already built above; re-running prepack here would
     // only rebuild the same bytes.
-    const packOut: string = execFileSync(
-        "npm",
-        ["pack", "--ignore-scripts", "--pack-destination", packDir, "--json"],
-        { cwd: REPO_ROOT, encoding: "utf8" },
-    );
+    const packOut = npm(["pack", "--ignore-scripts", "--pack-destination", packDir, "--json"], REPO_ROOT);
     // npm's `pack --json` shape has changed across releases — an array of one entry on older
     // npm, an object keyed by package spec on newer npm (verified against the installed npm here).
     // Read the sole entry either way rather than assume one shape.
@@ -148,10 +151,7 @@ beforeAll(async () => {
     tarball = path.join(packDir, packed.filename);
     packedFiles = packed.files.map((f) => f.path);
     prefix = path.join(scratch, "prefix");
-    execFileSync("npm", ["install", "-g", "--prefix", prefix, "--no-audit", "--no-fund", tarball], {
-        cwd: scratch,
-        encoding: "utf8",
-    });
+    npm(["install", "-g", "--prefix", prefix, "--no-audit", "--no-fund", tarball], scratch);
 }, 300_000);
 
 afterAll(() => {
@@ -205,7 +205,7 @@ describe("both toolkits run from a machine with no Nexus checkout (AC1, AC4)", (
     });
 
     it("resolves no workspace package — the installed tree carries only its declared dependencies", () => {
-        const installed: string = path.join(prefix, "lib", "node_modules", manifest.name);
+        const installed: string = path.join(prefix, process.platform === 'win32' ? '' : 'lib', "node_modules", manifest.name);
         expect(fs.existsSync(installed)).toBe(true);
         const nested: string = path.join(installed, "node_modules");
         const carried: string[] = fs.existsSync(nested) ? fs.readdirSync(nested).filter((n) => !n.startsWith(".")) : [];

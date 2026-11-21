@@ -90,7 +90,7 @@ function wholePath(declared: string): RegExp {
  */
 export function stripLabels(draft: string): string {
     return draft
-        .split("\n")
+        .split(/\r?\n/)
         .map((line: string) => {
             const stripped: string = line.replace(LABEL, " ").replace(/[ \t]+$/, "");
             const indent: string = stripped.match(/^[ \t]*/)?.[0] ?? "";

@@ -25,6 +25,17 @@ wording differs; these bindings take precedence over tool names and interaction 
   Read its full instructions before using it. \`Skill\` means this operation, not a required tool.
 - \`Read\`, \`Grep\`, \`Glob\`, \`Bash\`, \`Write\`, \`Edit\` and \`WebSearch\` mean the corresponding
   available Codex capabilities. Use the shell for local inspection and apply_patch for file edits.
+- Shell blocks in the workflow are POSIX shell examples, not a requirement to install Bash. On
+  Windows use PowerShell and translate each operation while preserving its arguments, data and gates.
+  Use \`$env:NAME\` for environment variables, PowerShell variables for captured output, and native
+  file cmdlets with literal paths. Replace heredocs with here-strings or file edits, and replace
+  grep/sed/jq pipelines with equivalent text or JSON operations. Do not paste POSIX substitutions,
+  tests, redirects or command chaining into PowerShell. Check each external command's exit code
+  immediately; failed configuration reads must stop rather than become an empty setting.
+  Quote paths containing spaces and write issue bodies, JSON and Markdown as UTF-8 files before
+  passing them via file arguments. Use the environment's temporary directory, never assume /tmp.
+  Preserve actual newlines and literal Markdown characters; never interpolate untrusted document
+  text into shell code. Use git and gh directly with argument boundaries preserved.
 - \`AskUserQuestion\` means present the stated choices and obtain an explicit answer. Use an available
   user-input tool when it supports the question; otherwise ask in normal conversation and wait.
   Show previews as ordinary text if the UI lacks preview or multi-select fields. An omitted answer

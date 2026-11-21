@@ -12,7 +12,15 @@ import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type SessionEnd, type SessionSpec } from "./distill-command.js";
 import { CLEAN_VERDICT as READER_CLEAN_VERDICT, HLD_MARKER, commentDigest, commentVerdict, isCleanVerdict, isHldComment as isHldCommentLine, newestHldComment, type RecordComment } from "./implement-hld.js";
 import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, UNATTENDED_CLAUSE, implementationPrompt, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
-import { VERB_NAMES } from "./nexus-cli.js";
+import { VERB_NAMES, defaultImplementHarness } from "./nexus-cli.js";
+
+describe('implementation harness selection', () => {
+    it('uses Codex on Windows and preserves Claude on Unix', () => {
+        expect(defaultImplementHarness('win32')).toBe('codex');
+        expect(defaultImplementHarness('linux')).toBe('claude');
+        expect(defaultImplementHarness('darwin')).toBe('claude');
+    });
+});
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -145,6 +153,7 @@ function harness(w: World) {
         }),
         testCommandSetting: () => w.setting,
         defaultBranch: () => "main",
+        commonGitDir: () => '/shared/project.git',
         clean: () => w.clean,
         branchExists: () => w.branchExists,
         createBranch: (_c, branch, base) => {
@@ -491,11 +500,27 @@ describe("harness and configuration (G20, G21)", () => {
         const r = await run(world(), { harness: "codex" });
         expect(r.code).toBe(0);
         expect(r.sessions[0].command).toBe("codex");
-        expect(r.sessions[0].args).toEqual(expect.arrayContaining(["--sandbox", "workspace-write"]));
+        for (const session of r.sessions) {
+            expect(session.args).toContain('--approve-for-me');
+            expect(session.args).not.toContain('--sandbox');
+            expect(session.args).toEqual(expect.arrayContaining(['-c', 'sandbox_workspace_write.network_access=true']));
+            expect(session.args).toContain('--add-dir');
+            expect(session.args[session.args.indexOf('--add-dir') + 1]).toBe('/shared/project.git');
+        }
         const prompt = r.sessions[0].args[r.sessions[0].args.length - 1];
         expect(prompt.startsWith("/goal")).toBe(false);
         expect(prompt).toContain("$nxs-epic-resolve 7");
         expect(r.sessions[1].args[r.sessions[1].args.length - 1]).toContain("$nxs-analyze --pr 5");
+    });
+
+    it.each(['read-only', 'danger-full-access'])("preserves the explicit Codex %s mode without the workspace-write approval preset", async (permissionMode) => {
+        const r = await run(world(), { harness: 'codex', permissionMode });
+        expect(r.code).toBe(0);
+        for (const session of r.sessions) {
+            expect(session.args[session.args.indexOf('--sandbox') + 1]).toBe(permissionMode);
+            expect(session.args).not.toContain('--approve-for-me');
+            expect(session.args).not.toContain('sandbox_workspace_write.network_access=true');
+        }
     });
 
     it("reads the test command from the setting when the invocation names none", async () => {
@@ -698,7 +723,7 @@ describe("telling the agent to build from a current page (story #985: G18-G22)",
 });
 
 describe("the /nxs.hld comment template this reader depends on (R1)", () => {
-    const skill = fs.readFileSync(path.join(REPO_ROOT, "components/skills/nxs.hld/SKILL.md"), "utf8");
+    const skill = fs.readFileSync(path.join(REPO_ROOT, "components/skills/nxs.hld/SKILL.md"), "utf8").replace(/\r\n/g, "\n");
     const block = /```markdown\n\s*(<!-- nxs\.hld -->[\s\S]*?)\n\s*```/.exec(skill)?.[1] ?? "";
     const template = block
         .split("\n")

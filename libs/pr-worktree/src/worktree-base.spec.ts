@@ -9,10 +9,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { builtinWorktreeBase, openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "./worktree.js";
 import { type Runner, defaultRunner } from "./run.js";
 import { buildRepoWithOrigin, declareGithubKey, makeParent, sh } from "./git-fixtures.js";
+
+vi.mock('node:fs', async (importOriginal) => ({...await importOriginal<typeof import('node:fs')>()}));
 
 const tracked: string[] = [];
 const worktrees: Array<{ repo: string; path: string }> = [];
@@ -136,10 +138,10 @@ describe("a repo declares where its --pr worktrees are created", () => {
         expect(fs.existsSync(first.wtPath)).toBe(false);
     });
 
-    it("expands a quoted, home-relative base rather than creating a literal directory for it", () => {
+    it.each(process.platform === 'win32' ? ['~/wt', '~\\wt'] : ['~/wt'])("expands a quoted, home-relative base %s", (declared) => {
         const repo = repoWithPr();
         const home = outsideDir("fake-home");
-        const r = openCloseWorktreeWithHome(repo, home, `  "~/wt"  `);
+        const r = openCloseWorktreeWithHome(repo, home, `  "${declared}"  `);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         opened(repo, r.wtPath);
@@ -220,14 +222,17 @@ describe("an unusable configured base stops the run", () => {
     });
 
     it("reports a permission failure the same way", () => {
-        if (process.getuid?.() === 0) return; // root ignores the mode bits; nothing to observe
         const repo = repoWithPr();
         const locked = path.join(makeParent(tracked), "locked");
-        fs.mkdirSync(locked, { recursive: true, mode: 0o500 });
+        fs.mkdirSync(locked, { recursive: true });
         const base = path.join(locked, "worktrees");
         declareGithubKey(repo, "worktree-path", base);
 
-        const r = openCloseWorktree(defaultRunner, repo, "distill/2026-07-31-e");
+        // Windows ignores POSIX directory mode bits; exercise the same filesystem error on both OSes.
+        const mkdir = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => { throw new Error('EACCES: permission denied'); });
+        let r: ReturnType<typeof openCloseWorktree>;
+        try { r = openCloseWorktree(defaultRunner, repo, "distill/2026-07-31-e"); }
+        finally { mkdir.mockRestore(); }
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("worktree-base-uncreatable");
@@ -242,12 +247,13 @@ describe("an unusable configured base stops the run", () => {
  */
 function openCloseWorktreeWithHome(repo: string, home: string, declared: string) {
     declareGithubKey(repo, "worktree-path", declared);
-    const realHome = process.env.HOME;
-    process.env.HOME = home;
+    const homeKey = process.platform === 'win32' ? 'USERPROFILE' : 'HOME';
+    const realHome = process.env[homeKey];
+    process.env[homeKey] = home;
     try {
         return openCloseWorktree(defaultRunner, repo, "distill/2026-07-31-c");
     } finally {
-        if (realHome === undefined) delete process.env.HOME;
-        else process.env.HOME = realHome;
+        if (realHome === undefined) delete process.env[homeKey];
+        else process.env[homeKey] = realHome;
     }
 }

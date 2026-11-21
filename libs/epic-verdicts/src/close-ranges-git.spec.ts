@@ -173,7 +173,7 @@ describe("deriveCloseRanges in a real checkout (story #841)", () => {
         if (!out.ok) return;
         expect(out.ranges.ok).toBe(false);
         expect(out.ranges.blocking).toEqual([
-            { kind: "checkout-behind", repo: "acme/web", pr: 10, mergeCommit: missing, checkout: repo, fetch: `git -C ${repo} fetch origin` },
+            { kind: "checkout-behind", repo: "acme/web", pr: 10, mergeCommit: missing, checkout: fs.realpathSync.native(repo).split(path.sep).join('/'), fetch: `git -C ${fs.realpathSync.native(repo).split(path.sep).join('/')} fetch origin` },
         ]);
         expect(seen).toEqual([]);
     });
@@ -329,7 +329,7 @@ describe("the landed check in a real checkout (story #846)", () => {
         expect(out.ok).toBe(true);
         if (!out.ok) return;
         expect(out.ranges.ok).toBe(false);
-        expect(out.ranges.blocking).toEqual([{ kind: "not-landed", repo: "acme/web", pr: 10, mergeCommit: merge, trunkRef: "main", checkout: repo }]);
+        expect(out.ranges.blocking).toEqual([{ kind: "not-landed", repo: "acme/web", pr: 10, mergeCommit: merge, trunkRef: "main", checkout: fs.realpathSync.native(repo).split(path.sep).join('/') }]);
         expect(out.ranges.landed[0].result).toBe("not-landed");
     });
 });

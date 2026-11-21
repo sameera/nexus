@@ -100,8 +100,17 @@ function makeCheckout(omit: string[] = []): string {
 /** An install location whose components are pointers into `checkout`. */
 function makePointerInstall(checkout: string): string {
     const dir: string = makeTmpDir("install-pointer-");
-    fs.mkdirSync(path.join(dir, "commands"), { recursive: true });
-    fs.symlinkSync(path.join(checkout, "components", "commands", "nxs.demo.md"), path.join(dir, "commands", "nxs.demo.md"));
+    if (process.platform === "win32") {
+        // Directory junctions exercise a real pointer without Windows file-symlink privileges.
+        const skill: string = path.join(checkout, "components", "skills", "nxs-demo");
+        fs.mkdirSync(skill, { recursive: true });
+        fs.writeFileSync(path.join(skill, "SKILL.md"), "authored\n");
+        fs.mkdirSync(path.join(dir, "skills"), { recursive: true });
+        fs.symlinkSync(skill, path.join(dir, "skills", "nxs-demo"), "junction");
+    } else {
+        fs.mkdirSync(path.join(dir, "commands"), { recursive: true });
+        fs.symlinkSync(path.join(checkout, "components", "commands", "nxs.demo.md"), path.join(dir, "commands", "nxs.demo.md"));
+    }
     return dir;
 }
 

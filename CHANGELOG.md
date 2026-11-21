@@ -5,6 +5,35 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.139.0
+- **Windows supports the Codex harness.** The package accepts Windows installs, generated Codex
+  skills for epic, decision-record, analyze, close and distill bind shell examples to PowerShell,
+  and `nexus implement` selects Codex by default on Windows.
+  Codex npm launchers run through Node without passing prompts through a command shell.
+  Implementation and fix sessions explicitly include the checkout's shared Git directory so
+  they can commit from linked worktrees under the workspace-write sandbox.
+- **Decision records accept Windows line endings.** Section reading preserves guarantees,
+  decisions and line numbers in CRLF documents. Checkout text uses LF so release payload hashes
+  remain the same across operating systems.
+- **Close recovery hints work in PowerShell.** Paths with spaces or apostrophes stay one literal
+  argument when copied, including the fetch hint for a checkout that is behind.
+- **Distill recognizes Windows temporary-path aliases.** Concept validation compares Git's long
+  checkout path with the matching long filesystem path, so an existing page is not mistaken for
+  a new page when Windows TEMP uses a short path. It also accepts concept pages saved with CRLF.
+- **Analyze, close and distill reuse Windows worktrees correctly.** Worktree registration compares
+  the resolved filesystem paths, and configured worktree bases accept the Windows home-path form.
+- **Codex implementation sessions start with automatic review.** The launcher uses
+  `--approve-for-me` to select workspace-write without also passing the conflicting `--sandbox`
+  option. Explicit alternative sandbox modes still use `--sandbox`.
+
+
+- **Codex implementation stages can reach GitHub.** `nexus implement` enables outbound network
+  access in its workspace-write sessions, including analyze and fix rounds, so unattended runs
+  do not stop at epic resolution with a sandbox socket denial.
+- **Codex implementation approvals use automatic review.** Workspace-write stages pass
+  `--approve-for-me`, allowing unattended approval review during implementation, analyze and fix
+  rounds. Explicit alternative sandbox modes keep their selected policy.
+
 ## 0.138.0
 
 - **An edited initiative context can be accepted instead of reverted.** `/nxs.decision-record` and

@@ -23,7 +23,7 @@ export function sh(cwd: string, cmd: string, ...args: string[]): string {
 export function makeParent(tracked: string[]): string {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), "nexus-pr-wt-"));
     tracked.push(parent);
-    return parent;
+    return fs.realpathSync.native(parent);
 }
 
 export function initRepo(dir: string, origin?: string): void {

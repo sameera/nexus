@@ -7,7 +7,7 @@ import { defaultRunner, type Runner } from "@nexus/workspace/run";
 import { DERIVE_PROBLEMS, deriveEntryDiff, parseRange, renderDeriveFailure, renderRepoDiffs, runCli } from "./derive-entry-diff";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
-const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const TOOL_SRC: string = path.join(__dirname, "nexus-cli.ts");
 // One executable since story #309: the capability is reached as a verb on the dispatcher.
 const TOOL_VERB = "derive-entry-diff";
@@ -182,7 +182,7 @@ describe("deriveEntryDiff — happy paths", () => {
         if (!result.ok) return;
         expect(result.diffs).toHaveLength(1);
         expect(result.diffs[0].repo).toBe("github.com/acme/web-app");
-        expect(result.diffs[0].checkout).toBe(web.root);
+        expect(fs.realpathSync.native(result.diffs[0].checkout)).toBe(fs.realpathSync.native(web.root));
 
         const expectedDiff = execFileSync("git", ["diff", `${web.base}...${web.head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery"], { cwd: web.root, encoding: "utf8" });
         expect(result.diffs[0].diff).toBe(expectedDiff);
@@ -333,7 +333,7 @@ describe("deriveEntryDiff — single-repo mode (epic #214, story #506)", () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.diffs).toHaveLength(1);
-        expect(result.diffs[0].checkout).toBe(web.root);
+        expect(fs.realpathSync.native(result.diffs[0].checkout)).toBe(fs.realpathSync.native(web.root));
         expect(result.diffs[0].diff).toContain("src/app.ts");
     });
 
@@ -760,7 +760,7 @@ describe("CLI (subprocess)", () => {
         const { hubRoot, web } = buildHubFixture(parent);
         const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
 
-        const stdout = execFileSync(TSX_BIN, [TOOL_SRC, TOOL_VERB, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
+        const stdout = execFileSync(process.execPath, [TSX_BIN, TOOL_SRC, TOOL_VERB, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
         expect(stdout).toContain("=== repo github.com/acme/web-app");
         expect(stdout).toContain(web.base);
         expect(stdout).toContain(web.head);
@@ -773,7 +773,7 @@ describe("CLI (subprocess)", () => {
         const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/api", base: api.base, head: api.head }]);
 
         try {
-            execFileSync(TSX_BIN, [TOOL_SRC, TOOL_VERB, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
+            execFileSync(process.execPath, [TSX_BIN, TOOL_SRC, TOOL_VERB, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
             expect.unreachable("expected non-zero exit");
         } catch (error) {
             const err = error as { status: number; stderr: string };
@@ -785,7 +785,7 @@ describe("CLI (subprocess)", () => {
 
     it("usage: no --entry exits 2 with a usage message", () => {
         try {
-            execFileSync(TSX_BIN, [TOOL_SRC], { encoding: "utf8" });
+            execFileSync(process.execPath, [TSX_BIN, TOOL_SRC], { encoding: "utf8" });
             expect.unreachable("expected non-zero exit");
         } catch (error) {
             const err = error as { status: number; stderr: string };

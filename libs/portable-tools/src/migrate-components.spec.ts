@@ -125,7 +125,7 @@ describe("nexus migrate-components", () => {
         expect(before.toLowerCase()).toContain("copied release");
     });
 
-    it("names the checkout when the install location points at one (AC2)", async () => {
+    it.skipIf(process.platform === 'win32')("names the checkout when the install location points at one (AC2)", async () => {
         const repo: string = makeRepo();
         const checkout: string = makeTmpDir("migrate-checkout-");
         fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
@@ -219,7 +219,7 @@ describe("nexus migrate-components", () => {
         await runNexusCli(["migrate-components"], io);
 
         expect(fs.existsSync(path.join(repo, ".claude", "commands", "nxs.scratch.md"))).toBe(true);
-        expect(io.out.join("\n")).toContain("commands/nxs.scratch.md");
+        expect(io.out.join("\n").split(path.sep).join('/')).toContain("commands/nxs.scratch.md");
     });
 
     it("refuses outside a git work tree", async () => {

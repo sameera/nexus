@@ -24,7 +24,7 @@ export interface Section {
 export function sections(draft: string, depth: string): Section[] {
     const found: Section[] = [];
     let open: Section | undefined;
-    for (const line of draft.split("\n")) {
+    for (const line of draft.split(/\r?\n/)) {
         const heading: RegExpMatchArray | null = line.match(/^(#+) /);
         if (heading === null) {
             open?.lines.push(line);

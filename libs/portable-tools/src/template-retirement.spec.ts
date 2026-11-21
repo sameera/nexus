@@ -206,8 +206,7 @@ describe("the Nexus repository's own template folder (D9)", () => {
 describe("the release note for the retirement (D8)", () => {
     it("says the seeding command is retired and existing template folders are left in place, no longer read, and may be deleted", () => {
         const changelog: string = fs.readFileSync(path.join(REPO_ROOT, "CHANGELOG.md"), "utf8");
-        const pkg: { version: string } = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
-        const entry: string = changelog.slice(changelog.indexOf(`## ${pkg.version}\n`)).split(/\n## \d/)[0].replace(/\s+/g, " ");
+        const entry: string = changelog.slice(changelog.indexOf("## 0.137.0\n")).split(/\n## \d/)[0].replace(/\s+/g, " ");
 
         expect(entry).toMatch(/`nexus seed-templates` is retired/);
         expect(entry).toMatch(/left in place/);

@@ -15,7 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { recordSections, type SectionConceptChange, type SectionDecision } from "@nexus/scope-razor/record";
+import { recordSections, type SectionDecision } from "@nexus/scope-razor/record";
 import type { CliIo } from "./nexus-cli.js";
 import { loadStore, type StorePage } from "./reading-list.js";
 

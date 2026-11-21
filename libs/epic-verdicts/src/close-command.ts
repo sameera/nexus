@@ -48,6 +48,7 @@
  */
 
 import * as fs from "node:fs";
+import { shellWord } from "@nexus/workspace/shell-word";
 import * as path from "node:path";
 import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/delivery-config/issue-kind";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epic-resolve/gh";
@@ -290,10 +291,6 @@ function trailingArgs(input: Pick<CloseInput, "entryPath" | "handoff">): string[
     return [...(input.entryPath === null ? [] : [shellWord(input.entryPath)]), ...(input.handoff === null ? [] : ["--handoff", shellWord(input.handoff)])];
 }
 
-/** A path as one shell word, so a re-run hint copied as is passes it as one argument. */
-function shellWord(value: string): string {
-    return /^[\w./@%+=:,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
-}
 
 /** An epic target as `--epic` takes it back: `N`, or `owner/repo#N` / `host/owner/repo#N`. */
 function epicReference(target: { epic: number; repo?: string }): string {

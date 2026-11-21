@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
-const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const NEXUS_CLI_SRC: string = path.join(REPO_ROOT, "libs", "portable-tools", "src", "nexus-cli.ts");
 
 let tmpDirs: string[] = [];
@@ -53,7 +53,7 @@ interface CliResult {
 
 function run(cwd: string, args: string[]): CliResult {
     try {
-        const stdout = execFileSync(TSX_BIN, [NEXUS_CLI_SRC, "abs-doc-path", ...args], { cwd, encoding: "utf8" });
+        const stdout = execFileSync(process.execPath, [TSX_BIN, NEXUS_CLI_SRC, "abs-doc-path", ...args], { cwd, encoding: "utf8" });
         return { status: 0, stdout, stderr: "" };
     } catch (error) {
         const err = error as { status: number; stdout: string; stderr: string };

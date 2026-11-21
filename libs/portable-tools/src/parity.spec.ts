@@ -13,6 +13,7 @@ import * as path from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildBundle, type BuiltBundle } from "./bundle";
 import { ENTRY_POINTS } from "./build-bundles";
+import { plainProcessEnvironment } from './node-process-fixtures';
 import {
     checkFingerprint,
     diffAtlasBytes,
@@ -42,7 +43,7 @@ const LIB_ROOT: string = path.resolve(__dirname, "..");
 const CORPUS: string = path.join(LIB_ROOT, "corpus");
 const PIN_PATH: string = path.join(LIB_ROOT, "bundle-fingerprint.json");
 const MANIFEST_PATH: string = path.join(LIB_ROOT, PAYLOAD_MANIFEST_FILE);
-const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
+const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 
 const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
 
@@ -107,7 +108,7 @@ function copyWorkspaceSources(prefix: string): string {
         fs.mkdirSync(to, { recursive: true });
         fs.cpSync(path.join(from, "src"), path.join(to, "src"), { recursive: true });
         fs.copyFileSync(path.join(from, "package.json"), path.join(to, "package.json"));
-        fs.symlinkSync(to, path.join(scoped, pkg));
+        fs.symlinkSync(to, path.join(scoped, pkg), 'junction');
         linkInstalledPackages(path.join(from, "node_modules"), nodeModules);
     }
     linkInstalledPackages(path.join(REPO_ROOT, "node_modules"), nodeModules);
@@ -131,7 +132,7 @@ function linkInstalledPackages(dir: string, into: string): void {
         if (fs.existsSync(link)) {
             continue;
         }
-        fs.symlinkSync(fs.realpathSync(path.join(dir, entry)), link);
+        fs.symlinkSync(fs.realpathSync.native(path.join(dir, entry)), link, 'junction');
     }
 }
 
@@ -154,12 +155,12 @@ function capture(fn: () => string): RunResult {
 
 /** Runs the in-repo source via tsx — how single-repo distill runs it. */
 function runSource(srcAbs: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv): RunResult {
-    return capture(() => execFileSync(TSX_BIN, [srcAbs, ...args], { cwd, encoding: "utf8", ...(env ? { env } : {}) }));
+    return capture(() => execFileSync(process.execPath, [TSX_BIN, srcAbs, ...args], { cwd, encoding: "utf8", env: plainProcessEnvironment(env) }));
 }
 
 /** Runs a built bundle via plain node — the artifact a hub actually runs. */
 function runBundle(bundlePath: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv): RunResult {
-    return capture(() => execFileSync("node", [bundlePath, ...args], { cwd, encoding: "utf8", ...(env ? { env } : {}) }));
+    return capture(() => execFileSync(process.execPath, [bundlePath, ...args], { cwd, encoding: "utf8", env: plainProcessEnvironment(env) }));
 }
 
 /**

@@ -380,7 +380,7 @@ describe("renderAtlas / generateAtlas determinism", () => {
 describe("CLI", () => {
     function runCli(args: string[]): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/nexus-cli.ts", "generate-atlas", ...args], {
+            const stdout: string = execFileSync(process.execPath, [path.join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'), "libs/portable-tools/src/nexus-cli.ts", "generate-atlas", ...args], {
                 cwd: REPO_ROOT,
                 encoding: "utf8",
             });

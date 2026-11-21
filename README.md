@@ -233,7 +233,9 @@ Nexus runs on one runtime, and an adopter supplies only that:
 
 - **Node.js 22.22.0 or newer** — runs the `nexus` executable.
 
-Supported platforms are **macOS and Linux**. A release targets POSIX-like environments only; on Windows, run Nexus inside WSL.
+Supported platforms are **macOS, Linux and Windows**. On Windows, use **Codex** with PowerShell,
+Git and GitHub CLI (`gh`) on PATH. Install the Codex skills with `nexus install --harness codex`.
+Claude Code's Nexus workflow remains supported on macOS and Linux.
 
 # Installing
 
@@ -372,8 +374,17 @@ command for the old committed component layout.
 nexus implement 123 --harness codex
 ```
 
+On Windows, `nexus implement 123` selects Codex automatically. On macOS and Linux it defaults to
+Claude; an explicit `--harness` selects either harness. The generated Codex skills translate the
+shared workflow's shell examples to PowerShell when running on Windows; Bash and WSL are not required.
+
 It uses [`codex exec`](https://learn.chatgpt.com/docs/non-interactive-mode) with a fresh session for
-each stage and a `workspace-write` sandbox. Pass additional `codex exec` options after `--`.
+each stage and a `workspace-write` sandbox with outbound network access enabled so stages can
+read GitHub and publish analysis. It explicitly includes the checkout's shared Git
+directory with `--add-dir`, so stages can commit from ordinary checkouts and linked worktrees.
+Workspace-write stages pass `--approve-for-me` to route approval requests through automatic
+review during unattended execution. This requires a Codex CLI that supports that flag.
+Pass additional `codex exec` options after `--`.
 The command pushes the implementation branch and opens a draft pull request; run it only when
 that publication is intended.
 

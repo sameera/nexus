@@ -142,7 +142,7 @@ describe("deployComponents", () => {
         const repo: string = makeTmpDir("deploy-target-");
         const claude: string = path.join(repo, ".claude");
         fs.mkdirSync(claude, { recursive: true });
-        fs.symlinkSync(outside, path.join(claude, "skills"));
+        fs.symlinkSync(outside, path.join(claude, "skills"), 'junction');
 
         const result = deployComponents(EMPTY_PAYLOAD, claude);
 
