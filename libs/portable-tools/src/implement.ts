@@ -157,6 +157,8 @@ export interface ImplementDeps {
     autoModeAvailable(): boolean;
     /** The planning and implementing models `harness` resolves to at `root`, through the one catalogue (D10). */
     modelSettings(root: string, harness: Harness): HarnessModels;
+    /** A record sub-issue's state, state reason and body, read from the issue graph (D8). */
+    recordState(cwd: string, record: number, issuesRepo: string): Outcome<{ state: string; stateReason: string | null; body: string }>;
     /** The checkout's file changes, HEAD and branch, so a stage that changed any of them is caught (D3). */
     checkoutState(cwd: string): string | null;
     onPath(command: string): boolean;
@@ -292,6 +294,52 @@ export function planningPrompt(epic: number): string {
         "End with the plan as your final message, and nothing else in it: the approach for each story in blocked_by order, " +
         "the modules and interfaces it touches, the tests that pin its acceptance criteria, and each non-obvious choice with its reason."
     );
+}
+
+/**
+ * The fixed opening of every as-built record (D6, G14). The distiller recognises an as-built record
+ * by it (D9), so its wording cannot change without a matching distiller change.
+ */
+export const AS_BUILT_OPENING = "This decision record was written after the build by the retroactive `nexus implement` run";
+
+/** The as-built statement for the run of pull request `prRef` (D6). */
+export function asBuiltStatement(prRef: string): string {
+    return `${AS_BUILT_OPENING} of pull request ${prRef}. That run made the decisions below and approved this record; the lead neither decided them nor reviewed this record before approval.`;
+}
+
+/** Whether a record body opens with the as-built statement, after its title (D8). */
+export function opensWithAsBuilt(body: string): boolean {
+    const first = body.split(/\r?\n/).map((l) => l.trim()).find((l) => l !== "" && !l.startsWith("#"));
+    return first !== undefined && first.startsWith(AS_BUILT_OPENING);
+}
+
+/** The as-built design document the as-built stage writes (D5). */
+export function asBuiltDocPath(epic: number): string {
+    return `.nexus/tmp/epic-${epic}/as-built-design.md`;
+}
+
+/** The final-message line after which the as-built stage lists its checkpoint list and observations (D8). */
+export const AS_BUILT_NOTES_PREFIX = "As-built notes:";
+
+/** The as-built stage's goal (D5, D6, D7). */
+export function asBuiltPrompt(epic: number, pr: number, hasPlan: boolean): string {
+    return [
+        `/goal Epic #${epic} has an approved as-built decision record filed by /nxs.decision-record, or the stage has stopped without filing one and said why. The stories are built and committed on this branch, and pull request #${pr} is open; this epic has no decision record yet.`,
+        "",
+        `First write an as-built design document to \`${asBuiltDocPath(epic)}\` (it is ignored by git; never commit it). Describe the design exactly as it was built, from the epic (run /nxs-epic-resolve ${epic}), ` +
+            (hasPlan ? `the plan at \`${planFilePath(epic)}\`, ` : "") +
+            `the choices log at \`${choicesFilePath(epic)}\` if it exists, and the commits on this branch. Give each non-obvious choice the reason the run recorded; where the run left no reason, write that the reason was not recorded.`,
+        "",
+        `Then run /nxs.decision-record ${epic} --from ${asBuiltDocPath(epic)} --as-built ${pr}. Change no code and make no commit.`,
+        "",
+        `End your final message with one line reading exactly '${AS_BUILT_NOTES_PREFIX}', followed by the stage's checkpoint list of what the model added and the draft checker's observations, or the reason nothing was filed. Post nothing on the pull request.`,
+    ].join("\n");
+}
+
+/** `body` with `section` placed just before its status section (D8). */
+export function beforeStatus(body: string, section: string): string {
+    const at = body.indexOf(STATUS_OPEN);
+    return at === -1 ? `${body.trimEnd()}\n\n${section}\n` : `${body.slice(0, at)}${section}\n\n${body.slice(at)}`;
 }
 
 /** A model the lead passed after `--`, or null (G45). */
@@ -695,7 +743,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             say(">>> planning");
             const before = deps.checkoutState(cwd);
             const end = await deps.session(stageSpec(harness, planningPrompt(epic) + UNATTENDED_CLAUSE, mode, withoutModel(harness, input.harnessArgs), cwd, planOn?.value ?? null), (l) => io.stdout(l));
-            if (end.started) planRan = planOn?.value ?? null;
+            if (end.started) planRan = planOn?.value ?? "the harness default model";
             if (deps.checkoutState(cwd) !== before) fail("planning", "the planning session changed the checkout (a file, a commit or the branch); planning must only read.");
             const plan = (end.finalMessage ?? "").trim();
             let noPlan: string | null = null;
@@ -769,10 +817,48 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         };
 
         const posted = new Set<string>();
+        let asBuiltDone = false;
         let round = 0;
         let lastIds: string | null = null;
         let resolveNext = false;
         for (;;) {
+            // 3b. As-built record (epic #1041, D4–D8, D12): once, after the story commits and before the first review round.
+            if (round === 0 && retroactive && !asBuiltDone) {
+                asBuiltDone = true;
+                const early = deps.resolveEpic(cwd, epic);
+                if (!early.ok) fail("as-built", `epic #${epic} could not be resolved: ${early.message}`);
+                if (early.ok && early.value.record !== null) fail("as-built", `decision record #${early.value.record.number} appeared during the run; the run files no second record. Continue by hand with /nxs.analyze --pr ${prNum}.`);
+                const onModel = planRan !== null ? (planRan === "the harness default model" ? null : planRan) : (implementingModel?.value ?? null);
+                if (planRan === null) {
+                    const fallback = `Planning could not start, so the as-built record was written on ${implementingModel !== null ? `the implementing model ${implementingModel.value}` : "the harness default model"}.`;
+                    say(`implement: ${fallback}`);
+                    const current = deps.prBody(cwd, prNum);
+                    if (current !== null) deps.editPrBody(cwd, prNum, beforeStatus(current, fallback));
+                }
+                const hand = `Finish by hand: /nxs.decision-record ${epic}, then /nxs.analyze --pr ${prNum}.`;
+                const ab = await guarded("as-built", asBuiltPrompt(epic, prNum, hasPlan), onModel);
+                const after = deps.resolveEpic(cwd, epic);
+                if (!after.ok) return fail("as-built", `epic #${epic} could not be resolved after the as-built stage: ${after.message} ${hand}`);
+                const rec = after.value.record;
+                if (rec === null) return fail("as-built", `the as-built stage left epic #${epic} with no decision record${ab.error !== null ? ` (${ab.error})` : ""}. ${hand}`);
+                const st = deps.recordState(cwd, rec.number, facts.issuesRepo);
+                if (!st.ok) return fail("as-built", `decision record #${rec.number} could not be read: ${st.message} ${hand}`);
+                if (st.value.state.toUpperCase() !== "CLOSED" || (st.value.stateReason ?? "").toUpperCase() !== "COMPLETED") {
+                    fail("as-built", `decision record #${rec.number} is ${st.value.state.toLowerCase()}${st.value.stateReason ? ` (${st.value.stateReason.toLowerCase()})` : ""}, not closed as completed. Review it and close it as completed to approve it, or ${hand.charAt(0).toLowerCase()}${hand.slice(1)}`);
+                }
+                if (!opensWithAsBuilt(st.value.body)) fail("as-built", `decision record #${rec.number} does not open with the as-built statement, so it would read as approved by the lead. Finish by hand: /nxs.decision-record ${epic} --revise, then /nxs.analyze --pr ${prNum}.`);
+                const msg = ab.finalMessage ?? "";
+                const at = msg.lastIndexOf(AS_BUILT_NOTES_PREFIX);
+                const notes = at === -1 ? "" : msg.slice(at + AS_BUILT_NOTES_PREFIX.length).trim();
+                const section = [
+                    `**As-built decision record:** ${issueRef(rec.number, facts.issuesRepo, prRepo)}, written after the build and approved by this run, not by the lead.`,
+                    ...(notes === "" ? ["The stage listed no lines the model added and no checker observations."] : ["What the model added and the draft checker's observations (agent-written, quoted):", quoteForBody(notes)]),
+                ].join("\n\n");
+                const current = deps.prBody(cwd, prNum);
+                if (current === null || !deps.editPrBody(cwd, prNum, beforeStatus(current, section))) fail("as-built", `the body of PR #${prNum} could not name the as-built record #${rec.number}.`);
+                say(`implement: as-built decision record #${rec.number} filed and approved by the run.`);
+            }
+
             // 4. Analyze, published on the pull request every time (D5).
             const stage = round === 0 ? "analyze" : `analyze (round ${round})`;
             const end = await guarded(stage, `/nxs.analyze --pr ${prNum}${resolveNext ? " --resolve" : ""}`);
@@ -1002,6 +1088,16 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
         },
         autoModeAvailable: () => claudeOffersAuto(run),
         modelSettings: (root, harness) => harnessModels(root, harness),
+        recordState: (cwd, record, issuesRepo) => {
+            const r = onIssuesHost(run, issuesRepo)("gh", ["issue", "view", String(record), "--repo", issuesRepoPath(issuesRepo), "--json", "state,stateReason,body"], { cwd });
+            if (r.status !== 0) return err(r, "gh issue view");
+            try {
+                const j = JSON.parse(r.stdout) as { state?: string; stateReason?: string | null; body?: string };
+                return ok({ state: j.state ?? "", stateReason: j.stateReason ?? null, body: j.body ?? "" });
+            } catch (e) {
+                return { ok: false, message: `the record was not readable JSON: ${e instanceof Error ? e.message : String(e)}` };
+            }
+        },
         checkoutState: (cwd) => {
             const status = run("git", ["status", "--porcelain"], { cwd });
             const head = git(run, cwd, "rev-parse", "HEAD");
