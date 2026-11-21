@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 127 active concepts. Each links to its full page
+Orientation map of the concept store — 128 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -49,6 +49,7 @@ Orientation map of the concept store — 127 active concepts. Each links to its 
 - [Delegating Port](../.nexus/concepts/delegating-port.md) — A delegating port moves a toolkit's implementation onto another runtime one capability at a time, with no flag day and no second name.
 - [Ephemeral Hand-Off Entry](../.nexus/concepts/ephemeral-handoff-entry.md) — An ephemeral hand-off entry is a version-ignored directory holding an epic file and a close record, none of them committed, for the very next drain.
 - [Issue Asset Store](../.nexus/concepts/issue-asset-store.md) — A team names one repository — or one unprotected branch of one — that its filing stages publish issue graphics into.
+- [Issue Kind Classification](../.nexus/concepts/issue-kind-classification.md) — An issue's kind is read from the marker its repository declares for that kind.
 - [Close Over Several Pull Requests](../.nexus/concepts/multi-pr-close.md) — A close is addressed at the epic rather than at one pull request, so an epic whose stories shipped as several pull requests closes in one run.
 - [Pull-Request Verdict Answers](../.nexus/concepts/pr-verdict-answers.md) — Every departure, finding and deferred-scope proposal a pull request's verdict lists carries an ID, and an engineer answers one with a single fixed line in a pull-request comment.
 - [Provenance Reference](../.nexus/concepts/provenance-reference.md) — A provenance reference links a concept page or a log entry back to the issue that originated it, so an agent can hop from a compressed page to the full context it distilled away.
@@ -62,7 +63,6 @@ Orientation map of the concept store — 127 active concepts. Each links to its 
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search: search, list, and read.
 - [Inert Declaration Removal](../.nexus/concepts/inert-declaration-removal.md) — When a dependency leaves a release, every declaration that described it is deleted rather than emptied, nulled, or softened to an advisory.
 - [Initiative Context](../.nexus/concepts/initiative-context.md) — An initiative context is the planning context kept for one initiative, on the initiative issue itself.
-- [Issue Kind Classification](../.nexus/concepts/issue-kind-classification.md) — An issue's kind is read from the marker its repository declares for that kind.
 - [Pipeline Store Exclusion](../.nexus/concepts/pipeline-store-exclusion.md) — Some folders under the Nexus root are surfaces the pipeline writes or teaches from, never behaviour it reads back, so every stage that derives a diff withholds all of them.
 - [Pull-Request Story Resolution](../.nexus/concepts/pr-story-resolution.md) — A pull request is resolved to the story issues it implements through a ladder of candidate sources, no one of which is believed on its own: the live issue graph validates every candidate, so a wrong number can only be rejected, never accepted.
 - [PR Flow Worktree](../.nexus/concepts/pr-worktree.md) — The pull-request post-merge flow runs its stages in an isolated worktree, not the lead's own checkout.
@@ -133,6 +133,7 @@ Orientation map of the concept store — 127 active concepts. Each links to its 
 - [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a name declared in a workspace artifact may only be a bare directory segment, and the hub's optional docs-root override may only be a non-escaping repo-relative path.
 - [Drain Entry Admission](../.nexus/concepts/entry-admission.md) — A drain takes only entries whose change has reached the trunk.
 - [Epic Completion Judgment](../.nexus/concepts/epic-completion-judgment.md) — The conformance gate judges an epic's success metrics and its cross-story guarantees on the pull request that completes the epic.
+- [Epic Kind Refusal](../.nexus/concepts/epic-kind-refusal.md) — A stage that resolves an epic refuses an issue whose declared kind is initiative or feature, and names which one it is.
 - [Non-Disclosing Refusal](../.nexus/concepts/non-disclosing-refusal.md) — A mockup the renderer will not serve gets one answer, whether the file is missing or the reader simply cannot reach it.
 - [On-Demand Stage Contract](../.nexus/concepts/on-demand-stage-contract.md) — A stage whose behaviour varies by run shape states each exceptional path's rules in a contract of its own, and reads a contract only once the run has resolved that it needs it.
 - [Review Posting Gate](../.nexus/concepts/review-posting-gate.md) — A ranked review reaches the pull request only after the lead chooses request changes, comment or approve in the same run.
