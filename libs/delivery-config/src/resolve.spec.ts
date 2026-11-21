@@ -68,8 +68,12 @@ describe("reading a repository's declared settings", () => {
     });
 
     it("populates every key the catalogue declares — none readable but left unset", () => {
-        const block: string = GITHUB_KEYS.map((k, i) => `  ${k.githubKey}: value-${i}`).join("\n");
-        const root: string = repoWith({ ".nexus/config/settings.yml": `github:\n${block}\n` });
+        // Each key is written in its own section: the github block, or a harness's section (#1051, D10).
+        const sections = [...new Set(GITHUB_KEYS.map((k) => k.section ?? "github"))];
+        const text: string = sections
+            .map((section) => `${section}:\n${GITHUB_KEYS.map((k, i) => [k, i] as const).filter(([k]) => (k.section ?? "github") === section).map(([k, i]) => `  ${k.name ?? k.githubKey}: value-${i}`).join("\n")}`)
+            .join("\n");
+        const root: string = repoWith({ ".nexus/config/settings.yml": `${text}\n` });
         const config = readDeliveryConfig(root);
         GITHUB_KEYS.forEach((key, i) => {
             expect(config[key.normalized]).toBe(`value-${i}`);
@@ -130,7 +134,8 @@ describe("the hub layer", () => {
             GITHUB_KEYS.map((key, i) => [key.githubKey, `value-${i}`]),
         );
         const defaults = normalizeHubDefaults(block);
-        GITHUB_KEYS.forEach((key, i) => expect(defaults[key.normalized]).toBe(`value-${i}`));
+        // A harness section's model never comes from the workspace manifest (#1051, G41).
+        GITHUB_KEYS.forEach((key, i) => expect(defaults[key.normalized]).toBe(key.section === undefined ? `value-${i}` : undefined));
     });
 
     it("drops an undeclared key, a blank value, and a value that is not a string", () => {

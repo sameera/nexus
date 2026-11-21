@@ -29,6 +29,24 @@ export interface GithubKey {
      * never takes it from its hub (decision record #1003, D3).
      */
     repoSpecific?: true;
+    /**
+     * The top-level settings section the key lives in, when it is not the `github:` block — a
+     * coding-agent harness's own section (decision record #1051, D10). Such a key is written as
+     * `<name>` inside that section and carried in this catalogue as `<section>.<name>`.
+     */
+    section?: string;
+    /** The key's name inside its section, for a key that declares one. */
+    name?: string;
+}
+
+/** The settings section a key lives in. */
+export function sectionOf(key: GithubKey): string {
+    return key.section ?? "github";
+}
+
+/** The key's name inside its section. */
+export function nameInSection(key: GithubKey): string {
+    return key.name ?? key.githubKey;
 }
 
 /** Every declared github-block key, in the order the block is conventionally written. */
@@ -92,6 +110,13 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // would send every team's mockup addresses to a service nobody nominated. The shape check lives
     // beside the store's, in `asset-store.ts`.
     { githubKey: "asset-renderer", normalized: "assetRenderer" },
+    // Each coding-agent harness's planning and implementing models, in a section named exactly like
+    // the `--harness` value (decision record #1051, D10). Read only by `nexus implement`. Only Claude
+    // Code's planning model has a built-in: Opus, by the harness's alias for the newest Opus.
+    { githubKey: "claude.planning-model", normalized: "claudePlanningModel", section: "claude", name: "planning-model", builtin: "opus" },
+    { githubKey: "claude.implementing-model", normalized: "claudeImplementingModel", section: "claude", name: "implementing-model" },
+    { githubKey: "codex.planning-model", normalized: "codexPlanningModel", section: "codex", name: "planning-model" },
+    { githubKey: "codex.implementing-model", normalized: "codexImplementingModel", section: "codex", name: "implementing-model" },
 ];
 
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */

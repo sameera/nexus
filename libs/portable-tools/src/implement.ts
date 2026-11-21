@@ -23,6 +23,7 @@ import * as path from "node:path";
 import { type Departure, type Finding, type Judgments, openItems } from "@nexus/pr-acceptance/judgments-block";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
+import { harnessModels, type HarnessModels, type ModelSetting } from "@nexus/delivery-config/harness-models";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
@@ -154,6 +155,10 @@ export interface ImplementDeps {
     /** A file's content at a commit, or null when it is absent there. */
     fileAt(cwd: string, sha: string, file: string): string | null;
     autoModeAvailable(): boolean;
+    /** The planning and implementing models `harness` resolves to at `root`, through the one catalogue (D10). */
+    modelSettings(root: string, harness: Harness): HarnessModels;
+    /** The checkout's file changes, HEAD and branch, so a stage that changed any of them is caught (D3). */
+    checkoutState(cwd: string): string | null;
     onPath(command: string): boolean;
     session(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd>;
 }
@@ -265,8 +270,86 @@ export function retroactiveParagraph(retro: RetroGuidance): string {
     );
 }
 
+/** The fixed opening of the planning session's prompt, by which a reader can tell the session apart. */
+export const PLANNING_MARK = "Plan the implementation of epic";
+
+/** The plan file in the run scratch folder (D3): gitignored, never committed, never required. */
+export function planFilePath(epic: number): string {
+    return `.nexus/tmp/epic-${epic}/implement-plan.md`;
+}
+
+/** The choices log in the run scratch folder (D3). */
+export function choicesFilePath(epic: number): string {
+    return `.nexus/tmp/epic-${epic}/implement-choices.md`;
+}
+
+/** The planning session's prompt (D3): read only, and the plan is the final message. */
+export function planningPrompt(epic: number): string {
+    return (
+        `${PLANNING_MARK} #${epic} before anyone builds it. Run /nxs-epic-resolve ${epic} and read the epic and its stories, ` +
+        "then read the parts of this checkout the stories touch. The epic has no decision record, so its acceptance criteria are the only binding text. " +
+        "Do not change, create or delete any file, do not commit, and do not switch branches: this session only reads. " +
+        "End with the plan as your final message, and nothing else in it: the approach for each story in blocked_by order, " +
+        "the modules and interfaces it touches, the tests that pin its acceptance criteria, and each non-obvious choice with its reason."
+    );
+}
+
+/** A model the lead passed after `--`, or null (G45). */
+export function passThroughModel(harness: Harness, args: readonly string[]): string | null {
+    for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a === "--model" || (harness === "codex" && a === "-m")) return args[i + 1] ?? "";
+        if (a.startsWith("--model=")) return a.slice("--model=".length);
+    }
+    return null;
+}
+
+/** The pass-through arguments without any model, for the sessions it must never reach (G32). */
+export function withoutModel(harness: Harness, args: readonly string[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a === "--model" || (harness === "codex" && a === "-m")) {
+            i++;
+            continue;
+        }
+        if (a.startsWith("--model=")) continue;
+        out.push(a);
+    }
+    return out;
+}
+
+/** Why a model value cannot be handed to the coding agent as one argument, or null when it can (D14). */
+export function unsafeModel(value: string): string | null {
+    if (value.trim() === "") return "is declared empty";
+    if (value.startsWith("-")) return "starts with a dash, so the coding agent could read it as an option";
+    if (/\s/.test(value)) return "contains whitespace";
+    return null;
+}
+
+/** The longest text the body quotes from one agent-written source before cutting it (D2). */
+export const QUOTE_LIMIT = 50000;
+
+/**
+ * Agent-written text made inert for the pull request body (D2, G9; R2). The text goes inside a
+ * fenced code block, which GitHub never reads for closing references (a code span holding
+ * `Closes #868` in PR #882's body left its closing references empty). The fence is longer than any
+ * backtick run in the text, so the text cannot end it. Every line also starts with `| `, so no
+ * Nexus line reader meets a claim, answer, waiver or marker at the start of a line, and any HTML
+ * comment opener is broken, so no marker the command looks for can appear in it.
+ */
+export function quoteForBody(text: string, limit: number = QUOTE_LIMIT): string {
+    const cut = text.length > limit;
+    const kept = (cut ? text.slice(0, limit) : text).replace(/<!--/g, "<!- -");
+    const longest = Math.max(0, ...(kept.match(/`+/g) ?? []).map((run) => run.length));
+    const fence = "`".repeat(Math.max(4, longest + 1));
+    const lines = kept.split(/\r?\n/).map((l) => `| ${l}`);
+    return [fence, ...lines, fence, ...(cut ? [`(cut at ${limit} characters; the full text is in the run's scratch folder)`] : [])].join("\n");
+}
+
 /** One harness call for `prompt` (D12): the prompt is written once and turned into the harness's form. */
-export function stageSpec(harness: Harness, prompt: string, mode: string, harnessArgs: string[], cwd: string): SessionSpec {
+export function stageSpec(harness: Harness, prompt: string, mode: string, harnessArgs: string[], cwd: string, model: string | null = null): SessionSpec {
+    const modelArgs = model === null ? [] : ["--model", model];
     if (harness === "codex") {
         // Codex has skills, not Claude slash commands or its /goal extension.
         const text = prompt
@@ -275,9 +358,9 @@ export function stageSpec(harness: Harness, prompt: string, mode: string, harnes
             .replace(/\/nxs\.distill/g, "$nxs-distill")
             .replace(/\/nxs\.decision-record/g, "$nxs-decision-record")
             .replace(/\/nxs-epic-resolve/g, "$nxs-epic-resolve");
-        return { command: "codex", args: ["exec", "--sandbox", mode, "--json", ...harnessArgs, "--", text], cwd };
+        return { command: "codex", args: ["exec", "--sandbox", mode, "--json", ...modelArgs, ...harnessArgs, "--", text], cwd };
     }
-    return { command: "claude", args: ["-p", prompt, "--permission-mode", mode, "--output-format", "stream-json", "--verbose", ...harnessArgs], cwd };
+    return { command: "claude", args: ["-p", prompt, "--permission-mode", mode, "--output-format", "stream-json", "--verbose", ...modelArgs, ...harnessArgs], cwd };
 }
 
 /** The last line of `message` that begins with `prefix`, with the prefix removed; null when none. */
@@ -491,6 +574,17 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         return 1;
     };
 
+    // G34: usage errors, before anything is read.
+    if (input.planningModel !== null && !input.retroactive) {
+        io.stderr("implement: --planning-model applies only with --retroactive.");
+        return 2;
+    }
+    const pass = passThroughModel(harness, input.harnessArgs);
+    if (input.implementingModel !== null && pass !== null) {
+        io.stderr("implement: --implementing-model and a model in the arguments after -- name the implementing model twice; pass one.");
+        return 2;
+    }
+
     try {
         // 1. Preflight (D2, D14, D15): nothing below runs a model.
         const resolved = deps.resolveEpic(cwd, epic);
@@ -547,6 +641,20 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 }
             }
         }
+        // D10, D14: the models of the run's harness, each with the layer it came from.
+        const settings = deps.modelSettings(facts.root, harness);
+        const planningModel: ModelSetting | null = input.planningModel !== null ? { value: input.planningModel, layer: "--planning-model" } : settings.planning;
+        const implementingModel: ModelSetting | null = input.implementingModel !== null ? { value: input.implementingModel, layer: "--implementing-model" } : settings.implementing;
+        for (const [what, m] of [["planning", planningModel], ["implementing", implementingModel]] as const) {
+            const why = m === null ? null : unsafeModel(m.value);
+            if (m !== null && why !== null) fail("preflight", `the ${what} model '${m.value}' from ${m.layer} ${why}. Set it to one model name.`);
+        }
+        if (settings.unknownKeys.length > 0) say(`implement: warning: the ${harness} section of the settings declares keys this command does not know: ${settings.unknownKeys.join(", ")}.`);
+        if (retroactive && !deps.ignored(cwd, planFilePath(epic))) {
+            fail("preflight", `git does not ignore ${planFilePath(epic)}, so the plan would show as a change. Add .nexus/tmp/ to .gitignore, then re-run nexus implement.`);
+        }
+        // G45: a pass-through model wins for every stage it reaches; otherwise the implementing model writes the code (D13).
+        const codeModel: string | null = pass !== null ? null : (implementingModel?.value ?? null);
         if (testCommand === null) {
             const declared = deps.testCommandSetting(facts.root).trim();
             testCommand = declared === "" ? null : declared;
@@ -566,22 +674,56 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const baseSha = created.value;
         say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
-        const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
+        const runStage = async (stage: string, prompt: string, model: string | null = null, args: string[] = input.harnessArgs): Promise<SessionEnd> => {
             say(`>>> ${stage}`);
-            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd), (l) => io.stdout(l));
-            if (!end.started) fail(stage, `the ${harness} harness could not start: ${end.error ?? "unknown error"}`);
+            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, args, cwd, model), (l) => io.stdout(l));
+            if (!end.started) fail(stage, `the ${harness} harness could not start: ${end.error ?? "unknown error"}${model === null ? "" : modelNote(model)}`);
             return end;
         };
+        const modelNote = (model: string): string => (implementingModel !== null && model === implementingModel.value ? ` (model ${model}, from ${implementingModel.layer})` : ` (model ${model})`);
+
+        // 1b. Planning session (D3, D11): retroactive runs only, never enforced.
+        const planSections: string[] = [];
+        let planRan: string | null = null;
+        if (retroactive) {
+            const planOn = planningModel ?? implementingModel;
+            const planNote =
+                planningModel !== null
+                    ? `The plan was written on the planning model ${planningModel.value} (from ${planningModel.layer}).`
+                    : `No planning model is set for ${harness}, so planning ran on ${implementingModel !== null ? `the implementing model ${implementingModel.value} (from ${implementingModel.layer})` : "the harness default model"}.`;
+            if (planningModel === null) say(`implement: ${planNote}`);
+            say(">>> planning");
+            const before = deps.checkoutState(cwd);
+            const end = await deps.session(stageSpec(harness, planningPrompt(epic) + UNATTENDED_CLAUSE, mode, withoutModel(harness, input.harnessArgs), cwd, planOn?.value ?? null), (l) => io.stdout(l));
+            if (end.started) planRan = planOn?.value ?? null;
+            if (deps.checkoutState(cwd) !== before) fail("planning", "the planning session changed the checkout (a file, a commit or the branch); planning must only read.");
+            const plan = (end.finalMessage ?? "").trim();
+            let noPlan: string | null = null;
+            if (!end.started) noPlan = `the planning session could not start: ${end.error ?? "unknown error"}.`;
+            else if (end.exitCode !== 0 || end.error !== null) noPlan = `the planning session failed: ${end.error ?? `exit ${end.exitCode}`}.`;
+            else if (plan === "") noPlan = "the planning session ended with no plan.";
+            if (noPlan === null) {
+                const wrote = deps.writeFile(cwd, planFilePath(epic), `${plan}\n`);
+                if (!wrote.ok) noPlan = `the plan could not be written to ${planFilePath(epic)}: ${wrote.message}`;
+            }
+            if (noPlan === null) {
+                planSections.push(`**Plan** (agent-written, quoted; guidance only). ${planNote}`, quoteForBody(plan));
+            } else {
+                say(`implement: no plan; building anyway: ${noPlan}`);
+                planSections.push(`**No plan was produced:** ${noPlan} ${planNote}`);
+            }
+        }
+        const hasPlan = planSections.length > 0 && !planSections[0].startsWith("**No plan");
         const onBranch = (stage: string): void => {
             if (deps.currentBranch(cwd) !== branch) fail(stage, `the stage left the checkout off ${branch}; the command pushes only that branch.`);
         };
 
         // 2. Implementation stage (D3).
-        const retro: RetroGuidance | null = retroactive ? { plan: null, choices: null } : null;
-        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, retro));
+        const retro: RetroGuidance | null = retroactive ? { plan: hasPlan ? planFilePath(epic) : null, choices: choicesFilePath(epic) } : null;
+        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, retro), codeModel);
         const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
         if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
-        if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
+        if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}${codeModel === null ? "" : modelNote(codeModel)}`);
         if (testCommand === null) testCommand = prefixedLine(impl.finalMessage, TEST_COMMAND_PREFIX);
         onBranch("implementation");
 
@@ -596,7 +738,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (repo === null) return fail("pull-request", "the pull request's repository could not be read.");
         prRepo = repo;
         const testNote = testCommand === null ? "no test command was declared or named" : `test command \`${testCommand}\``;
-        const extra: string[] = retroactive ? [RETROACTIVE_NOTICE] : [];
+        const extra: string[] = retroactive ? [RETROACTIVE_NOTICE, ...planSections] : [];
         const body = prBody(epic, facts.stories, facts.issuesRepo, prRepo, `implemented; analyze runs next (${testNote}).`, extra);
         const existing = deps.openPr(cwd, branch);
         if (!existing.ok) fail("pull-request", existing.message);
@@ -617,9 +759,9 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             return answerRows(r.value);
         };
         // An answer line that appears or changes during an agent stage stops the run (G14).
-        const guarded = async (stage: string, prompt: string): Promise<SessionEnd> => {
+        const guarded = async (stage: string, prompt: string, model: string | null = null): Promise<SessionEnd> => {
             const before = readAnswers(stage);
-            const end = await runStage(stage, prompt);
+            const end = await runStage(stage, prompt, model);
             const after = readAnswers(stage);
             const posted = [...after].filter((row) => !before.has(row)).map((row) => row.split("\t")[0]);
             if (posted.length > 0) fail(stage, `an answer line was posted or edited during the stage, which only a person may do: ${[...new Set(posted)].join(", ")}`);
@@ -687,13 +829,13 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             // 7. Fix round: it sorts every item before it edits anything (D7).
             const fixStage = `fix (round ${round})`;
             const headBefore = deps.headSha(cwd);
-            const fix = await guarded(fixStage, fixPrompt(epic, round, input.rounds, work, testCommand, input.fixTurns));
+            const fix = await guarded(fixStage, fixPrompt(epic, round, input.rounds, work, testCommand, input.fixTurns), codeModel);
             const escalations = prefixedLines(fix.finalMessage, ESCALATION_PREFIX);
             if (escalations.length > 0) {
                 const committed = deps.headSha(cwd) !== headBefore ? " The stage committed despite the escalation; nothing was pushed." : "";
                 fail(fixStage, `escalation, for the lead to revise the record: ${escalations.join("; ")}.${committed}`);
             }
-            if (fix.exitCode !== 0 || fix.error !== null) fail(fixStage, `the stage failed: ${fix.error ?? `exit ${fix.exitCode}`}`);
+            if (fix.exitCode !== 0 || fix.error !== null) fail(fixStage, `the stage failed: ${fix.error ?? `exit ${fix.exitCode}`}${codeModel === null ? "" : modelNote(codeModel)}`);
             onBranch(fixStage);
             const again = deps.push(cwd, branch);
             if (!again.ok) fail("push", again.message);
@@ -859,6 +1001,13 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
             return r.status === 0 ? r.stdout : null;
         },
         autoModeAvailable: () => claudeOffersAuto(run),
+        modelSettings: (root, harness) => harnessModels(root, harness),
+        checkoutState: (cwd) => {
+            const status = run("git", ["status", "--porcelain"], { cwd });
+            const head = git(run, cwd, "rev-parse", "HEAD");
+            const branch = git(run, cwd, "rev-parse", "--abbrev-ref", "HEAD");
+            return status.status === 0 ? `${status.stdout}\n${head ?? ""}\n${branch ?? ""}` : null;
+        },
         onPath: (command) => onPath(command),
         session: spawnSession,
     };

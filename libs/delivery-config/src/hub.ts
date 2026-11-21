@@ -47,7 +47,8 @@ export function normalizeHubDefaults(github: Record<string, unknown>): DeliveryC
     const result: DeliveryConfig = {};
     for (const [githubKey, value] of Object.entries(github)) {
         const entry: GithubKey | undefined = keyEntry(githubKey);
-        if (entry && typeof value === "string" && value.trim() !== "") {
+        // A harness section's key never comes from the workspace manifest (decision record #1051, D10).
+        if (entry && entry.section === undefined && typeof value === "string" && value.trim() !== "") {
             result[entry.normalized] = value.trim();
         }
     }
@@ -59,7 +60,7 @@ export function publishingKeysOnly(config: DeliveryConfig): DeliveryConfig {
     const result: DeliveryConfig = {};
     for (const key of GITHUB_KEYS) {
         const value: string | undefined = config[key.normalized];
-        if (!key.repoSpecific && value !== undefined && value !== "") result[key.normalized] = value;
+        if (!key.repoSpecific && value !== undefined && (value !== "" || key.section !== undefined)) result[key.normalized] = value;
     }
     return result;
 }

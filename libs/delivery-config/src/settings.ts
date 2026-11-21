@@ -10,7 +10,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { GITHUB_KEYS } from "./keys.js";
+import { GITHUB_KEYS, nameInSection, sectionOf } from "./keys.js";
 
 /** The declared configuration, keyed by the resolver's normalized names. */
 export type DeliveryConfig = Record<string, string>;
@@ -46,27 +46,33 @@ export function parseSimpleYaml(content: string): Record<string, Record<string, 
  * silently to a built-in.
  */
 export function readDeliveryConfig(projectRoot: string): DeliveryConfig {
+    const raw = readRawSettings(projectRoot);
+    if (raw === null) return {};
+    const result: DeliveryConfig = {};
+    const crossRef: Record<string, string> = raw["cross-ref"] ?? {};
+    if (crossRef["docs-root"]) result["docRoot"] = crossRef["docs-root"];
+    for (const key of GITHUB_KEYS) {
+        const value: string | undefined = raw[sectionOf(key)]?.[nameInSection(key)];
+        // A sectioned key keeps a declared empty value, so its one reader can refuse it by name
+        // (decision record #1051, D14); the chain still treats it as unset.
+        if (value || (key.section !== undefined && value !== undefined)) result[key.normalized] = value;
+    }
+    return result;
+}
+
+/** The raw sections of the settings file at `projectRoot`, or null when there is none. */
+export function readRawSettings(projectRoot: string): Record<string, Record<string, string>> | null {
     const deliveryDir: string = path.join(projectRoot, ".nexus", "config");
     for (const name of ["settings.yml", "config.yml"]) {
         const file: string = path.join(deliveryDir, name);
         if (!fs.existsSync(file)) continue;
-        let raw: Record<string, Record<string, string>>;
         try {
-            raw = parseSimpleYaml(fs.readFileSync(file, "utf8"));
+            return parseSimpleYaml(fs.readFileSync(file, "utf8"));
         } catch {
             continue;
         }
-        const result: DeliveryConfig = {};
-        const crossRef: Record<string, string> = raw["cross-ref"] ?? {};
-        const github: Record<string, string> = raw["github"] ?? {};
-        if (crossRef["docs-root"]) result["docRoot"] = crossRef["docs-root"];
-        for (const key of GITHUB_KEYS) {
-            const value: string | undefined = github[key.githubKey];
-            if (value) result[key.normalized] = value;
-        }
-        return result;
     }
-    return {};
+    return null;
 }
 
 /**
