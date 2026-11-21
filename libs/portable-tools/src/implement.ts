@@ -79,6 +79,12 @@ export interface ImplementInput {
     harnessArgs: string[];
     /** Skip the HLD lookup and build from the decision record alone (epic #971, D5). */
     recordOnly: boolean;
+    /** Build an epic that has no decision record at all (epic #1041, D1). */
+    retroactive: boolean;
+    /** A planning model named on the invocation, or null to resolve it from the settings (D10). */
+    planningModel: string | null;
+    /** An implementing model named on the invocation, or null to resolve it from the settings (D13). */
+    implementingModel: string | null;
 }
 
 /** What the one epic resolver gives the command (G2). */
@@ -204,7 +210,7 @@ export const TEST_FIRST_RULE =
  * The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). A
  * current HLD page adds one paragraph to it (G4, G7, G14).
  */
-export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null): string {
+export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null, retro: RetroGuidance | null = null): string {
     const suite =
         testCommand === null
             ? `No test command is declared. Find the repository's full test suite and run it. When you finish the stories, end your final message with one line beginning exactly '${TEST_COMMAND_PREFIX}' that names the command you ran.`
@@ -219,7 +225,8 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "Outcome (b) is the only way to stop short; once you have written that line, the " +
         "goal holds and you stop — do not wait for a reply. Prove (a): git log shows one " +
         "commit per story, each with its Closes line, test command exits 0. Start by " +
-        `running /nxs-epic-resolve ${epic}, then read the ` +
+        `running /nxs-epic-resolve ${epic}` +
+        (retro !== null ? `. ${retroactiveParagraph(retro)} ` : ", then read the " +
         "decision-record sub-issue it names with gh issue view. The record is binding: " +
         "every guarantee (G<n>) under Guarantees must hold, including those under " +
         "'Existing behaviour to preserve'. Each decision (D<n>) under 'Design rationale " +
@@ -229,11 +236,32 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "brief's 'Before implementation' items before the first story; if one cannot be " +
         "done from this checkout, end with outcome (b). Leave 'Delivered by another " +
         "epic' and 'Committed follow-up' items and Concept-store changes alone — other " +
-        "issues and /nxs.distill deliver them. " +
+        "issues and /nxs.distill deliver them. ") +
         "Before starting each story, re-read its epic.md section and the decisions it " +
         `delivers. ${TEST_FIRST_RULE} Stay on the current branch. Do not push and do not open a PR — the calling command does both. ` +
         `${suite} Stop after ${turns} turns.` +
         (page === null ? "" : `\n\n${hldParagraph(page)}`)
+    );
+}
+
+/** What a retroactive implementation stage is told in place of the decision record (epic #1041). */
+export interface RetroGuidance {
+    /** The plan file the planning session's plan was written to, or null when no plan was produced. */
+    plan: string | null;
+    /** The choices log the agent adds each non-obvious choice to. */
+    choices: string | null;
+}
+
+/**
+ * The text that replaces the record's binding paragraph in a retroactive run (D3, G38): there is no
+ * decision record, the epic's acceptance criteria bind, and a plan is guidance only.
+ */
+export function retroactiveParagraph(retro: RetroGuidance): string {
+    return (
+        "This epic has no decision record: the lead chose to build it without one (`--retroactive`). " +
+        "Build every story to the epic's acceptance criteria, which bind." +
+        (retro.plan === null ? "" : ` A plan of the approach is at \`${retro.plan}\`. Read it before the first story and use it as guidance only: wherever the plan and an acceptance criterion disagree, follow the acceptance criterion.`) +
+        (retro.choices === null ? "" : ` As you build, add each non-obvious choice you make, with its reason, to \`${retro.choices}\`; that file is ignored by git, so never commit it.`)
     );
 }
 
@@ -330,8 +358,17 @@ export function withStatus(body: string, text: string): string {
     return `${body.trimEnd()}\n\n${section}\n`;
 }
 
-/** The draft pull request's body: the claims, then the status section (D4). */
-export function prBody(epic: number, stories: readonly number[], issuesRepo: string, prRepo: string, status: string): string {
+/**
+ * The retroactive notice (epic #1041, D1, G10): written when the pull request is created and kept
+ * outside the status section, so no later rewrite of that section removes it.
+ */
+export const RETROACTIVE_NOTICE = "This epic was built without a decision record (`nexus implement --retroactive`).";
+
+/**
+ * The draft pull request's body: the claims, then any extra sections the run adds outside the
+ * status section, then the status section (D4).
+ */
+export function prBody(epic: number, stories: readonly number[], issuesRepo: string, prRepo: string, status: string, extra: readonly string[] = []): string {
     return [
         `Implements the story sub-issues of ${issueRef(epic, issuesRepo, prRepo)}, one commit per story in blocked-by order.`,
         "",
@@ -339,6 +376,7 @@ export function prBody(epic: number, stories: readonly number[], issuesRepo: str
         "",
         "The epic itself closes through `nexus close`, not by merge.",
         "",
+        ...extra.flatMap((section) => [section, ""]),
         statusSection(status),
         "",
     ].join("\n");
@@ -458,9 +496,14 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const resolved = deps.resolveEpic(cwd, epic);
         if (!resolved.ok) return fail("preflight", `epic #${epic} could not be resolved: ${resolved.message}`);
         const facts = resolved.value;
-        if (facts.record === null && facts.needsDesign) fail("preflight", `epic #${epic} needs design and has no decision record. Run /nxs.decision-record ${epic} first.`);
+        // D1: the flag removes this one refusal, and only when the epic has no record at all.
+        const retroactive = input.retroactive && facts.record === null;
+        if (facts.record === null && facts.needsDesign && !retroactive) fail("preflight", `epic #${epic} needs design and has no decision record. Run /nxs.decision-record ${epic} first.`);
         if (facts.record !== null && facts.record.state !== "closed") fail("preflight", `the decision record #${facts.record.number} of epic #${epic} is not approved. Approve it by closing it first.`);
         if (facts.stories.length === 0) fail("preflight", `epic #${epic} has no live story to implement.`);
+        if (input.retroactive && facts.record !== null) {
+            say(`implement: --retroactive was not used: epic #${epic} has an approved decision record #${facts.record.number}, so the run builds from it as binding.`);
+        }
         if (!deps.onPath(harness)) fail("preflight", `the ${harness} command is not on the PATH.`);
         const mode = input.permissionMode ?? DEFAULT_PERMISSION_MODE[harness];
         if (harness === "claude" && mode === "auto" && !deps.autoModeAvailable()) {
@@ -534,7 +577,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         };
 
         // 2. Implementation stage (D3).
-        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }));
+        const retro: RetroGuidance | null = retroactive ? { plan: null, choices: null } : null;
+        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, retro));
         const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
         if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
         if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
@@ -552,7 +596,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (repo === null) return fail("pull-request", "the pull request's repository could not be read.");
         prRepo = repo;
         const testNote = testCommand === null ? "no test command was declared or named" : `test command \`${testCommand}\``;
-        const body = prBody(epic, facts.stories, facts.issuesRepo, prRepo, `implemented; analyze runs next (${testNote}).`);
+        const extra: string[] = retroactive ? [RETROACTIVE_NOTICE] : [];
+        const body = prBody(epic, facts.stories, facts.issuesRepo, prRepo, `implemented; analyze runs next (${testNote}).`, extra);
         const existing = deps.openPr(cwd, branch);
         if (!existing.ok) fail("pull-request", existing.message);
         if (existing.ok && existing.value !== null) {

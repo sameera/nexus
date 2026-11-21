@@ -235,6 +235,9 @@ const input = (over: Partial<ImplementInput> = {}): ImplementInput => ({
     rounds: 5,
     harnessArgs: [],
     recordOnly: false,
+    retroactive: false,
+    planningModel: null,
+    implementingModel: null,
     ...over,
 });
 
@@ -729,5 +732,57 @@ describe("distribution (G22)", () => {
     it("leaves neither implement-epic script in the repository", () => {
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/implement-epic.sh"))).toBe(false);
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/codex/implement-epic.sh"))).toBe(false);
+    });
+});
+
+describe("--retroactive on an epic with no decision record (epic #1041, story #1042, D1)", () => {
+    const noRecord: Partial<World> = { facts: { record: null, needsDesign: true } };
+
+    it("builds the stories of an epic that needs design and has no record instead of refusing", async () => {
+        const r = await run(world(noRecord), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("branch nxs/epic-7 main");
+        expect(r.log).toContain("create-pr");
+        const impl = r.sessions.find((s) => s.args.some((a) => a.includes("every story sub-issue of epic #7")));
+        expect(impl).toBeDefined();
+        const prompt = impl?.args.find((a) => a.includes("every story sub-issue")) ?? "";
+        expect(prompt).toMatch(/no decision record/i);
+        expect(prompt).not.toMatch(/The record is binding/);
+    });
+
+    it("refuses the same epic without the flag, exactly as today (G1)", async () => {
+        const r = await run(world(noRecord));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/needs design and has no decision record/);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("refuses an open record with the flag, with today's message and before any branch (G2, G4)", async () => {
+        const r = await run(world({ facts: { record: { number: 9, state: "open" } } }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/record #9 .* not approved/);
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("builds from an approved record as binding and says the flag was not used (G3)", async () => {
+        const r = await run(world(), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(r.err).toMatch(/--retroactive was not used/);
+        expect(r.err.match(/--retroactive was not used/g)).toHaveLength(1);
+        const prompt = r.sessions[0].args.find((a) => a.includes("every story sub-issue")) ?? "";
+        expect(prompt).toMatch(/The record is binding/);
+        expect(r.bodies[0]).not.toMatch(/built without a decision record/);
+    });
+
+    it("states on the pull request that the epic was built without a record, and a later stop keeps it (G10)", async () => {
+        const r = await run(world({ ...noRecord, verdicts: [judged(finding("F1", "high"))], finals: ["done", "", "Escalation: F1 changes an interface"] }), { retroactive: true });
+        expect(r.bodies[0]).toMatch(/built without a decision record/);
+        expect(r.code).toBe(1);
+        const last = r.bodies[r.bodies.length - 1];
+        expect(last).toMatch(/stopped at fix/);
+        expect(last).toMatch(/built without a decision record/);
     });
 });

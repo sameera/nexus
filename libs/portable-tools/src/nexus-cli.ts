@@ -183,7 +183,7 @@ const DISTILL_USAGE: string = [
 
 const IMPLEMENT_USAGE: string = [
     "  nexus implement <N> | --epic <N> [--harness claude|codex] [--permission-mode <mode>] [--test-command <cmd>]",
-    "                  [--base <branch>] [--rounds <n>] [--turns <n>] [--fix-turns <n>] [--record-only] [-- <harness args>...]",
+    "                  [--base <branch>] [--rounds <n>] [--turns <n>] [--fix-turns <n>] [--record-only] [--retroactive] [-- <harness args>...]",
     "      An optional command the lead runs: it writes the project's code. Checks the epic's decision record is",
     "      approved and the working tree is clean, creates branch nxs/epic-<N>, implements one commit per story,",
     "      pushes, opens a draft pull request claiming every story, then runs /nxs.analyze --pr and fix rounds",
@@ -193,7 +193,8 @@ const IMPLEMENT_USAGE: string = [
     "      Every stop exits 1, names the stage and the reason, and rewrites the pull request's run status section.",
     "      When the decision record's newest trusted /nxs.hld comment is current, the run builds from that page and",
     "      stops before its branch exists if the page cannot be read; --record-only skips the page and builds from",
-    "      the decision record alone.",
+    "      the decision record alone. --retroactive builds an epic that has no decision record at all; with an",
+    "      open record it refuses as without it, and with an approved record it builds from the record and says so.",
 ].join("\n");
 
 const REGISTRY: Record<string, VerbEntry> = {
@@ -3363,6 +3364,7 @@ async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
     let testCommand: string | null = null;
     let base: string | null = null;
     let recordOnly = false;
+    let retroactive = false;
     const counts = { rounds: DEFAULT_ROUNDS, turns: DEFAULT_TURNS, fixTurns: DEFAULT_FIX_TURNS };
     const countFlags: Record<string, keyof typeof counts> = { "--rounds": "rounds", "--turns": "turns", "--fix-turns": "fixTurns" };
     for (let i = 0; i < own.length; i++) {
@@ -3375,6 +3377,8 @@ async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
             if (a === "--epic") i++;
         } else if (a === "--record-only") {
             recordOnly = true;
+        } else if (a === "--retroactive") {
+            retroactive = true;
         } else if (a === "--harness") {
             if (value !== "claude" && value !== "codex") return refuse(`--harness must be claude or codex; got ${value === undefined ? "nothing" : `'${value}'`}.`);
             harness = value;
@@ -3396,7 +3400,7 @@ async function runImplementEpicCli(argv: string[], io: CliIo): Promise<number> {
     if (epic === null) return refuse("name the epic: nexus implement <N>.");
     return runImplementEpic(
         implementEpicDeps(closeMigrationRunner),
-        { cwd: io.cwd, epic, harness, permissionMode, testCommand, base, harnessArgs, recordOnly, ...counts },
+        { cwd: io.cwd, epic, harness, permissionMode, testCommand, base, harnessArgs, recordOnly, retroactive, planningModel: null, implementingModel: null, ...counts },
         { stdout: io.stdout, stderr: io.stderr },
     );
 }
