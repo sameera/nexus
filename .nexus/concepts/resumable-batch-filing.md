@@ -2,7 +2,7 @@
 title: "Resumable Batch Filing"
 aliases: ["resume ledger", "batch filing", "re-runnable batch", "half-filed batch", "duplicate-issue guard", "keep manifest"]
 touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention", "report-free-shared-layer", "filing-preflight", "initiative", "initiative-filing"]
-last_updated_by: "#1011"
+last_updated_by: "#998"
 status: active
 verification: verified
 ---
@@ -15,7 +15,7 @@ Filing a folder of work items into issues is a batch that is always safe to re-r
 
 A run first passes the filing preflight, which proves the batch legal and establishes every label before any issue exists.
 
-Three passes follow. The first files each item, classifies it, links its parent, and writes its ledger entry the moment the issue's identity resolves. On a repeat it retries the parent link of every issue the ledger already records. The second wires the declared dependency edges. The third rewrites surviving authoring refs in the filed bodies, reading each back from the platform so a human edit made since is never reverted.
+Three passes follow. The first files each item, classifies it, links its parent, and writes its ledger entry the moment the issue's identity resolves. On a repeat it retries the parent link of every issue the ledger already records. When the batch names a feature issue, the first pass also links each issue to it with a relates-to link, and the run first refuses a named issue that does not read as a feature. The second wires the declared dependency edges. The third rewrites surviving authoring refs in the filed bodies, reading each back from the platform so a human edit made since is never reverted.
 
 The run then reports what it created, reused, wired and rewrote, and — where anything failed or went unresolved — the ledger's location and the command that resumes it.
 
@@ -25,8 +25,8 @@ The run then reports what it created, reused, wired and rewrote, and — where a
 2. A ref the ledger already records never yields a second issue: the recorded one is reused, and a missing identity is backfilled from the platform.
 3. An unreadable or malformed ledger is treated as empty with a warning, never as a failure.
 4. Every pass is re-runnable: an edge or body already in the wanted state counts as present, not re-applied, and a body is read back from the platform rather than re-pushed locally.
-5. Decoration after creation — type, parent link, project membership — warns on failure and never fails the run; an issue that exists is never abandoned over it.
-6. A repeat retries the parent link of every issue the ledger records, and a link that already exists counts as success.
+5. Decoration after creation — type, parent link, feature link, project membership — warns on failure and never fails the run; an issue that exists is never abandoned over it.
+6. A repeat retries the parent link and the feature link of every issue the ledger records, and a link that already exists counts as success.
 
 ## Integration Points
 
@@ -57,3 +57,7 @@ A parent link that failed used to print a warning only. The batch still reported
 ### 2026-11-14 — #1011 — Reciprocal link from initiative-filing
 
 Mechanical reciprocity fan-out: the initiative filing run, split from the initiative page, files the initiative and then its stubs through this batch path.
+
+### 2026-11-21 — #998 — The relates-to link to a feature issue is a filer step after the ledger entry
+
+Both filers, the single-epic filer and the batch filer, now add a relates-to link to a named feature issue once an issue's ledger entry is written. Before creating anything they refuse a batch whose named feature issue does not read as a feature, so the filer checks the kind itself instead of trusting its caller. A failed link warns and a repeat retries it, as for the parent link. The filers never make the feature issue a parent, because an epic under an initiative already has one. Refuted alternative: the epic stage adds the links itself with direct platform calls after filing. It touches no filer, and it lost because it creates a second write path that neither the ledger nor the pre-filing check sees.

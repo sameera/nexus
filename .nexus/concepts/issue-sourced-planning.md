@@ -2,7 +2,7 @@
 title: "Issue-Sourced Planning"
 aliases: ["issues as source of truth", "epic resolver", "materialized epic", "resolve from issue number", "no-commit planning", "epic-meta round-trip"]
 touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder", "initiative"]
-last_updated_by: "#638"
+last_updated_by: "#998"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Issue-Sourced Planning makes GitHub issues the single source of truth for epic a
 
 ## How It Works
 
-At approval the epic stage files the epic issue and its story sub-issues as children, committing nothing. The resolver later rebuilds the epic from its issue number, fetching the body, sub-issues, and native dependency graph into the existing epic field shape, outside version control. Reconstruction is byte-identical on an unchanged issue graph and fail-closed — an unfetchable sub-issue aborts with no output. A sub-issue carrying the configured record marker — from the shared publishing resolver, matched case-insensitively — is the decision record: kept out of the story set, surfaced as a recoverable field; a second candidate aborts. Frontmatter the issue body cannot carry rides a hidden machine comment the resolver reads back, falling back to recoverable fields alone for a hand-filed epic. Downstream stages resolve the number instead of reading a committed file; the entry is deferred to close.
+At approval the epic stage files the epic issue and its story sub-issues as children, committing nothing. The resolver later rebuilds the epic from its issue number, fetching the body, sub-issues, and native dependency graph into the existing epic field shape, outside version control. Reconstruction is byte-identical on an unchanged issue graph and fail-closed — an unfetchable sub-issue aborts with no output. A sub-issue carrying the configured record marker — from the shared publishing resolver, matched case-insensitively — is the decision record: kept out of the story set, surfaced as a recoverable field; a second candidate aborts. Frontmatter the issue body cannot carry rides a hidden machine comment the resolver reads back, falling back to recoverable fields alone for a hand-filed epic. In a repository that opts in to features as issues, the feature issue number sits in that frontmatter beside the feature path, so a rebuilt epic still names its feature issue. Downstream stages resolve the number instead of reading a committed file; the entry is deferred to close.
 
 ## Key Invariants
 
@@ -79,3 +79,7 @@ Mechanical reciprocity fan-out: the epic this resolver reconstructs now material
 ### 2026-10-10 — #705 — Reciprocal link from initiative
 
 Mechanical reciprocity fan-out: the initiative page names this resolver's refusal of an issue filed as an initiative, which every stage that resolves an epic now meets.
+
+### 2026-11-21 — #998 — The feature issue number rides the epic's frontmatter
+
+An epic and each stub it files name their feature issue by number beside the feature path. The resolver already returns the frontmatter as filed, so the number survives every rebuild and the resolver's output shape does not change for an unchanged graph. Promotion, reloading a planned epic and splitting a stub carry the number forward from their source. Refuted alternative: derive the number from the relates-to link when the epic is resolved, keeping one copy. It lost because it adds a relationship fetch to the resolver, must filter related issues by kind, and the criteria require the number to be named.
