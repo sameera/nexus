@@ -13,3 +13,4 @@ Implement a planned epic unattended, from stories to a reviewed pull request, wi
 - **nexus implement builds from the /nxs.hld page when the record has one** — [#971](https://github.com/sameera/nexus/issues/971)
 - **A re-run of nexus implement continues an interrupted run** — [#991](https://github.com/sameera/nexus/issues/991)
 - **nexus converge runs the review rounds and stops when they stop converging** — [#1022](https://github.com/sameera/nexus/issues/1022)
+- **nexus implement --retroactive builds an epic that has no decision record** — [#1041](https://github.com/sameera/nexus/issues/1041)
