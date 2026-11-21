@@ -54,6 +54,9 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // marks nothing.
     { githubKey: "feature-type", normalized: "featureType" },
     { githubKey: "feature-label", normalized: "featureLabel", builtin: "feature" },
+    // The label a lead puts on a feature no longer in use (decision record #1049, D10). The feature
+    // issue stays open; the migration still finds it and never adds or removes the label.
+    { githubKey: "retired-feature-label", normalized: "retiredFeatureLabel", builtin: "retired-feature" },
     // The specific epic-repo/story-repo win over the general issues-repo, which stays the fallback
     // for whichever is unspecified.
     { githubKey: "epic-repo", normalized: "epicRepo", fallbackTo: "issuesRepo" },

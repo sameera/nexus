@@ -12,6 +12,9 @@ import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { type IssueAt, missingFromFeature, parseIssueAt } from "@nexus/delivery-config/feature-link";
+import { type FilerEnvironment, defaultEnvironment } from "@nexus/delivery-config/story-filer/environment";
+import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
+import { LEDGER_FILE, MIGRATION_DIR, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
 import {
     type FeatureIssueRef,
     type FeatureLookup,
@@ -24,7 +27,7 @@ import {
     resolveFeatureSetting,
 } from "./feature-issue.js";
 
-export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related"];
+export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related", "migrate"];
 
 export const FEATURE_ISSUE_USAGE: string = [
     "  nexus feature-issue lookup --feature-path <path> [--ledger <file>] [--named <N>]",
@@ -41,6 +44,11 @@ export const FEATURE_ISSUE_USAGE: string = [
     "      Read the feature issue's related list and confirm every listed issue of the epic",
     "      repository is on it. Prints { feature, missing }; any missing issue, or a feature that",
     "      cannot be read, exits 1.",
+    "  nexus feature-issue migrate [--apply]",
+    "      Move existing feature folders onto feature issues. Without --apply it prints the",
+    "      migration plan and writes nothing; with it, files each missing feature issue through",
+    "      the guarded filer. Refuses unless the repository opted in to features as issues.",
+    "      Exits 1 when anything is left to do or to fix by hand.",
 ].join("\n");
 
 interface FeatureIssueIo {
@@ -51,6 +59,7 @@ interface FeatureIssueIo {
 
 export async function runFeatureIssue(argv: string[], io: FeatureIssueIo, run: Runner = defaultRunner): Promise<number> {
     const sub: string | undefined = argv[0];
+    if (sub === "migrate") return runMigrate(argv.slice(1), io, run);
     const flags: Map<string, string> | null = sub !== undefined && FEATURE_ISSUE_SUBVERBS.includes(sub) ? readFlags(argv.slice(1)) : null;
     if (flags === null) {
         io.stderr(`usage:\n${FEATURE_ISSUE_USAGE}`);
@@ -223,5 +232,54 @@ function toRef(issue: RestIssue): FeatureIssueRef {
         body: issue.body ?? "",
         labels: issue.labels.map((l) => (typeof l === "string" ? l : l.name)),
         issueType: issue.type?.name ?? null,
+    };
+}
+
+/** Parse `migrate`'s flags: only `--apply`, which takes no value. */
+function runMigrate(argv: string[], io: FeatureIssueIo, run: Runner): number {
+    if (argv.some((a) => a !== "--apply")) {
+        io.stderr(`usage:\n${FEATURE_ISSUE_USAGE}`);
+        return 2;
+    }
+    const root: string = checkoutRoot(io.cwd);
+    const setting: FeatureSetting = resolveFeatureSetting(root);
+    const report: MigrationReport = migrateFeatures({ root, setting, apply: argv.includes("--apply"), gh: realMigrationGh(root, setting, run) });
+    for (const line of report.lines) io.stdout(line);
+    return report.refused === null && report.complete ? 0 : 1;
+}
+
+/** The migration's GitHub side: the REST listing, and the guarded filer with a kept ledger (G3). */
+export function realMigrationGh(root: string, setting: FeatureSetting, run: Runner, env?: FilerEnvironment): MigrationGh {
+    const epicRepo: string = resolvePublishingKey(root, "epic-repo");
+    const reader = new GhReader(run, root, epicRepo);
+    return {
+        listFeatures: () => {
+            if (setting.state !== "on") return [];
+            const listed: FeatureIssueRef[] = reader.list(setting);
+            return reader.failure === null ? listed : null;
+        },
+        fileFeatures: (items) => {
+            const on = setting as Extract<FeatureSetting, { state: "on" }>;
+            const dir: string = path.join(root, MIGRATION_DIR);
+            fs.mkdirSync(dir, { recursive: true });
+            for (const name of fs.readdirSync(dir)) if (/^STORY-.*\.md$/.test(name)) fs.rmSync(path.join(dir, name));
+            for (const item of items) {
+                const work = renderFeatureWorkItem(item.name, item.statement, item.featurePath);
+                fs.writeFileSync(path.join(dir, work.fileName), work.content);
+            }
+            const said: string[] = [];
+            const args: string[] = [dir, "--root", root, "--keep-manifest"];
+            if (epicRepo.trim() !== "") args.push("--issues-repo", epicRepo.trim());
+            if (on.label !== "") args.push("--classification-label", on.label);
+            if (on.type !== "") args.push("--classification-type", on.type);
+            const code: number = runCreateStory(args, { cwd: root, stdout: () => undefined, stderr: (l) => said.push(l) }, env ?? defaultEnvironment);
+            const numbers: Map<string, number> = new Map();
+            for (const item of items) {
+                const n: number | null = readLedgerNumber(path.join(dir, LEDGER_FILE), item.featurePath);
+                if (n !== null) numbers.set(item.featurePath, n);
+            }
+            const failure: string | null = numbers.size === items.length ? null : said.filter((l) => l.trim() !== "").slice(-2).join(" ") || `the filer exited ${code}`;
+            return { numbers, failure };
+        },
     };
 }

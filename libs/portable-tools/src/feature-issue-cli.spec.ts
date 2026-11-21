@@ -195,3 +195,25 @@ describe("nexus feature-issue check-related — the read-back (D9, G18)", () => 
         expect(result.code).toBe(1);
     });
 });
+
+describe("nexus feature-issue migrate", () => {
+    it("rejects any flag but --apply with a usage error", async () => {
+        const gh = fakeGh([]);
+        expect((await call(["migrate", "--force"], repoWith(OPTED_IN), gh.run)).code).toBe(2);
+    });
+
+    it("refuses in a repository that has not opted in, reading nothing (G22)", async () => {
+        const gh = fakeGh([]);
+        const result = await call(["migrate"], repoWith("  classification: labels\n"), gh.run);
+        expect(result.code).toBe(1);
+        expect(result.out).toContain("features-as-issues");
+        expect(gh.calls).toEqual([]);
+    });
+
+    it("prints the plan and exits 0 when every feature folder already has its feature issue (G5)", async () => {
+        const gh = fakeGh([restIssue(42, FEATURE_PATH)]);
+        const result = await call(["migrate"], repoWith(OPTED_IN, true), gh.run);
+        expect(result.out).toContain("#42");
+        expect(result.code).toBe(0);
+    });
+});

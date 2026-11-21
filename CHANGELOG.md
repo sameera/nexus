@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.1.0
+
+- **Existing feature folders move onto feature issues.** `nexus feature-issue migrate` prints the
+  migration plan: the feature issue each folder under `docs/features/` already has, and the ones it
+  would file. Nothing changes on GitHub until it is run again with `--apply`, which files each missing
+  feature issue, open, titled with the feature's name and carrying its one-line capability statement.
+  A repeat, or a run after an interruption, files only what is still missing. A folder two feature
+  issues record, or one with no statement, is reported and gets no issue. The feature folders are
+  only read. It refuses in a repository that has not opted in to features as issues. A later
+  `epic` run for a migrated feature reuses its feature issue rather than reporting it unmigrated.
+- **A retired feature keeps its open issue.** Mark a feature no longer in use with the
+  `retired-feature` label, or the label `retired-feature-label` declares. The migration still finds a
+  feature issue that carries it and never adds or removes it.
+
 ## 1.0.0
 
 - **Nexus is 1.0.** From this release the version follows semantic versioning against how the
