@@ -49,8 +49,11 @@ export function nameInSection(key: GithubKey): string {
     return key.name ?? key.githubKey;
 }
 
-/** Every declared github-block key, in the order the block is conventionally written. */
-export const GITHUB_KEYS: readonly GithubKey[] = [
+/**
+ * Every declared settings key — the one catalogue (decision record #1051, G40). Most live in the
+ * `github:` block; a harness's model keys live in that harness's own section.
+ */
+export const DECLARED_KEYS: readonly GithubKey[] = [
     { githubKey: "issues-repo", normalized: "issuesRepo" },
     { githubKey: "project", normalized: "project" },
     { githubKey: "epic-type", normalized: "epicType" },
@@ -119,17 +122,23 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     { githubKey: "codex.implementing-model", normalized: "codexImplementingModel", section: "codex", name: "implementing-model" },
 ];
 
+/** The keys of the `github:` block, derived from the one catalogue. */
+export const GITHUB_KEYS: readonly GithubKey[] = DECLARED_KEYS.filter((key) => key.section === undefined);
+
+/** The keys of a harness's section, derived from the one catalogue. */
+export const HARNESS_KEYS: readonly GithubKey[] = DECLARED_KEYS.filter((key) => key.section !== undefined);
+
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */
 export function keyEntry(githubKey: string): GithubKey | undefined {
-    return GITHUB_KEYS.find((key) => key.githubKey === githubKey);
+    return DECLARED_KEYS.find((key) => key.githubKey === githubKey);
 }
 
 /** The normalized name for a github-block key, or the key itself when it is not declared. */
 export function normalizedKey(githubKey: string): string {
-    return GITHUB_KEYS.find((key) => key.githubKey === githubKey)?.normalized ?? githubKey;
+    return DECLARED_KEYS.find((key) => key.githubKey === githubKey)?.normalized ?? githubKey;
 }
 
 /** The github-block spelling for either spelling of a key — the derived inverse, never a copy. */
 export function githubKeyFor(key: string): string {
-    return GITHUB_KEYS.find((entry) => entry.normalized === key)?.githubKey ?? key;
+    return DECLARED_KEYS.find((entry) => entry.normalized === key)?.githubKey ?? key;
 }

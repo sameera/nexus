@@ -6,7 +6,7 @@
  * from, so a refusal can name it, and a declared empty value is kept rather than dropped.
  */
 
-import { GITHUB_KEYS, keyEntry, nameInSection } from "./keys.js";
+import { HARNESS_KEYS, keyEntry, nameInSection } from "./keys.js";
 import { layersAt } from "./resolve.js";
 import { readRawSettings } from "./settings.js";
 
@@ -35,7 +35,7 @@ function modelFor(start: string, harness: string, name: string): ModelSetting | 
 
 /** The models `harness` resolves to at `start`, with the layer each came from. */
 export function harnessModels(start: string, harness: string): HarnessModels {
-    const declared = new Set(GITHUB_KEYS.filter((k) => k.section === harness).map(nameInSection));
+    const declared = new Set(HARNESS_KEYS.filter((k) => k.section === harness).map(nameInSection));
     const raw = readRawSettings(layersAt(start).root);
     const unknownKeys = Object.keys(raw?.[harness] ?? {}).filter((k) => !declared.has(k));
     return { planning: modelFor(start, harness, "planning-model"), implementing: modelFor(start, harness, "implementing-model"), unknownKeys };

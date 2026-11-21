@@ -10,7 +10,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { GITHUB_KEYS, nameInSection, sectionOf } from "./keys.js";
+import { DECLARED_KEYS, nameInSection, sectionOf } from "./keys.js";
 
 /** The declared configuration, keyed by the resolver's normalized names. */
 export type DeliveryConfig = Record<string, string>;
@@ -51,7 +51,7 @@ export function readDeliveryConfig(projectRoot: string): DeliveryConfig {
     const result: DeliveryConfig = {};
     const crossRef: Record<string, string> = raw["cross-ref"] ?? {};
     if (crossRef["docs-root"]) result["docRoot"] = crossRef["docs-root"];
-    for (const key of GITHUB_KEYS) {
+    for (const key of DECLARED_KEYS) {
         const value: string | undefined = raw[sectionOf(key)]?.[nameInSection(key)];
         // A sectioned key keeps a declared empty value, so its one reader can refuse it by name
         // (decision record #1051, D14); the chain still treats it as unset.
