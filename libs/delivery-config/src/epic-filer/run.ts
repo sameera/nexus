@@ -15,7 +15,8 @@ import * as fs from "node:fs";
 import { type ToolkitIo } from "../io.js";
 import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs } from "./args.js";
 import { stubKeyLines } from "../stub-key.js";
-import { type GhRunner, ensureLabel } from "../gh.js";
+import { type GhRunner, ensureLabel, resolveOwnerRepo } from "../gh.js";
+import { type FeatureCheck, type IssueAt, type LinkResult, checkFeatureIssue, linkToFeature } from "../feature-link.js";
 import { type Outcome, Platform, extractIssueNumber } from "../story-filer/platform.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
 import { withIssuesRepo, withLink } from "./link.js";
@@ -139,6 +140,23 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
         return 1;
     }
 
+    // A named feature issue must read as a feature before anything is written (decision record
+    // #1010, D8). A draft that names none reads nothing here.
+    const featureRef: string = (frontmatter["feature_issue"] ?? "").trim();
+    let feature: { at: IssueAt; home: { owner: string; name: string } } | null = null;
+    if (featureRef !== "") {
+        const home = resolveOwnerRepo(ready.run, config.epicRepo);
+        const verdict: FeatureCheck | null = home === null ? null : checkFeatureIssue(ready.run, ready.projectRoot, featureRef, home);
+        if (home === null || verdict === null || !verdict.ok) {
+            out.error(
+                `The draft names ${verdict !== null && !verdict.ok ? verdict.message : `feature issue ${featureRef}, which could not be checked`}. ` +
+                    "An epic names only a feature issue as its feature. Fix `feature_issue:` and re-run. Nothing was written.",
+            );
+            return 1;
+        }
+        feature = { at: verdict.at, home };
+    }
+
     const project: ProjectPlan = planProject(ready.layers, args, ready.run, out);
 
     const run: GhRunner = ready.run;
@@ -208,6 +226,12 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     }
 
     // Every step from here is decoration: a failure warns and the run still exits zero.
+    // The relates-to link, never a parent link, once the number is recorded (D8, G17, G23).
+    if (feature !== null) {
+        const linked: LinkResult = linkToFeature(ready.run, { ...feature.home, number: issueNumber }, feature.at);
+        if (linked.outcome === "failed") out.warn(`Could not link #${issueNumber} to feature ${featureRef}: ${linked.reason}. Re-run to retry.`);
+        else out.line(`🔗 Related to feature ${featureRef}`);
+    }
     // The gate is made and applied the same way on both paths.
     const design: DesignDecision = designDecision(frontmatter["complexity"]);
     if (design.needed) applyNeedsDesign(issueNumber, config, epic, ready.run, out, design.rollup);

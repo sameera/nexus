@@ -566,6 +566,14 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
+    it("stops, creating nothing, on a feature issue, naming it as a feature (record #1010, D4)", () => {
+        const h = harness({ issueKind: () => ({ ok: true, exists: true, kind: "feature", parent: null }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 998 } })));
+        expect(err).toMatch(/reason: .*#998 is filed as a feature, not an epic/);
+        expect(err).toMatch(/remedy: .*nexus close --epic <N>/);
+        expect(h.writes).toEqual([]);
+    });
+
     it("suggests --pr when the number it is given names no issue, since it may be a pull request", () => {
         // As on GitHub: a number that names no issue has no comments to read either.
         const h = harness({ issueKind: () => ({ ok: true, exists: false, kind: "other", parent: null }), issueComments: () => ({ ok: false, message: "Could not resolve to an Issue" }) });

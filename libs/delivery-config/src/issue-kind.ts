@@ -3,7 +3,8 @@
  *
  * An issue's kind comes only from the marker the repository declares for it: a label, or a GitHub
  * issue type, whichever the declared classification mode selects. The kinds are initiative, epic,
- * story, decision record, and none of these. The rule lives in the settings layer, beside the
+ * story, decision record, feature, and none of these. Feature exists only in a repository that opts
+ * in to features as issues (decision record #1010). The rule lives in the settings layer, beside the
  * resolver that reads those markers, because both the epic resolver and the batch filer need it and
  * the filer cannot reach up into the resolver's package. A second copy inside the filer would let
  * filing and reading disagree about the same issue.
@@ -99,7 +100,7 @@ export function resolveRecordClassification(targetRoot: string): Ok<{ classifica
  * (decision record #786, D5). It is its own kind so that a stage can refuse it by name and the
  * filer can allow it as a stub's parent, each from the marker rather than from where it sits.
  */
-export type IssueKind = "initiative" | "epic" | "story" | "record" | "other";
+export type IssueKind = "initiative" | "epic" | "story" | "record" | "feature" | "other";
 
 /** How this repo marks each kind of issue, under the one declared classification mode. */
 export interface KindClassification {
@@ -113,6 +114,10 @@ export interface KindClassification {
     initiativeLabel: string;
     /** Empty when the repository declares none: no issue is then an initiative by its type. */
     initiativeType: string;
+    /** Empty unless the repository opted in to features as issues (decision record #1010, D1). */
+    featureLabel: string;
+    /** Empty unless opted in and a type is declared: there is no built-in issue type (D2). */
+    featureType: string;
 }
 
 /** The classification-relevant markers carried by one issue, with the number to name it by. */
@@ -127,7 +132,7 @@ function matches(value: string | null, wanted: string): boolean {
 /** The markers one kind is recognised by, with every kind that outranks it. */
 type KindMarkers = Pick<
     KindClassification,
-    "epicLabel" | "epicType" | "storyLabel" | "storyType" | "recordLabel" | "recordType" | "initiativeLabel" | "initiativeType"
+    "epicLabel" | "epicType" | "storyLabel" | "storyType" | "recordLabel" | "recordType" | "initiativeLabel" | "initiativeType" | "featureLabel" | "featureType"
 >;
 
 function kindFrom(c: KindMarkers, by: (label: string, type: string) => boolean): IssueKind {
@@ -137,7 +142,31 @@ function kindFrom(c: KindMarkers, by: (label: string, type: string) => boolean):
     // Last, so an issue the repository marks as an epic stays one even where the two markers share
     // a name — a repository whose epic label is `initiative` loses no epic to this kind.
     if (by(c.initiativeLabel, c.initiativeType)) return "initiative";
+    // Last of all, so a repository whose epic or initiative label is the feature word loses neither,
+    // and an issue carrying any other kind's marker is never read as a feature (decision record
+    // #1010, D3). Both markers are empty unless the repository opted in, and an empty marker
+    // matches nothing, which is the whole of the off switch.
+    if (by(c.featureLabel, c.featureType)) return "feature";
     return "other";
+}
+
+/** Whether the repository opted in to features as issues: only the value `true`, whatever its case. */
+function featuresOptedIn(targetRoot: string): boolean {
+    return resolveKey(targetRoot, "features-as-issues").toLowerCase() === "true";
+}
+
+/**
+ * The feature markers (decision record #1010, D1 and D2). Both read empty unless the repository
+ * opted in, so every stage that asks what an issue is filed as reads no feature in a repository
+ * that has not. The declared mode picks which one answers; the other stays inert, and never raises a
+ * mode mismatch.
+ */
+function featureMarkers(targetRoot: string): Pick<KindClassification, "featureLabel" | "featureType"> {
+    if (!featuresOptedIn(targetRoot)) return { featureLabel: "", featureType: "" };
+    return {
+        featureLabel: resolveKey(targetRoot, "feature-label"),
+        featureType: resolveKey(targetRoot, "feature-type"),
+    };
 }
 
 /**
@@ -190,6 +219,7 @@ export function resolveKindClassification(targetRoot: string): Ok<{ classificati
             // initiatives to recognise, which is an answer and not a failure.
             initiativeLabel: resolveKey(targetRoot, "initiative-label"),
             initiativeType: resolveKey(targetRoot, "initiative-type"),
+            ...featureMarkers(targetRoot),
         },
     };
 }
@@ -213,9 +243,9 @@ export function classifyIssueKind(c: KindClassification, markers: IssueMarkers):
     const declared: IssueKind = c.mode === "labels" ? byLabel : byType;
     const other: IssueKind = c.mode === "labels" ? byType : byLabel;
     if (declared !== "other") return { ok: true, kind: declared };
-    // An initiative marked the undeclared way was `other` before the kind existed, and stays so:
-    // the mismatch below is about how the repository files epics, stories and records.
-    if (other !== "other" && other !== "initiative") {
+    // An initiative or a feature marked the undeclared way was `other` before the kind existed, and
+    // stays so: the mismatch below is about how the repository files epics, stories and records.
+    if (other !== "other" && other !== "initiative" && other !== "feature") {
         const found: string = c.mode === "labels" ? `issue type '${markers.issueType ?? ""}'` : `label '${other}'`;
         return {
             ok: false,
@@ -252,6 +282,7 @@ export function readKindMarkers(targetRoot: string): KindClassification {
         recordType: resolveKey(targetRoot, "record-type"),
         initiativeLabel: resolveKey(targetRoot, "initiative-label"),
         initiativeType: resolveKey(targetRoot, "initiative-type"),
+        ...featureMarkers(targetRoot),
     };
 }
 
@@ -275,4 +306,25 @@ export function isDeclaredInitiative(c: KindClassification, markers: SubIssueMar
     if (c.mode === "labels") return byLabel === "initiative";
     if (c.mode === "types") return byType === "initiative";
     return (byLabel !== "other" ? byLabel : byType) === "initiative";
+}
+
+/** Whether deciding {@link isDeclaredFeature} needs the issue's type, or its labels alone answer. */
+export function featureNeedsIssueType(c: KindClassification): boolean {
+    return c.mode !== "labels" && c.featureType.length > 0;
+}
+
+/**
+ * Whether an issue is declared a feature: the same reading {@link classifyIssueKind} makes of the
+ * declared mode's marker, without the mismatch check and so without a way to fail.
+ *
+ * Every stage refuses a feature as its epic (decision record #1010, D4). An issue that also carries
+ * the epic, story, record or initiative marker is that kind first, and a repository that has not
+ * opted in has no feature marker, so no issue is a feature there.
+ */
+export function isDeclaredFeature(c: KindClassification, markers: SubIssueMarkers): boolean {
+    const byLabel: IssueKind = kindFrom(c, (label) => markers.labels.some((name) => matches(name, label)));
+    const byType: IssueKind = kindFrom(c, (_label, type) => matches(markers.issueType, type));
+    if (c.mode === "labels") return byLabel === "feature";
+    if (c.mode === "types") return byType === "feature";
+    return (byLabel !== "other" ? byLabel : byType) === "feature";
 }

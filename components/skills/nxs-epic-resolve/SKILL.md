@@ -33,7 +33,9 @@ an ephemeral, gitignored path. The output is:
 
 Frontmatter carries only what a bare epic issue recoverably provides — the `epic` title and the
 `link` number. Fields the filing skills strip (`complexity`, `feature_path`, `slug`, …) are omitted,
-never fabricated.
+never fabricated. When the issue carries its `nexus:epic-meta` block, the planning frontmatter in it
+comes back as filed, with only `link` reset. That includes `feature_issue`, so a rebuilt epic names
+the same feature issue it was filed with (epic #998).
 
 ## The decision-record sub-issue
 
@@ -80,6 +82,21 @@ failure for an issue that is not an initiative, and none in a repository that de
 initiative marker. An issue that also carries the epic marker is an epic. An epic that has an
 initiative above it resolves exactly as before: the resolver never reads an epic's parent to decide
 this.
+
+## Features
+
+A **feature issue** is the GitHub issue a feature is filed as, in a repository that opted in to
+features as issues (epic #998, `features-as-issues: true` in the publishing settings). Epics are
+related to it and are never its sub-issues. It is a planning record: no code is delivered against
+it, and it has no stories or decision record. A feature issue has no parent, so left alone it would
+resolve as an epic with no stories.
+
+So the resolver refuses it by name: `is-a-feature`, on every path, `--require-epic` or not. The
+marker is read through the shared publishing resolver (`feature-label`, whose built-in is `feature`,
+or `feature-type` under `classification: types`, which has no built-in), never hard-coded. The check
+reads only that marker and only when the repository opted in. A repository that has not opted in
+reads no issue as a feature, and a repository on issue types that declares no feature type has none
+either. An issue that also carries the epic, story, record or initiative marker is that kind.
 
 ## Withdrawn stories
 

@@ -94,6 +94,8 @@ export interface WorkItem {
     /** The normalized refs this item is blocked by, with `none` and empties dropped. */
     blockedBy: string[];
     parent: string;
+    /** The feature issue this item names (`feature_issue:`), linked by relates-to after filing. */
+    featureIssue: string;
     project: string;
     /** The content after the frontmatter block — the body GitHub is handed. */
     body: string;
@@ -122,6 +124,7 @@ export function readWorkItem(fileName: string, content: string, filePath: string
         labels: asList(frontmatter["labels"]),
         blockedBy: rawBlockers.map(normalizeRef).filter((ref) => ref !== "" && ref !== "none"),
         parent: asText(frontmatter["parent"]),
+        featureIssue: asText(frontmatter["feature_issue"]),
         project: asText(frontmatter["project"]),
         body,
         frontmatter,

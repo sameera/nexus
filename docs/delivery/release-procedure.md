@@ -25,9 +25,11 @@ If the release changed no stage behaviour, the entry still exists and says exact
 
     No change to how any pipeline stage behaves.
 
-While the version is below 1.0 the number carries no compatibility signal: a minor bump may
-break a pipeline that worked before. An item describing a breaking change to stage behaviour
-therefore says **breaking** in words, and says what a lead has to do differently. The release
+Since 1.0 the number carries the compatibility signal: a change that breaks a pipeline that
+worked before raises the major version, a new stage behaviour a lead can opt into or that
+changes no working pipeline raises the minor version, and a fix raises the patch version. An
+item describing a breaking change to stage behaviour still says **breaking** in words, and says
+what a lead has to do differently. The release
 check enforces that wording once the release's context says it broke something — set
 `breakingChange` on the context the changelog spec passes; deciding that it did is yours.
 

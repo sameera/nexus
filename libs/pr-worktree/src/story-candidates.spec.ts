@@ -14,6 +14,8 @@ const LABELS: KindClassification = {
     recordType: "Decision Record",
     initiativeLabel: "initiative",
     initiativeType: "",
+    featureLabel: "",
+    featureType: "",
 };
 
 interface IssueSpec {

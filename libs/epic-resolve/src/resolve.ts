@@ -24,7 +24,9 @@
 
 import {
     classifyIssueKind,
+    featureNeedsIssueType,
     initiativeNeedsIssueType,
+    isDeclaredFeature,
     isDeclaredInitiative,
     readKindMarkers,
     resolveKindClassification,
@@ -139,7 +141,7 @@ export function resolveEpic(
     // other issue; where the label answers, it adds no read either.
     const kindMarkers = readKindMarkers(targetRoot);
     let epicType: string | null = null;
-    if (initiativeNeedsIssueType(kindMarkers)) {
+    if (initiativeNeedsIssueType(kindMarkers) || featureNeedsIssueType(kindMarkers)) {
         const typed = fetchIssueFacts(run, targetRoot, slug.slug, epicNumber);
         // Under `types` the issue type is the only marker, so an unreadable one is fatal. Under
         // `legacy-auto` the label is the primary marker and the type only adds to it.
@@ -155,6 +157,23 @@ export function resolveEpic(
                     `#${epicNumber} is filed as an initiative, not an epic. An initiative is a planning ` +
                     `container for the epics under it: it has no stories, no decision record and nothing ` +
                     `to check or close. Pass the issue number of one of its epics instead.`,
+            },
+        };
+    }
+
+    // A feature issue is a planning record, not work: it has no parent and no stories, so under
+    // the unmarked-and-parentless rule it would resolve as an epic with nothing in it (decision
+    // record #1010, D4). Refuse it by name, beside the initiative. The reading cannot fail and is
+    // empty in a repository that has not opted in, so it adds no failure and no read there.
+    if (isDeclaredFeature(kindMarkers, { labels: epic.issue.labels, issueType: epicType })) {
+        return {
+            ok: false,
+            error: {
+                problem: "is-a-feature",
+                message:
+                    `#${epicNumber} is filed as a feature, not an epic. A feature is a planning record ` +
+                    `that the epics under it are related to: it has no stories, no decision record and ` +
+                    `nothing to check or close. Pass the issue number of one of its epics instead.`,
             },
         };
     }

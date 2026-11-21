@@ -5,6 +5,43 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.0.0
+
+- **Nexus is 1.0.** From this release the version follows semantic versioning against how the
+  stages behave. A change that makes a lead run `epic`, `decision-record`, `analyze`, `close`,
+  `distill` or any other stage differently in a way that breaks a working pipeline raises the
+  major version, and its entry says what the lead has to do differently.
+- **A repository can opt in to features as issues.** Setting `features-as-issues: true` in the
+  publishing settings, or in a hub's workspace defaults, switches it on. With the setting absent or
+  not `true`, every stage behaves as before and no issue is read as a feature.
+- **A feature issue has its own marker.** An opted-in repository that files by label marks a feature
+  issue with the `feature` label, or the label `feature-label` declares. One that files by issue type
+  marks it with the type `feature-type` declares, and has no built-in type, so until it declares one
+  no issue is read as a feature. An issue that also carries the epic, story, decision-record or
+  initiative marker is read as that kind.
+- **`epic-resolve` and `close` refuse a feature issue as an epic.** Handed a feature issue's number,
+  `epic-resolve` stops with `is-a-feature`, and `close` stops saying the issue is filed as a feature,
+  and both ask for one of the epics related to it. Before, a feature issue with no parent would have
+  resolved as an epic with no stories.
+- **`/nxs.epic` files a feature issue for a new feature in an opted-in repository.** Before the
+  digest it looks for the feature's issue, and the digest and the stubs consent say whether a new one
+  will be filed or which existing one is used. After approval the feature issue is filed first, open,
+  into the epic repository even when stories file elsewhere, titled with the feature name and holding the capability statement, before the epic and any stub.
+  A repeated run reuses it. A feature that already has a README gets no feature issue yet, and two
+  issues recording the same feature stop the run with nothing filed. A repository that files by issue
+  type and declares no `feature-type` gets one line saying so, and the epic is filed as before.
+- **An epic and a stub name their feature issue and are related to it.** In an opted-in repository,
+  every epic and stub `/nxs.epic` files under a feature with a feature issue (the deferral stub and a
+  split stub's successors included) names it by number beside the feature path, and is linked to it
+  by GitHub's relates-to relationship, never as its sub-issue. A promoted stub and an epic rebuilt
+  from its number keep the same feature issue, and a second epic under the feature reuses it. The run
+  then checks the feature issue's related list, and reports incomplete, keeping its run folder, when
+  a link is missing; repeating it adds the link and files nothing twice.
+- **`create-epic` and `create-story` link to a feature issue.** A draft or work item with
+  `feature_issue:` is refused, with nothing created, unless that issue reads as a feature. After the
+  issue is recorded the filer adds the relates-to link; a failed link warns and a re-run retries it.
+- **New verb: `nexus feature-issue`.** `lookup` finds a feature path's issue; `work-item` writes the
+  work item a new one is filed from; `check-related` confirms the feature lists every filed issue.
 ## 0.138.0
 
 - **An edited initiative context can be accepted instead of reverted.** `/nxs.decision-record` and

@@ -19,6 +19,11 @@ export const STORY_LABEL_STYLE: [string, string] = ["BFD4F2", "User story (creat
 export interface FilerConfig {
     /** `owner/repo` the issues are filed into, or null for the current repository. */
     issuesRepo: string | null;
+    /**
+     * `owner/repo` a bare `feature_issue:` reference resolves against: the epic repository, where
+     * the feature issue is filed (decision record #1010, D6), else `issuesRepo`.
+     */
+    featureRepo: string | null;
     /** The declared classification mode: `types`, `labels` or `legacy-auto`. */
     classification: string;
     /** The canonical label applied to everything this run creates. */
@@ -31,8 +36,10 @@ export interface FilerConfig {
 
 export function resolveFilerConfig(layers: RootLayers, args: FilerArgs): FilerConfig {
     const storyLabel: string = resolveKeyFromLayers(layers, "story-label") ?? "";
+    const issuesRepo: string | null = args.issuesRepo || resolveKeyFromLayers(layers, "story-repo") || null;
     return {
-        issuesRepo: args.issuesRepo || resolveKeyFromLayers(layers, "story-repo") || null,
+        issuesRepo,
+        featureRepo: resolveKeyFromLayers(layers, "epic-repo") || issuesRepo,
         classification: resolveClassification({
             classification: resolveKeyFromLayers(layers, "classification") ?? "",
         }),
