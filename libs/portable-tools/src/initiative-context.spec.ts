@@ -251,9 +251,15 @@ describe("planning a stub under an initiative reads the initiative's context (st
     });
 
     it("stops before drafting, naming the initiative and the part or the folder, reading the issue and never the checkout (D6, D7, G14, G17)", () => {
-        expect(PROMOTION).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* The lookup reads the initiative issue only, never the checkout\./);
-        expect(PROMOTION).toMatch(/restored by editing it back to its filed text/);
+        expect(PROMOTION).toMatch(/Any other non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\* The lookup reads the initiative issue only, never the checkout\./);
         expect(PROMOTION).toMatch(/`legacy-folder` means the initiative's body still names a context folder/);
+    });
+
+    it("asks the lead to accept a changed context through restamp, and stops when they decline or cannot be asked", () => {
+        expect(PROMOTION).toContain("nexus initiative-context restamp --issue <initiative>");
+        expect(PROMOTION).toContain("--accept <token>");
+        expect(PROMOTION).toMatch(/On stop, or when no lead can be asked, stop before drafting/);
+        expect(PROMOTION).toMatch(/edits the initiative, except the restamp the lead accepts above, which rewrites only the context's record/);
     });
 
     it("reads the body alone and says so when no context is kept (D5)", () => {
@@ -301,7 +307,7 @@ describe("the decision record reads the initiative's context (story #854)", () =
     });
 
     it("stops before drafting on a missing or changed part, unreadable comments, or a legacy folder pointer (D6, D7, G14, G15, G17)", () => {
-        expect(RECORD_READ).toMatch(/Non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\*\s+The lookup reads the\s+initiative issue only, never the checkout\./);
+        expect(RECORD_READ).toMatch(/Any other non-zero exit → stop before drafting and report the diagnostic verbatim\.\*\*\s+The lookup\s+reads the initiative issue only, never the checkout\./);
         expect(RECORD_READ).toMatch(/`legacy-folder` means its body still names a context folder/);
     });
 
@@ -323,6 +329,12 @@ describe("the decision record reads the initiative's context (story #854)", () =
     });
 
     it("copies no part of the context into the record or a comment, and never edits the initiative (G16)", () => {
-        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context,\*\* and copies no part of the context into the record or a comment/);
+        expect(RECORD_READ).toMatch(/This command never edits the initiative or its context,\*\* except the restamp the lead accepts\s+above, which rewrites only the context's record\. It copies no part of the context\s+into the record or a comment/);
+    });
+
+    it("asks the lead to accept a changed context through restamp, and stops when they decline or cannot be asked", () => {
+        expect(RECORD_READ).toContain("nexus initiative-context restamp --issue <initiative>");
+        expect(RECORD_READ).toContain("--accept <token>");
+        expect(RECORD_READ).toMatch(/On stop, or when no lead can be asked, stop before drafting/);
     });
 });

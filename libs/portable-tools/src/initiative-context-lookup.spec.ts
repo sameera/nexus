@@ -175,13 +175,13 @@ describe("the context lookup reads only the initiative issue (epic #1011, story 
         expect(stop.message).toMatch(/part 1\b/);
     });
 
-    it("stops when a part changed after filing, and says it is restored by editing it back", () => {
+    it("stops when a part changed after filing, and names restamp as the way to accept it", () => {
         const { body, parts } = renderInitiativeBody(SUMMARY, BIG);
         const edited = [parts[0] + "an afterthought\n", ...parts.slice(1)];
         const stop = stopOf(lookupInitiativeContext(fakeGh(initiative(body, asComments(edited))), checkout(), 701));
         expect(stop.message).toContain("#700");
         expect(stop.message).toMatch(/part 1\b/);
-        expect(stop.message).toMatch(/editing it back to its filed text/);
+        expect(stop.message).toContain("nexus initiative-context restamp --issue 700");
     });
 
     it("stops when the collapsed context in the body changed after filing", () => {

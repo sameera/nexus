@@ -103,7 +103,9 @@ export function lookupInitiativeContext(baseRun: Runner, root: string, issue: nu
             return {
                 ok: false,
                 problem: "context-changed",
-                message: `the planning context in initiative #${parent}'s body no longer matches the digest recorded when it was filed. Restore it by editing it back to its filed text. Nothing was drafted.`,
+                message:
+                    `the planning context in initiative #${parent}'s body no longer matches the digest recorded when it was filed. ` +
+                    `If the edit was deliberate, review and accept it with \`nexus initiative-context restamp --issue ${parent}\`; otherwise restore it from the issue's edit history. Nothing was drafted.`,
             };
         }
         return { ok: true, outcome: { state: "context", issue, initiative: parent, where: "body", body, text: kept.text, ignored: [] } };
@@ -132,7 +134,8 @@ export function lookupInitiativeContext(baseRun: Runner, root: string, issue: nu
                 ok: false,
                 problem: changed ? "context-changed" : "context-missing",
                 message: changed
-                    ? `part ${n} of ${kept.count} of initiative #${parent}'s planning context was changed after filing. Restore it by editing it back to its filed text. Nothing was drafted.`
+                    ? `part ${n} of ${kept.count} of initiative #${parent}'s planning context was changed after filing. ` +
+                      `If the edit was deliberate, review and accept it with \`nexus initiative-context restamp --issue ${parent}\`; otherwise restore it from the issue's edit history. Nothing was drafted.`
                     : `part ${n} of ${kept.count} of initiative #${parent}'s planning context is missing from its comments. Nothing was drafted.`,
             };
         }

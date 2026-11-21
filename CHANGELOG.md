@@ -42,6 +42,21 @@ behaviour says so.
   issue is recorded the filer adds the relates-to link; a failed link warns and a re-run retries it.
 - **New verb: `nexus feature-issue`.** `lookup` finds a feature path's issue; `work-item` writes the
   work item a new one is filed from; `check-related` confirms the feature lists every filed issue.
+## 0.138.0
+
+- **An edited initiative context can be accepted instead of reverted.** `/nxs.decision-record` and
+  `/nxs.epic` used to stop on a changed context and tell you to edit it back to its filed text. Now,
+  when you are there to answer, they show you what changed since filing and who changed it, and ask
+  whether to accept it. Accepting rewrites only the context's hidden record, so later runs read the
+  edited context and do not ask again. Declining stops the run as before. The same check runs
+  directly as `nexus initiative-context restamp --issue <initiative>`, which previews the change,
+  and `--accept <token>` with the preview's token, which records it.
+- **Only an edit by someone with write access can be accepted.** An edit by anyone else, a missing
+  part, an unreadable edit history, or a context that changed again after the preview still stops
+  the run, naming why.
+- **The changed-context stop names `restamp`.** `nexus initiative-context lookup` now names the
+  restamp command as the way to accept a deliberate edit, and the edit history as the way to restore
+  an accidental one.
 
 ## 0.137.0
 
