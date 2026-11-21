@@ -7,3 +7,8 @@
 - **Choice:** `nexus feature-issue migrate [--apply]`; the planner takes a `MigrationGh` and the CLI binds the REST listing and `runCreateStory` with a kept ledger under `.nexus/tmp/feature-migration/`.
 - **Why:** Reuses #998's lookup, work item and guarded filer, so both epics find and file feature issues one way.
 - **Refuted alternative:** A new top-level `nexus migrate-features` verb — a second home for feature-issue rules.
+
+## 2026-11-21 — The body write is part of the shared feature step
+- **Choice:** `writeFeatureReference` in `feature-link.ts` replaces a body only while it still reads as listed, edits nothing but the body, and reads it back; the migration writes every body through it and links through `linkToFeature`.
+- **Why:** G3 routes every write through the guarded filer or the shared link step, and neither could edit an existing body.
+- **Refuted alternative:** Calling `gh issue edit` from the migration — a write outside both shared steps.

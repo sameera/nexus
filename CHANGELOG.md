@@ -15,6 +15,12 @@ behaviour says so.
   issues record, or one with no statement, is reported and gets no issue. The feature folders are
   only read. It refuses in a repository that has not opted in to features as issues. A later
   `epic` run for a migrated feature reuses its feature issue rather than reporting it unmigrated.
+- **The migration also names each existing epic and stub's feature issue.** `nexus feature-issue
+  migrate` places each epic and stub, open or closed, by the feature its own body records, and uses
+  a feature README's epic list only for one that records none. With `--apply` it adds the feature
+  issue number to the body, changing nothing else, and links the two as related. State, parent,
+  labels and type stay as they were. A conflict, an unplaced issue or a missing link is reported.
+  The rebuilt epic that `epic`, `analyze` and `close` read then names its feature issue.
 - **A retired feature keeps its open issue.** Mark a feature no longer in use with the
   `retired-feature` label, or the label `retired-feature-label` declares. The migration still finds a
   feature issue that carries it and never adds or removes it.

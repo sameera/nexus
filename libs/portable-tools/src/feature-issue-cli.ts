@@ -11,10 +11,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
-import { type IssueAt, missingFromFeature, parseIssueAt } from "@nexus/delivery-config/feature-link";
+import { type IssueAt, linkToFeature, missingFromFeature, parseIssueAt, writeFeatureReference } from "@nexus/delivery-config/feature-link";
 import { type FilerEnvironment, defaultEnvironment } from "@nexus/delivery-config/story-filer/environment";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
-import { LEDGER_FILE, MIGRATION_DIR, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
+import { LEDGER_FILE, MIGRATION_DIR, type MemberIssue, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
 import {
     type FeatureIssueRef,
     type FeatureLookup,
@@ -175,6 +175,7 @@ function runWorkItem(flags: Map<string, string>, io: FeatureIssueIo): number {
 
 interface RestIssue {
     number: number;
+    title?: string;
     state: string;
     body: string | null;
     labels: ({ name: string } | string)[];
@@ -185,7 +186,7 @@ interface RestIssue {
 /** Reads issues through the REST API, which filters by label or type without the search index (D5). */
 class GhReader {
     failure: string | null = null;
-    private readonly repo: string;
+    readonly repo: string;
 
     constructor(
         private readonly run: Runner,
@@ -208,6 +209,12 @@ class GhReader {
         if (issues === null) return [];
         const flat: RestIssue[] = (issues as unknown[]).flat() as RestIssue[];
         return flat.filter((i) => i.pull_request === undefined).map(toRef);
+    }
+
+    /** Every issue matching `filter`, open and closed, pull requests left out. Null when unanswered. */
+    listRaw(filter: string): RestIssue[] | null {
+        const issues = this.api<RestIssue[]>(["--paginate", "--slurp", `repos/${this.repo}/issues?state=all&per_page=100&${filter}`], true);
+        return issues === null ? null : ((issues as unknown[]).flat() as RestIssue[]).filter((i) => i.pull_request === undefined);
     }
 
     private api<T>(args: string[], required: boolean): T | null {
@@ -252,6 +259,7 @@ function runMigrate(argv: string[], io: FeatureIssueIo, run: Runner): number {
 export function realMigrationGh(root: string, setting: FeatureSetting, run: Runner, env?: FilerEnvironment): MigrationGh {
     const epicRepo: string = resolvePublishingKey(root, "epic-repo");
     const reader = new GhReader(run, root, epicRepo);
+    const gh = (args: string[]) => run("gh", args, { cwd: root });
     return {
         listFeatures: () => {
             if (setting.state !== "on") return [];
@@ -280,6 +288,28 @@ export function realMigrationGh(root: string, setting: FeatureSetting, run: Runn
             }
             const failure: string | null = numbers.size === items.length ? null : said.filter((l) => l.trim() !== "").slice(-2).join(" ") || `the filer exited ${code}`;
             return { numbers, failure };
+        },
+        listMembers: () => {
+            const markers = setting.state === "on" ? setting.markers : null;
+            if (markers === null) return [];
+            const filter: string = markers.mode === "types" && markers.epicType !== "" ? `type=${encodeURIComponent(markers.epicType)}` : `labels=${encodeURIComponent(markers.epicLabel)}`;
+            const listed: RestIssue[] | null = reader.listRaw(filter);
+            return listed === null ? null : listed.map((i): MemberIssue => ({ ...toRef(i), title: i.title ?? "", parent: null }));
+        },
+        editBody: (number, expected, body) => {
+            const home = homeRepo(root, gh);
+            return home !== null && writeFeatureReference(gh, { ...home, number: String(number) }, expected, body).outcome === "written";
+        },
+        link: (number, feature) => {
+            const home = homeRepo(root, gh);
+            if (home === null) return "failed";
+            return linkToFeature(gh, { ...home, number: String(number) }, { ...home, number: String(feature) }).outcome;
+        },
+        missingRelated: (feature, numbers) => {
+            const home = homeRepo(root, gh);
+            if (home === null) return null;
+            const missing: string[] | null = missingFromFeature(gh, { ...home, number: String(feature) }, numbers.map((n) => ({ ...home, number: String(n) })));
+            return missing === null ? null : missing.map((k) => Number(k.split("#").pop()));
         },
     };
 }
