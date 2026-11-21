@@ -102,6 +102,31 @@ describe("migrate — epics and stubs name their feature issue (#1047)", () => {
         expect(e.body).toBe('Hand-filed body.\n\n<!-- nexus:epic-meta\nfeature_issue: "#1"\n-->\n');
     });
 
+    it("adds a Meta line, not a block, to a stub placed only by a README (D5)", () => {
+        const s: MemberIssue = stub(30, "- **source:** elsewhere");
+        const gh = new FakeGh([feature(1, "alpha")], [s]);
+        migrate(repo({ alpha: [30] }), gh);
+        expect(s.body).toBe("Goal.\n\n## Meta\n\n- **source:** elsewhere\n- **source:** somewhere\n- **feature issue:** #1\n");
+    });
+
+    it("keeps the rest of a blockless epic's body byte-identical, trailing whitespace included (D5)", () => {
+        const e: MemberIssue = { number: 31, title: "Hand filed", state: "open", labels: ["epic"], issueType: null, parent: null, body: "Hand-filed body.  \n" };
+        const gh = new FakeGh([feature(1, "alpha")], [e]);
+        migrate(repo({ alpha: [31] }), gh);
+        expect(e.body.startsWith("Hand-filed body.  \n")).toBe(true);
+        expect(e.body.slice("Hand-filed body.  \n".length)).toBe('\n<!-- nexus:epic-meta\nfeature_issue: "#1"\n-->\n');
+    });
+
+    it("skips and reports an epic that would read back through the resolver differently in anything but its feature issue (R2)", () => {
+        const e: MemberIssue = { number: 32, title: "Spaced", state: "open", labels: ["epic"], issueType: null, parent: null, body: "First.\n\n\n\nSecond." };
+        const gh = new FakeGh([feature(1, "alpha")], [e]);
+        const report = migrate(repo({ alpha: [32] }), gh);
+        expect(gh.edits).toEqual([]);
+        expect(e.body).toBe("First.\n\n\n\nSecond.");
+        expect(report.complete).toBe(false);
+        expect(report.lines.join("\n")).toMatch(/#32: failed/);
+    });
+
     it("gives an issue the feature its own body names when a README disagrees, and reports it (G8)", () => {
         const e = epicWithMeta(14, "feature_path: docs/features/alpha");
         const gh = new FakeGh([feature(1, "alpha"), feature(2, "beta")], [e]);

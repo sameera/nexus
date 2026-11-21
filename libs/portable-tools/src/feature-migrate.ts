@@ -12,6 +12,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
+import { extractMeta } from "@nexus/epic-resolve/meta";
+import { serializeEpic } from "@nexus/epic-resolve/serialize";
 import { type KindClassification, isDeclaredFeature, isDeclaredInitiative, readKindMarkers } from "@nexus/delivery-config/issue-kind";
 import { type FeatureIssueRef, type FeatureLookup, type FeatureSetting, lookupFeature, readLedgerNumber } from "./feature-issue.js";
 
@@ -124,13 +126,37 @@ export function withFeatureReference(body: string, feature: number): string {
         return body.replace(STUB_FEATURE, (line) => `${line}\n- **feature issue:** #${feature}`);
     }
     const meta: RegExpExecArray | null = EPIC_META.exec(body);
+    if (meta === null && STUB_META.test(body)) return withStubMetaLine(body, `- **feature issue:** #${feature}`);
     const field = `feature_issue: "#${feature}"`;
-    if (meta === null) return `${body.replace(/\s+$/, "")}\n\n<!-- nexus:epic-meta\n${field}\n-->\n`;
+    if (meta === null) return `${body}${body.endsWith("\n") ? "\n" : "\n\n"}<!-- nexus:epic-meta\n${field}\n-->\n`;
     const lines: string[] = meta[1].split("\n");
     const at: number = lines.findIndex((l) => /^feature_path:/.test(l));
     lines.splice(at === -1 ? lines.length : at + 1, 0, field);
     const start: number = meta.index + meta[0].indexOf(meta[1]);
     return body.slice(0, start) + lines.join("\n") + body.slice(start + meta[1].length);
+}
+
+/** A stub's `## Meta` section heading. */
+const STUB_META: RegExp = /^## Meta[ \t]*$/m;
+
+/** The body with `line` added as the last list item of its `## Meta` section, nothing else changed. */
+function withStubMetaLine(body: string, line: string): string {
+    const heading: RegExpExecArray = STUB_META.exec(body) as RegExpExecArray;
+    const after: number = heading.index + heading[0].length;
+    const next: RegExpExecArray | null = /^#{1,2}\s/m.exec(body.slice(after));
+    const end: number = next === null ? body.length : after + next.index;
+    const section: string = body.slice(after, end);
+    const lastItem: RegExpExecArray | null = /^- .*$(?![\s\S]*^- )/m.exec(section);
+    if (lastItem === null) return body.slice(0, end).replace(/\n*$/, "\n\n") + `${line}\n` + body.slice(end);
+    const at: number = after + lastItem.index + lastItem[0].length;
+    return `${body.slice(0, at)}\n${line}${body.slice(at)}`;
+}
+
+/** How the resolver reads an issue body back as an epic, with its feature issue reference removed. */
+function resolvedWithoutFeatureIssue(number: number, title: string, body: string): string {
+    const { rawFrontmatter, body: rest } = extractMeta(body);
+    const markdown: string = serializeEpic({ epic: { number, title, body: rest, rawFrontmatter }, stories: [], blockedBy: new Map() });
+    return markdown.replace(/^feature_issue:.*\n/m, "").replace(/^- \*\*feature issue:\*\*.*\n/m, "");
 }
 
 /** The epics each feature README lists, as issue number to feature path. */
@@ -326,7 +352,7 @@ function migrateMembers(input: MigrationInput, plans: FeaturePlan[], lines: stri
         if (!input.apply) continue;
         if (named === null) {
             const next: string = withFeatureReference(issue.body, feature);
-            if (namedFeatureIssue(next) !== feature) {
+            if (namedFeatureIssue(next) !== feature || resolvedWithoutFeatureIssue(issue.number, issue.title, next) !== resolvedWithoutFeatureIssue(issue.number, issue.title, issue.body)) {
                 Object.assign(plan, { action: "failed", note: "the reference could not be added without changing anything else" });
                 continue;
             }

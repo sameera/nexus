@@ -210,6 +210,23 @@ describe("nexus feature-issue migrate", () => {
         expect(gh.calls).toEqual([]);
     });
 
+    it("in legacy-auto mode lists epics marked only by issue type as well as by label (issue-kind invariant 2)", async () => {
+        const typed: RestIssue = { number: 50, state: "open", body: "E\n\n<!-- nexus:epic-meta\nfeature_path: " + FEATURE_PATH + "\n-->\n", labels: [], type: { name: "Epic" } };
+        const labelled: RestIssue = { number: 51, state: "open", body: "E\n\n<!-- nexus:epic-meta\nfeature_path: " + FEATURE_PATH + "\n-->\n", labels: [{ name: "epic" }], type: { name: "Epic" } };
+        const all: RestIssue[] = [restIssue(42, FEATURE_PATH), typed, labelled];
+        const run: Runner = (_cmd, args) => {
+            const endpoint: string = args.find((a) => a.startsWith("repos/")) ?? "";
+            const type: RegExpExecArray | null = /[?&]type=([^&]+)/.exec(endpoint);
+            const label: RegExpExecArray | null = /[?&]labels=([^&]+)/.exec(endpoint);
+            const hits: RestIssue[] = all.filter((i) =>
+                (type === null || i.type?.name === decodeURIComponent(type[1])) && (label === null || i.labels.some((l) => l.name === decodeURIComponent(label[1]))));
+            return { status: 0, stdout: JSON.stringify(endpoint.includes("?") ? hits : all), stderr: "" };
+        };
+        const result = await call(["migrate"], repoWith("  classification: legacy-auto\n  epic-type: Epic\n  features-as-issues: true\n", true), run);
+        expect(result.out).toMatch(/#50: update/);
+        expect(result.out.match(/#51: update/g)?.length).toBe(1);
+    });
+
     it("prints the plan and exits 0 when every feature folder already has its feature issue (G5)", async () => {
         const gh = fakeGh([restIssue(42, FEATURE_PATH)]);
         const result = await call(["migrate"], repoWith(OPTED_IN, true), gh.run);

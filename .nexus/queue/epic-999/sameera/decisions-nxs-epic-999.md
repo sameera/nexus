@@ -17,3 +17,8 @@
 - **Choice:** Close hands each stub `feature_issue` in its work item, so `create-story`'s existing feature check and relates-to pass link it; link warnings become close notes.
 - **Why:** It is #998's shared link step, already warn-only and run after the ledger records the issue.
 - **Refuted alternative:** A separate link call from close after filing — a second implementation of the same step.
+
+## 2026-11-21 — Read-back check through the serializer, not a live resolve
+- **Choice:** Compare `extractMeta` + `serializeEpic` output of the old and new bodies, with the feature issue reference removed, before each edit.
+- **Why:** The resolver's body-to-epic.md rule lives in those two pure functions, so the check needs no extra GitHub read.
+- **Refuted alternative:** Calling `resolveEpic` against GitHub per issue, which re-fetches stories that the body edit cannot change.

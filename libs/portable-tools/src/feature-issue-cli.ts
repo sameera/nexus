@@ -292,9 +292,17 @@ export function realMigrationGh(root: string, setting: FeatureSetting, run: Runn
         listMembers: () => {
             const markers = setting.state === "on" ? setting.markers : null;
             if (markers === null) return [];
-            const filter: string = markers.mode === "types" && markers.epicType !== "" ? `type=${encodeURIComponent(markers.epicType)}` : `labels=${encodeURIComponent(markers.epicLabel)}`;
-            const listed: RestIssue[] | null = reader.listRaw(filter);
-            return listed === null ? null : listed.map((i): MemberIssue => ({ ...toRef(i), title: i.title ?? "", parent: null }));
+            const filters: string[] = [];
+            if ((markers.mode !== "types" || markers.epicType === "") && markers.epicLabel !== "") filters.push(`labels=${encodeURIComponent(markers.epicLabel)}`);
+            if (markers.mode !== "labels" && markers.epicType !== "") filters.push(`type=${encodeURIComponent(markers.epicType)}`);
+            const byNumber: Map<number, RestIssue> = new Map();
+            for (const filter of filters) {
+                const one: RestIssue[] | null = reader.listRaw(filter);
+                if (one === null) return null;
+                for (const i of one) byNumber.set(i.number, i);
+            }
+            const listed: RestIssue[] = [...byNumber.values()];
+            return listed.map((i): MemberIssue => ({ ...toRef(i), title: i.title ?? "", parent: null }));
         },
         editBody: (number, expected, body) => {
             const home = homeRepo(root, gh);
