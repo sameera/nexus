@@ -379,16 +379,21 @@ export function unsafeModel(value: string): string | null {
 export const QUOTE_LIMIT = 50000;
 
 /**
- * Agent-written text made inert for the pull request body (D2, G9; R2). The text goes inside a
- * fenced code block, which GitHub never reads for closing references (a code span holding
- * `Closes #868` in PR #882's body left its closing references empty). The fence is longer than any
- * backtick run in the text, so the text cannot end it. Every line also starts with `| `, so no
- * Nexus line reader meets a claim, answer, waiver or marker at the start of a line, and any HTML
- * comment opener is broken, so no marker the command looks for can appear in it.
+ * Agent-written text made inert for the pull request body (D2, G9; R2). Whether GitHub reads
+ * closing references inside a fenced block is not relied on: a zero-width space goes inside every
+ * form of issue reference GitHub documents for closing keywords (`#N`, `owner/repo#N`, `GH-N`, an
+ * issues or pull URL), so none survives anywhere in the body. The text then goes inside a fenced
+ * block longer than any backtick run in it, so it displays verbatim. Every line also starts with
+ * `| `, so no Nexus line reader meets a claim, answer, waiver or marker at the start of a line, and
+ * any HTML comment opener is broken, so no marker the command looks for can appear in it.
  */
 export function quoteForBody(text: string, limit: number = QUOTE_LIMIT): string {
     const cut = text.length > limit;
-    const kept = (cut ? text.slice(0, limit) : text).replace(/<!--/g, "<!- -");
+    const kept = (cut ? text.slice(0, limit) : text)
+        .replace(/<!--/g, "<!- -")
+        .replace(/#(?=\d)/g, "#\u200b")
+        .replace(/\b(GH)-(?=\d)/gi, "$1-\u200b")
+        .replace(/\/(issues|pull)\/(?=\d)/gi, "/$1/\u200b");
     const longest = Math.max(0, ...(kept.match(/`+/g) ?? []).map((run) => run.length));
     const fence = "`".repeat(Math.max(4, longest + 1));
     const lines = kept.split(/\r?\n/).map((l) => `| ${l}`);

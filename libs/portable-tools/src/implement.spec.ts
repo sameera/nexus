@@ -14,7 +14,7 @@ import { CLEAN_VERDICT as READER_CLEAN_VERDICT, HLD_MARKER, commentDigest, comme
 import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, UNATTENDED_CLAUSE, implementationPrompt, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
 import { VERB_NAMES } from "./nexus-cli.js";
 import { type HarnessModels } from "@nexus/delivery-config/harness-models";
-import { AS_BUILT_OPENING, asBuiltStatement, claimedStories, planFilePath, PLANNING_MARK } from "./implement.js";
+import { AS_BUILT_OPENING, asBuiltStatement, claimedStories, planFilePath, PLANNING_MARK, quoteForBody } from "./implement.js";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -843,7 +843,8 @@ describe("planning request and models (epic #1041, story #1043, D2, D3, D10, D11
     it("quotes the plan into the pull request body so no line reads as a claim, an answer or a marker (G8, G9)", async () => {
         const r = await run(world({ ...noRecord, finals: [PLAN] }), { retroactive: true });
         const body = r.bodies[0];
-        expect(body).toContain("Build #1 then #2.");
+        const visible = (t: string): string => t.replace(/\u200b/g, "");
+        expect(visible(body)).toContain("Build #1 then #2.");
         expect(claimedStories(body, "o/r")).toEqual([1, 2]);
         expect(body.split("\n").some((l) => /^\s*F1 — accepted/.test(l))).toBe(false);
         expect(body.split(STATUS_OPEN)).toHaveLength(2);
@@ -851,9 +852,9 @@ describe("planning request and models (epic #1041, story #1043, D2, D3, D10, D11
         const fence = /^(`{4,})$/m.exec(body)?.[1] ?? "";
         expect(fence.length).toBeGreaterThan(3);
         const inside = body.split(fence)[1] ?? "";
-        expect(inside).toContain("Closes #99");
+        expect(inside.replace(/\u200b/g, "")).toContain("Closes #99");
         const last = r.bodies[r.bodies.length - 1];
-        expect(last).toContain("Build #1 then #2.");
+        expect(visible(last)).toContain("Build #1 then #2.");
     });
 
     it("builds on and reaches review when planning cannot start, and says why there is no plan (G7, G37)", async () => {
@@ -1059,5 +1060,27 @@ describe("the as-built mode of the decision-record stage and its distiller attri
         expect(distill).toContain(AS_BUILT_OPENING);
         expect(distill).toMatch(/retroactive run, not the lead, decided/);
         expect(distillStage).toContain("`nxs-distill-as-built`");
+    });
+});
+
+describe("agent-written text is inert to GitHub's closing references wherever it sits (R2, G9)", () => {
+    // GitHub's documented closing-reference forms: #N, owner/repo#N, GH-N and an issue or pull URL.
+    const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+\/[\w.-]+#\d+|#\d+|GH-\d+|https?:\/\/\S+\/(?:issues|pull)\/\d+)/gi;
+    const text = ["Closes #99", "fixes o/x#5", "Resolves https://github.com/o/r/issues/3", "closes GH-4", "Fix: #8", "see `Closes #7`"].join("\n");
+
+    it("leaves no closing reference in the quoted text, even read outside its fence", () => {
+        const quoted = quoteForBody(text);
+        expect(quoted.match(CLOSING)).toBeNull();
+    });
+
+    it("keeps the text readable once the zero-width breaks are removed", () => {
+        const visible = quoteForBody(text).replace(/\u200b/g, "");
+        for (const line of text.split("\n")) expect(visible).toContain(line);
+    });
+
+    it("leaves the run's own story claims as the only closing references in a retroactive body", async () => {
+        const r = await run(world({ facts: { record: null, needsDesign: true }, finals: [text] }), { retroactive: true });
+        const refs = (r.bodies[r.bodies.length - 1].match(CLOSING) ?? []).map((m) => m.replace(/\s+/g, " "));
+        expect(refs).toEqual(["Closes #1", "Closes #2"]);
     });
 });
