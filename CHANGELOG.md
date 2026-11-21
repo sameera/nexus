@@ -21,6 +21,12 @@ behaviour says so.
   issue number to the body, changing nothing else, and links the two as related. State, parent,
   labels and type stay as they were. A conflict, an unplaced issue or a missing link is reported.
   The rebuilt epic that `epic`, `analyze` and `close` read then names its feature issue.
+- **`close` names the feature issue on the stubs it files.** In a repository opted in to features
+  as issues, when the closed epic names a feature issue, every deferred-scope stub `close` files
+  carries a `feature issue` line in its Meta, beside the feature path, and is linked to the feature
+  issue as related. A failed link prints a warning and the close goes on, keeping every stub it
+  filed. Without the opt-in, or for an epic that names no feature issue, `close` files its stubs as
+  before.
 - **A retired feature keeps its open issue.** Mark a feature no longer in use with the
   `retired-feature` label, or the label `retired-feature-label` declares. The migration still finds a
   feature issue that carries it and never adds or removes it.
