@@ -126,6 +126,10 @@ interface World {
     ignored: boolean;
     /** Whether writing the page copy fails. */
     writeFails: boolean;
+    /** How many open-pull-request lookups fail before one succeeds. */
+    openPrFailures?: number;
+    /** The uncommitted paths the working tree holds after an aborted build stage. */
+    leftover?: string[];
 }
 
 function world(over: Partial<World> = {}): World {
@@ -176,6 +180,8 @@ function harness(w: World) {
     let buildDone: (() => void) | null = null;
     let pushFailures = w.pushFailures;
     let createPrFailures = w.createPrFailures ?? 0;
+    let openPrFailures = w.openPrFailures ?? 0;
+    const pushed: string[] = [];
     const deps: ImplementDeps = {
         resolveEpic: () => ({
             ok: true,
@@ -209,8 +215,10 @@ function harness(w: World) {
         currentBranch: () => checkout,
         headSha: () => `head${head}`,
         commits: (_c, _base, tip) => (tip !== undefined ? (w.buildTips.find((t) => t.tip === tip)?.commits ?? w.existing ?? w.commits) : w.commits),
-        push: (_c, branch) => {
+        changes: () => (log.includes("abort") ? (w.leftover ?? []) : []),
+        push: (_c, branch, sha) => {
             log.push(`push ${branch}`);
+            pushed.push(sha ?? branch);
             if (pushFailures > 0) {
                 pushFailures--;
                 return { ok: false, value: undefined, message: "network is unreachable" } as never;
@@ -218,7 +226,13 @@ function harness(w: World) {
             return { ok: true, value: null };
         },
         prRepo: () => w.prRepo,
-        openPr: () => ({ ok: true, value: w.openPr ?? (log.includes("create-pr") ? 5 : null) }),
+        openPr: () => {
+            if (openPrFailures > 0) {
+                openPrFailures--;
+                return { ok: false, message: "HTTP 502" };
+            }
+            return { ok: true, value: w.openPr ?? (log.includes("create-pr") ? 5 : null) };
+        },
         createPr: (_c, p) => {
             if (createPrFailures > 0) {
                 createPrFailures--;
@@ -305,7 +319,7 @@ function harness(w: World) {
             return { started: true, exitCode: 0, error: null, finalMessage: w.finals[index] ?? "done" };
         },
     };
-    return { deps, log, sessions, bodies, comments, writes };
+    return { deps, log, sessions, bodies, comments, writes, pushed };
 }
 
 const input = (over: Partial<ImplementInput> = {}): ImplementInput => ({
@@ -932,6 +946,16 @@ describe("a re-run builds only the stories without a commit (epic #991, story #9
         expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
     });
 
+    it.each([
+        ["a story claimed twice", [storyCommit(1, "aaaa1"), storyCommit(1, "bbbb2")], /bbbb2/],
+        ["a story committed before its blocker", [storyCommit(2, "cccc3")], /cccc3/],
+    ])("names the commit when the branch already holds %s", async (_n, existing, commit) => {
+        const r = await run(resumed({ existing }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight: /);
+        expect(r.err).toMatch(commit);
+    });
+
     it("stops when a commit that was on the branch at the start was rewritten", async () => {
         const r = await run(resumed({ rewritten: true }));
         expect(r.code).toBe(1);
@@ -1085,6 +1109,34 @@ describe("each story commit reaches the remote as it is made (epic #991, story #
         const r = await run(world({ local: "tip", existing: [c1], commits: [c1, c2], openPr: 5 }));
         expect(r.code).toBe(0);
         expect(r.bodies.some((b) => /built: #1; pending: #2/.test(b))).toBe(true);
+    });
+
+    it("pushes the commit it checked, not whatever the branch points at when the push runs", async () => {
+        const r = await run(building());
+        const end = r.log.indexOf("build-end");
+        const during = r.log.slice(0, end).filter((l) => l === "push nxs/epic-7").length;
+        expect(r.pushed.slice(0, during)).toEqual(["head-a", "head-b"]);
+    });
+
+    it("names the leftover uncommitted edits when it ends the build stage on a failed check", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [storyCommit(2, "head-a")] }], leftover: ["src/a.ts", "src/b.ts"] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/src\/a\.ts/);
+        expect(r.err).toMatch(/src\/b\.ts/);
+    });
+
+    it("retries a failed push at the next commit, not on every watcher tick", async () => {
+        const r = await run(building({ pushFailures: 1, buildTips: [{ tip: "head-a", commits: [c1] }, { tip: "head-a", commits: [c1] }, { tip: "head-b", commits: [c1, c2] }] }));
+        expect(r.code).toBe(0);
+        const end = r.log.indexOf("build-end");
+        expect(r.log.slice(0, end).filter((l) => l === "push nxs/epic-7")).toHaveLength(2);
+    });
+
+    it("stops before the build stage when the open pull request cannot be read at its start", async () => {
+        const r = await run(building({ openPrFailures: 1 }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at pull-request: .*HTTP 502/);
+        expect(r.sessions).toHaveLength(0);
     });
 
     it("tells the build stage each commit is published as soon as it is made", async () => {

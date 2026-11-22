@@ -140,7 +140,10 @@ export interface ImplementDeps {
     headSha(cwd: string): string | null;
     /** The commits after `baseSha` up to `tip` (HEAD when omitted), oldest first. */
     commits(cwd: string, baseSha: string, tip?: string): Commit[] | null;
-    push(cwd: string, branch: string): Outcome<null>;
+    /** Push `sha` (the local `branch` when omitted) to the remote `branch`. */
+    push(cwd: string, branch: string, sha?: string): Outcome<null>;
+    /** The paths the working tree holds uncommitted changes to, or null when they cannot be read. */
+    changes(cwd: string): string[] | null;
     /** The `owner/repo` the pull request lives in. */
     prRepo(cwd: string): string | null;
     openPr(cwd: string, branch: string): Outcome<number | null>;
@@ -333,7 +336,7 @@ export function checkStoryCommits(commits: readonly Commit[], stories: readonly 
         if (claimed.length > 1) return `commit ${commits[i].sha.slice(0, 12)} claims more than one story (${claimed.map((n) => `#${n}`).join(", ")}); each story needs its own commit.`;
         if (claimed.length === 0) continue;
         const story = claimed[0];
-        if (at.has(story)) return `story #${story} is claimed by more than one commit; each story needs exactly one.`;
+        if (at.has(story)) return `story #${story} is claimed by more than one commit (${commits[at.get(story) ?? i].sha.slice(0, 12)}, ${commits[i].sha.slice(0, 12)}); each story needs exactly one.`;
         at.set(story, i);
     }
     const missing = stories.filter((s) => !at.has(s));
@@ -342,7 +345,7 @@ export function checkStoryCommits(commits: readonly Commit[], stories: readonly 
         if (!at.has(story)) continue;
         for (const blocker of blockedBy.get(story) ?? []) {
             if (!live.has(blocker)) continue;
-            if (!at.has(blocker) || (at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it.`;
+            if (!at.has(blocker) || (at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it, in commit ${commits[at.get(story) ?? 0].sha.slice(0, 12)}.`;
         }
     }
     return null;
@@ -658,14 +661,18 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 if (!r.ok) return fail("implementation", `the answer lines on PR #${pr} could not be read: ${r.message}`);
                 return answerRows(r.value);
             };
+            // D7: without the open pull request read at the start, every answer already on it would later look newly posted.
             const openAtStart = deps.openPr(cwd, branch);
-            if (openAtStart.ok && openAtStart.value !== null) pr = openAtStart.value;
+            if (!openAtStart.ok) return fail("pull-request", `the open pull request for ${branch} could not be read: ${openAtStart.message}`);
+            if (openAtStart.value !== null) pr = openAtStart.value;
             const answersBefore = answerRowsNow();
             let lastChecked = startTip ?? baseSha;
             let pushedTip: string | null = startTip;
             let builtSoFar = new Set(committed);
             let violation: string | null = null;
             let publishError: { stage: string; reason: string } | null = null;
+            // G17: the checked tip a push or pull-request call last failed at; the call waits for the next commit, or the after-stage tick.
+            let failedAt: string | null = null;
             const progressText = (): string => {
                 const builtList = facts.stories.filter((s) => builtSoFar.has(s));
                 const pendingList = facts.stories.filter((s) => !builtSoFar.has(s));
@@ -679,7 +686,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 prPending = pr !== null;
             }
             const ac = new AbortController();
-            const tick = (): void => {
+            const tick = (final = false): void => {
                 if (violation !== null) return;
                 const tip = deps.localTip(cwd, branch);
                 if (tip !== null && tip !== lastChecked) {
@@ -699,10 +706,16 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                         return;
                     }
                 }
+                if (publishError !== null && !final && lastChecked === failedAt) return;
+                const failed = (stage: string, reason: string): void => {
+                    publishError = { stage, reason };
+                    failedAt = lastChecked;
+                };
                 if (lastChecked !== pushedTip && lastChecked !== baseSha) {
-                    const p = deps.push(cwd, branch);
+                    // G14: push the commit that passed the check, never a later one the agent made since.
+                    const p = deps.push(cwd, branch, lastChecked);
                     if (!p.ok) {
-                        publishError = { stage: "push", reason: p.message };
+                        failed("push", p.message);
                         return;
                     }
                     pushedTip = lastChecked;
@@ -712,7 +725,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                         prPending = true;
                     }
                 }
-                // G17: a pull-request call that failed after its push is retried on every later tick, the after-stage one included.
+                // G17: a pull-request call that failed after its push is retried at the next commit and after the stage.
                 if (!prPending || progress === null) return;
                 if (pr === null) {
                     const found = deps.openPr(cwd, branch);
@@ -720,7 +733,7 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                     else if (found.ok) {
                         const opened = deps.createPr(cwd, { base, branch, title: `epic #${epic}: ${facts.title}`, body: prBody(epic, facts.stories, facts.issuesRepo, prRepo, progress) });
                         if (!opened.ok) {
-                            publishError = { stage: "pull-request", reason: opened.message };
+                            failed("pull-request", opened.message);
                             return;
                         }
                         pr = opened.value;
@@ -729,12 +742,12 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                         say(`implement: draft PR #${pr}`);
                         return;
                     } else {
-                        publishError = { stage: "pull-request", reason: found.message };
+                        failed("pull-request", found.message);
                         return;
                     }
                 }
                 if (!setStatus(progress)) {
-                    publishError = { stage: "pull-request", reason: `the status section of PR #${pr} could not be rewritten.` };
+                    failed("pull-request", `the status section of PR #${pr} could not be rewritten.`);
                     return;
                 }
                 prPending = false;
@@ -753,8 +766,14 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 if (!ended) tick();
             }
             const impl = await session;
-            tick();
-            if (violation !== null) fail("story-commit-check", `${violation} The commit was not pushed and the build stage was ended.`);
+            tick(true);
+            if (violation !== null) {
+                // R2: the ended stage may leave uncommitted edits; the dirty-tree refusal stops the next run until the lead cleans them up.
+                const left = deps.changes(cwd);
+                const leftover =
+                    left === null ? " The working tree could not be read for leftover edits." : left.length === 0 ? "" : ` Uncommitted edits left in the working tree: ${left.join(", ")}. Clean them up before the next run.`;
+                fail("story-commit-check", `${violation} The commit was not pushed and the build stage was ended.${leftover}`);
+            }
             const err = publishError as { stage: string; reason: string } | null;
             if (err !== null) fail(err.stage, err.reason);
             // D7: an answer line that appears or changes during the build stage stops the run.
@@ -996,8 +1015,16 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
                     return { sha: sha.trim(), message: message ?? "", merge: (parents ?? "").trim().split(/\s+/).length > 1 };
                 });
         },
-        push: (cwd, branch) => {
-            const r = run("git", ["push", "-u", "origin", `${branch}:${branch}`], { cwd });
+        changes: (cwd) => {
+            const r = run("git", ["status", "--porcelain"], { cwd });
+            if (r.status !== 0) return null;
+            return r.stdout
+                .split("\n")
+                .filter((l) => l.trim() !== "")
+                .map((l) => l.slice(3));
+        },
+        push: (cwd, branch, sha) => {
+            const r = run("git", ["push", "-u", "origin", `${sha ?? branch}:refs/heads/${branch}`], { cwd });
             return r.status === 0 ? ok(null) : err(r, "git push");
         },
         prRepo: (cwd) => {

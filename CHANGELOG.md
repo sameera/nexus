@@ -5,6 +5,29 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.2.0
+
+- **A re-run of `nexus implement` continues an interrupted run.** Run against an epic whose run
+  branch already exists, it continues on that branch instead of refusing, and its first line says
+  it is resuming. A branch that exists only on the remote is brought down; a local copy behind the
+  remote is brought up to date. It stops before any agent stage when the local and remote copies
+  have diverged, when the branch holds a merge commit or was not made on top of the base, or when
+  the commits already on it break the story commit check, naming the commit and the rule.
+- **A re-run builds only the stories without a commit.** The build stage gets the remaining
+  stories in blocked-by order, told which blockers are already committed. When every story is
+  committed it starts no build stage and says the test suite was not run. A commit that was on the
+  branch when the run started and is rewritten stops the run.
+- **A re-run continues the review rounds on the open pull request.** It reuses the branch's open
+  pull request, starts with a full analyze, and posts no answer for an item an earlier run already
+  answered.
+- **Each story commit reaches the remote as it is made.** While the build stage runs, each commit
+  that passes the story commit check is pushed, exactly as checked, and the first opens the draft
+  pull request. Its status section lists built and pending stories. A commit that fails the check
+  is never pushed: the stage is ended and the stop names the commit, the reason and any uncommitted
+  edits left in the working tree. A failed push or pull-request call is retried at the next commit
+  and once after the stage, then stops the run. When the open pull request cannot be read at the
+  start of the build stage, the run stops; an answer line posted during the stage stops it too.
+
 ## 1.0.0
 
 - **Nexus is 1.0.** From this release the version follows semantic versioning against how the
