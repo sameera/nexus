@@ -89,6 +89,10 @@ interface World {
     /** The base branch of the branch's open pull request. */
     prBase: string;
     fetchFails: boolean;
+    /** The commits already on the run branch when a re-run starts; `commits` when absent. */
+    existing?: Commit[];
+    /** Whether the build stage rewrote a commit that was on the branch when the run started. */
+    rewritten: boolean;
     /** The branch the lead's checkout is on when the run starts. */
     checkout: string;
     auto: boolean;
@@ -126,6 +130,7 @@ function world(over: Partial<World> = {}): World {
         fork: "fork",
         prBase: "main",
         fetchFails: false,
+        rewritten: false,
         checkout: "main",
         auto: true,
         commits: [storyCommit(1), storyCommit(2)],
@@ -170,7 +175,7 @@ function harness(w: World) {
             return w.fetchFails ? { ok: false, message: "could not resolve host" } : { ok: true, value: w.remote };
         },
         localTip: () => w.local,
-        isAncestor: (_c, a, b) => a === b || w.ancestry.includes(`${a}<${b}`),
+        isAncestor: (_c, a, b) => a === b || w.ancestry.includes(`${a}<${b}`) || (b.startsWith("head") && !w.rewritten),
         setLocalBranch: (_c, branch, sha) => {
             log.push(`set ${branch} ${sha}`);
             return { ok: true, value: null };
@@ -189,7 +194,7 @@ function harness(w: World) {
         },
         currentBranch: () => checkout,
         headSha: () => `head${head}`,
-        commits: () => w.commits,
+        commits: (_c, _base, tip) => (tip !== undefined ? (w.existing ?? w.commits) : w.commits),
         push: (_c, branch) => {
             log.push(`push ${branch}`);
             return { ok: true, value: null };
@@ -845,5 +850,77 @@ describe("a re-run continues on the epic's existing run branch (epic #991, story
         expect(r.code).toBe(1);
         expect(r.err).toMatch(/uncommitted changes/);
         expect(r.sessions).toHaveLength(0);
+    });
+});
+
+describe("a re-run builds only the stories without a commit (epic #991, story #993: G7-G11, G22, G29)", () => {
+    const three = { stories: [1, 2, 3], blockedBy: new Map([[2, [1]], [3, [2]]]) };
+    const resumed = (over: Partial<World> = {}): World =>
+        world({ local: "tip", facts: three, existing: [storyCommit(1), storyCommit(2)], commits: [storyCommit(1), storyCommit(2), storyCommit(3)], ...over });
+    const buildPrompt = (r: { sessions: SessionSpec[] }): string => r.sessions[0].args[1];
+
+    it("gives the build stage only the stories with no commit, naming the committed blocker", async () => {
+        const r = await run(resumed());
+        expect(r.code).toBe(0);
+        const prompt = buildPrompt(r);
+        expect(prompt).toMatch(/only these stories[^.]*#3/);
+        expect(prompt).not.toMatch(/only these stories[^.]*#1\b/);
+        expect(prompt).not.toMatch(/only these stories[^.]*#2\b/);
+        expect(prompt).toMatch(/already committed[^.]*#2/);
+    });
+
+    it("lists the remaining stories in blocked-by order", async () => {
+        const r = await run(resumed({ facts: { stories: [1, 2, 3], blockedBy: new Map([[2, [3]]]) }, existing: [storyCommit(1)], commits: [storyCommit(1), storyCommit(3), storyCommit(2)] }));
+        expect(r.code).toBe(0);
+        expect(buildPrompt(r)).toMatch(/only these stories[^.]*#3, #2/);
+    });
+
+    it("tells a resumed build that blocked means it made no commit in this stage, and forbids rewriting commits", async () => {
+        const prompt = buildPrompt(await run(resumed()));
+        expect(prompt).toMatch(/has made no commit in this stage/);
+        expect(prompt).toMatch(/amend/);
+        expect(prompt).toMatch(/force/);
+    });
+
+    it("runs the story commit check over every live story, from this run and the earlier one", async () => {
+        const r = await run(resumed({ commits: [storyCommit(1), storyCommit(2)] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at story-commit-check: no commit claims #3/);
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+    });
+
+    it("stops when a commit that was on the branch at the start was rewritten", async () => {
+        const r = await run(resumed({ rewritten: true }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/tip/);
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+    });
+
+    it.each<[string, Commit[], RegExp]>([
+        ["a story committed before its blocker", [storyCommit(2), storyCommit(1)], /#2 is committed before #1/],
+        ["a story claimed twice", [storyCommit(1, "a"), storyCommit(1, "b")], /#1 is claimed by more than one commit/],
+        ["a commit claiming two stories", [{ sha: "ab", message: "both\n\nCloses #1\nCloses #2\n" }], /claims more than one story/],
+    ])("stops before any agent stage when the commits already there show %s", async (_name, existing, reason) => {
+        const r = await run(resumed({ existing }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(reason);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("starts no build stage when every live story is committed, and says the suite was not run", async () => {
+        const all = [storyCommit(1), storyCommit(2), storyCommit(3)];
+        const r = await run(resumed({ existing: all, commits: all }));
+        expect(r.code).toBe(0);
+        expect(r.sessions[0].args.join(" ")).toMatch(/nxs\.analyze --pr/);
+        expect(r.log).toContain("push nxs/epic-7");
+        expect(r.log).toContain("ready");
+        expect(r.bodies[0]).toMatch(/did not run the test suite/);
+        expect(r.bodies[r.bodies.length - 1]).toMatch(/did not run the test suite/);
+    });
+
+    it("never says the suite was skipped when the run built a story", async () => {
+        const r = await run(resumed());
+        expect(r.bodies.join("\n")).not.toMatch(/did not run the test suite/);
     });
 });

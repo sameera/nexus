@@ -219,17 +219,32 @@ export const TEST_FIRST_RULE =
  * The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). A
  * current HLD page adds one paragraph to it (G4, G7, G14).
  */
-export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null): string {
+/** What a re-run gives its build stage (epic #991, D3): the stories left, and the committed blockers they wait on. */
+export interface ResumeScope {
+    remaining: number[];
+    committedBlockers: number[];
+}
+
+export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null, resume: ResumeScope | null = null): string {
+    const refs = (ns: readonly number[]): string => ns.map((n) => `#${n}`).join(", ");
+    const scope =
+        resume === null
+            ? ""
+            : `This branch already holds story commits from an earlier run. Build only these stories, in this order: ${refs(resume.remaining)}. ` +
+              (resume.committedBlockers.length === 0
+                  ? "None of them waits on a story that is already committed. "
+                  : `Stories they wait on that are already committed on this branch: ${refs(resume.committedBlockers)}. `) +
+              "Leave the earlier commits as they are. If a 'Before implementation' item is already done, confirm it rather than doing it again. ";
     const suite =
         testCommand === null
             ? `No test command is declared. Find the repository's full test suite and run it. When you finish the stories, end your final message with one line beginning exactly '${TEST_COMMAND_PREFIX}' that names the command you ran.`
             : `The full test suite is \`${testCommand}\`.`;
     return (
-        `/goal Either (a) every story sub-issue of epic #${epic} is implemented on this branch — ` +
+        `/goal Either (a) every ${resume === null ? "story sub-issue" : "remaining story"} of epic #${epic} is implemented on this branch — ` +
         "one commit per story, in blocked_by order, each commit body ending with a line " +
         "reading exactly 'Closes #<that story's issue number>' — and the full test suite " +
         "passes, or (b) the run has stopped on something it cannot do from this checkout, " +
-        "has made no commit, and its final message ends with one line beginning exactly " +
+        `has made no commit${resume === null ? "" : " in this stage"}, and its final message ends with one line beginning exactly ` +
         `'${BLOCKED_PREFIX}' that names what blocked it and what would unblock it. ` +
         "Outcome (b) is the only way to stop short; once you have written that line, the " +
         "goal holds and you stop — do not wait for a reply. Prove (a): git log shows one " +
@@ -246,7 +261,7 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "epic' and 'Committed follow-up' items and Concept-store changes alone — other " +
         "issues and /nxs.distill deliver them. " +
         "Before starting each story, re-read its epic.md section and the decisions it " +
-        `delivers. ${TEST_FIRST_RULE} Stay on the current branch. Do not push and do not open a PR — the calling command does both. ` +
+        `delivers. ${TEST_FIRST_RULE} ${scope}Stay on the current branch. Never amend, rebase or reset a commit, and never use a force operation. Do not push and do not open a PR — the calling command does both. ` +
         `${suite} Stop after ${turns} turns.` +
         (page === null ? "" : `\n\n${hldParagraph(page)}`)
     );
@@ -304,7 +319,7 @@ export function claimedStories(message: string, issuesRepo: string): number[] {
  * the dependency graph allows. A commit that claims no story is a follow-up and passes. The reason
  * the branch fails, or null when it passes.
  */
-export function checkStoryCommits(commits: readonly Commit[], stories: readonly number[], blockedBy: Map<number, number[]>, issuesRepo: string): string | null {
+export function checkStoryCommits(commits: readonly Commit[], stories: readonly number[], blockedBy: Map<number, number[]>, issuesRepo: string, mode: "full" | "prefix" = "full"): string | null {
     const live = new Set(stories);
     const at = new Map<number, number>();
     for (let i = 0; i < commits.length; i++) {
@@ -316,14 +331,34 @@ export function checkStoryCommits(commits: readonly Commit[], stories: readonly 
         at.set(story, i);
     }
     const missing = stories.filter((s) => !at.has(s));
-    if (missing.length > 0) return `no commit claims ${missing.map((n) => `#${n}`).join(", ")} with a 'Closes #<n>' line.`;
+    if (mode === "full" && missing.length > 0) return `no commit claims ${missing.map((n) => `#${n}`).join(", ")} with a 'Closes #<n>' line.`;
     for (const story of stories) {
+        if (!at.has(story)) continue;
         for (const blocker of blockedBy.get(story) ?? []) {
             if (!live.has(blocker)) continue;
             if ((at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it.`;
         }
     }
     return null;
+}
+
+/** The live stories a commit claims, each once. */
+export function committedStories(commits: readonly Commit[], stories: readonly number[], issuesRepo: string): Set<number> {
+    const live = new Set(stories);
+    return new Set(commits.flatMap((c) => claimedStories(c.message, issuesRepo)).filter((n) => live.has(n)));
+}
+
+/** `remaining` in blocked-by order: a story after every remaining story it waits on, ties by ascending number. */
+export function blockedByOrder(remaining: readonly number[], blockedBy: Map<number, number[]>): number[] {
+    const left = new Set(remaining);
+    const out: number[] = [];
+    while (left.size > 0) {
+        const ready = [...left].filter((s) => (blockedBy.get(s) ?? []).every((b) => !left.has(b))).sort((a, b) => a - b);
+        const next = ready.length > 0 ? ready[0] : Math.min(...left);
+        out.push(next);
+        left.delete(next);
+    }
+    return out;
 }
 
 /** A story reference in the pull request's repository (G7): bare when the issues live there. */
@@ -490,6 +525,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const remoteTip = fetched.value;
         const localTip = deps.localTip(cwd, branch);
         let forkPoint: string | null = null;
+        let committed = new Set<number>();
+        let startTip: string | null = null;
         if (localTip !== null || remoteTip !== null) {
             const bringTo = (sha: string): void => {
                 const set = deps.setLocalBranch(cwd, branch, sha);
@@ -508,6 +545,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (existing === null) return fail("preflight", `the commits on ${branch} could not be read.`);
             const merge = existing.find((c) => c.merge === true);
             if (merge !== undefined) fail("preflight", `branch ${branch} holds merge commit ${merge.sha.slice(0, 12)} after it left ${base}; a run branch holds only commits made on top of the base branch.`);
+            const prefix = checkStoryCommits(existing, facts.stories, facts.blockedBy, facts.issuesRepo, "prefix");
+            if (prefix !== null) fail("preflight", `the commits already on ${branch} break the story commit check: ${prefix}`);
+            committed = committedStories(existing, facts.stories, facts.issuesRepo);
+            startTip = deps.localTip(cwd, branch);
             const open = deps.openPr(cwd, branch);
             if (!open.ok) return fail("preflight", `the open pull request for ${branch} could not be read: ${open.message}`);
             if (open.value !== null) {
@@ -586,13 +627,29 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (deps.currentBranch(cwd) !== branch) fail(stage, `the stage left the checkout off ${branch}; the command pushes only that branch.`);
         };
 
-        // 2. Implementation stage (D3).
-        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }));
-        const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
-        if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
-        if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
-        if (testCommand === null) testCommand = prefixedLine(impl.finalMessage, TEST_COMMAND_PREFIX);
-        onBranch("implementation");
+        // 2. Implementation stage (D3), given only the stories with no commit (epic #991, D3, D9).
+        const remaining = blockedByOrder(
+            facts.stories.filter((s) => !committed.has(s)),
+            facts.blockedBy,
+        );
+        const built = remaining.length > 0;
+        if (built) {
+            const resume: ResumeScope | null =
+                forkPoint === null
+                    ? null
+                    : { remaining, committedBlockers: [...new Set(remaining.flatMap((s) => facts.blockedBy.get(s) ?? []))].filter((b) => committed.has(b)).sort((a, b) => a - b) };
+            const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, resume));
+            const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
+            if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
+            if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
+            if (testCommand === null) testCommand = prefixedLine(impl.finalMessage, TEST_COMMAND_PREFIX);
+            onBranch("implementation");
+        }
+        // D5: every commit on the branch when the run started is still there, unchanged.
+        if (startTip !== null) {
+            const head = deps.headSha(cwd);
+            if (head === null || !deps.isAncestor(cwd, startTip, head)) fail("story-commit-check", `${branch} no longer descends from its start tip ${startTip}; a commit already on the branch was rewritten.`);
+        }
 
         // 3. Story commit check, push and draft pull request (D3, D4).
         const commits = deps.commits(cwd, baseSha);
@@ -604,7 +661,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const repo = deps.prRepo(cwd);
         if (repo === null) return fail("pull-request", "the pull request's repository could not be read.");
         prRepo = repo;
-        const testNote = testCommand === null ? "no test command was declared or named" : `test command \`${testCommand}\``;
+        // D10: a run that built nothing ran no suite, and says so.
+        const testNote =
+            (testCommand === null ? "no test command was declared or named" : `test command \`${testCommand}\``) +
+            (built ? "" : "; every story was already committed, so this run did not run the test suite — the lead or CI confirms it before merge");
         const body = prBody(epic, facts.stories, facts.issuesRepo, prRepo, `implemented; analyze runs next (${testNote}).`);
         const existing = deps.openPr(cwd, branch);
         if (!existing.ok) fail("pull-request", existing.message);
