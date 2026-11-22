@@ -131,3 +131,48 @@ describe("filing approved deferred scope as unplanned epic stubs (D9, G19)", () 
         expect(p.created.map((c) => c.title)).toEqual(["Deferred goal 2"]);
     });
 });
+
+describe("a stub that names its epic's feature issue (epic #999, decision record #1049, D8)", () => {
+    /** The filing platform, answering the feature check and the relates-to link as told. */
+    function featurePlatform(linkFails: boolean): { env: FilerEnvironment; created: Created[]; links: number } {
+        const base = platform();
+        const state = { links: 0 };
+        const env: FilerEnvironment = {
+            ...base.env,
+            runnerFor: (root) => (args: string[]) => {
+                const joined = args.join(" ");
+                if (args[0] === "api" && args[1] === "graphql" && joined.includes("addRelatesTo")) {
+                    if (linkFails) return { status: 1, stdout: "", stderr: "HTTP 502" };
+                    state.links++;
+                    return { status: 0, stdout: "{}", stderr: "" };
+                }
+                if (args[0] === "api" && args[1] === "graphql" && joined.includes("relatesTo")) {
+                    const num = (args.find((a) => a.startsWith("num=")) ?? "").slice(4);
+                    const labels = num === "77" ? [{ name: "feature" }] : [{ name: "epic" }];
+                    return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { id: `I_${num}`, issueType: null, labels: { nodes: labels }, relatesTo: { nodes: [] } } } } }), stderr: "" };
+                }
+                return base.env.runnerFor(root)(args);
+            },
+        };
+        return { env, created: base.created, get links() { return state.links; } };
+    }
+
+    const named: StubToFile = { ...stub(1), featureIssue: "#77" };
+
+    it("links each filed stub to the feature issue as related (G19)", () => {
+        const root = checkout("github:\n  classification: labels\n  project: none\n  features-as-issues: true\n");
+        const p = featurePlatform(false);
+        const r = fileDeferredStubs(root, "acme/epics", "epic-830", [named], p.env);
+        expect(r.ok).toBe(true);
+        expect(p.links).toBe(1);
+    });
+
+    it("keeps every filed stub when the related link fails, and only warns (G21)", () => {
+        const root = checkout("github:\n  classification: labels\n  project: none\n  features-as-issues: true\n");
+        const p = featurePlatform(true);
+        const r = fileDeferredStubs(root, "acme/epics", "epic-830", [named], p.env);
+        expect(r.ok).toBe(true);
+        expect(r.ok && [...r.numbers.values()]).toEqual([500]);
+        expect(r.ok && r.notes.join(" ")).toMatch(/link/i);
+    });
+});

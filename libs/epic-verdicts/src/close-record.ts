@@ -114,6 +114,8 @@ export interface CloseContentInput {
     feature: string;
     /** The epic's feature path, for a stub's body. */
     featurePath: string;
+    /** The feature issue the epic names, as `#N`, when the repository opted in (decision record #1049, D8). */
+    featureIssue?: string;
     date: string;
     /** The release that wrote the record, or null when unresolved (the key is then omitted). */
     nexusVersion: string | null;
@@ -181,6 +183,7 @@ export interface CloseContent {
     title: string;
     feature: string;
     featurePath: string;
+    featureIssue?: string;
     date: string;
     nexusVersion: string | null;
     issuesRepo: string;
@@ -305,6 +308,7 @@ export function assembleCloseContent(input: CloseContentInput): CloseContent {
         title: input.title,
         feature: input.feature,
         featurePath: input.featurePath,
+        ...(input.featureIssue ? { featureIssue: input.featureIssue } : {}),
         date: input.date,
         nexusVersion: input.nexusVersion,
         issuesRepo: input.issuesRepo,
@@ -610,6 +614,7 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
             "## Meta",
             "",
             `- **feature:** ${inertText(c.featurePath)}`,
+            ...(c.featureIssue ? [`- **feature issue:** ${inertText(c.featureIssue)}`] : []),
             `- **source:** deferred from epic ${inertText(c.title)} (#${c.epic}) (${c.date}): ${p.repo}#${p.pr} ${p.id}, approved by @${p.approver || "unknown"} (${p.link})`,
             "",
             stubKey(c, p),

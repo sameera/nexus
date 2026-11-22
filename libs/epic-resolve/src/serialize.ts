@@ -127,7 +127,10 @@ function renderFrontmatter(epic: EpicHeader, record: EpicRecord | null): string 
     // as it did before this field existed.
     const issuesRepoField = epic.issuesRepo ? JSON.stringify(epic.issuesRepo) : null;
     if (epic.rawFrontmatter != null && epic.rawFrontmatter.trim().length > 0) {
-        const withMeta = withLink(epic.rawFrontmatter, epic.number);
+        // A block a migration added to a hand-filed epic carries only the feature reference, so the
+        // title the blockless epic resolved with is kept from the issue (decision record #1049, R2).
+        const raw = /^epic\s*:/m.test(epic.rawFrontmatter) ? epic.rawFrontmatter : `epic: ${JSON.stringify(epic.title)}\n${epic.rawFrontmatter}`;
+        const withMeta = withLink(raw, epic.number);
         const withHome = issuesRepoField ? withField(withMeta, "issues_repo", issuesRepoField) : withMeta;
         return ["---", withHome, ...recordFields, "---"].join("\n");
     }
