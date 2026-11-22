@@ -1,8 +1,8 @@
 ---
 title: "Issue Kind Classification"
 aliases: ["issue kind", "what an issue is filed as", "epic or story", "classification mode mismatch", "declared marker over graph shape"]
-touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight"]
-last_updated_by: "#705"
+touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight", "feature-issue-migration"]
+last_updated_by: "#999"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ The design stage's import refuses an issue its repository files as a story or a 
 - [entry-slot-ownership](entry-slot-ownership.md) — reads the declared epic marker through this rule, so a landed-work lane names an epic from the repository's own statement.
 - [initiative](initiative.md) — the kind every stage refuses as an epic and the filer allows as a stub's parent.
 - [filing-preflight](filing-preflight.md) — reads through this rule whether a stub's named parent is an initiative.
+- [feature-issue-migration](feature-issue-migration.md) — finds feature issues by their declared kind and keeps initiatives and feature issues out of the migration's epic set.
 
 ## Decision Log
 
@@ -51,3 +52,7 @@ Mechanical reciprocity fan-out: the rule that decides which kind of entry holds 
 ### 2026-10-10 — #705 — Initiative becomes a declared kind, tested last
 
 An initiative needed a positive marker for two checks. The filer allows it as a stub's parent, and every stage refuses it as an epic. Working out a kind from the issue graph is already forbidden here, so the initiative became its own declared kind with its own label or issue type. The label defaults to the word initiative, and the issue type has no default. The marker is tested after epic, story and record, because a repository whose epic label is that same word would otherwise have every epic refused. The initiative check reads only the initiative marker, so it adds no failure for any issue that is not an initiative. Under issue-type mode, an issue that carries only the initiative label reads as none of these, as it did before the kind existed. The rule now lives in one place that both the filer and the resolver call, because a second copy inside the filer would let filing and reading disagree about the same issue. Refuted alternative: test the initiative marker first, so an issue carrying both markers is refused as an initiative. It lost because it refuses every epic in a repository whose epic label is the same word.
+
+### 2026-11-22 — #999 — Reciprocal link from feature-issue-migration
+
+The feature-issue migration classifies issues through this kind rule. It stops when the repository classifies by type and declares no feature type, instead of falling back to a label.
