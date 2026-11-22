@@ -44,6 +44,15 @@ class FakeGh implements MigrationGh {
         return this.issues.filter((i) => i.labels.includes("feature"));
     }
 
+    closed: number[] = [];
+
+    closeFeature(number: number): boolean {
+        this.closed.push(number);
+        const issue = this.issues.find((i) => i.number === number);
+        if (issue !== undefined) issue.state = "closed";
+        return true;
+    }
+
     fileFeatures(items: FeatureToFile[]): { numbers: Map<string, number>; failure: string | null } {
         const numbers: Map<string, number> = new Map();
         for (const item of items) {
@@ -105,12 +114,12 @@ describe("migrate — feature filing (#1046)", () => {
         expect(report.lines.join("\n")).toContain("docs/features/alpha");
     });
 
-    it("with --apply files one open feature issue per folder, titled with the name and carrying the statement (G4, G7, G17)", () => {
+    it("with --apply files one feature issue per folder, closed (#1061 D9 replaces #999 D7), titled with the name and carrying the statement (G4, G7, G17)", () => {
         const gh = new FakeGh();
         const report = run(repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha."), beta: readme("Beta", "Does beta.") }), gh, true);
         expect(gh.filed.map((f) => [f.name, f.statement])).toEqual([["Alpha", "Does alpha."], ["Beta", "Does beta."]]);
         expect(gh.issues.map((i) => parseFeaturePath(i.body))).toEqual(["docs/features/alpha", "docs/features/beta"]);
-        expect(gh.issues.every((i) => i.state === "open")).toBe(true);
+        expect(gh.issues.every((i) => i.state === "closed")).toBe(true);
         expect(report.complete).toBe(true);
     });
 
@@ -207,5 +216,16 @@ describe("the README pointer line (epic #1000, story #1058, decision record #106
         run(root, gh, true);
         expect(fs.readFileSync(path.join(root, "docs", "features", "alpha", "README.md"), "utf8")).toBe(once);
         expect(once.match(/#42\b/g)).toHaveLength(1);
+    });
+});
+
+describe("the migration files feature issues closed (story #1059, decision record #1061 D9)", () => {
+    it("closes each feature issue it files before it reports complete, and no other", () => {
+        const gh = new FakeGh([featureIssue(42, "docs/features/beta")]);
+        const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha."), beta: readme("Beta", "Does beta.") });
+        run(root, gh, true);
+        expect(gh.closed).toEqual([500]);
+        expect(gh.issues.find((i) => i.number === 500)?.state).toBe("closed");
+        expect(gh.issues.find((i) => i.number === 42)?.state).toBe("open");
     });
 });

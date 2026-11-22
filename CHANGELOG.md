@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.6.0
+
+- **New feature issues are filed closed.** `/nxs.epic` and `nexus feature-issue migrate --apply`
+  close each feature issue they file, through the new `nexus feature-issue close`, before filing
+  the epic. A failed close still files the epic and reports the run incomplete; a repeat closes it.
+  A reused feature issue keeps its state. Close existing open feature issues by hand.
+
 ## 1.5.0
 
 - **`/nxs.epic` writes nothing to the tree in a repository with features as issues.** Filing an

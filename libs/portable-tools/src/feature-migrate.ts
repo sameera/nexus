@@ -39,6 +39,8 @@ export interface FeatureToFile {
 
 /** The GitHub side of a run. Each method answers null or a failure rather than throwing. */
 export interface MigrationGh {
+    /** Close a feature issue this run filed (D9). False when it could not be closed. */
+    closeFeature?: (number: number) => boolean;
     /** Every issue carrying the feature marker, open and closed. Null when GitHub did not answer. */
     listFeatures(): FeatureIssueRef[] | null;
     /** File the feature issues through the guarded filer. `numbers` maps feature path to issue. */
@@ -303,6 +305,9 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
             if (plan.action !== "file") continue;
             const number: number | undefined = filed.numbers.get(plan.path);
             Object.assign(plan, number === undefined ? { action: "failed" } : { action: "filed", issue: number });
+            if (number !== undefined && input.gh.closeFeature !== undefined && !input.gh.closeFeature(number)) {
+                failure = failure ?? `#${number} was filed but could not be closed`;
+            }
         }
     }
 

@@ -29,7 +29,7 @@ import {
     resolveFeatureSetting,
 } from "./feature-issue.js";
 
-export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related", "migrate", "features", "epics", "stubs"];
+export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related", "migrate", "features", "epics", "stubs", "close"];
 
 export const FEATURE_ISSUE_USAGE: string = [
     "  nexus feature-issue lookup --feature-path <path> [--ledger <file>] [--named <N>]",
@@ -49,6 +49,9 @@ export const FEATURE_ISSUE_USAGE: string = [
     "      List the planned epics (open and closed) or the open stubs whose body names feature",
     "      issue <N>. Related and sub-issue links are never read. A listing GitHub does not fully",
     "      answer exits 1 and prints nothing.",
+    "  nexus feature-issue close --ledger <file> --feature-path <path>",
+    "      Close the feature issue the run's own ledger records for <path>, if it is still open.",
+    "      Repeat-safe. Prints { issue, state }; a ledger with no entry or a failed close exits 1.",
     "  nexus feature-issue work-item --name <name> --statement <text> --feature-path <path> --dir <folder>",
     "      Write the work item a new feature issue is filed from into <folder>. Prints { file, ref }.",
     "  nexus feature-issue check-related --feature <N|owner/repo#N> --issues <n,n,...>",
@@ -78,6 +81,7 @@ export async function runFeatureIssue(argv: string[], io: FeatureIssueIo, run: R
     }
     if (sub === "lookup") return runLookup(flags, io, run);
     if (sub === "check-related") return runCheckRelated(flags, io, run);
+    if (sub === "close") return runClose(flags, io, run);
     if (sub === "features" || sub === "epics" || sub === "stubs") return runListing(sub, flags, io, run);
     return runWorkItem(flags, io);
 }
@@ -130,6 +134,29 @@ function runLookup(flags: Map<string, string>, io: FeatureIssueIo, run: Runner):
         io.stderr(`feature-issue ${lookup.outcome}: ${line}`);
         return 1;
     }
+    return 0;
+}
+
+/** The close step (D9): only the ledger's own issue, never reopened, repeat-safe. */
+function runClose(flags: Map<string, string>, io: FeatureIssueIo, run: Runner): number {
+    const ledger: string | undefined = flags.get("ledger");
+    const featurePath: string | undefined = flags.get("feature-path");
+    if (ledger === undefined || featurePath === undefined) {
+        io.stderr(`usage:\n${FEATURE_ISSUE_USAGE}`);
+        return 2;
+    }
+    const root: string = checkoutRoot(io.cwd);
+    const number: number | null = readLedgerNumber(path.resolve(io.cwd, ledger), featurePath);
+    if (number === null) {
+        io.stderr(`feature-issue no-ledger: the ledger records no feature issue for ${featurePath}; nothing was closed.`);
+        return 1;
+    }
+    const reader = new GhReader(run, root, resolvePublishingKey(root, "epic-repo"));
+    if (!reader.close(number)) {
+        io.stderr(`feature-issue incomplete: #${number} could not be closed. Report the run incomplete; a repeat closes it.`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ issue: number, state: "closed" }));
     return 0;
 }
 
@@ -313,6 +340,14 @@ class GhReader {
         return flat.filter((i) => i.pull_request === undefined).map(toRef);
     }
 
+    /** Close one issue if it is open. True once it reads closed. */
+    close(number: number): boolean {
+        const issue: FeatureIssueRef | null = this.read(number);
+        if (issue === null) return false;
+        if (issue.state === "closed") return true;
+        return this.run("gh", ["api", "-X", "PATCH", `repos/${this.repo}/issues/${number}`, "-f", "state=closed"], { cwd: this.root }).status === 0;
+    }
+
     /** Every issue matching `filter`, open and closed, pull requests left out. Null when unanswered. */
     listRaw(filter: string): RestIssue[] | null {
         const issues = this.api<RestIssue[]>(["--paginate", "--slurp", `repos/${this.repo}/issues?state=all&per_page=100&${filter}`], true);
@@ -404,6 +439,7 @@ export function realMigrationGh(root: string, setting: FeatureSetting, run: Runn
             const listed: RestIssue[] = [...byNumber.values()];
             return listed.map((i): MemberIssue => ({ ...toRef(i), title: i.title ?? "", parent: null }));
         },
+        closeFeature: (number) => reader.close(number),
         editBody: (number, expected, body) => {
             const home = homeRepo(root, gh);
             return home !== null && writeFeatureReference(gh, { ...home, number: String(number) }, expected, body).outcome === "written";

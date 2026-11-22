@@ -258,7 +258,13 @@ nexus create-story "${RUN_DIR}/feature" \
     --keep-manifest
 ```
 
-The work item has no parent and no labels, so the issue carries only the feature marker. It is filed open, into the epic repository, and no stage ever closes it. `--issues-repo` names that repository, because the filer otherwise files into the story repository, and the lookup, the epic filer and the read-back all look for the feature issue in the epic repository. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
+Then close it, before the epic, any initiative and any stub is filed:
+
+```bash
+nexus feature-issue close --ledger "${RUN_DIR}/feature/.nxs-created.json" --feature-path "<feature-path>"
+```
+
+The close step closes only the issue this run's ledger records, never reopens one, and is repeat-safe. If it exits non-zero, still file the epic and stubs, then report the run incomplete and keep the run folder; a repeat closes the issue without filing another. A reused feature issue, open or closed, is left in its state: never close or reopen a feature issue this run did not file. The final read-back confirms the new feature issue is closed. The work item has no parent and no labels, so the issue carries only the feature marker. It is filed into the epic repository. `--issues-repo` names that repository, because the filer otherwise files into the story repository, and the lookup, the epic filer and the read-back all look for the feature issue in the epic repository. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
 
 **Naming the feature issue.** Once a feature issue is known, from `reuse` or from the feature batch, call its number `FEATURE_ISSUE`. Every epic and stub this run files under that feature path names it beside the feature path, and is linked to it by the filer:
 
