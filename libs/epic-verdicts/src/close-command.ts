@@ -683,6 +683,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         title: resolved.resolved.title,
         feature: fm.get("feature") ?? "",
         featurePath: fm.get("feature_path") ?? "",
+        ...featureIssueOf(repoRoot, fm),
         date: input.date,
         nexusVersion: input.nexusVersion ?? null,
         issuesRepo,
@@ -728,7 +729,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             repoRoot,
             issuesRepo,
             epic,
-            toFile.map((p) => ({ ref: stubRef(p), key: proposalKey(p), ...renderDeferredStub(content, p) })),
+            toFile.map((p) => ({ ref: stubRef(p), key: proposalKey(p), ...renderDeferredStub(content, p), ...(content.featureIssue ? { featureIssue: content.featureIssue } : {}) })),
         );
         for (const [k, n] of filed.numbers) stubs.set(k, n);
         if (filed.numbers.size > 0) done.push(`filed ${[...filed.numbers.values()].map((n) => `${issuesRepo}#${n}`).join(", ")} as epic stub(s)`);
@@ -1393,3 +1394,13 @@ const MENTIONS_JQ =
     '.[] | select(.event == "cross-referenced") | .source.issue | select(. != null) | ' +
     '{ number: .number, body: (.body // ""), repo: (.repository.full_name // ((.repository_url // "") | sub("^.*/repos/"; ""))), ' +
     'pullRequest: (.pull_request != null), association: (.author_association // "") } | @json';
+
+/**
+ * The feature issue the closed epic names, as `#N`, when the repository opted in to features as
+ * issues (decision record #1049, D8). Otherwise nothing, so close files its stubs as it did (G20).
+ */
+function featureIssueOf(root: string, fm: Map<string, string>): { featureIssue?: string } {
+    if (resolvePublishingKey(root, "features-as-issues").trim().toLowerCase() !== "true") return {};
+    const m = /^#?([1-9]\d*)$/.exec((fm.get("feature_issue") ?? "").trim().replace(/^["']|["']$/g, ""));
+    return m === null ? {} : { featureIssue: `#${m[1]}` };
+}

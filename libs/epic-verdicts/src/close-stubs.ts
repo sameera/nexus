@@ -26,6 +26,8 @@ export interface StubToFile {
     key: string;
     title: string;
     body: string;
+    /** The epic's feature issue, `#N`: the filer checks it and links the stub to it (decision record #1049, D8). */
+    featureIssue?: string;
 }
 
 export type FileStubsResult =
@@ -63,7 +65,8 @@ export function fileDeferredStubs(root: string, issuesRepo: string, batch: strin
     fs.mkdirSync(dir, { recursive: true });
     for (const name of fs.readdirSync(dir)) if (/^STORY-.*\.md$/.test(name)) fs.rmSync(path.join(dir, name));
     stubs.forEach((s, i) => {
-        const fm = ["---", `ref: ${s.ref}`, `title: ${frontmatterTitle(s.title)}`, `labels: [${unplanned}]`, "---", ""];
+        const feature = s.featureIssue ? [`feature_issue: "${s.featureIssue}"`] : [];
+        const fm = ["---", `ref: ${s.ref}`, `title: ${frontmatterTitle(s.title)}`, `labels: [${unplanned}]`, ...feature, "---", ""];
         fs.writeFileSync(path.join(dir, `STORY-STUB-${String(i + 1).padStart(2, "0")}.md`), `${fm.join("\n")}\n${s.body}`);
     });
 
@@ -91,9 +94,14 @@ export function fileDeferredStubs(root: string, issuesRepo: string, batch: strin
         return { ok: false, message: `${missing.length} of ${stubs.length} stub(s) were not filed (${missing.map((s) => `"${s.title}"`).join(", ")}): ${cause}`, numbers };
     }
     fs.rmSync(dir, { recursive: true, force: true });
+    // A failed relates-to link only warns: the stub is filed and a re-run of the migration adds it (G21).
+    const linkWarnings = said.filter((l) => /could not link/i.test(l)).map((l) => `Warning: ${l.trim().replace(/^Warning:\s*/, "")}`);
     return {
         ok: true,
         numbers,
-        notes: code === 0 ? [] : [`Every stub was filed, but the batch filer reported part of its decoration incomplete: ${said.filter((l) => l.trim() !== "").slice(-2).join(" ")}`],
+        notes: [
+            ...(code === 0 ? [] : [`Every stub was filed, but the batch filer reported part of its decoration incomplete: ${said.filter((l) => l.trim() !== "").slice(-2).join(" ")}`]),
+            ...linkWarnings,
+        ],
     };
 }

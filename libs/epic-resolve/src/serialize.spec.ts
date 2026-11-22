@@ -235,3 +235,11 @@ describe("serializeEpic — determinism (AC2)", () => {
         expect(md).not.toMatch(/createdAt|updatedAt|run[-_]?id/i);
     });
 });
+
+describe("serializeEpic — a meta block carrying only the feature reference (decision record #1049, R2)", () => {
+    it("reads back as the blockless epic did, plus the feature issue number", () => {
+        const before = serializeEpic(input({ epic: { number: 7, title: "Hand filed", body: "# Epic: x" } }));
+        const after = serializeEpic(input({ epic: { number: 7, title: "Hand filed", body: "# Epic: x", rawFrontmatter: 'feature_issue: "#3"' } }));
+        expect(after).toBe(before.replace('link: "#7"', 'feature_issue: "#3"\nlink: "#7"'));
+    });
+});

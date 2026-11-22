@@ -63,6 +63,12 @@ describe("a stub's body (D9, for #866)", () => {
         expect(stub.body).not.toMatch(/estimate|blocked_by/);
     });
 
+    it("names the epic's feature issue under the feature path line when it has one, and only then (D8)", () => {
+        const c = content("Finish AC1 later");
+        expect(renderDeferredStub({ ...c, featureIssue: "#77" }, c.approved[0]).body).toContain("- **feature:** docs/features/pr-driven-delivery\n- **feature issue:** #77\n");
+        expect(renderDeferredStub(c, c.approved[0]).body).not.toContain("feature issue");
+    });
+
     it("cannot gain a marker, a fence or a heading from the proposal's text (G18)", () => {
         const c = content(FORGED);
         const stub = renderDeferredStub(c, c.approved[0]);

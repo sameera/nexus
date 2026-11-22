@@ -2760,3 +2760,57 @@ describe("nexus close — the back-references, the epic close, the marker and th
         expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 502" })).run).storyWaivers("/repo", ISSUES, 865).ok).toBe(false);
     });
 });
+
+describe("close names the feature issue on the stubs it files (epic #999, decision record #1049, D8)", () => {
+    const withFeature = (featureIssue: string | null) => ({
+        verdict: () => present(approvedVerdict("DS1")),
+        resolveEpic: () => ({
+            ok: true as const,
+            markdown: `---\nfeature: "Close"\nfeature_path: docs/features/close\n${featureIssue === null ? "" : `feature_issue: "${featureIssue}"\n`}link: "#${EPIC}"\n---\n`,
+            record: { number: RECORD, state: "closed" as const },
+            resolved: { number: EPIC, title: "Close becomes a deterministic subcommand", stories: [{ number: 864, title: "a", body: "" }], blockedBy: new Map(), issuesRepo: ISSUES },
+        }),
+    });
+    const optIn = (h: Harness, on: boolean): void => {
+        fs.mkdirSync(path.join(h.repoRoot, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(h.repoRoot, ".nexus", "config", "settings.yml"), `github:\n  classification: labels\n${on ? "  features-as-issues: true\n" : ""}`);
+    };
+    const tree = (root: string): string[] => {
+        const out: string[] = [];
+        const walk = (d: string): void => {
+            for (const e of fs.readdirSync(d, { withFileTypes: true })) (e.isDirectory() ? walk : (p: string) => out.push(p))(path.join(d, e.name));
+        };
+        if (fs.existsSync(root)) walk(root);
+        return out.sort();
+    };
+
+    it("names the epic's feature issue on each stub, keeps the feature path line, and writes nothing under the feature's path (G18, G19)", () => {
+        const h = harness(withFeature("#77"));
+        optIn(h, true);
+        closed(h);
+        const [stub] = h.filed[0];
+        expect(stub.featureIssue).toBe("#77");
+        expect(stub.body).toContain("- **feature:** docs/features/close\n- **feature issue:** #77\n");
+        for (const root of [h.repoRoot, h.wtPath]) expect(tree(path.join(root, "docs", "features"))).toEqual([]);
+    });
+
+    it("files the stubs as today in a repository that has not opted in (G20)", () => {
+        const on = harness(withFeature("#77"));
+        optIn(on, false);
+        closed(on);
+        const today = harness(withFeature(null));
+        optIn(today, false);
+        closed(today);
+        expect(on.filed[0][0].featureIssue).toBeUndefined();
+        expect(on.filed[0][0].body).toBe(today.filed[0][0].body);
+        expect(on.filed[0][0].body).not.toContain("feature issue");
+    });
+
+    it("files the stubs as today for an epic that names no feature issue (G20)", () => {
+        const h = harness(withFeature(null));
+        optIn(h, true);
+        closed(h);
+        expect(h.filed[0][0].featureIssue).toBeUndefined();
+        expect(h.filed[0][0].body).not.toContain("feature issue");
+    });
+});

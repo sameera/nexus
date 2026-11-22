@@ -13,3 +13,5 @@ Planning surfaces live on GitHub issues rather than committed files — the back
 - **Rename the Unplanned-Epic Label to needs-refinement** — [#466](https://github.com/sameera/nexus/issues/466)
 - **Planning Drafts Live in the Repository's Scratch Folder** — [#638](https://github.com/sameera/nexus/issues/638)
 - **A Feature Is a GitHub Issue That a New Epic Names** — [#998](https://github.com/sameera/nexus/issues/998)
+- **Existing Features and Epics Move onto Feature Issues** — [#999](https://github.com/sameera/nexus/issues/999)
+- **Planning Reads Features from a Query, and Filing Writes Nothing to the Tree** — [#1000](https://github.com/sameera/nexus/issues/1000)

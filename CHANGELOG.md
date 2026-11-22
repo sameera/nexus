@@ -5,7 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 1.1.0
+## 1.3.0
 
 - **`nexus implement --retroactive` builds an epic that has no decision record.** With the flag and
   no record sub-issue, the run builds instead of refusing. An open record still refuses with the same
@@ -27,6 +27,55 @@ behaviour says so.
   every gate as before.
 - **`/nxs.distill` keeps the attribution:** decision-log entries written from an as-built record say
   the retroactive run decided them, not the lead.
+
+## 1.2.0
+
+- **A re-run of `nexus implement` continues an interrupted run.** Run against an epic whose run
+  branch already exists, it continues on that branch instead of refusing, and its first line says
+  it is resuming. A branch that exists only on the remote is brought down; a local copy behind the
+  remote is brought up to date. It stops before any agent stage when the local and remote copies
+  have diverged, when the branch holds a merge commit or was not made on top of the base, or when
+  the commits already on it break the story commit check, naming the commit and the rule.
+- **A re-run builds only the stories without a commit.** The build stage gets the remaining
+  stories in blocked-by order, told which blockers are already committed. When every story is
+  committed it starts no build stage and says the test suite was not run. A commit that was on the
+  branch when the run started and is rewritten stops the run.
+- **A re-run continues the review rounds on the open pull request.** It reuses the branch's open
+  pull request, starts with a full analyze, and posts no answer for an item an earlier run already
+  answered.
+- **Each story commit reaches the remote as it is made.** While the build stage runs, each commit
+  that passes the story commit check is pushed, exactly as checked, and the first opens the draft
+  pull request. Its status section lists built and pending stories. A commit that fails the check
+  is never pushed: the stage is ended and the stop names the commit, the reason and any uncommitted
+  edits left in the working tree. A failed push or pull-request call is retried at the next commit
+  and once after the stage, then stops the run. When the open pull request cannot be read at the
+  start of the build stage, the run stops; an answer line posted during the stage stops it too.
+
+## 1.1.0
+
+- **Existing feature folders move onto feature issues.** `nexus feature-issue migrate` prints the
+  migration plan: the feature issue each folder under `docs/features/` already has, and the ones it
+  would file. Nothing changes on GitHub until it is run again with `--apply`, which files each missing
+  feature issue, open, titled with the feature's name and carrying its one-line capability statement.
+  A repeat, or a run after an interruption, files only what is still missing. A folder two feature
+  issues record, or one with no statement, is reported and gets no issue. The feature folders are
+  only read. It refuses in a repository that has not opted in to features as issues. A later
+  `epic` run for a migrated feature reuses its feature issue rather than reporting it unmigrated.
+- **The migration also names each existing epic and stub's feature issue.** `nexus feature-issue
+  migrate` places each epic and stub, open or closed, by the feature its own body records, and uses
+  a feature README's epic list only for one that records none. With `--apply` it adds the feature
+  issue number to the body, changing nothing else, and links the two as related. State, parent,
+  labels and type stay as they were. A conflict, an unplaced issue or a missing link is reported.
+  The rebuilt epic that `epic`, `analyze` and `close` read then names its feature issue.
+- **`close` names the feature issue on the stubs it files.** In a repository opted in to features
+  as issues, when the closed epic names a feature issue, every deferred-scope stub `close` files
+  carries a `feature issue` line in its Meta, beside the feature path, and is linked to the feature
+  issue as related. A failed link prints a warning and the close goes on, keeping every stub it
+  filed. Without the opt-in, or for an epic that names no feature issue, `close` files its stubs as
+  before.
+- **A retired feature keeps its open issue.** Mark a feature no longer in use with the
+  `retired-feature` label, or the label `retired-feature-label` declares. The migration still finds a
+  feature issue that carries it and never adds or removes it.
 
 ## 1.0.0
 
