@@ -100,6 +100,8 @@ export interface Commit {
     sha: string;
     /** The full commit message. */
     message: string;
+    /** Whether the commit has more than one parent. */
+    merge?: boolean;
 }
 
 export type VerdictRead =
@@ -115,13 +117,26 @@ export interface ImplementDeps {
     testCommandSetting(root: string): string;
     defaultBranch(cwd: string): string | null;
     clean(cwd: string): boolean;
-    branchExists(cwd: string, branch: string): boolean;
+    /** Fetch the remote base and, when the remote has it, the run branch; the remote run branch's tip, or null when it has none. */
+    fetch(cwd: string, branch: string, base: string): Outcome<string | null>;
+    /** The local run branch's tip, or null when no local branch exists. */
+    localTip(cwd: string, branch: string): string | null;
+    /** Whether commit `a` is `b` or an ancestor of it. */
+    isAncestor(cwd: string, a: string, b: string): boolean;
+    /** Point the local `branch` at `sha`: create it, or fast-forward it. */
+    setLocalBranch(cwd: string, branch: string, sha: string): Outcome<null>;
+    /** The newest commit the local `branch` shares with the remote `base`, or null when none. */
+    forkPoint(cwd: string, branch: string, base: string): string | null;
+    /** The base branch of pull request `pr`, or null when it cannot be read. */
+    prBase(cwd: string, pr: number): string | null;
+    /** Check out the existing local `branch`. */
+    switchBranch(cwd: string, branch: string): Outcome<null>;
     /** Create `branch` off `base` and check it out; the base commit it was cut from. */
     createBranch(cwd: string, branch: string, base: string): Outcome<string>;
     currentBranch(cwd: string): string | null;
     headSha(cwd: string): string | null;
-    /** The commits after `baseSha` up to HEAD, oldest first. */
-    commits(cwd: string, baseSha: string): Commit[] | null;
+    /** The commits after `baseSha` up to `tip` (HEAD when omitted), oldest first. */
+    commits(cwd: string, baseSha: string, tip?: string): Commit[] | null;
     push(cwd: string, branch: string): Outcome<null>;
     /** The `owner/repo` the pull request lives in. */
     prRepo(cwd: string): string | null;
@@ -466,7 +481,42 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (harness === "claude" && mode === "auto" && !deps.autoModeAvailable()) {
             fail("preflight", "auto permission mode is not available to this account. Pass --permission-mode <mode> to choose another mode.");
         }
-        // 1a. The HLD page (epic #971): every stop here comes before the branch exists, so a re-run is never refused for it (G13).
+        // 1a. The run branch (epic #991, D1, D2): every branch decision is made silently, so the resume line comes first.
+        const base = input.base ?? deps.defaultBranch(cwd);
+        if (base === null) return fail("preflight", "the repository's default branch could not be read. Pass --base <branch>.");
+        const branch = branchFor(epic);
+        const fetched = deps.fetch(cwd, branch, base);
+        if (!fetched.ok) return fail("preflight", `branch ${branch} and base ${base} could not be fetched from the remote: ${fetched.message}`);
+        const remoteTip = fetched.value;
+        const localTip = deps.localTip(cwd, branch);
+        let forkPoint: string | null = null;
+        if (localTip !== null || remoteTip !== null) {
+            const bringTo = (sha: string): void => {
+                const set = deps.setLocalBranch(cwd, branch, sha);
+                if (!set.ok) fail("preflight", `branch ${branch} could not be brought to the remote tip ${sha}: ${set.message}`);
+            };
+            if (localTip === null && remoteTip !== null) bringTo(remoteTip);
+            else if (localTip !== null && remoteTip !== null && localTip !== remoteTip) {
+                if (deps.isAncestor(cwd, localTip, remoteTip)) bringTo(remoteTip);
+                else if (!deps.isAncestor(cwd, remoteTip, localTip)) {
+                    fail("preflight", `branch ${branch} has diverged: the local copy is at ${localTip} and the remote copy at ${remoteTip}. Settling that would rewrite one side, so reconcile them by hand.`);
+                }
+            }
+            forkPoint = deps.forkPoint(cwd, branch, base);
+            if (forkPoint === null) return fail("preflight", `branch ${branch} has no commit in common with ${base} on the remote, so it was not made on top of the base branch.`);
+            const existing = deps.commits(cwd, forkPoint, branch);
+            if (existing === null) return fail("preflight", `the commits on ${branch} could not be read.`);
+            const merge = existing.find((c) => c.merge === true);
+            if (merge !== undefined) fail("preflight", `branch ${branch} holds merge commit ${merge.sha.slice(0, 12)} after it left ${base}; a run branch holds only commits made on top of the base branch.`);
+            const open = deps.openPr(cwd, branch);
+            if (!open.ok) return fail("preflight", `the open pull request for ${branch} could not be read: ${open.message}`);
+            if (open.value !== null) {
+                const prBaseName = deps.prBase(cwd, open.value);
+                if (prBaseName !== base) fail("preflight", `branch ${branch} has open PR #${open.value} targeting ${prBaseName ?? "an unreadable base"}, not ${base}.`);
+            }
+            say(`implement: resuming epic #${epic} on existing branch ${branch}.`);
+        }
+        // 1b. The HLD page (epic #971): every stop here comes before the branch exists, so a re-run is never refused for it (G13).
         let page: { url: string; text: string } | null = null;
         if (input.recordOnly) {
             say("implement: --record-only: the HLD page was skipped at the lead's request; building from the decision record alone.");
@@ -508,19 +558,22 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             const declared = deps.testCommandSetting(facts.root).trim();
             testCommand = declared === "" ? null : declared;
         }
-        const base = input.base ?? deps.defaultBranch(cwd);
-        if (base === null) return fail("preflight", "the repository's default branch could not be read. Pass --base <branch>.");
         if (!deps.clean(cwd)) fail("preflight", "the working tree has uncommitted changes. Commit or stash them first.");
-        const branch = branchFor(epic);
-        if (deps.branchExists(cwd, branch)) fail("preflight", `branch ${branch} already exists. Delete or rename it, or continue by hand with /nxs.analyze --pr.`);
         // The copy is gitignored, so writing it before the branch exists leaves the checkout clean and a failed write refuses nothing on re-run (G13).
         if (page !== null) {
             const wrote = deps.writeFile(cwd, pageCopyPath(epic), page.text);
             if (!wrote.ok) fail("preflight", `the HLD page copy could not be written to ${pageCopyPath(epic)}: ${wrote.message}`);
         }
-        const created = deps.createBranch(cwd, branch, base);
-        if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
-        const baseSha = created.value;
+        let baseSha: string;
+        if (forkPoint === null) {
+            const created = deps.createBranch(cwd, branch, base);
+            if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
+            baseSha = created.value;
+        } else {
+            const switched = deps.switchBranch(cwd, branch);
+            if (!switched.ok) return fail("preflight", `the checkout could not be switched to ${branch}: ${switched.message}`);
+            baseSha = forkPoint;
+        }
         say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
         const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
@@ -706,27 +759,54 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
             const r = run("git", ["status", "--porcelain"], { cwd });
             return r.status === 0 && r.stdout.trim() === "";
         },
-        branchExists: (cwd, branch) =>
-            run("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd }).status === 0 ||
-            run("git", ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`], { cwd }).status === 0,
+        fetch: (cwd, branch, base) => {
+            const b = run("git", ["fetch", "origin", `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd });
+            if (b.status !== 0) return err(b, "git fetch");
+            const ls = run("git", ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`], { cwd });
+            if (ls.status === 2) return ok(null);
+            if (ls.status !== 0) return err(ls, "git ls-remote");
+            const f = run("git", ["fetch", "origin", `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd });
+            if (f.status !== 0) return err(f, "git fetch");
+            const tip = git(run, cwd, "rev-parse", `refs/remotes/origin/${branch}`);
+            return tip === null ? { ok: false, message: `origin/${branch} could not be read after the fetch` } : ok(tip);
+        },
+        localTip: (cwd, branch) => {
+            const r = run("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd });
+            return r.status === 0 && r.stdout.trim() !== "" ? r.stdout.trim() : null;
+        },
+        isAncestor: (cwd, a, b) => run("git", ["merge-base", "--is-ancestor", a, b], { cwd }).status === 0,
+        setLocalBranch: (cwd, branch, sha) => {
+            const onIt = git(run, cwd, "rev-parse", "--abbrev-ref", "HEAD") === branch;
+            const r = onIt ? run("git", ["merge", "--ff-only", sha], { cwd }) : run("git", ["branch", "-f", branch, sha], { cwd });
+            return r.status === 0 ? ok(null) : err(r, "git");
+        },
+        forkPoint: (cwd, branch, base) => git(run, cwd, "merge-base", `refs/heads/${branch}`, `refs/remotes/origin/${base}`),
+        prBase: (cwd, pr) => {
+            const r = run("gh", ["pr", "view", String(pr), "--json", "baseRefName", "--jq", ".baseRefName"], { cwd });
+            return r.status === 0 && r.stdout.trim() !== "" ? r.stdout.trim() : null;
+        },
+        switchBranch: (cwd, branch) => {
+            const r = run("git", ["switch", branch], { cwd });
+            return r.status === 0 ? ok(null) : err(r, "git switch");
+        },
         createBranch: (cwd, branch, base) => {
-            const r = run("git", ["switch", "-c", branch, base], { cwd });
+            const r = run("git", ["switch", "-c", branch, `refs/remotes/origin/${base}`, "--no-track"], { cwd });
             if (r.status !== 0) return err(r, "git switch");
             const sha = git(run, cwd, "rev-parse", "HEAD");
             return sha === null ? { ok: false, message: "HEAD could not be read" } : ok(sha);
         },
         currentBranch: (cwd) => git(run, cwd, "rev-parse", "--abbrev-ref", "HEAD"),
         headSha: (cwd) => git(run, cwd, "rev-parse", "HEAD"),
-        commits: (cwd, baseSha) => {
-            const r = run("git", ["log", "--reverse", "--format=%H%x1f%B%x1e", `${baseSha}..HEAD`], { cwd });
+        commits: (cwd, baseSha, tip) => {
+            const r = run("git", ["log", "--reverse", "--format=%H%x1f%P%x1f%B%x1e", `${baseSha}..${tip ?? "HEAD"}`], { cwd });
             if (r.status !== 0) return null;
             return r.stdout
                 .split("\x1e")
                 .map((rec) => rec.replace(/^\s+/, ""))
                 .filter((rec) => rec !== "")
                 .map((rec) => {
-                    const [sha, message] = rec.split("\x1f");
-                    return { sha: sha.trim(), message: message ?? "" };
+                    const [sha, parents, message] = rec.split("\x1f");
+                    return { sha: sha.trim(), message: message ?? "", merge: (parents ?? "").trim().split(/\s+/).length > 1 };
                 });
         },
         push: (cwd, branch) => {

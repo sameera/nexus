@@ -78,7 +78,19 @@ const storyCommit = (n: number, sha: string = `sha${n}`): Commit => ({ sha, mess
 interface World {
     facts: Partial<EpicFacts>;
     clean: boolean;
-    branchExists: boolean;
+    /** The run branch's local tip, or null when no local branch exists. */
+    local: string | null;
+    /** The run branch's tip on the remote, or null when the remote has no such branch. */
+    remote: string | null;
+    /** Ancestry the fake git knows, as `<older><<newer>` pairs. */
+    ancestry: string[];
+    /** The newest commit the run branch shares with the remote base, or null when none. */
+    fork: string | null;
+    /** The base branch of the branch's open pull request. */
+    prBase: string;
+    fetchFails: boolean;
+    /** The branch the lead's checkout is on when the run starts. */
+    checkout: string;
     auto: boolean;
     commits: Commit[];
     openPr: number | null;
@@ -108,7 +120,13 @@ function world(over: Partial<World> = {}): World {
     return {
         facts: {},
         clean: true,
-        branchExists: false,
+        local: null,
+        remote: null,
+        ancestry: [],
+        fork: "fork",
+        prBase: "main",
+        fetchFails: false,
+        checkout: "main",
         auto: true,
         commits: [storyCommit(1), storyCommit(2)],
         openPr: null,
@@ -138,6 +156,7 @@ function harness(w: World) {
     let head = 0;
     let analyzeRuns = 0;
     let lastPublished: { head: string; judgments: Judgments } | null = null;
+    let checkout = w.checkout;
     const deps: ImplementDeps = {
         resolveEpic: () => ({
             ok: true,
@@ -146,12 +165,29 @@ function harness(w: World) {
         testCommandSetting: () => w.setting,
         defaultBranch: () => "main",
         clean: () => w.clean,
-        branchExists: () => w.branchExists,
+        fetch: (_c, branch, base) => {
+            log.push(`fetch ${branch} ${base}`);
+            return w.fetchFails ? { ok: false, message: "could not resolve host" } : { ok: true, value: w.remote };
+        },
+        localTip: () => w.local,
+        isAncestor: (_c, a, b) => a === b || w.ancestry.includes(`${a}<${b}`),
+        setLocalBranch: (_c, branch, sha) => {
+            log.push(`set ${branch} ${sha}`);
+            return { ok: true, value: null };
+        },
+        forkPoint: () => w.fork,
+        prBase: () => w.prBase,
+        switchBranch: (_c, branch) => {
+            log.push(`switch ${branch}`);
+            checkout = branch;
+            return { ok: true, value: null };
+        },
         createBranch: (_c, branch, base) => {
             log.push(`branch ${branch} ${base}`);
+            checkout = branch;
             return { ok: true, value: "base" };
         },
-        currentBranch: () => "nxs/epic-7",
+        currentBranch: () => checkout,
         headSha: () => `head${head}`,
         commits: () => w.commits,
         push: (_c, branch) => {
@@ -208,6 +244,7 @@ function harness(w: World) {
         session: async (spec): Promise<SessionEnd> => {
             const index = sessions.length;
             sessions.push(spec);
+            log.push(`session ${index}`);
             answers = [...answers, ...(w.answersDuring[index] ?? [])];
             const prompt = spec.args.find((a) => a.includes("nxs.analyze --pr") || a.includes("$nxs-analyze --pr")) ?? "";
             if (prompt.startsWith("/nxs.analyze --pr") || prompt.startsWith("$nxs-analyze --pr")) {
@@ -251,7 +288,7 @@ describe("starting a run (G1, G3, G23)", () => {
         ["an unapproved record", { facts: { record: { number: 9, state: "open" } } }, /record #9 .* not approved/],
         ["an epic that needs design and has no record", { facts: { record: null, needsDesign: true } }, /needs design and has no decision record/],
         ["a dirty working tree", { clean: false }, /uncommitted changes/],
-        ["a branch that already exists", { branchExists: true }, /nxs\/epic-7 already exists/],
+        ["a fetch that fails, even on a fresh run", { fetchFails: true }, /could not be fetched/],
         ["auto mode unavailable", { auto: false }, /--permission-mode/],
     ])("refuses before any model runs on %s", async (_name, w, reason) => {
         const r = await run(world(w));
@@ -729,5 +766,84 @@ describe("distribution (G22)", () => {
     it("leaves neither implement-epic script in the repository", () => {
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/implement-epic.sh"))).toBe(false);
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/codex/implement-epic.sh"))).toBe(false);
+    });
+});
+
+describe("a re-run continues on the epic's existing run branch (epic #991, story #992: G1-G6, G23)", () => {
+    const resumed = (over: Partial<World> = {}): World => world({ local: "tip", ...over });
+
+    it("continues on a run branch made on top of the base instead of refusing", async () => {
+        const r = await run(resumed());
+        expect(r.code).toBe(0);
+        expect(r.err).not.toMatch(/already exists/);
+        expect(r.log).toContain("switch nxs/epic-7");
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+    });
+
+    it("switches the checkout to the run branch before any agent stage, whatever branch it was on", async () => {
+        const r = await run(resumed({ checkout: "some/other" }));
+        expect(r.log.indexOf("switch nxs/epic-7")).toBeGreaterThan(-1);
+        expect(r.log.indexOf("switch nxs/epic-7")).toBeLessThan(r.log.indexOf("session 0"));
+    });
+
+    it.each<[string, Partial<World>, RegExp]>([
+        ["no commit in common with the base", { fork: null }, /nxs\/epic-7 .*no commit in common/],
+        ["a merge commit after it left the base", { commits: [storyCommit(1), { sha: "m", message: "Merge main", merge: true }] }, /nxs\/epic-7 .*merge commit/],
+        ["an open pull request on another base", { openPr: 5, prBase: "develop" }, /nxs\/epic-7 .*develop/],
+    ])("stops before any agent stage on a run branch with %s, naming the branch and the reason", async (_name, over, reason) => {
+        const r = await run(resumed(over));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(reason);
+        expect(r.sessions).toHaveLength(0);
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+    });
+
+    it("says it is resuming, naming the branch, as its first output line", async () => {
+        const r = await run(resumed({ comments: [comment(hldBody(), "2026-11-04T00:00:00Z")] }));
+        expect(r.err.split("\n")[0]).toMatch(/resuming.*nxs\/epic-7/);
+        expect(r.err.split("\n").filter((l) => /resuming/.test(l))).toHaveLength(1);
+    });
+
+    it("prints no resume line on a fresh run", async () => {
+        const r = await run(world());
+        expect(r.err).not.toMatch(/resuming/);
+    });
+
+    it("continues from the remote tip in a clone where the branch exists only on the remote", async () => {
+        const r = await run(world({ remote: "rtip" }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("set nxs/epic-7 rtip");
+        expect(r.log).toContain("switch nxs/epic-7");
+        expect(r.err.split("\n")[0]).toMatch(/resuming.*nxs\/epic-7/);
+    });
+
+    it("brings a local copy that is behind the remote up to date", async () => {
+        const r = await run(resumed({ remote: "rtip", ancestry: ["tip<rtip"] }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("set nxs/epic-7 rtip");
+    });
+
+    it("keeps a local copy that is ahead of the remote", async () => {
+        const r = await run(resumed({ remote: "rtip", ancestry: ["rtip<tip"] }));
+        expect(r.code).toBe(0);
+        expect(r.log.some((l) => l.startsWith("set "))).toBe(false);
+    });
+
+    it("stops on diverged local and remote copies, naming both tips and pushing nothing", async () => {
+        const r = await run(resumed({ remote: "rtip" }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/tip/);
+        expect(r.err).toMatch(/rtip/);
+        expect(r.sessions).toHaveLength(0);
+        expect(r.log.filter((l) => l.startsWith("push") || l.startsWith("set "))).toHaveLength(0);
+    });
+
+    it("still refuses a dirty working tree on a re-run", async () => {
+        const r = await run(resumed({ clean: false }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/uncommitted changes/);
+        expect(r.sessions).toHaveLength(0);
     });
 });
