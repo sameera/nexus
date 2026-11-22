@@ -10,6 +10,9 @@
  * the shared kind rule, the same reading every stage makes, rather than trusting its caller.
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type GhRunner, type RunResult } from "./gh.js";
 import { type KindClassification, isDeclaredFeature, readKindMarkers } from "./issue-kind.js";
 
@@ -117,4 +120,38 @@ export function missingFromFeature(run: GhRunner, feature: IssueAt, issues: Issu
     const read: IssueRead | null = readIssue(run, feature);
     if (read === null) return null;
     return issues.map(key).filter((k) => !read.related.has(k));
+}
+
+export type ReferenceWrite = { outcome: "written" } | { outcome: "stale" } | { outcome: "failed"; reason: string };
+
+function readBody(run: GhRunner, at: IssueAt): string | null {
+    const result: RunResult = run(["api", `repos/${at.owner}/${at.name}/issues/${at.number}`]);
+    if (result.status !== 0) return null;
+    try {
+        return ((JSON.parse(result.stdout) as { body?: string | null }).body ?? "").replace(/\r\n/g, "\n");
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Name the feature issue on an existing epic or stub (decision record #1049, D5): replace its body
+ * with `next` only while it still reads `expected`, edit nothing but the body, and confirm by reading
+ * it back. The migration writes every body through here and links through {@link linkToFeature}, so
+ * both of its writes go through this one shared step (G3).
+ */
+export function writeFeatureReference(run: GhRunner, issue: IssueAt, expected: string, next: string): ReferenceWrite {
+    const current: string | null = readBody(run, issue);
+    if (current === null) return { outcome: "failed", reason: `${key(issue)} could not be read` };
+    if (current !== expected) return { outcome: "stale" };
+    const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), "nexus-feature-ref-"));
+    try {
+        const file: string = path.join(dir, "body.md");
+        fs.writeFileSync(file, next);
+        const result: RunResult = run(["issue", "edit", issue.number, "--repo", `${issue.owner}/${issue.name}`, "--body-file", file]);
+        if (result.status !== 0) return { outcome: "failed", reason: result.stderr.trim() || `gh exited ${result.status}` };
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+    return readBody(run, issue) === next ? { outcome: "written" } : { outcome: "failed", reason: `${key(issue)} did not read back as written` };
 }

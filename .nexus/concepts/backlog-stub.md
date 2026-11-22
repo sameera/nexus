@@ -1,8 +1,8 @@
 ---
 title: "Epic Stub"
 aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing", "deferral stub", "deferral floor", "deferred line"]
-touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane", "addition-gate", "initiative", "stub-promotion", "filing-preflight"]
-last_updated_by: "#705"
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane", "addition-gate", "initiative", "stub-promotion", "filing-preflight", "feature-issue-migration"]
+last_updated_by: "#999"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ Three writers create stubs: the epic stage when scope exceeds one epic, the appr
 - [initiative](initiative.md) — the one parent a stub may have, filed when the lead accepts that a decomposition's stubs serve one objective.
 - [stub-promotion](stub-promotion.md) — plans a stub in place on the issue it was filed under, split from this page.
 - [filing-preflight](filing-preflight.md) — refuses a batch in which a stub names any parent other than an initiative.
+- [feature-issue-migration](feature-issue-migration.md) — each existing stub, and each stub close files, names its epic's feature issue in its Meta section.
 
 ## Decision Log
 
@@ -76,3 +77,7 @@ The planning gate inverted its default, so a plain approval files the smallest u
 ### 2026-10-10 — #705 — A stub may be a sub-issue of an initiative, and promotion moves to its own page
 
 The rule that a stub is never a sub-issue existed to prevent one deadlock. A stub inside an epic's own children blocks that epic's close. An initiative sits above the epic, and closing an epic never reads its parent, so a stub under an initiative cannot cause that deadlock. The rule therefore narrows to one exception, and every other parent is still refused by default: an epic, a story, a record, an unmarked issue, or a number that does not resolve. The filer checks the parent's declared kind itself instead of trusting each writer. The approved rewording pushed this page past the word cap, so the page was split. Promotion moved to stub-promotion: how planning fills in the same issue, the not-planned close of a stub too large for one epic, and the two invariants that state both. This page keeps what a stub is, who files it, and where it may sit. Refuted alternative: let the writing stage declare the parent's kind with a flag, and trust the flag. It needs no read from GitHub. It lost because the refusal exists so that writers are not trusted to get parentage right, and a flag brings that trust back.
+
+### 2026-11-22 — #999 — Stubs name their feature issue
+
+Every existing stub now names its feature issue in its Meta section, and close names the closed epic's feature issue on every stub it files and links the stub to it as related. Without the close change, stubs filed after the migration would not name their feature, and a query for a feature's open stubs would miss them. A failed link warns and never fails the close.

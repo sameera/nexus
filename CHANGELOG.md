@@ -28,6 +28,32 @@ behaviour says so.
   and once after the stage, then stops the run. When the open pull request cannot be read at the
   start of the build stage, the run stops; an answer line posted during the stage stops it too.
 
+## 1.1.0
+
+- **Existing feature folders move onto feature issues.** `nexus feature-issue migrate` prints the
+  migration plan: the feature issue each folder under `docs/features/` already has, and the ones it
+  would file. Nothing changes on GitHub until it is run again with `--apply`, which files each missing
+  feature issue, open, titled with the feature's name and carrying its one-line capability statement.
+  A repeat, or a run after an interruption, files only what is still missing. A folder two feature
+  issues record, or one with no statement, is reported and gets no issue. The feature folders are
+  only read. It refuses in a repository that has not opted in to features as issues. A later
+  `epic` run for a migrated feature reuses its feature issue rather than reporting it unmigrated.
+- **The migration also names each existing epic and stub's feature issue.** `nexus feature-issue
+  migrate` places each epic and stub, open or closed, by the feature its own body records, and uses
+  a feature README's epic list only for one that records none. With `--apply` it adds the feature
+  issue number to the body, changing nothing else, and links the two as related. State, parent,
+  labels and type stay as they were. A conflict, an unplaced issue or a missing link is reported.
+  The rebuilt epic that `epic`, `analyze` and `close` read then names its feature issue.
+- **`close` names the feature issue on the stubs it files.** In a repository opted in to features
+  as issues, when the closed epic names a feature issue, every deferred-scope stub `close` files
+  carries a `feature issue` line in its Meta, beside the feature path, and is linked to the feature
+  issue as related. A failed link prints a warning and the close goes on, keeping every stub it
+  filed. Without the opt-in, or for an epic that names no feature issue, `close` files its stubs as
+  before.
+- **A retired feature keeps its open issue.** Mark a feature no longer in use with the
+  `retired-feature` label, or the label `retired-feature-label` declares. The migration still finds a
+  feature issue that carries it and never adds or removes it.
+
 ## 1.0.0
 
 - **Nexus is 1.0.** From this release the version follows semantic versioning against how the

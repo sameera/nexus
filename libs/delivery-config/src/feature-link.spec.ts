@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { type GhRunner, type RunResult } from "./gh.js";
-import { checkFeatureIssue, linkToFeature, missingFromFeature, parseIssueAt } from "./feature-link.js";
+import { checkFeatureIssue, linkToFeature, missingFromFeature, parseIssueAt, writeFeatureReference } from "./feature-link.js";
 
 const HOME = { owner: "acme", name: "tracker" };
 
@@ -141,5 +141,42 @@ describe("missingFromFeature — the read-back (D9, G18)", () => {
     it("answers null when the feature cannot be read, so a caller cannot read that as complete", () => {
         const { run } = graph({});
         expect(missingFromFeature(run, { ...HOME, number: "5" }, [{ ...HOME, number: "9" }])).toBeNull();
+    });
+});
+
+describe("writeFeatureReference — the shared step that names a feature issue on an existing body (decision record #1049, D5, G3)", () => {
+    function bodies(initial: string, opts: { mangle?: boolean; failEdit?: boolean } = {}): { run: GhRunner; calls: string[][]; body: () => string } {
+        let body = initial;
+        const calls: string[][] = [];
+        const run: GhRunner = (args): RunResult => {
+            calls.push(args);
+            if (args[0] === "issue" && args[1] === "edit") {
+                if (opts.failEdit) return { status: 1, stdout: "", stderr: "HTTP 502" };
+                body = `${fs.readFileSync(args[args.indexOf("--body-file") + 1], "utf8")}${opts.mangle ? "\nx" : ""}`;
+                return { status: 0, stdout: "", stderr: "" };
+            }
+            if (args[0] === "api") return { status: 0, stdout: JSON.stringify({ body }), stderr: "" };
+            return { status: 1, stdout: "", stderr: "unexpected" };
+        };
+        return { run, calls, body: () => body };
+    }
+
+    it("writes the body, edits only the body, and confirms it by reading it back", () => {
+        const gh = bodies("old");
+        expect(writeFeatureReference(gh.run, { ...HOME, number: "10" }, "old", "old+ref")).toEqual({ outcome: "written" });
+        expect(gh.body()).toBe("old+ref");
+        const edit = gh.calls.find((c) => c[1] === "edit") as string[];
+        expect(edit.filter((a) => a.startsWith("--") && a !== "--repo" && a !== "--body-file")).toEqual([]);
+    });
+
+    it("refuses when the body changed since it was read, writing nothing", () => {
+        const gh = bodies("changed by someone");
+        expect(writeFeatureReference(gh.run, { ...HOME, number: "10" }, "old", "old+ref").outcome).toBe("stale");
+        expect(gh.calls.some((c) => c[1] === "edit")).toBe(false);
+    });
+
+    it("reports a body that does not read back as written, or an edit that failed", () => {
+        expect(writeFeatureReference(bodies("old", { mangle: true }).run, { ...HOME, number: "10" }, "old", "old+ref").outcome).toBe("failed");
+        expect(writeFeatureReference(bodies("old", { failEdit: true }).run, { ...HOME, number: "10" }, "old", "old+ref").outcome).toBe("failed");
     });
 });
