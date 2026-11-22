@@ -36,7 +36,7 @@ export const FEATURE_ISSUE_USAGE: string = [
     "      Find the feature issue for one feature path: the run's ledger on a repeat, then the",
     "      issue a promoted stub names, then the epic repository's feature-marked issues matched",
     "      on the path they record. Prints { outcome, line, ... }: outcome is off, no-marker,",
-    "      reuse, file-new or unmigrated, and line is the sentence the digest shows. When a feature",
+    "      reuse or file-new, and line is the sentence the digest shows. When a feature",
     "      issue is used it also prints classification, label and type, the marker to file under.",
     "      Not opted in, it reads nothing from GitHub. ambiguous, not-a-feature or an unreadable",
     "      listing exits 1, naming why; nothing may be filed then.",
@@ -114,7 +114,6 @@ function runLookup(flags: Map<string, string>, io: FeatureIssueIo, run: Runner):
     const lookup: FeatureLookup = lookupFeature({
         setting,
         featurePath,
-        hasReadme: fs.existsSync(path.resolve(root, featurePath, "README.md")),
         ledgerNumber: ledger === undefined ? null : readLedgerNumber(path.resolve(io.cwd, ledger), featurePath),
         namedNumber: named === undefined ? null : Number(named.replace(/^#/, "")),
         readIssue: (n) => gh.read(n),

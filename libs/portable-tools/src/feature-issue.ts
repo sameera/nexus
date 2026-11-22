@@ -76,10 +76,8 @@ export type FeatureLookup =
     | { outcome: "off" }
     | { outcome: "no-marker"; message: string }
     | { outcome: "reuse"; issue: number; state: "open" | "closed"; source: "ledger" | "named" | "listing" }
-    /** No issue and no README: this run files a new feature issue. */
+    /** No issue records the path: this run files a new feature issue, README or not (#1061 D7). */
     | { outcome: "file-new" }
-    /** No issue but a README: an existing feature this epic does not migrate (#999 does). */
-    | { outcome: "unmigrated" }
     | { outcome: "ambiguous"; issues: number[] }
     /** The issue the stub or ledger names does not read as a feature. */
     | { outcome: "not-a-feature"; issue: number };
@@ -87,7 +85,6 @@ export type FeatureLookup =
 export interface LookupInput {
     setting: FeatureSetting;
     featurePath: string;
-    hasReadme: boolean;
     /** The number the run's own feature ledger holds for this path, on a repeat. */
     ledgerNumber: number | null;
     /** The number a promoted stub names as its feature issue. */
@@ -125,7 +122,7 @@ export function lookupFeature(input: LookupInput): FeatureLookup {
     );
     if (matches.length > 1) return { outcome: "ambiguous", issues: matches.map((m) => m.number).sort((a, b) => a - b) };
     if (matches.length === 1) return { outcome: "reuse", issue: matches[0].number, state: matches[0].state, source: "listing" };
-    return input.hasReadme ? { outcome: "unmigrated" } : { outcome: "file-new" };
+    return { outcome: "file-new" };
 }
 
 /** The sentence the digest and the stubs consent text show for a lookup's outcome. */
@@ -139,8 +136,6 @@ export function describeLookup(lookup: FeatureLookup, featurePath: string): stri
             return `Feature issue: #${lookup.issue} (${lookup.state}) is used for ${featurePath}; no new feature issue is filed.`;
         case "file-new":
             return `Feature issue: a new feature issue will be filed for ${featurePath}.`;
-        case "unmigrated":
-            return `Feature issue: none is filed for ${featurePath}, which already has a README and no feature issue; that belongs to #999.`;
         case "ambiguous":
             return `Feature issue: ${lookup.issues.map((n) => `#${n}`).join(" and ")} both record ${featurePath}; nothing is filed.`;
         case "not-a-feature":

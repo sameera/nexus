@@ -102,9 +102,9 @@ describe("nexus feature-issue lookup", () => {
         expect(parsed.outcome).toBe("file-new");
     });
 
-    it("files none for an existing feature with a README and no issue (G12)", async () => {
+    it("files a new feature issue whether or not a README exists at the path (#1061 D7, retiring #998 G12)", async () => {
         const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN, true), fakeGh([]).run)).out);
-        expect(parsed.outcome).toBe("unmigrated");
+        expect(parsed.outcome).toBe("file-new");
     });
 
     it("reuses the issue its ledger recorded on a repeat (story #1007)", async () => {

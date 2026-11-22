@@ -258,7 +258,6 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
         const lookup: FeatureLookup = lookupFeature({
             setting,
             featurePath: folder.path,
-            hasReadme: false,
             ledgerNumber: readLedgerNumber(ledger, folder.path),
             namedNumber: null,
             readIssue: (n) => byNumber.get(n) ?? null,

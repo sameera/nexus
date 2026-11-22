@@ -5,6 +5,23 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.4.0
+
+- **Before you upgrade an opted-in repository, run `nexus feature-issue migrate --apply` until it
+  exits 0.** From this release, planning in a repository with features as issues stops reading the
+  docs tree. A feature folder the migration never filed drops out of feature matching and out of the
+  advisory agents' surveys. No command checks this for you.
+- **`nexus feature-issue` lists features.** `features` lists every feature issue, open or closed,
+  that records its feature, marking retired ones. `epics --feature <N>` and `stubs --feature <N>`
+  list a feature's planned epics and its open stubs, found by the feature issue each body names.
+  Without features as issues, each says it is off and reads nothing from GitHub.
+- **`/nxs.epic`, `nxs-pm` and `nxs-architect` find features through that listing** in an opted-in
+  repository, and read no feature README and no features index. `/nxs.epic` offers every listed
+  feature, open or closed, names a retired one as retired, and reuses a confirmed feature's issue.
+  Without features as issues they read the tree as before.
+- **A feature path with no feature issue now gets one filed, README or not.** The lookup's
+  `unmigrated` outcome is gone.
+
 ## 1.3.0
 
 - **`nexus implement --retroactive` builds an epic that has no decision record.** With the flag and

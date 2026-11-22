@@ -194,10 +194,20 @@ gh issue close <n> $REPO_ARG --reason "not planned"
 
 The container must exist before writing: the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter. That frontmatter is carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
+**List the features first.** Ask the listing command once, before any step below. It applies the opt-in itself; never decide it here:
+
+```bash
+nexus feature-issue features
+```
+
+- On `"off"`, features are recorded in the docs tree: run the steps below exactly as before, reading the feature folders and `<docs-root>/features/README.md` as today.
+- On any other answer, the repository records features as issues. Its `features` list is every feature, open or closed, each with `number`, `name`, `state`, `featurePath`, `statement` and `retired`. **Read no feature README and no features index in this run.** Match features only against that list. A non-zero exit stops the run with nothing filed: report its stderr line.
+
 1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. Create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
 2. **Discovery mode** → already resolved: the `feature_path` recorded in the discovery doc, confirmed once when the discovery was started. Create the directory if it does not exist. A per-stub override is offered in Phase 2b; nothing is re-confirmed here.
-3. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
+3. **Intent already inside a feature** → when the listing answered `"off"`, if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
 4. **Otherwise infer and confirm once**:
+    - When the listing did not answer `"off"`, first match the intent against every listed feature, open or closed. Offer the best match in the one confirmation below, by its name and `#<number>`. Name a feature whose `retired` is true as retired, and never put a retired feature forward as the default. When the lead confirms a **listed feature**, use its `featurePath` as `<feature-path>`, take its name and `statement` from the listing, and pass its number to the lookup below as `--named "<N>"`: that issue is the feature issue, and no second one is filed. When nothing matches, or the lead names a new feature, continue with the bullets below.
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
     - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `README.md` from.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ One prompt, cheap. Accept the user's correction if any.
@@ -222,16 +232,16 @@ Look up the feature issue once for each distinct feature path the run files unde
 ```bash
 nexus feature-issue lookup --feature-path "<feature-path>" \
     --ledger "${RUN_DIR}/feature/.nxs-created.json" \
-    [--named "<N>"]     # promotion mode, when the stub's Meta names a feature issue
+    [--named "<N>"]     # promotion mode, when the stub's Meta names a feature issue,
+                        # or the listed feature the lead confirmed in Phase 1
 ```
 
 It prints `{ outcome, line, ... }`. Keep `line` for the digest and the stubs consent text, and act on `outcome`:
 
 - **`off`**: the repository has not opted in. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
 - **`no-marker`**: opted in, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
-- **`file-new`**: no feature issue and no feature README. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
+- **`file-new`**: no feature issue records this feature path, whether or not a README exists there. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
 - **`reuse`**: `issue` is the feature issue to use, open or closed as `state` says. File no feature issue.
-- **`unmigrated`**: the feature has a README and no feature issue. File none, and name none on the epic or the stubs.
 
 A non-zero exit (`ambiguous`, `not-a-feature`, or a listing GitHub did not answer) stops the run: report the stderr line and **file nothing**. Never file a feature issue by hand to get past it.
 
@@ -256,7 +266,7 @@ The work item has no parent and no labels, so the issue carries only the feature
 - Each stub work item, including the deferral stub and the successors of a split stub, carries `feature_issue: "#<FEATURE_ISSUE>"` in its frontmatter and a `- **feature issue:** #<FEATURE_ISSUE>` line under `- **feature:**` in its Meta.
 - A promoted stub's epic names the feature issue its stub named.
 
-On `off`, `no-marker` and `unmigrated` there is no `FEATURE_ISSUE`: write neither the key nor the line. Never make the feature issue a `parent:`. The link is a relates-to link, and the filer adds it itself, after the issue is recorded, once it has checked that `FEATURE_ISSUE` reads as a feature; a batch naming any other issue is refused with nothing created. A link that fails only warns, so the run checks the links after filing.
+On `off` and `no-marker` there is no `FEATURE_ISSUE`: write neither the key nor the line. Never make the feature issue a `parent:`. The link is a relates-to link, and the filer adds it itself, after the issue is recorded, once it has checked that `FEATURE_ISSUE` reads as a feature; a batch naming any other issue is refused with nothing created. A link that fails only warns, so the run checks the links after filing.
 
 **Read-back.** After the filing that names `FEATURE_ISSUE` reports `✅ Complete` (Phase 2b step 4, or Phase 6 steps 1, 4 and 8 together), confirm the feature issue lists every epic and stub of this run:
 
