@@ -1,6 +1,6 @@
 ---
 concept: publishing-config-resolution
-source_sha: 245684fa5a94b92fb1ce9bc676b7c653d816a04e
+source_sha: dac740d31bc3a295968a25899358d74b79797d89
 generated: 2026-11-22
 ---
 
@@ -34,3 +34,4 @@ generated: 2026-11-22
 - `libs/delivery-config/src/story-filer/configure.spec.ts` — the write-back case written fresh because no carried-across test covered it: a first run seeds and reports, a second reads and probes nothing.
 - `libs/delivery-config/src/keys.ts` — the key catalogue, including the initiative label with its built-in, the initiative issue type with none, and the test command marked repository-specific.
 - `libs/delivery-config/src/issue-kind.ts` — the kind rule's consumer side: every marker it matches is resolved through this resolver, never parsed from settings.
+- `libs/delivery-config/src/harness-models.ts` — resolves each harness's models through the repository and hub layers, naming the layer each came from

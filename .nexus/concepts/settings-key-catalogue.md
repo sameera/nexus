@@ -1,15 +1,15 @@
 ---
 title: "Settings Key Catalogue"
 aliases: ["key catalogue", "github-block key catalogue", "the key map", "one declaration per key", "derived inverse", "catalogue membership"]
-touches: ["publishing-config-resolution", "config-write-back", "issue-asset-store", "hub-settings-layer"]
-last_updated_by: "#1001"
+touches: ["publishing-config-resolution", "config-write-back", "issue-asset-store", "hub-settings-layer", "harness-model-selection"]
+last_updated_by: "#1041"
 status: active
 verification: verified
 ---
 
 # Settings Key Catalogue
 
-One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to. Every derivation reads that one table, so adding a key there makes it readable from settings, layerable from the hub, resolvable by name and writable by the settings writer, with no second edit inside the resolver.
+One table declares every settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to. Every derivation reads that one table, so adding a key there makes it readable from settings, layerable from the hub, resolvable by name and writable by the settings writer, with no second edit inside the resolver.
 
 ## How It Works
 
@@ -36,6 +36,8 @@ Keys carrying a built-in the general precedence path does not know about are row
 - [config-write-back](config-write-back.md) — its two producers write through this catalogue's derived inverse, so a key they can resolve is a key they can seed.
 - [issue-asset-store](issue-asset-store.md) — two rows added here: the store, declared with no built-in, and its per-file size cap, which carries one.
 - [hub-settings-layer](hub-settings-layer.md) — drops every row marked repository-specific, so the test command never crosses from the hub.
+- [harness-model-selection](harness-model-selection.md) — the four model keys, the first rows that live in a section other than the publishing block.
+
 ## Decision Log
 
 ### 2026-08-28 — #351 — One catalogue is the schema, split out from the resolution chain
@@ -49,3 +51,7 @@ The asset store declares an interaction with this concept, so the edge is mirror
 ### 2026-11-07 — #1001 — A row can be marked repository-specific
 
 A member now takes publishing keys from the hub's own settings, and the test command must never cross, because it describes one code repository. The test command's row now carries a repository-specific mark, and the hub layer drops every marked row. The catalogue stays the single place a key's properties are declared. **Refuted alternative:** hard-code the test command's exclusion inside the hub layer. It works for one key, but it puts a second statement of a key's properties outside this table.
+
+### 2026-11-22 — #1041 — Let a row name the settings section it lives in
+
+The four harness model keys live in a section named for each harness, not in the publishing block, so the summary no longer says every key is a publishing key. A row now records its section, so the same one table still drives reading, layering, lookup and writing, and no second list of model keys exists. A declared empty model value is kept rather than dropped, so the implement command can refuse it and name its layer. Refuted alternative: a separate model-key table beside this one. It would keep publishing rows untouched. It lost because the hub layer, the name lookup and the writer would each need a second derivation, the drift this table exists to prevent.

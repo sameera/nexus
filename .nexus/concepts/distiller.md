@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract", "drain-invocation", "reading-list", "entry-admission"]
-last_updated_by: "#896"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract", "drain-invocation", "reading-list", "entry-admission", "retroactive-implementation"]
+last_updated_by: "#1041"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The distiller drains queue entries into the concept store. It draws what changed
 
 ## How It Works
 
-Which entries it admits follows the entry-admission concept. It recomputes each entry's diff from the range stamped at close and from no other source, determines the reason using precedence rules, and maps both to per-concept deltas. The reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when that page's own content overflows. It writes the store only when each entry's merge is applied. Every page it creates or updates, along with the pull-request body, are translated and verified before the validator reads them. The distiller is the only stage given grounding sources: the epic and the decision record. A page's wording can therefore be borrowed from them rather than left abstract.
+Which entries it admits follows the entry-admission concept. It recomputes each entry's diff from the range stamped at close and from no other source, determines the reason using precedence rules, and maps both to per-concept deltas. The reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when that page's own content overflows. It writes the store only when each entry's merge is applied. Every page it creates or updates, along with the pull-request body, are translated and verified before the validator reads them. The distiller is the only stage given grounding sources: the epic and the decision record. A page's wording can therefore be borrowed from them rather than left abstract. A record that opens with the as-built statement has each entry it yields say that the retroactive run, not the lead, decided it.
 
 ## Key Invariants
 
@@ -58,6 +58,7 @@ Which entries it admits follows the entry-admission concept. It recomputes each 
 - [drain-invocation](drain-invocation.md) — who starts a drain and what approves its pull request, split from this page.
 - [reading-list](reading-list.md) — names pages for planning and the gate to read; never a drain input.
 - [entry-admission](entry-admission.md) — which entries a drain takes; split from this page.
+- [retroactive-implementation](retroactive-implementation.md) — files the as-built records whose reasons the drain attributes to the run, not the lead.
 
 ## Decision Log
 
@@ -192,3 +193,7 @@ The drain gained an unattended run, which the close-and-distill command starts r
 ### 2026-10-09 — #896 — The reading list is never a drain input, and entry admission moves to its own page
 
 An epic now carries a reading list of concept pages, so the old statement that no structured concept list exists no longer held. The distiller still infers its own mapping from the diff and the records, because a list made before the code exists guesses concept boundaries. Refuted alternative: drain the pages the list names, which would write pages the code never changed. The rewrite pushed the page's own content past the cap. The rules for which entries a drain admits are independent of how it maps a diff, so they moved to the entry-admission page, with no change to the rules.
+
+### 2026-11-22 — #1041 — Attribute an as-built record's reasons to the run
+
+A retroactive implement run writes and approves its own record. Decision-log entries cite only the epic, so without attribution a reason the run decided would read in the store as the lead's decision. The drain recognises an as-built record by the statement at the opening of its body and says in each entry it writes that the run decided it. Refuted alternative: mark an as-built record with a label and read the label. A label is easier for a machine to read. It lost because a label sits outside the hashed body, so it can change without changing the digest close stamps.
