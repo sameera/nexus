@@ -1,8 +1,8 @@
 ---
 title: "Issue Kind Classification"
 aliases: ["issue kind", "what an issue is filed as", "epic or story", "classification mode mismatch", "declared marker over graph shape"]
-touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight", "epic-kind-refusal"]
-last_updated_by: "#998"
+touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight", "epic-kind-refusal", "feature-issue-migration"]
+last_updated_by: "#999"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ Which kinds each stage refuses as its epic, and the order the markers are tested
 - [initiative](initiative.md) — the kind every stage refuses as an epic and the filer allows as a stub's parent.
 - [epic-kind-refusal](epic-kind-refusal.md) — which kinds a stage refuses as its epic, and the order the markers are tested in.
 - [filing-preflight](filing-preflight.md) — reads through this rule whether a stub's named parent is an initiative.
+- [feature-issue-migration](feature-issue-migration.md) — finds feature issues by their declared kind and keeps initiatives and feature issues out of the migration's epic set.
 
 ## Decision Log
 
@@ -55,3 +56,7 @@ An initiative needed a positive marker for two checks. The filer allows it as a 
 ### 2026-11-21 — #998 — Feature becomes a declared kind; the refusal and test-order rules move to epic-kind-refusal
 
 A repository that opts in to features as issues needs a feature issue to read as a feature. The feature marker follows the classification mode, as the initiative marker does: the feature label under label mode and the legacy mode, the feature issue type under issue-type mode. The kind list now names feature, and a feature exists only in an opted-in repository. Adding the feature rules would have taken this page past its 400-word cap, so the rules on which kinds a stage refuses as its epic, the marker test order and the unmarked-parentless rule (formerly invariant 7) moved to the new epic-kind-refusal page. Those rules load on their own, when a stage resolves an epic, while this page answers what a kind is. Refuted alternative: keep all of it here and drop older wording to fit. That would have removed still-true content to make room.
+
+### 2026-11-22 — #999 — Reciprocal link from feature-issue-migration
+
+The feature-issue migration classifies issues through this kind rule. It stops when the repository classifies by type and declares no feature type, instead of falling back to a label.

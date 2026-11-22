@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation"]
-last_updated_by: "#1001"
+touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation", "feature-issue-migration"]
+last_updated_by: "#999"
 status: active
 verification: verified
 ---
@@ -49,6 +49,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [initiative](initiative.md) — the initiative label and issue type are two more keys this resolver supplies; the issue type has no built-in.
 - [filing-preflight](filing-preflight.md) — resolves the unplanned label and the initiative marker here before it checks a stub's parent.
 - [unattended-epic-implementation](unattended-epic-implementation.md) — one more key on this chain, the test command, is read only by this command.
+- [feature-issue-migration](feature-issue-migration.md) — supplies the opt-in, feature marker and retired-feature label name the migration reads, never guessing a marker.
 
 ## Decision Log
 
@@ -107,3 +108,7 @@ Mechanical reciprocity fan-out: the unattended implementation page declares that
 ### 2026-11-07 — #1001 — The hub layer gains the hub's own settings and splits out
 
 A member checkout now takes every publishing key it leaves unset from the hub's own settings first, then from the manifest's workspace-wide defaults. The hub's own setting wins where both declare a key, so a member resolves what the hub checkout resolves, and the test command never crosses. This page's precedence statements, its allowlist rule and its workspace-resolution edge now say so, as the approved record rewrote them. The account of how the hub layer reads the hub and fails safely moved to [hub-settings-layer](hub-settings-layer.md). It has its own retrieval need, and this page's own content had no room for the change. **Refuted alternative:** let the workspace-wide default win in a member, as the epic first assumed. It gives the manifest a clear meaning, but a record filed from a member would carry one marker while close, run in the hub, looked for another.
+
+### 2026-11-22 — #999 — Retired-feature label setting
+
+A new setting names the label a lead puts on a feature no longer in use, with a default. Feature issues stay open, so closing one cannot mean retired. The migration reads the setting only through this resolver and never adds or removes the label.

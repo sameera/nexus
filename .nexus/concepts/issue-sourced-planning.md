@@ -1,8 +1,8 @@
 ---
 title: "Issue-Sourced Planning"
 aliases: ["issues as source of truth", "epic resolver", "materialized epic", "resolve from issue number", "no-commit planning", "epic-meta round-trip"]
-touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder", "initiative"]
-last_updated_by: "#998"
+touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder", "initiative", "feature-issue-migration"]
+last_updated_by: "#999"
 status: active
 verification: verified
 ---
@@ -40,6 +40,7 @@ At approval the epic stage files the epic issue and its story sub-issues as chil
 - [issue-absence-fact](issue-absence-fact.md) — the lookup boundary this resolver reads an epic's facts through, which reports a number matching no issue as a fact rather than a platform failure.
 - [planning-run-folder](planning-run-folder.md) — where the epic materializes from before it is filed as the issues this resolver later reconstructs.
 - [initiative](initiative.md) — the planning container this resolver refuses by name, instead of reconstructing it as an epic whose stubs read as stories.
+- [feature-issue-migration](feature-issue-migration.md) — the migration writes each existing epic's feature issue into the hidden block this resolver reads back.
 
 ## Decision Log
 
@@ -83,3 +84,7 @@ Mechanical reciprocity fan-out: the initiative page names this resolver's refusa
 ### 2026-11-21 — #998 — The feature issue number rides the epic's frontmatter
 
 An epic and each stub it files name their feature issue by number beside the feature path. The resolver already returns the frontmatter as filed, so the number survives every rebuild and the resolver's output shape does not change for an unchanged graph. Promotion, reloading a planned epic and splitting a stub carry the number forward from their source. Refuted alternative: derive the number from the relates-to link when the epic is resolved, keeping one copy. It lost because it adds a relationship fetch to the resolver, must filter related issues by kind, and the criteria require the number to be named.
+
+### 2026-11-22 — #999 — Existing epics name their feature issue in the hidden block
+
+The feature-issue migration now writes the feature reference into the hidden machine comment of every existing epic, and adds a hidden block holding only that reference when an epic has none. The rest of the body stays byte-identical, so the resolver reads the same epic plus the feature reference.
