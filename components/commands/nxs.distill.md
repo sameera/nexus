@@ -27,7 +27,7 @@ The split is **judgment as prompt, mechanics as code** (0004 B0):
 Your output is a **distillation-PR**. The PR merge is the authoritative write (0007). You never
 write `.nexus/concepts/` on main. Deleting a consumed entry is **part of that same PR**: the
 entry's `git rm` rides the distill branch beside its page writes, so the merge lands the pages and
-the deletion atomically. Either both hit main or neither does. You never delete an entry outside
+the deletion atomically. You never delete an entry outside
 the PR, and never touch an unclosed/undrained one (C12). The live store is `.nexus/` at the repo
 root; the historical design workspace `libs/origin/v2/.nexus/` is **never written**.
 
@@ -104,8 +104,7 @@ the resolved value instead of re-deriving it.
       stage. Its closed entries migrate to the hub at close, and the hub processes them. Report that
       and **stop**, before any entry is discovered.
 
-    This mirrors workspace resolution's own role determination (a checkout carrying both files is
-    the hub); distill re-derives no workspace shape of its own.
+    A checkout carrying both files is the hub, as workspace resolution decides.
 3. **Each discovered entry's kind**, resolved and recorded at discovery (step 2 below).
 4. **Unattended flag** — `--unattended` in `$ARGUMENTS` → strip it, load **`nxs-distill-unattended`**.
 
@@ -122,6 +121,7 @@ entry's kind `epic`, and no domain registry — selects no contract at all.
 | run mode is `continuation` | `nxs-distill-continuation` | Input Resolution, after the entry list |
 | workspace shape is `hub` | `nxs-distill-hub` | run-shape resolution |
 | any discovered entry's kind is `fix` or `intake` | `nxs-distill-nonepic-entries` | entry discovery, at kind resolution |
+| an epic's record is as-built | `nxs-distill-as-built` | Phase 4 |
 | the concept store has a domain registry | `nxs-distill-taxonomy` | Phase 2, the store survey |
 | `--unattended` was passed | `nxs-distill-unattended` | run-shape resolution |
 
@@ -492,7 +492,7 @@ one; omission means *unchanged*, never *clear*): `## Summary`, `## How It Works`
 - **Every non-noop delta carries exactly one `## Decision Log Entry`.** A delta without a *why*
   is malformed. The entry body records the why **plus the refuted viable alternative** if one
   existed (guardrail: only a genuinely viable alternative a competent engineer might have chosen,
-  never a strawman; if none existed, state only the why).
+  never a strawman; if none existed, state only the why). As-built record: load **`nxs-distill-as-built`**.
 - **A concept the epic touched but did not behaviorally change gets no delta**, not an empty one.
 - **§8.3 hard boundary**: page prose must contain **no code blocks, no file paths, no
   type/function names, no API/schema specs, no speculative or design-time-only claims**. Behavior

@@ -29,6 +29,11 @@
       "import": "./src/keys.ts",
       "default": "./src/keys.ts"
     },
+    "./harness-models": {
+      "types": "./src/harness-models.ts",
+      "import": "./src/harness-models.ts",
+      "default": "./src/harness-models.ts"
+    },
     "./resolve": {
       "types": "./src/resolve.ts",
       "import": "./src/resolve.ts",

@@ -13,6 +13,8 @@ import { type SessionEnd, type SessionSpec } from "./distill-command.js";
 import { CLEAN_VERDICT as READER_CLEAN_VERDICT, HLD_MARKER, commentDigest, commentVerdict, isCleanVerdict, isHldComment as isHldCommentLine, newestHldComment, type RecordComment } from "./implement-hld.js";
 import { BLOCKED_PREFIX, ESCALATION_PREFIX, STATUS_OPEN, UNATTENDED_CLAUSE, implementationPrompt, runImplementEpic, type Commit, type EpicFacts, type ImplementDeps, type ImplementInput, type VerdictRead } from "./implement.js";
 import { VERB_NAMES } from "./nexus-cli.js";
+import { type HarnessModels } from "@nexus/delivery-config/harness-models";
+import { AS_BUILT_OPENING, asBuiltStatement, claimedStories, planFilePath, PLANNING_MARK, quoteForBody } from "./implement.js";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -126,6 +128,16 @@ interface World {
     ignored: boolean;
     /** Whether writing the page copy fails. */
     writeFails: boolean;
+    /** The models the selected harness's settings resolve to. */
+    models: HarnessModels;
+    /** Whether the planning session leaves a change in the checkout. */
+    planningDirties: boolean;
+    /** Whether the planning session cannot start. */
+    planningFails: boolean;
+    /** The record the as-built stage leaves on GitHub; null when it files none. */
+    asBuilt: { state: string; stateReason: string | null; body: string } | null;
+    /** Whether a record sub-issue appears while the stories are built. */
+    recordAppearsEarly: boolean;
     /** How many open-pull-request lookups fail before one succeeds. */
     openPrFailures?: number;
     /** The uncommitted paths the working tree holds after an aborted build stage. */
@@ -161,6 +173,11 @@ function world(over: Partial<World> = {}): World {
         pages: { [`o/store@${STORE_SHA}:features/epic-7/hld.md`]: PAGE_TEXT },
         ignored: true,
         writeFails: false,
+        models: { planning: { value: "opus", layer: "built-in" }, implementing: null, unknownKeys: [] },
+        planningDirties: false,
+        planningFails: false,
+        asBuilt: { state: "CLOSED", stateReason: "COMPLETED", body: `# Decision Record: Epic\n\n${asBuiltStatement("#5")}\n\n## How it works\n` },
+        recordAppearsEarly: false,
         ...over,
     };
 }
@@ -175,6 +192,7 @@ function harness(w: World) {
     let head = 0;
     let analyzeRuns = 0;
     let lastPublished: { head: string; judgments: Judgments } | null = null;
+    const asBuiltRan = (): boolean => sessions.some((s) => s.args.some((a) => a.includes("--as-built")));
     let checkout = w.checkout;
     let cursor = 0;
     let buildDone: (() => void) | null = null;
@@ -183,10 +201,14 @@ function harness(w: World) {
     let openPrFailures = w.openPrFailures ?? 0;
     const pushed: string[] = [];
     const deps: ImplementDeps = {
-        resolveEpic: () => ({
-            ok: true,
-            value: { title: "Epic", stories: [1, 2], blockedBy: new Map([[2, [1]]]), record: { number: 9, state: "closed" }, issuesRepo: "o/r", needsDesign: false, root: "/r", ...w.facts },
-        }),
+        resolveEpic: () => {
+            const value: EpicFacts = { title: "Epic", stories: [1, 2], blockedBy: new Map([[2, [1]]]), record: { number: 9, state: "closed" }, issuesRepo: "o/r", needsDesign: false, root: "/r", ...w.facts };
+            if (value.record === null && asBuiltRan() && w.asBuilt !== null) value.record = { number: 12, state: w.asBuilt.state === "CLOSED" ? "closed" : "open" };
+            else if (value.record === null && w.recordAppearsEarly && sessions.length >= 2) value.record = { number: 12, state: "open" };
+            log.push("resolve");
+            return { ok: true, value };
+        },
+        recordState: () => (w.asBuilt === null ? { ok: false, message: "not found" } : { ok: true, value: w.asBuilt }),
         testCommandSetting: () => w.setting,
         defaultBranch: () => "main",
         clean: () => w.clean,
@@ -285,6 +307,8 @@ function harness(w: World) {
             return w.files[file] ?? null;
         },
         autoModeAvailable: () => w.auto,
+        modelSettings: () => w.models,
+        checkoutState: () => (w.planningDirties && sessions.length > 0 ? "M src/a.ts" : "clean"),
         onPath: () => true,
         wait: async () => {
             if (cursor < w.buildTips.length) cursor++;
@@ -294,6 +318,7 @@ function harness(w: World) {
             const index = sessions.length;
             sessions.push(spec);
             log.push(`session ${index}`);
+            if (w.planningFails && index === 0 && spec.args.some((a) => a.includes(PLANNING_MARK))) return { started: false, exitCode: null, error: "model not available", finalMessage: null };
             answers = [...answers, ...(w.answersDuring[index] ?? [])];
             if (index === 0 && w.buildTips.length > 0) {
                 const end: SessionEnd = { started: true, exitCode: 0, error: null, finalMessage: w.finals[0] ?? "done" };
@@ -334,6 +359,9 @@ const input = (over: Partial<ImplementInput> = {}): ImplementInput => ({
     rounds: 5,
     harnessArgs: [],
     recordOnly: false,
+    retroactive: false,
+    planningModel: null,
+    implementingModel: null,
     ...over,
 });
 
@@ -828,6 +856,338 @@ describe("distribution (G22)", () => {
     it("leaves neither implement-epic script in the repository", () => {
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/implement-epic.sh"))).toBe(false);
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/codex/implement-epic.sh"))).toBe(false);
+    });
+});
+
+describe("--retroactive on an epic with no decision record (epic #1041, story #1042, D1)", () => {
+    const noRecord: Partial<World> = { facts: { record: null, needsDesign: true } };
+
+    it("builds the stories of an epic that needs design and has no record instead of refusing", async () => {
+        const r = await run(world(noRecord), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("branch nxs/epic-7 main");
+        expect(r.log).toContain("create-pr");
+        const impl = r.sessions.find((s) => s.args.some((a) => a.includes("every story sub-issue of epic #7")));
+        expect(impl).toBeDefined();
+        const prompt = impl?.args.find((a) => a.includes("every story sub-issue")) ?? "";
+        expect(prompt).toMatch(/no decision record/i);
+        expect(prompt).not.toMatch(/The record is binding/);
+    });
+
+    it("refuses the same epic without the flag, exactly as today (G1)", async () => {
+        const r = await run(world(noRecord));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/needs design and has no decision record/);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("refuses an open record with the flag, with today's message and before any branch (G2, G4)", async () => {
+        const r = await run(world({ facts: { record: { number: 9, state: "open" } } }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/record #9 .* not approved/);
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("builds from an approved record as binding and says the flag was not used (G3)", async () => {
+        const r = await run(world(), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(r.err).toMatch(/--retroactive was not used/);
+        expect(r.err.match(/--retroactive was not used/g)).toHaveLength(1);
+        const prompt = r.sessions[0].args.find((a) => a.includes("every story sub-issue")) ?? "";
+        expect(prompt).toMatch(/The record is binding/);
+        expect(r.bodies[0]).not.toMatch(/built without a decision record/);
+    });
+
+    it("states on the pull request that the epic was built without a record, and a later stop keeps it (G10)", async () => {
+        const r = await run(world({ ...noRecord, verdicts: [judged(finding("F1", "high"))], finals: ["done", "", "Escalation: F1 changes an interface"] }), { retroactive: true });
+        expect(r.bodies[0]).toMatch(/built without a decision record/);
+        expect(r.code).toBe(1);
+        const last = r.bodies[r.bodies.length - 1];
+        expect(last).toMatch(/stopped at fix/);
+        expect(last).toMatch(/built without a decision record/);
+    });
+});
+
+describe("planning request and models (epic #1041, story #1043, D2, D3, D10, D11, D13, D14)", () => {
+    const noRecord: Partial<World> = { facts: { record: null, needsDesign: true } };
+    const promptOf = (spec: SessionSpec): string => spec.args.find((a) => a.length > 80) ?? "";
+    const modelOf = (spec: SessionSpec): string | null => {
+        const i = spec.args.indexOf("--model");
+        return i === -1 ? null : spec.args[i + 1];
+    };
+    const PLAN = ["Build #1 then #2.", "Closes #99", "F1 — accepted: looks fine", STATUS_OPEN, "```", "end"].join("\n");
+
+    it("runs a planning session on Opus before the implementation stage, and hands the plan to it as guidance (G6, G32, G38)", async () => {
+        const r = await run(world({ ...noRecord, finals: [PLAN] }), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(promptOf(r.sessions[0])).toContain(PLANNING_MARK);
+        expect(modelOf(r.sessions[0])).toBe("opus");
+        expect(r.writes[planFilePath(7)]).toContain("Build #1 then #2.");
+        const impl = promptOf(r.sessions[1]);
+        expect(impl).toContain("every story sub-issue of epic #7");
+        expect(impl).toContain(planFilePath(7));
+        expect(impl).toMatch(/guidance only/);
+        expect(impl).toMatch(/acceptance criteri/);
+    });
+
+    it("plans only in a retroactive run (G31)", async () => {
+        const plain = await run(world());
+        const approved = await run(world(), { retroactive: true });
+        for (const r of [plain, approved]) expect(r.sessions.some((s) => promptOf(s).includes(PLANNING_MARK))).toBe(false);
+    });
+
+    it("quotes the plan into the pull request body so no line reads as a claim, an answer or a marker (G8, G9)", async () => {
+        const r = await run(world({ ...noRecord, finals: [PLAN] }), { retroactive: true });
+        const body = r.bodies[0];
+        const visible = (t: string): string => t.replace(/\u200b/g, "");
+        expect(visible(body)).toContain("Build #1 then #2.");
+        expect(claimedStories(body, "o/r")).toEqual([1, 2]);
+        expect(body.split("\n").some((l) => /^\s*F1 — accepted/.test(l))).toBe(false);
+        expect(body.split(STATUS_OPEN)).toHaveLength(2);
+        // Every plan line sits inside a fenced code block, which GitHub never reads for closing references.
+        const fence = /^(`{4,})$/m.exec(body)?.[1] ?? "";
+        expect(fence.length).toBeGreaterThan(3);
+        const inside = body.split(fence)[1] ?? "";
+        expect(inside.replace(/\u200b/g, "")).toContain("Closes #99");
+        const last = r.bodies[r.bodies.length - 1];
+        expect(visible(last)).toContain("Build #1 then #2.");
+    });
+
+    it("builds on and reaches review when planning cannot start, and says why there is no plan (G7, G37)", async () => {
+        const r = await run(world({ ...noRecord, planningFails: true }), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(r.bodies[0]).toMatch(/No plan was produced/);
+        expect(r.bodies[0]).toMatch(/model not available/);
+        expect(promptOf(r.sessions[1])).not.toContain(planFilePath(7));
+        expect(r.sessions.some((s) => promptOf(s).includes("nxs.analyze"))).toBe(true);
+    });
+
+    it("builds on when the planning session ends with no plan (G7)", async () => {
+        const r = await run(world({ ...noRecord, finals: ["   "] }), { retroactive: true });
+        expect(r.code).toBe(0);
+        expect(r.bodies[0]).toMatch(/No plan was produced/);
+    });
+
+    it("stops before the implementation stage when planning changed the checkout (G36)", async () => {
+        const r = await run(world({ ...noRecord, planningDirties: true, finals: [PLAN] }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at planning/);
+        expect(r.sessions).toHaveLength(1);
+    });
+
+    it("refuses before its branch exists when git does not ignore the plan's folder (G5)", async () => {
+        const r = await run(world({ ...noRecord, ignored: false }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+    });
+
+    it("plans on the implementing model when no planning model resolves, and says so (G33, D11)", async () => {
+        const models = { planning: null, implementing: { value: "gpt-5", layer: "repository settings" }, unknownKeys: [] };
+        const r = await run(world({ ...noRecord, models, finals: [PLAN] }), { retroactive: true, harness: "codex" });
+        expect(r.code).toBe(0);
+        expect(modelOf(r.sessions[0])).toBe("gpt-5");
+        expect(r.err).toMatch(/no planning model/i);
+        expect(r.bodies[0]).toMatch(/no planning model/i);
+    });
+
+    it("plans on the planning-model option over the settings, and never on a model in the pass-through arguments (G32)", async () => {
+        const r = await run(world({ ...noRecord, finals: [PLAN] }), { retroactive: true, planningModel: "claude-opus-5-5", harnessArgs: ["--model", "haiku"] });
+        expect(modelOf(r.sessions[0])).toBe("claude-opus-5-5");
+        expect(r.sessions[0].args).not.toContain("haiku");
+    });
+
+    it("runs the implementation stage and fix rounds on a configured implementing model, never analyze (G44, D13)", async () => {
+        const models = { planning: { value: "opus", layer: "built-in" }, implementing: { value: "sonnet", layer: "hub settings" }, unknownKeys: [] };
+        const r = await run(world({ models, verdicts: [judged(finding("F1", "high")), judged()] }));
+        expect(r.code).toBe(0);
+        const impl = r.sessions.find((s) => promptOf(s).includes("every story sub-issue"));
+        const fix = r.sessions.find((s) => promptOf(s).includes("This is round 1"));
+        const analyze = r.sessions.filter((s) => s.args.some((a) => a.startsWith("/nxs.analyze")));
+        expect(impl && modelOf(impl)).toBe("sonnet");
+        expect(fix && modelOf(fix)).toBe("sonnet");
+        expect(analyze.length).toBeGreaterThan(0);
+        for (const a of analyze) expect(modelOf(a)).toBeNull();
+    });
+
+    it("passes exactly today's arguments when no implementing model is set (G43)", async () => {
+        const r = await run(world());
+        for (const s of r.sessions) expect(s.args).not.toContain("--model");
+    });
+
+    it("lets a model in the pass-through arguments win over the settings (G45)", async () => {
+        const models = { planning: { value: "opus", layer: "built-in" }, implementing: { value: "sonnet", layer: "repository settings" }, unknownKeys: [] };
+        const r = await run(world({ models }), { harnessArgs: ["--model", "haiku"] });
+        expect(r.sessions[0].args.filter((a) => a === "--model")).toHaveLength(1);
+        expect(modelOf(r.sessions[0])).toBe("haiku");
+    });
+
+    it.each<[string, Partial<ImplementInput>]>([
+        ["the planning-model option without the flag", { planningModel: "opus" }],
+        ["the implementing-model option with a model in the pass-through arguments", { implementingModel: "sonnet", harnessArgs: ["--model", "haiku"] }],
+    ])("refuses %s as a usage error before any agent runs (G34)", async (_name, over) => {
+        const r = await run(world(), over);
+        expect(r.code).toBe(2);
+        expect(r.sessions).toHaveLength(0);
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+    });
+
+    it.each(["--dangerously-skip-permissions", "opus extra", ""])("refuses the model value '%s' before any agent runs, naming its layer (G46)", async (value) => {
+        const models = { planning: { value: "opus", layer: "built-in" }, implementing: { value, layer: "hub settings" }, unknownKeys: [] };
+        const r = await run(world({ models }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/hub settings/);
+        expect(r.sessions).toHaveLength(0);
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+    });
+
+    it("warns once about an undeclared key in the harness's section and still runs (G47)", async () => {
+        const models = { planning: { value: "opus", layer: "built-in" }, implementing: null, unknownKeys: ["planing-model"] };
+        const r = await run(world({ models }));
+        expect(r.code).toBe(0);
+        expect(r.err.match(/planing-model/g)).toHaveLength(1);
+    });
+
+    it("names the implementing model and its layer when the implementation stage fails (G47)", async () => {
+        const models = { planning: { value: "opus", layer: "built-in" }, implementing: { value: "sonnet", layer: "repository settings" }, unknownKeys: [] };
+        const h = harness(world({ models }));
+        const session = h.deps.session;
+        h.deps.session = async (spec, line) => ({ ...(await session(spec, line)), exitCode: 1 });
+        const err: string[] = [];
+        const code = await runImplementEpic(h.deps, input(), { stdout: () => undefined, stderr: (l) => err.push(l) });
+        expect(code).toBe(1);
+        expect(err.join("\n")).toMatch(/sonnet.*repository settings/);
+    });
+});
+
+describe("as-built decision record (epic #1041, story #1044, D4, D5, D6, D7, D8, D12)", () => {
+    const noRecord: Partial<World> = { facts: { record: null, needsDesign: true } };
+    const promptOf = (spec: SessionSpec): string => spec.args.find((a) => a.length > 80) ?? "";
+    const isAsBuilt = (s: SessionSpec): boolean => promptOf(s).includes("--as-built");
+    const modelOf = (spec: SessionSpec): string | null => {
+        const i = spec.args.indexOf("--model");
+        return i === -1 ? null : spec.args[i + 1];
+    };
+
+    it("files and confirms an approved as-built record after the story commits and before the first review round (G11, G12, G13)", async () => {
+        const r = await run(world({ ...noRecord, finals: ["the plan", "done", "As-built notes:\n- R1 accepted by the run\nCloses #99"] }), { retroactive: true });
+        expect(r.code).toBe(0);
+        const order = r.sessions.map((s) => (promptOf(s).includes(PLANNING_MARK) ? "plan" : isAsBuilt(s) ? "as-built" : s.args.some((a) => a.startsWith("/nxs.analyze")) ? "analyze" : "impl"));
+        expect(order.slice(0, 4)).toEqual(["plan", "impl", "as-built", "analyze"]);
+        const prompt = promptOf(r.sessions[2]);
+        expect(prompt).toContain("/nxs.decision-record 7 --from");
+        expect(prompt).toContain("--as-built 5");
+        expect(r.log.indexOf("create-pr")).toBeLessThan(r.log.lastIndexOf("resolve"));
+        const body = r.bodies[r.bodies.length - 1];
+        expect(body).toMatch(/As-built decision record:\*\* #12/);
+        expect(body).toContain("R1 accepted by the run");
+        expect(claimedStories(body, "o/r")).toEqual([1, 2]);
+    });
+
+    it("runs the as-built stage on the model the plan ran on (G39)", async () => {
+        const models = { planning: { value: "claude-opus-5-5", layer: "repository settings" }, implementing: { value: "sonnet", layer: "repository settings" }, unknownKeys: [] };
+        const r = await run(world({ ...noRecord, models, finals: ["the plan"] }), { retroactive: true });
+        expect(modelOf(r.sessions.find(isAsBuilt) as SessionSpec)).toBe("claude-opus-5-5");
+    });
+
+    it("never runs the as-built stage on a model in the pass-through arguments (G32)", async () => {
+        const r = await run(world({ ...noRecord, finals: ["the plan"] }), { retroactive: true, harnessArgs: ["--model", "haiku"] });
+        const asBuilt = r.sessions.find(isAsBuilt) as SessionSpec;
+        expect(modelOf(asBuilt)).toBe("opus");
+        expect(asBuilt.args).not.toContain("haiku");
+    });
+
+    it("falls back to the implementing model when planning could not start, and says so (G39)", async () => {
+        const models = { planning: { value: "opus", layer: "built-in" }, implementing: { value: "sonnet", layer: "repository settings" }, unknownKeys: [] };
+        const r = await run(world({ ...noRecord, models, planningFails: true }), { retroactive: true });
+        expect(modelOf(r.sessions.find(isAsBuilt) as SessionSpec)).toBe("sonnet");
+        expect(r.bodies.join("\n")).toMatch(/as-built record was written on the implementing model sonnet/i);
+    });
+
+    it("files no as-built record when the run stops before every story has its commit (G11)", async () => {
+        const r = await run(world({ ...noRecord, commits: [storyCommit(1)] }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at story-commit-check/);
+        expect(r.sessions.some(isAsBuilt)).toBe(false);
+    });
+
+    it.each<[string, World["asBuilt"], RegExp]>([
+        ["files nothing", null, /no decision record/i],
+        ["leaves the record open", { state: "OPEN", stateReason: null, body: `# D\n\n${asBuiltStatement("#5")}` }, /not closed as completed/],
+        ["closes it as not planned", { state: "CLOSED", stateReason: "NOT_PLANNED", body: `# D\n\n${asBuiltStatement("#5")}` }, /not closed as completed/],
+        ["omits the as-built statement", { state: "CLOSED", stateReason: "COMPLETED", body: "# D\n\n## How it works\n" }, /as-built statement/],
+    ])("stops before review when the stage %s, naming the record's state and how to finish by hand (G18)", async (_name, asBuilt, reason) => {
+        const r = await run(world({ ...noRecord, asBuilt }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at as-built/);
+        expect(r.err).toMatch(reason);
+        expect(r.sessions.some((s) => s.args.some((a) => a.startsWith("/nxs.analyze")))).toBe(false);
+        const last = r.bodies[r.bodies.length - 1];
+        expect(last).toMatch(/\/nxs\.decision-record 7/);
+        expect(last).toMatch(/built without a decision record/);
+    });
+
+    it("stops before review when a record appears while the stories are built (G15)", async () => {
+        const r = await run(world({ ...noRecord, recordAppearsEarly: true }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at as-built/);
+        expect(r.sessions.some(isAsBuilt)).toBe(false);
+    });
+
+    it("stops when an answer line is posted while the record is written (G23)", async () => {
+        const answer: PrAnswer = { url: "https://x/c/1", id: "DV1", verb: "accepted", reason: "ok" } as PrAnswer;
+        const r = await run(world({ ...noRecord, answersDuring: { 2: [answer] } }), { retroactive: true });
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at as-built/);
+        expect(r.err).toMatch(/answer line/);
+    });
+
+    it("writes no as-built record in a run without the flag or with an approved record (G3)", async () => {
+        for (const r of [await run(world()), await run(world(), { retroactive: true })]) expect(r.sessions.some(isAsBuilt)).toBe(false);
+    });
+});
+
+describe("the as-built mode of the decision-record stage and its distiller attribution (story #1044, D6, D9)", () => {
+    const record = fs.readFileSync(path.join(REPO_ROOT, "components", "commands", "nxs.decision-record.md"), "utf8");
+    const distillStage = fs.readFileSync(path.join(REPO_ROOT, "components", "commands", "nxs.distill.md"), "utf8");
+    const distill = fs.readFileSync(path.join(REPO_ROOT, "components", "skills", "nxs-distill-as-built", "SKILL.md"), "utf8");
+
+    it("selects as-built mode only by a switch naming the run's pull request, and states the record's opening (G14, G22)", () => {
+        expect(record).toContain("--as-built <pr>");
+        expect(record).toContain(AS_BUILT_OPENING);
+        expect(record).toMatch(/run by hand without `--as-built`[^\n]*stops at every gate/i);
+    });
+
+    it("has the distiller attribute an as-built record's decision-log entries to the run (G24)", () => {
+        expect(distill).toContain(AS_BUILT_OPENING);
+        expect(distill).toMatch(/retroactive run, not the lead, decided/);
+        expect(distillStage).toContain("`nxs-distill-as-built`");
+    });
+});
+
+describe("agent-written text is inert to GitHub's closing references wherever it sits (R2, G9)", () => {
+    // GitHub's documented closing-reference forms: #N, owner/repo#N, GH-N and an issue or pull URL.
+    const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:[\w.-]+\/[\w.-]+#\d+|#\d+|GH-\d+|https?:\/\/\S+\/(?:issues|pull)\/\d+)/gi;
+    const text = ["Closes #99", "fixes o/x#5", "Resolves https://github.com/o/r/issues/3", "closes GH-4", "Fix: #8", "see `Closes #7`"].join("\n");
+
+    it("leaves no closing reference in the quoted text, even read outside its fence", () => {
+        const quoted = quoteForBody(text);
+        expect(quoted.match(CLOSING)).toBeNull();
+    });
+
+    it("keeps the text readable once the zero-width breaks are removed", () => {
+        const visible = quoteForBody(text).replace(/\u200b/g, "");
+        for (const line of text.split("\n")) expect(visible).toContain(line);
+    });
+
+    it("leaves the run's own story claims as the only closing references in a retroactive body", async () => {
+        const r = await run(world({ facts: { record: null, needsDesign: true }, finals: [text] }), { retroactive: true });
+        const refs = (r.bodies[r.bodies.length - 1].match(CLOSING) ?? []).map((m) => m.replace(/\s+/g, " "));
+        expect(refs).toEqual(["Closes #1", "Closes #2"]);
     });
 });
 

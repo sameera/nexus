@@ -52,6 +52,35 @@ out-of-band design write. This is the supported bridge for work designed outside
 approval"). The doc supplies the *why*; the queued `epic.md` still supplies the scope the record must
 cover. Strip the `--from <path>` token before resolving the entry path from the rest of `$ARGUMENTS`.
 
+**As-built mode (`--as-built <pr>`).** Only the retroactive `nexus implement` run selects this
+mode (epic #1041, decision record #1051, D6), always together with `--from <path>` naming the
+as-built design document it wrote. `<pr>` is the run's pull request. Refuse, filing nothing, unless
+the epic has no decision record sub-issue and the named pull request is open, its head branch is
+`nxs/epic-<epic>`, and its body states that the epic was built without a decision record. In this
+mode every interactive stop is replaced by a defined run decision:
+
+- Skip the no-record confirmation of Phase 0.2: the run already chose to build without a record.
+- Answer each Phase 2 clarification from what was built, and state each answer as the run's choice.
+  Where the as-built document gives no reason for a choice, write that the reason was not recorded;
+  never supply one.
+- Run the shared draft checker as in every run; its blocking findings still block filing.
+- If anything would be placed under "Resolve before approval" — a BLOCKER risk, or an ADDRESS risk
+  another epic delivers that nobody has accepted — file nothing and stop, naming those items (D7).
+  "Before implementation" is empty by construction, because the build is done.
+- Skip the Phase 3.5 checkpoint. File the record as drafted: the body opens, after its title, with
+  this paragraph, with `<pr>` as the pull request reference:
+  "This decision record was written after the build by the retroactive `nexus implement` run of pull request <pr>. That run made the decisions below and approved this record; the
+  lead neither decided them nor reviewed this record before approval." It stays plain prose with no
+  machine block.
+- Swap needs-design for in-progress as in every filing, then close the record as completed. The
+  close is recorded under the lead's account; the opening paragraph names the run as the approver.
+- Never revise an existing record and never file a second one.
+- End by listing the checkpoint's "what the model added" lines and the checker's observations, so
+  the run can quote them onto its pull request.
+
+Run by hand without `--as-built`, the stage stops at every gate exactly as before: the no-record
+confirmation, the clarification gate, the pre-filing checkpoint and the approval gate.
+
 **Revision mode (`--revise`).** If `$ARGUMENTS` contains `--revise` (string-matched), the epic's
 **approved** record is being changed rather than written for the first time. The token selects
 **which filing path Phase 4 takes**. It does not select where the run starts. Run Phase 0.2's

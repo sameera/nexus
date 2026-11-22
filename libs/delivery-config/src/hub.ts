@@ -24,7 +24,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
-import { GITHUB_KEYS, type GithubKey, keyEntry } from "./keys.js";
+import { DECLARED_KEYS, type GithubKey, keyEntry } from "./keys.js";
 import { type DeliveryConfig, readDeliveryConfig } from "./settings.js";
 
 /** The manifest names whose presence declares a checkout part of a workspace. */
@@ -47,7 +47,8 @@ export function normalizeHubDefaults(github: Record<string, unknown>): DeliveryC
     const result: DeliveryConfig = {};
     for (const [githubKey, value] of Object.entries(github)) {
         const entry: GithubKey | undefined = keyEntry(githubKey);
-        if (entry && typeof value === "string" && value.trim() !== "") {
+        // A harness section's key never comes from the workspace manifest (decision record #1051, D10).
+        if (entry && entry.section === undefined && typeof value === "string" && value.trim() !== "") {
             result[entry.normalized] = value.trim();
         }
     }
@@ -57,9 +58,9 @@ export function normalizeHubDefaults(github: Record<string, unknown>): DeliveryC
 /** The publishing keys a hub may hand a member — every catalogued key but the repository-specific. */
 export function publishingKeysOnly(config: DeliveryConfig): DeliveryConfig {
     const result: DeliveryConfig = {};
-    for (const key of GITHUB_KEYS) {
+    for (const key of DECLARED_KEYS) {
         const value: string | undefined = config[key.normalized];
-        if (!key.repoSpecific && value !== undefined && value !== "") result[key.normalized] = value;
+        if (!key.repoSpecific && value !== undefined && (value !== "" || key.section !== undefined)) result[key.normalized] = value;
     }
     return result;
 }

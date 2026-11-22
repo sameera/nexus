@@ -26,6 +26,7 @@ export const BASE_STAGE_FILE = "commands/nxs.distill.md";
 /** Every contract the base stage can select, whatever the run's shape. */
 export const CONTRACTS: readonly string[] = [
     "nxs-distill-recovery",
+    "nxs-distill-as-built",
     "nxs-distill-continuation",
     "nxs-distill-hub",
     "nxs-distill-nonepic-entries",
@@ -78,6 +79,7 @@ export const RESIDENCY: readonly ResidencyRule[] = [
     { rule: "the drift advisory", contract: "nxs-distill-taxonomy", probe: "nexus drift-advisory" },
     { rule: "the unattended stop report", contract: "nxs-distill-unattended", probe: "DISTILLATION STOPPED (unattended)" },
     { rule: "the unattended branch unwind", contract: "nxs-distill-unattended", probe: "START_HEAD" },
+    { rule: "the as-built record's decision-log attribution", contract: "nxs-distill-as-built", probe: "Decided by the retroactive" },
 ];
 
 function read(componentRoot: string, rel: string): string {

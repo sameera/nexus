@@ -5,6 +5,29 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.3.0
+
+- **`nexus implement --retroactive` builds an epic that has no decision record.** With the flag and
+  no record sub-issue, the run builds instead of refusing. An open record still refuses with the same
+  message; an approved record builds as binding and the run prints one line saying the flag was not
+  used. The pull request states that the epic was built without a decision record.
+- **A retroactive run plans first.** A read-only planning session writes a plan on the harness's
+  planning model — Opus on Claude Code unless settings or `--planning-model` name another — and the
+  build uses it as guidance. A missing plan never stops the run; a planning session that changes the
+  checkout does. The plan is quoted on the pull request so no line closes an issue or reads as an
+  answer.
+- **Settings gain a `claude` and a `codex` section** with `planning-model` and `implementing-model`.
+  A configured implementing model (or `--implementing-model`) runs the implementation stage and fix
+  rounds of every `nexus implement` run. With none set, runs pass the harness the same arguments as
+  before. A model value that starts with a dash, holds whitespace or is empty refuses the run.
+- **A retroactive run files and approves an as-built decision record** before its first review
+  round, through `/nxs.decision-record --from <doc> --as-built <pr>`. The record opens by saying the
+  run, not the lead, decided and approved it. A draft with anything only the owner can accept is not
+  filed and the run stops. Run by hand without `--as-built`, the decision-record stage stops at
+  every gate as before.
+- **`/nxs.distill` keeps the attribution:** decision-log entries written from an as-built record say
+  the retroactive run decided them, not the lead.
+
 ## 1.2.0
 
 - **A re-run of `nexus implement` continues an interrupted run.** Run against an epic whose run
