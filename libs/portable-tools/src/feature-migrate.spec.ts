@@ -46,6 +46,7 @@ class FakeGh implements MigrationGh {
 
     closed: number[] = [];
     closeFails = false;
+    closeFailsFor: number[] = [];
     issueTypes: string[] | null = null;
 
     hasIssueType(name: string): boolean {
@@ -53,7 +54,7 @@ class FakeGh implements MigrationGh {
     }
 
     closeFeature(number: number): boolean {
-        if (this.closeFails) return false;
+        if (this.closeFails || this.closeFailsFor.includes(number)) return false;
         this.closed.push(number);
         const issue = this.issues.find((i) => i.number === number);
         if (issue !== undefined) issue.state = "closed";
@@ -244,6 +245,18 @@ describe("a migration close that fails, and its repeat (decision record #1061 G2
         const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha.") });
         const report = run(root, gh, true);
         expect(gh.filed).toHaveLength(1);
+        expect(report.complete).toBe(false);
+    });
+
+    it("reports the run incomplete when its ledger's open issue cannot be closed, even though new filings succeed", () => {
+        const gh = new FakeGh([featureIssue(77, "docs/features/alpha")]);
+        gh.closeFailsFor = [77];
+        const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha."), beta: readme("Beta", "Does beta.") });
+        fs.mkdirSync(path.join(root, MIGRATION_DIR), { recursive: true });
+        fs.writeFileSync(path.join(root, MIGRATION_DIR, LEDGER_FILE), JSON.stringify({ [featureRef("docs/features/alpha")]: { number: 77 } }));
+        const report = run(root, gh, true);
+        expect(gh.filed).toHaveLength(1);
+        expect(gh.issues.find((i) => i.number === 77)?.state).toBe("open");
         expect(report.complete).toBe(false);
     });
 

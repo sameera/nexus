@@ -318,7 +318,7 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
     }
     if (input.apply && toFile.length > 0) {
         const filed = input.gh.fileFeatures(toFile);
-        failure = filed.failure;
+        failure = failure ?? filed.failure;
         for (const plan of plans) {
             if (plan.action !== "file") continue;
             const number: number | undefined = filed.numbers.get(plan.path);

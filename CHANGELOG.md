@@ -14,7 +14,10 @@ behaviour says so.
 - **`nexus feature-issue migrate` refuses under `features: types` when the epic repository lacks
   the named type,** filing nothing, instead of filing untyped.
 - **A migration whose close of a filed feature issue fails reports incomplete and exits 1.** A
-  repeat closes the open feature issue its own ledger records, and files none.
+  repeat closes the open feature issue its own ledger records, and files none. A repeat that cannot
+  close that issue reports incomplete even when the new feature issues it files succeed.
+- **A workspace hub can declare `github.features`** in its manifest, once for every member, as it
+  can `features-as-issues`.
 - **`nexus close` names the feature issue on the stubs it files in a repository opted in through
   `github.features`** as well as through `features-as-issues: true`.
 
