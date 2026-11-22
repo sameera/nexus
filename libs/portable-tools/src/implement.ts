@@ -812,9 +812,9 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             return answerRows(r.value);
         };
         // An answer line that appears or changes during an agent stage stops the run (G14).
-        const guarded = async (stage: string, prompt: string, model: string | null = null): Promise<SessionEnd> => {
+        const guarded = async (stage: string, prompt: string, model: string | null = null, args: string[] = input.harnessArgs): Promise<SessionEnd> => {
             const before = readAnswers(stage);
-            const end = await runStage(stage, prompt, model);
+            const end = await runStage(stage, prompt, model, args);
             const after = readAnswers(stage);
             const posted = [...after].filter((row) => !before.has(row)).map((row) => row.split("\t")[0]);
             if (posted.length > 0) fail(stage, `an answer line was posted or edited during the stage, which only a person may do: ${[...new Set(posted)].join(", ")}`);
@@ -841,7 +841,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                     if (current !== null) deps.editPrBody(cwd, prNum, beforeStatus(current, fallback));
                 }
                 const hand = `Finish by hand: /nxs.decision-record ${epic}, then /nxs.analyze --pr ${prNum}.`;
-                const ab = await guarded("as-built", asBuiltPrompt(epic, prNum, hasPlan), onModel);
+                // G32: a model in the pass-through arguments never reaches the as-built session.
+                const ab = await guarded("as-built", asBuiltPrompt(epic, prNum, hasPlan), onModel, withoutModel(harness, input.harnessArgs));
                 const after = deps.resolveEpic(cwd, epic);
                 if (!after.ok) return fail("as-built", `epic #${epic} could not be resolved after the as-built stage: ${after.message} ${hand}`);
                 const rec = after.value.record;

@@ -995,6 +995,13 @@ describe("as-built decision record (epic #1041, story #1044, D4, D5, D6, D7, D8,
         expect(modelOf(r.sessions.find(isAsBuilt) as SessionSpec)).toBe("claude-opus-5-5");
     });
 
+    it("never runs the as-built stage on a model in the pass-through arguments (G32)", async () => {
+        const r = await run(world({ ...noRecord, finals: ["the plan"] }), { retroactive: true, harnessArgs: ["--model", "haiku"] });
+        const asBuilt = r.sessions.find(isAsBuilt) as SessionSpec;
+        expect(modelOf(asBuilt)).toBe("opus");
+        expect(asBuilt.args).not.toContain("haiku");
+    });
+
     it("falls back to the implementing model when planning could not start, and says so (G39)", async () => {
         const models = { planning: { value: "opus", layer: "built-in" }, implementing: { value: "sonnet", layer: "repository settings" }, unknownKeys: [] };
         const r = await run(world({ ...noRecord, models, planningFails: true }), { retroactive: true });
