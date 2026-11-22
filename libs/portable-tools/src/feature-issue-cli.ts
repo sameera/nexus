@@ -11,10 +11,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
+import { type KindClassification, classifyIssueKind, isDeclaredFeature } from "@nexus/delivery-config/issue-kind";
 import { type IssueAt, linkToFeature, missingFromFeature, parseIssueAt, writeFeatureReference } from "@nexus/delivery-config/feature-link";
 import { type FilerEnvironment, defaultEnvironment } from "@nexus/delivery-config/story-filer/environment";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
-import { LEDGER_FILE, MIGRATION_DIR, type MemberIssue, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
+import { LEDGER_FILE, MIGRATION_DIR, type MemberIssue, type MigrationGh, type MigrationReport, migrateFeatures, namedFeatureIssue } from "./feature-migrate.js";
 import {
     type FeatureIssueRef,
     type FeatureLookup,
@@ -22,12 +23,13 @@ import {
     describeLookup,
     featureRef,
     lookupFeature,
+    parseFeaturePath,
     readLedgerNumber,
     renderFeatureWorkItem,
     resolveFeatureSetting,
 } from "./feature-issue.js";
 
-export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related", "migrate"];
+export const FEATURE_ISSUE_SUBVERBS: readonly string[] = ["lookup", "work-item", "check-related", "migrate", "features", "epics", "stubs"];
 
 export const FEATURE_ISSUE_USAGE: string = [
     "  nexus feature-issue lookup --feature-path <path> [--ledger <file>] [--named <N>]",
@@ -38,6 +40,15 @@ export const FEATURE_ISSUE_USAGE: string = [
     "      issue is used it also prints classification, label and type, the marker to file under.",
     "      Not opted in, it reads nothing from GitHub. ambiguous, not-a-feature or an unreadable",
     "      listing exits 1, naming why; nothing may be filed then.",
+    "  nexus feature-issue features",
+    "      List every feature issue, open and closed, that records its feature. Prints",
+    "      { state, features: [{ number, name, state, featurePath, statement, retired }] }.",
+    "      Not opted in, it prints { state: \"off\" } and reads nothing from GitHub.",
+    "  nexus feature-issue epics --feature <N>",
+    "  nexus feature-issue stubs --feature <N>",
+    "      List the planned epics (open and closed) or the open stubs whose body names feature",
+    "      issue <N>. Related and sub-issue links are never read. A listing GitHub does not fully",
+    "      answer exits 1 and prints nothing.",
     "  nexus feature-issue work-item --name <name> --statement <text> --feature-path <path> --dir <folder>",
     "      Write the work item a new feature issue is filed from into <folder>. Prints { file, ref }.",
     "  nexus feature-issue check-related --feature <N|owner/repo#N> --issues <n,n,...>",
@@ -67,6 +78,7 @@ export async function runFeatureIssue(argv: string[], io: FeatureIssueIo, run: R
     }
     if (sub === "lookup") return runLookup(flags, io, run);
     if (sub === "check-related") return runCheckRelated(flags, io, run);
+    if (sub === "features" || sub === "epics" || sub === "stubs") return runListing(sub, flags, io, run);
     return runWorkItem(flags, io);
 }
 
@@ -120,6 +132,97 @@ function runLookup(flags: Map<string, string>, io: FeatureIssueIo, run: Runner):
         return 1;
     }
     return 0;
+}
+
+interface ListedIssue {
+    number: number;
+    title: string;
+    state: "open" | "closed";
+}
+
+/** The three listings (D4, D5): the mode first, then GitHub's issue listing, never its search. */
+function runListing(sub: "features" | "epics" | "stubs", flags: Map<string, string>, io: FeatureIssueIo, run: Runner): number {
+    const featureFlag: string | undefined = flags.get("feature");
+    if (sub !== "features" && (featureFlag === undefined || !/^#?[1-9]\d*$/.test(featureFlag))) {
+        io.stderr(`usage:\n${FEATURE_ISSUE_USAGE}`);
+        return 2;
+    }
+    const root: string = checkoutRoot(io.cwd);
+    const setting: FeatureSetting = resolveFeatureSetting(root);
+    if (setting.state === "off") {
+        io.stdout(JSON.stringify({ state: "off", line: "Features as issues is off; features are read from the docs tree." }));
+        return 0;
+    }
+    if (setting.state === "no-marker") {
+        io.stderr(`feature-issue no-marker: ${setting.message}`);
+        return 1;
+    }
+    const reader = new GhReader(run, root, resolvePublishingKey(root, "epic-repo"));
+    if (sub === "features") {
+        const retiredLabel: string = resolvePublishingKey(root, "retired-feature-label").trim().toLowerCase();
+        const raw: RestIssue[] | null = reader.listRaw(featureFilter(setting));
+        if (raw === null) return listingFailed(reader, io);
+        const features = raw
+            .map((i) => ({ issue: i, ref: toRef(i) }))
+            .filter(({ ref }) => isDeclaredFeature(setting.markers, { labels: ref.labels, issueType: ref.issueType }))
+            .map(({ issue, ref }) => ({ issue, ref, featurePath: parseFeaturePath(ref.body) }))
+            .filter((f) => f.featurePath !== null)
+            .map(({ issue, ref, featurePath }) => ({
+                number: ref.number,
+                name: issue.title ?? "",
+                state: ref.state,
+                featurePath,
+                statement: firstLine(ref.body),
+                retired: retiredLabel !== "" && ref.labels.some((l) => l.toLowerCase() === retiredLabel),
+            }))
+            .sort((a, b) => a.number - b.number);
+        io.stdout(JSON.stringify({ state: "on", features }));
+        return 0;
+    }
+    const feature: number = Number(featureFlag!.replace(/^#/, ""));
+    const markers: KindClassification = setting.markers;
+    const byNumber: Map<number, RestIssue> = new Map();
+    for (const filter of epicFilters(markers)) {
+        const one: RestIssue[] | null = reader.listRaw(filter);
+        if (one === null) return listingFailed(reader, io);
+        for (const i of one) byNumber.set(i.number, i);
+    }
+    const unplanned: string = resolvePublishingKey(root, "unplanned-label").trim().toLowerCase();
+    const members = [...byNumber.values()]
+        .map((i) => ({ issue: i, ref: toRef(i) }))
+        .filter(({ ref }) => {
+            const kind = classifyIssueKind(markers, { number: ref.number, labels: ref.labels, issueType: ref.issueType });
+            return !kind.ok || kind.kind === "epic";
+        })
+        .filter(({ ref }) => namedFeatureIssue(ref.body) === feature)
+        .map(({ issue, ref }) => ({ number: ref.number, title: issue.title ?? "", state: ref.state, stub: unplanned !== "" && ref.labels.some((l) => l.toLowerCase() === unplanned) }))
+        .sort((a, b) => a.number - b.number);
+    const listed: ListedIssue[] = members
+        .filter((m) => (sub === "epics" ? !m.stub : m.stub && m.state === "open"))
+        .map(({ number, title, state }) => ({ number, title, state }));
+    io.stdout(JSON.stringify({ state: "on", feature, [sub]: listed }));
+    return 0;
+}
+
+function listingFailed(reader: GhReader, io: FeatureIssueIo): number {
+    io.stderr(`feature-issue gh-failed: ${reader.failure ?? "the listing was not answered"}. Nothing is listed; repeat once GitHub answers.`);
+    return 1;
+}
+
+function featureFilter(setting: Extract<FeatureSetting, { state: "on" }>): string {
+    return setting.markers.mode === "types" ? `type=${encodeURIComponent(setting.type)}` : `labels=${encodeURIComponent(setting.label)}`;
+}
+
+/** The epic-marked listings, both states: the label and the type wherever the mode reads them. */
+function epicFilters(markers: KindClassification): string[] {
+    const filters: string[] = [];
+    if ((markers.mode !== "types" || markers.epicType === "") && markers.epicLabel !== "") filters.push(`labels=${encodeURIComponent(markers.epicLabel)}`);
+    if (markers.mode !== "labels" && markers.epicType !== "") filters.push(`type=${encodeURIComponent(markers.epicType)}`);
+    return filters;
+}
+
+function firstLine(body: string): string {
+    return body.split("\n").map((l) => l.trim()).find((l) => l !== "" && !l.startsWith("<!--")) ?? "";
 }
 
 function runCheckRelated(flags: Map<string, string>, io: FeatureIssueIo, run: Runner): number {
@@ -292,9 +395,7 @@ export function realMigrationGh(root: string, setting: FeatureSetting, run: Runn
         listMembers: () => {
             const markers = setting.state === "on" ? setting.markers : null;
             if (markers === null) return [];
-            const filters: string[] = [];
-            if ((markers.mode !== "types" || markers.epicType === "") && markers.epicLabel !== "") filters.push(`labels=${encodeURIComponent(markers.epicLabel)}`);
-            if (markers.mode !== "labels" && markers.epicType !== "") filters.push(`type=${encodeURIComponent(markers.epicType)}`);
+            const filters: string[] = epicFilters(markers);
             const byNumber: Map<number, RestIssue> = new Map();
             for (const filter of filters) {
                 const one: RestIssue[] | null = reader.listRaw(filter);
