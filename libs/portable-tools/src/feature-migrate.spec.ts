@@ -7,8 +7,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { type FeatureIssueRef, parseFeaturePath, renderFeatureMeta, resolveFeatureSetting } from "./feature-issue.js";
-import { type FeatureToFile, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
+import { type FeatureIssueRef, featureRef, parseFeaturePath, renderFeatureMeta, resolveFeatureSetting } from "./feature-issue.js";
+import { type FeatureToFile, LEDGER_FILE, MIGRATION_DIR, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
 
 const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
 
@@ -45,8 +45,15 @@ class FakeGh implements MigrationGh {
     }
 
     closed: number[] = [];
+    closeFails = false;
+    issueTypes: string[] | null = null;
+
+    hasIssueType(name: string): boolean {
+        return this.issueTypes === null || this.issueTypes.includes(name);
+    }
 
     closeFeature(number: number): boolean {
+        if (this.closeFails) return false;
         this.closed.push(number);
         const issue = this.issues.find((i) => i.number === number);
         if (issue !== undefined) issue.state = "closed";
@@ -227,5 +234,56 @@ describe("the migration files feature issues closed (story #1059, decision recor
         expect(gh.closed).toEqual([500]);
         expect(gh.issues.find((i) => i.number === 500)?.state).toBe("closed");
         expect(gh.issues.find((i) => i.number === 42)?.state).toBe("open");
+    });
+});
+
+describe("a migration close that fails, and its repeat (decision record #1061 G23)", () => {
+    it("reports the run incomplete when a feature issue it filed could not be closed", () => {
+        const gh = new FakeGh();
+        gh.closeFails = true;
+        const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha.") });
+        const report = run(root, gh, true);
+        expect(gh.filed).toHaveLength(1);
+        expect(report.complete).toBe(false);
+    });
+
+    it("a repeat closes the open feature issue its own ledger records, and files none", () => {
+        const gh = new FakeGh([featureIssue(77, "docs/features/alpha")]);
+        const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha.") });
+        fs.mkdirSync(path.join(root, MIGRATION_DIR), { recursive: true });
+        fs.writeFileSync(path.join(root, MIGRATION_DIR, LEDGER_FILE), JSON.stringify({ [featureRef("docs/features/alpha")]: { number: 77 } }));
+        const report = run(root, gh, true);
+        expect(gh.filed).toEqual([]);
+        expect(gh.closed).toEqual([77]);
+        expect(report.complete).toBe(true);
+    });
+
+    it("leaves a reused feature issue its ledger does not record in its state", () => {
+        const gh = new FakeGh([featureIssue(42, "docs/features/alpha")]);
+        const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha.") });
+        run(root, gh, true);
+        expect(gh.closed).toEqual([]);
+    });
+});
+
+describe("the migration under features: types (decision record #1061 D3, G10)", () => {
+    const TYPED = "  classification: labels\n  features: types\n  feature-type: Feature\n";
+
+    it("refuses and files nothing when the epic repository lacks the named feature type", () => {
+        const gh = new FakeGh();
+        gh.issueTypes = ["Story"];
+        const root = repoWith(TYPED, { alpha: readme("Alpha", "Does alpha.") });
+        const report = run(root, gh, true);
+        expect(report.refused).toMatch(/Feature/);
+        expect(report.complete).toBe(false);
+        expect(gh.filed).toEqual([]);
+    });
+
+    it("files when the type exists", () => {
+        const gh = new FakeGh();
+        gh.issueTypes = ["Feature"];
+        const root = repoWith(TYPED, { alpha: readme("Alpha", "Does alpha.") });
+        run(root, gh, true);
+        expect(gh.filed).toHaveLength(1);
     });
 });

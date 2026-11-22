@@ -433,6 +433,8 @@ export function realMigrationGh(root: string, setting: FeatureSetting, run: Runn
             const said: string[] = [];
             const args: string[] = [dir, "--root", root, "--keep-manifest"];
             if (epicRepo.trim() !== "") args.push("--issues-repo", epicRepo.trim());
+            const classification: string = featureClassification(on);
+            if (classification === "types" || classification === "labels") args.push("--classification", classification);
             if (on.label !== "") args.push("--classification-label", on.label);
             if (on.type !== "") args.push("--classification-type", on.type);
             const code: number = runCreateStory(args, { cwd: root, stdout: () => undefined, stderr: (l) => said.push(l) }, env ?? defaultEnvironment);
@@ -458,6 +460,7 @@ export function realMigrationGh(root: string, setting: FeatureSetting, run: Runn
             return listed.map((i): MemberIssue => ({ ...toRef(i), title: i.title ?? "", parent: null }));
         },
         closeFeature: (number) => reader.close(number),
+        hasIssueType: (name) => reader.hasIssueType(name),
         editBody: (number, expected, body) => {
             const home = homeRepo(root, gh);
             return home !== null && writeFeatureReference(gh, { ...home, number: String(number) }, expected, body).outcome === "written";

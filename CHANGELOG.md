@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.8.0
+
+- **Feature issues carry the feature mode's marker alone, whatever the epics use.** With
+  `features: types` and labelled epics a new feature issue gets the feature type and no story label;
+  with `features: labels` and typed epics it gets the feature label and no Story type. The filer
+  takes a new `--classification types|labels` flag that `/nxs.epic` and the migration pass.
+- **`nexus feature-issue migrate` refuses under `features: types` when the epic repository lacks
+  the named type,** filing nothing, instead of filing untyped.
+- **A migration whose close of a filed feature issue fails reports incomplete and exits 1.** A
+  repeat closes the open feature issue its own ledger records, and files none.
+- **`nexus close` names the feature issue on the stubs it files in a repository opted in through
+  `github.features`** as well as through `features-as-issues: true`.
+
 ## 1.7.0
 
 - **New setting `github.features: docs | types | labels`** chooses how features are recorded.

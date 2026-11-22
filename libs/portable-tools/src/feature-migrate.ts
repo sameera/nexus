@@ -41,6 +41,8 @@ export interface FeatureToFile {
 export interface MigrationGh {
     /** Close a feature issue this run filed (D9). False when it could not be closed. */
     closeFeature?: (number: number) => boolean;
+    /** Whether the epic repository has the named issue type (#1061 D3). Absent: not probed. */
+    hasIssueType?: (name: string) => boolean;
     /** Every issue carrying the feature marker, open and closed. Null when GitHub did not answer. */
     listFeatures(): FeatureIssueRef[] | null;
     /** File the feature issues through the guarded filer. `numbers` maps feature path to issue. */
@@ -272,17 +274,24 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
     const ledger: string = path.join(input.root, MIGRATION_DIR, LEDGER_FILE);
     const byNumber: Map<number, FeatureIssueRef> = new Map(listed.map((i) => [i.number, i]));
 
+    let typeMissing: string | null = null;
+    const closeOwn: number[] = [];
     const plans: FeaturePlan[] = readFeatureFolders(input.root).map((folder) => {
+        const ledgerNumber: number | null = readLedgerNumber(ledger, folder.path);
         const lookup: FeatureLookup = lookupFeature({
             setting,
             featurePath: folder.path,
-            ledgerNumber: readLedgerNumber(ledger, folder.path),
+            ledgerNumber,
             namedNumber: null,
             readIssue: (n) => byNumber.get(n) ?? null,
             listIssues: () => listed,
+            ...(input.gh.hasIssueType !== undefined ? { hasIssueType: input.gh.hasIssueType.bind(input.gh) } : {}),
         });
+        if (lookup.outcome === "type-missing") typeMissing = lookup.type;
         if (lookup.outcome === "reuse") {
             const issue: FeatureIssueRef | undefined = byNumber.get(lookup.issue);
+            // Only an issue this migration's own ledger records was filed by it, so only that one is closed (D9).
+            if (lookup.issue === ledgerNumber && issue?.state === "open") closeOwn.push(lookup.issue);
             const retired: boolean = retiredLabel !== "" && (issue?.labels ?? []).some((l) => l.toLowerCase() === retiredLabel);
             return { path: folder.path, name: folder.name, action: "reuse", issue: lookup.issue, ...(retired ? { retired } : {}) };
         }
@@ -292,6 +301,11 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
         return { path: folder.path, name: folder.name, action: "file" };
     });
 
+    if (typeMissing !== null) {
+        const refused = `the epic repository has no '${typeMissing}' issue type, which github.feature-type names`;
+        return { refused, features: [], lines: [`Refused: ${refused}. Nothing was written; create the type or correct github.feature-type.`], complete: false };
+    }
+
     const toFile: FeatureToFile[] = [];
     for (const plan of plans) {
         if (plan.action !== "file") continue;
@@ -299,6 +313,9 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
         toFile.push({ featurePath: plan.path, name: plan.name, statement: folder.statement as string });
     }
     let failure: string | null = null;
+    if (input.apply && input.gh.closeFeature !== undefined) {
+        for (const number of closeOwn) if (!input.gh.closeFeature(number)) failure = failure ?? `#${number} was filed but could not be closed`;
+    }
     if (input.apply && toFile.length > 0) {
         const filed = input.gh.fileFeatures(toFile);
         failure = filed.failure;
@@ -318,7 +335,7 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
     for (const p of plans) lines.push(`  ${describe(p)}`);
     if (failure !== null) lines.push(`Stopped filing: ${failure}. Re-run with --apply; it files only the feature issues still missing.`);
     let open: boolean = plans.some((p) => p.action !== "reuse" && p.action !== "filed");
-    if (input.gh.listMembers === undefined || failure !== null) return { refused: null, features: plans, lines, complete: !open };
+    if (input.gh.listMembers === undefined || failure !== null) return { refused: null, features: plans, lines, complete: !open && failure === null };
 
     const members = migrateMembers(input, plans, lines);
     open = open || members === null || members.some((m) => m.action !== "done" && m.action !== "updated");

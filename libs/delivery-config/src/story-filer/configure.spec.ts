@@ -239,3 +239,45 @@ describe("the dry run", () => {
         expect(io.out.find((l) => l.includes("STORY-2.md:"))).toContain("project='(auto)'");
     });
 });
+
+describe("a caller's --classification override (decision record #1061, D2)", () => {
+    const FEATURE_TYPES: string = JSON.stringify({
+        data: { repository: { issueTypes: { nodes: [{ id: "IT_story", name: "Story" }, { id: "IT_feature", name: "Feature" }] } } },
+    });
+    function featureTypesAnswers(args: string[]) {
+        if (args[0] === "repo" && args[1] === "view") return OK("acme/tracker\n");
+        if (args[0] === "api" && args[1] === "graphql") return OK(FEATURE_TYPES);
+        return undefined;
+    }
+
+    it("files under the type alone in a labelled repository when the caller says types", () => {
+        const root: string = checkoutWith({ classification: "labels", "story-label": "user-story" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = filingPlatform(featureTypesAnswers);
+        expect(runCreateStory([scratch(root), "--classification", "types", "--classification-type", "Feature"], io, gh.env)).toBe(0);
+        expect(io.out.join("\n")).toContain("issue-type 'Feature'");
+        const created: string[][] = issueCreates(gh.calls);
+        expect(created.length).toBe(1);
+        expect(created[0]).not.toContain("user-story");
+    });
+
+    it("files under the label alone in a typed repository when the caller says labels", () => {
+        const root: string = checkoutWith({ classification: "types", "story-type": "Story" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = filingPlatform(featureTypesAnswers);
+        expect(runCreateStory([scratch(root), "--classification", "labels", "--classification-label", "feature"], io, gh.env)).toBe(0);
+        expect(io.all()).not.toContain("issue-type 'Story'");
+        const created: string[][] = issueCreates(gh.calls);
+        expect(created.length).toBe(1);
+        expect(created[0]).toContain("feature");
+    });
+
+    it("refuses a classification other than types or labels", () => {
+        const root: string = checkoutWith({ classification: "labels" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        expect(runCreateStory([scratch(root), "--classification", "bogus"], io, filingPlatform().env)).toBe(2);
+    });
+});

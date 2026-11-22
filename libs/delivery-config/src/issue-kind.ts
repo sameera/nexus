@@ -137,7 +137,7 @@ function matches(value: string | null, wanted: string): boolean {
 /** The markers one kind is recognised by, with every kind that outranks it. */
 type KindMarkers = Pick<
     KindClassification,
-    "epicLabel" | "epicType" | "storyLabel" | "storyType" | "recordLabel" | "recordType" | "initiativeLabel" | "initiativeType" | "featureLabel" | "featureType"
+    "epicLabel" | "epicType" | "storyLabel" | "storyType" | "recordLabel" | "recordType" | "initiativeLabel" | "initiativeType" | "featureLabel" | "featureType" | "featureMode"
 >;
 
 function kindFrom(c: KindMarkers, by: (label: string, type: string) => boolean): IssueKind {
