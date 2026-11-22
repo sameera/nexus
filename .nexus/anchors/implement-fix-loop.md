@@ -1,6 +1,6 @@
 ---
 concept: implement-fix-loop
-source_sha: 33e2f8dd44936c4274674f0301d546052a746f9e
+source_sha: dac740d31bc3a295968a25899358d74b79797d89
 generated: 2026-11-22
 ---
 
@@ -11,3 +11,4 @@ generated: 2026-11-22
 
 - `libs/portable-tools/src/implement.ts` — the analyze and fix rounds, resume on the open pull request, the progress test on open item IDs, answer posting, and the ready rule (#1053)
 - `libs/portable-tools/src/implement.spec.ts` — coverage for the round stops, the already-answered skip, the posted-answer stop and the ready rule (#1053)
+- `libs/portable-tools/src/implement.ts` — the as-built stage before the first round, and the implementing model passed to each fix round

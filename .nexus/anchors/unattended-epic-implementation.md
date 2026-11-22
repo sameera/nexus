@@ -1,6 +1,6 @@
 ---
 concept: unattended-epic-implementation
-source_sha: 33e2f8dd44936c4274674f0301d546052a746f9e
+source_sha: dac740d31bc3a295968a25899358d74b79797d89
 generated: 2026-11-22
 ---
 
@@ -15,3 +15,5 @@ generated: 2026-11-22
 - `libs/portable-tools/src/nexus-cli.ts` — registers the verb and wires its dependencies (#1053)
 - `libs/delivery-config/src/keys.ts` — the test-command settings key
 - `components/skills/nxs.hld/SKILL.md` — the optional preview step that renders the design page a lead reads before starting an unattended run
+- `libs/portable-tools/src/implement.ts` — the retroactive option in the preflight, model resolution and the unsafe-value refusal, and the stage model passing
+- `libs/portable-tools/src/nexus-cli.ts` — the retroactive, planning-model and implementing-model options on the verb

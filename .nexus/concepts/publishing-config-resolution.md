@@ -1,15 +1,15 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation", "feature-issue-migration"]
-last_updated_by: "#999"
+touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation", "feature-issue-migration", "harness-model-selection"]
+last_updated_by: "#1041"
 status: active
 verification: verified
 ---
 
 # Publishing Config Resolution
 
-Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, resolved by a single shared resolver every publishing consumer goes through. It decides how an issue is classified, which project it joins, and which repository it is filed into.
+Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, plus a models section per harness, resolved by a single shared resolver every consumer goes through. It decides how an issue is classified, which project it joins, and which repository it is filed into.
 
 ## How It Works
 
@@ -48,8 +48,9 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [issue-asset-store](issue-asset-store.md) — one more key on this chain, hub layer included, and the one target that deliberately has no built-in fallback.
 - [initiative](initiative.md) — the initiative label and issue type are two more keys this resolver supplies; the issue type has no built-in.
 - [filing-preflight](filing-preflight.md) — resolves the unplanned label and the initiative marker here before it checks a stub's parent.
-- [unattended-epic-implementation](unattended-epic-implementation.md) — one more key on this chain, the test command, is read only by this command.
+- [unattended-epic-implementation](unattended-epic-implementation.md) — more keys on this chain are read only by this command: the test command, and each harness's planning and implementing models, declared in a section named for the harness.
 - [feature-issue-migration](feature-issue-migration.md) — supplies the opt-in, feature marker and retired-feature label name the migration reads, never guessing a marker.
+- [harness-model-selection](harness-model-selection.md) — the planning and implementing models, resolved through this chain from a section named for each harness.
 
 ## Decision Log
 
@@ -112,3 +113,7 @@ A member checkout now takes every publishing key it leaves unset from the hub's 
 ### 2026-11-22 — #999 — Retired-feature label setting
 
 A new setting names the label a lead puts on a feature no longer in use, with a default. Feature issues stay open, so closing one cannot mean retired. The migration reads the setting only through this resolver and never adds or removes the label.
+
+### 2026-11-22 — #1041 — Resolve each harness's models through the same chain
+
+Each coding-agent harness now has its own settings section holding a planning and an implementing model, and the shared resolver supplies both. They sit on the same precedence chain as every other key, so nothing reads them from the settings file on its own. Refuted alternative: flat keys with a harness prefix inside the GitHub publishing block. That needs no reader change. It lost because a model choice is not a publishing setting.

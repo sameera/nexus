@@ -1,8 +1,8 @@
 ---
 title: "Unattended Epic Implementation"
 aliases: ["nexus implement", "implement command", "implement-epic command", "nexus implement-epic", "unattended implementation", "implement an epic unattended"]
-touches: ["nexus-pipeline", "scope-claim", "publishing-config-resolution", "implement-fix-loop", "hld-build-input"]
-last_updated_by: "#991"
+touches: ["implement-run-branch", "nexus-pipeline", "scope-claim", "publishing-config-resolution", "implement-fix-loop", "hld-build-input", "retroactive-implementation", "harness-model-selection"]
+last_updated_by: "#1041"
 status: active
 verification: verified
 ---
@@ -13,23 +13,23 @@ An optional command implements an approved epic with no one watching. It builds 
 
 ## How It Works
 
-Before any agent runs, the command resolves the epic and refuses unless the decision record is approved and the working tree is clean. It reads the run branch, named for the epic, from the remote and the local copy. A missing branch is created, and an existing branch is continued, and the first output line says the run is resuming. A remote-only branch is copied down, and a local copy behind the remote is brought up to date. When the record's newest trusted HLD comment is current, the command refuses unless the page it links can be read, unless the lead chose to build from the record alone. Stories that already have their own commit on the branch count as built. One implementation agent builds the remaining stories in blocked-by order. While it works, the command checks each new story commit, pushes it, and opens the draft pull request at the first one. The status section lists built and pending stories. When no story remains, no agent builds, and the pull request says this run did not run the test suite.
+Before any agent runs, the command resolves the epic and refuses unless the decision record is approved, or the lead passed the retroactive option and the epic has no record at all, and unless the working tree is clean. It then takes up the run branch. When the record's newest trusted HLD comment is current, the command refuses unless the page it links can be read, unless the lead chose to build from the record alone. One implementation agent builds the remaining stories in blocked-by order. While it works, the command checks each new story commit, pushes it, and opens the draft pull request at the first one. The status section lists built and pending stories. When no story remains, no agent builds, and the pull request says this run did not run the test suite.
 
 ## Key Invariants
 
 1. Every refusal that can be decided from the issue graph and the checkout comes before any agent runs. This includes diverged branch copies, a merge commit on the run branch, a branch not made on top of the base, and earlier commits that break the story commit check.
 2. Claude stages default to auto permission mode. The command refuses when auto mode is unavailable and never widens the mode silently.
-3. A story commit is pushed only after it passes the story commit check. A failed check ends the agent stage and stops the run.
-4. Pushed commits are never rewritten. Every push is a plain push, and a run branch that no longer descends from its last checked commit stops the run.
-5. A finished story is on the remote before the build stage ends. A stop after that keeps every story already published.
 
 ## Integration Points
 
 - [nexus-pipeline](nexus-pipeline.md) — the one exception to implementation staying with engineers. No stage calls this command.
 - [scope-claim](scope-claim.md) — the grammar the draft pull request body uses to claim each story.
-- [publishing-config-resolution](publishing-config-resolution.md) — resolves the test command and the issues repository.
+- [publishing-config-resolution](publishing-config-resolution.md) — resolves the test command, the issues repository, and the planning and implementing models of the run's harness.
 - [implement-fix-loop](implement-fix-loop.md) — the analyze and fix rounds that run on the draft pull request this command opens.
 - [hld-build-input](hld-build-input.md) — decides in the preflight whether the implementation agent builds from a high-level design page.
+- [implement-run-branch](implement-run-branch.md) — the branch named for the epic: created, resumed or brought up to date, and each story commit checked before its push.
+- [retroactive-implementation](retroactive-implementation.md) — the option that builds an epic with no decision record and files an as-built record before review.
+- [harness-model-selection](harness-model-selection.md) — the planning and implementing models the preflight resolves and checks before any agent runs.
 
 ## Decision Log
 
@@ -52,3 +52,7 @@ When the record's newest trusted HLD comment is current, the preflight now also 
 ### 2026-11-22 — #991 — A re-run continues an interrupted run from the branch and the pull request
 
 The command no longer refuses when the run branch exists. A re-run continues on it from any clone and builds only the stories that have no commit yet. The commits on the branch are the record of progress, so no progress file is written. Each story commit is pushed while the build stage runs, so finished work is never held on one machine. The local and remote copies are brought together before any agent stage, and a diverged pair stops the run, because settling it would rewrite one side. "Made on top of the base" means a shared fork point with the remote base and no merge commit after it. That keeps stubs committed to the base after the run started from passing as written before the run. Refuted alternative: treat the local branch as the only truth and push with force-with-lease. It needs no step to bring the copies together, but a stale clone would overwrite stories another machine already published. Refuted alternative: one build stage per story, with check and push after each. It needs no watcher, but every story's session would read the record, the design page and the epic again and lose the context of the dependent chain. The story commit made in the agent's last few seconds is pushed right after the stage ends, a departure the lead accepted.
+
+### 2026-11-22 — #1041 — Build without a record when the lead passes the retroactive option
+
+The preflight's record refusal now holds wherever a record exists and whenever the retroactive option is absent. With the option and no record at all, the run builds without one, plans first, and files an as-built record before review. The command also resolves a planning and an implementing model for its harness and refuses an unsafe value before any agent runs. The record refusal was narrowed, not removed, so a run without the option starts, refuses and builds as before. Refuted alternative: let the option override an open record too. A lead stuck on an unapproved record would find that convenient. It lost because it turns approving the record into ignoring it. The change took the page's own content over its word cap, so the run branch moved to implement-run-branch: how the branch is created, resumed and brought up to date, which stories count as built, and the push rules. A task that changes the preflight or the agent's instructions does not need the branch rules, and a task that changes resuming or pushing does not need the preflight.

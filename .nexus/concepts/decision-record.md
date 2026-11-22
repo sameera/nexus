@@ -1,29 +1,28 @@
 ---
 title: "Approvable Decision Record"
-aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input", "initiative-context", "release-template-lookup"]
-last_updated_by: "#1028"
+aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate"]
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store", "pinned-sources", "reading-list", "approval-brief", "removal-gate", "hld-build-input", "initiative-context", "release-template-lookup", "retroactive-implementation", "record-revision"]
+last_updated_by: "#1041"
 status: active
 verification: verified
 ---
 
 # Approvable Decision Record
 
-An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form. Approval is closing that sub-issue; the timeline supplies who and when, and Nexus writes no approval field anywhere.
+An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form. Approval is closing that sub-issue; the timeline supplies when, and who except on an as-built record, whose prose names the run that approved it; Nexus writes no approval field anywhere.
 
 ## How It Works
 
-The design-warrant is read from the issue graph, never remembered: a medium-or-larger complexity rollup labels the epic needs-design at filing; a no-design-needed outcome removes the label without filing anything; a hand-filed epic with neither has none. The design stage files the record as pure human prose — no frontmatter, no machine block — and swaps needs-design for in-progress, asserting existence, not approval; a re-run targets the existing sub-issue, never a second. Once approved the record can still be corrected without being edited: when close's diff shows a decision it no longer holds, close posts one advisory comment naming the decision, what shipped, and why — a conformant close posts nothing, and a pre-implementation change instead reopens and revises the record directly. The stage now drafts under the scope razor, labelling every invariant and every risk, and stops at a pre-filing checkpoint of its own — the first point in its life at which the body can be reduced before it becomes durable. A refuted alternative is offered rather than required there: no template carries a standing slot for one, and an alternative whose stated reason names no trade-off is reported to the reviewer as an observation that blocks nothing. What is filed and hashed is derived from the draft the reviewer approved, cuts included, never from the labelled draft itself.
+The design-warrant is read from the issue graph, never remembered: a medium-or-larger complexity rollup labels the epic needs-design at filing; a no-design-needed outcome removes the label without filing anything; a hand-filed epic with neither has none. The design stage files the record as pure human prose — no frontmatter, no machine block — and swaps needs-design for in-progress, asserting existence, not approval; a re-run targets the existing sub-issue, never a second. The stage now drafts under the scope razor, labelling every invariant and every risk, and, except in the as-built mode only the retroactive implement run invokes, stops at a pre-filing checkpoint of its own — the first point in its life at which the body can be reduced before it becomes durable. A refuted alternative is offered rather than required there: no template carries a standing slot for one, and an alternative whose stated reason names no trade-off is reported to the reviewer as an observation that blocks nothing. What is filed and hashed is derived from the draft the reviewer approved, cuts included, or, for an as-built record, from the draft as the run wrote it, never from the labelled draft itself.
 
 ## Key Invariants
 
 1. The record lives only as a sub-issue of the epic issue; no record file is written.
-2. Approval is the close of the record sub-issue and nothing else; actor and time come from the timeline.
+2. ~~Approval is the close of the record sub-issue and nothing else; actor and time come from the timeline.~~ Approval is the close of the record sub-issue and nothing else; time comes from the timeline, and so does the approver, except on an as-built record, whose body states that the retroactive implement run named by its pull request approved it, whatever account the timeline shows.
 3. A record closed as not planned is withdrawn, not approved.
 4. At most one record sub-issue per epic; a second candidate aborts.
 5. The design-warrant is answered from the issue graph alone, never remembered state.
-6. A closed body is editable only by reopen-and-revise, or amendable by an advisory comment that never touches body, title, labels, or state; every revision embeds the superseded body and hash.
-7. The body is pure human prose.
+6. The body is pure human prose.
 
 ## Integration Points
 
@@ -52,6 +51,8 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [hld-build-input](hld-build-input.md) — reads the newest trusted HLD comment on this record, and the record stays binding over the page it links.
 - [initiative-context](initiative-context.md) — read before analysing, as decisions already settled; a settled decision with no reasoning becomes an open clarification.
 - [release-template-lookup](release-template-lookup.md) — supplies the template every record is drafted from; the stage stops when the lookup fails.
+- [record-revision](record-revision.md) — how an approved record changes afterwards: reopen and revise before implementation, or one advisory comment from close.
+- [retroactive-implementation](retroactive-implementation.md) — the only caller of the as-built mode, which files and approves a record with no gate stops.
 
 ## Decision Log
 
@@ -124,3 +125,7 @@ Mechanical reciprocity fan-out: the design stage now reads an initiative's kept 
 ### 2026-11-14 — #1028 — Reciprocal link from release-template-lookup
 
 Mechanical reciprocity fan-out. The decision-record stage now drafts from the template the installed release returns, the old-format one for a revision of an old-format record, and stops when the lookup fails or returns nothing. Its checks for a stale repository copy are gone. Nothing about the record's own life as a sub-issue changed.
+
+### 2026-11-22 — #1041 — Add an as-built mode chosen only by naming the run's pull request
+
+The stage gains an as-built mode that the retroactive implement run selects with a switch naming its pull request. In that mode the stage answers its own clarifications from what was built, writes that a reason was not recorded where the run left none, skips the pre-filing checkpoint, and files and closes the record. The record opens by stating that the run decided and approved it. A draft with anything only the owner can accept is not filed. Run by hand, the stage stops at every gate as before. The close is recorded under the lead's account, because the run has none, so the opening statement is the only honest attribution. Refuted alternative: detect a headless run and answer the gates automatically. It needs no new switch. It lost because it silently changes the stage for anyone running it headless for another reason, and the record would carry no link to a run. The change took the page's own content over its word cap, so how an approved record changes afterwards moved to record-revision: reopen-and-revise, close's advisory comment, and the invariant that governs both. A task that files or approves a record does not need those rules, and a task that revises or amends one does not need the drafting and checkpoint rules.
