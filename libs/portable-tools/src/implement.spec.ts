@@ -908,6 +908,14 @@ describe("a re-run continues on the epic's existing run branch (epic #991, story
         expect(r.err).toMatch(/uncommitted changes/);
         expect(r.sessions).toHaveLength(0);
     });
+
+    it("rewrites the open pull request's status section when a re-run stops in preflight (G26)", async () => {
+        const r = await run(resumed({ clean: false, openPr: 3 }));
+        expect(r.code).toBe(1);
+        const body = r.bodies[r.bodies.length - 1];
+        expect(body).toMatch(/stopped at preflight/);
+        expect(body).toMatch(/uncommitted changes/);
+    });
 });
 
 describe("a re-run builds only the stories without a commit (epic #991, story #993: G7-G11, G22, G29)", () => {

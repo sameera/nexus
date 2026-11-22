@@ -567,6 +567,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (open.value !== null) {
                 const prBaseName = deps.prBase(cwd, open.value);
                 if (prBaseName !== base) fail("preflight", `branch ${branch} has open PR #${open.value} targeting ${prBaseName ?? "an unreadable base"}, not ${base}.`);
+                // G26: every later stop rewrites the status section of the pull request the re-run continues.
+                pr = open.value;
             }
             say(`implement: resuming epic #${epic} on existing branch ${branch}.`);
         }
