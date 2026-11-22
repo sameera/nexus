@@ -98,19 +98,19 @@ Implementation sits between the decision record and analyze; engineers own it.
     - **Discovery writes nothing to GitHub.** No issue, no comment, no label, at any point. The issues appear when `/nxs.epic` consumes the finished discovery, through the same emission path every other stub goes through.
     - *First iteration:* the store is a committed folder under `.nexus/discovery/`, holding a discovery doc and one file per ticket.
 
-3. **Epic** (`/nxs.epic`)
+3. **Epic** (`nexus epic "<description>"`, or `/nxs.epic` inside a session)
     - Natural-language intent in; a right-sized epic with user stories and acceptance criteria out.
     - Approval happens at a decision-grade digest — you approve the decisions, not a wall of prose.
     - On approval, the epic and one issue per story are filed together. Oversized scope is cut into epic stubs instead of inflating the epic.
     - If the intent turns out to be underspecified rather than oversized, `/nxs.epic` stops and refers you to `/nxs.discover` instead of filing work-shaped stubs.
 
-4. **Decision record** (`/nxs.decision-record`)
+4. **Decision record** (`nexus decision-record <N>`, or `/nxs.decision-record` inside a session)
     - The focused "why": key decisions with refuted alternatives, invariants, risks. Tiered by complexity — a simple epic gets a short record.
     - Filed as a sub-issue of the epic. Approval is closing that issue. No shadow copies.
 
 5. **Implementation** - engineers build the stories. Nexus stays out of the way.
 
-6. **Analyze** (`/nxs.analyze`)
+6. **Analyze** (`nexus analyze --pr <N>`, or `/nxs.analyze` inside a session)
     - The conformance gate: does the build do what the planning said?
     - Checks the implemented code against acceptance criteria, success metrics, and the decision record's invariants — and refuses to run against an unapproved record.
 
@@ -376,6 +376,27 @@ It uses [`codex exec`](https://learn.chatgpt.com/docs/non-interactive-mode) with
 each stage and a `workspace-write` sandbox. Pass additional `codex exec` options after `--`.
 The command pushes the implementation branch and opens a draft pull request; run it only when
 that publication is intended.
+
+## Starting the planning stages with one command
+
+The epic, decision-record and analyze stages each start from one `nexus` command:
+
+```bash
+nexus epic "Add team invitations"
+nexus decision-record 123
+nexus analyze --pr 77 --resolve
+```
+
+Each starts one interactive Claude Code session in your current checkout and hands it the matching
+slash command with your arguments, unchanged and in the order you typed them. You answer the stage's
+gates in that session, exactly as when you opened it by hand. `nexus decision-record` takes the epic
+as `123` or `'#123'` and starts the same session either way.
+
+The session runs on the planning model the `claude` section of the settings declares — Opus unless
+another is set — so one setting governs these commands and the planning session of `nexus
+implement`. `--planning-model <model>` names another model for one run; it is the command's flag and
+never reaches the stage's arguments. A verb with nothing to start refuses, names its usage and
+starts no session. `nexus --help` lists all three with the slash command each one starts.
 
 ## Distilling with one command
 
