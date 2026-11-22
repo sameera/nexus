@@ -91,6 +91,8 @@ interface World {
     fetchFails: boolean;
     /** The commits already on the run branch when a re-run starts; `commits` when absent. */
     existing?: Commit[];
+    /** Answer lines already on the pull request when the run starts. */
+    priorAnswers?: PrAnswer[];
     /** Whether the build stage rewrote a commit that was on the branch when the run started. */
     rewritten: boolean;
     /** The branch the lead's checkout is on when the run starts. */
@@ -157,7 +159,7 @@ function harness(w: World) {
     const bodies: string[] = [];
     const comments: string[] = [];
     const writes: Record<string, string> = {};
-    let answers: PrAnswer[] = [];
+    let answers: PrAnswer[] = [...(w.priorAnswers ?? [])];
     let head = 0;
     let analyzeRuns = 0;
     let lastPublished: { head: string; judgments: Judgments } | null = null;
@@ -243,7 +245,10 @@ function harness(w: World) {
             writes[file] = text;
             return { ok: true, value: null };
         },
-        fileAt: (_c, _sha, file) => w.files[file] ?? null,
+        fileAt: (_c, sha, file) => {
+            log.push(`file-at ${sha} ${file}`);
+            return w.files[file] ?? null;
+        },
         autoModeAvailable: () => w.auto,
         onPath: () => true,
         session: async (spec): Promise<SessionEnd> => {
@@ -922,5 +927,43 @@ describe("a re-run builds only the stories without a commit (epic #991, story #9
     it("never says the suite was skipped when the run built a story", async () => {
         const r = await run(resumed());
         expect(r.bodies.join("\n")).not.toMatch(/did not run the test suite/);
+    });
+});
+
+describe("a re-run continues the analyze and fix rounds on the existing pull request (epic #991, story #994: G18-G20, G24, G25)", () => {
+    const all = [storyCommit(1), storyCommit(2)];
+    const stub = { path: ".nexus/queue/epic-7/me/decisions-b.md", reason: "kept the old format" };
+    const answer = (id: string, trusted: boolean): PrAnswer => ({ id, verb: "accepted", reason: "fine by me", author: "lead", url: `https://x/a/${id}`, at: "2026-11-20T00:00:00Z", trusted });
+    const resumed = (over: Partial<World> = {}): World => world({ local: "tip", existing: all, commits: all, openPr: 5, ...over });
+
+    it("reuses the open pull request and starts with a full analyze on its head", async () => {
+        const r = await run(resumed());
+        expect(r.code).toBe(0);
+        expect(r.log).not.toContain("create-pr");
+        expect(r.sessions[0].args[1]).toMatch(/^\/nxs\.analyze --pr 5\n/);
+    });
+
+    it("posts no inferred answer for an item an earlier run already answered", async () => {
+        const r = await run(
+            resumed({ priorAnswers: [answer("DV1", true)], verdicts: [judged(departure("DV1", { stub }))], files: { [stub.path]: "- **Why:** kept the old format" } }),
+            { rounds: 1 },
+        );
+        expect(r.comments.join("\n")).not.toMatch(/DV1 — accepted/);
+    });
+
+    it("still answers an item whose only earlier answer came from someone who cannot speak for the repository", async () => {
+        const r = await run(resumed({ priorAnswers: [answer("DV1", false)], verdicts: [judged(departure("DV1", { stub })), judged()], files: { [stub.path]: "- **Why:** kept the old format" } }));
+        expect(r.comments[0]).toMatch(/^DV1 — accepted/);
+    });
+
+    it("cites only decision stubs present where the run branch left the base", async () => {
+        const r = await run(resumed({ verdicts: [judged(departure("DV1", { stub })), judged()], files: { [stub.path]: "- **Why:** kept the old format" } }));
+        expect(r.log).toContain(`file-at fork ${stub.path}`);
+    });
+
+    it("marks the pull request ready on a clean verdict for its head, as an uninterrupted run does", async () => {
+        const r = await run(resumed());
+        expect(r.log).toContain("ready");
+        expect(r.out).toMatch(/PR #5 is ready/);
     });
 });

@@ -694,7 +694,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             return end;
         };
 
-        const posted = new Set<string>();
+        // D8: an item that already has a trusted answer on the pull request, whoever wrote it, gets no inferred answer.
+        const prior = deps.answers(cwd, prNum, prRepo);
+        if (!prior.ok) return fail("answers", `the answer lines on PR #${prNum} could not be read: ${prior.message}`);
+        const posted = new Set<string>(prior.value.filter((a) => a.trusted).map((a) => a.id));
         let round = 0;
         let lastIds: string | null = null;
         let resolveNext = false;
