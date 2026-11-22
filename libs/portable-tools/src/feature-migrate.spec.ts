@@ -174,11 +174,38 @@ describe("migrate — feature filing (#1046)", () => {
         expect(gh.filed[0]).toMatchObject({ name: "Alpha", statement: "Does alpha from the index." });
     });
 
-    it("creates, edits or deletes nothing in the feature folders (G16)", () => {
+    it("without --apply writes nothing in the feature folders (#1061 G33)", () => {
         const gh = new FakeGh();
         const root = repoWith(OPTED_IN, { alpha: readme("Alpha", "Does alpha.") });
         const before: string = snapshot(path.join(root, "docs"));
-        run(root, gh, true);
+        run(root, gh, false);
         expect(snapshot(path.join(root, "docs"))).toBe(before);
+    });
+});
+
+describe("the README pointer line (epic #1000, story #1058, decision record #1061 D11)", () => {
+    const alphaReadme: string = readme("Alpha", "Does alpha.");
+
+    it("with --apply adds one line to each README pointing to its feature issue, and changes nothing else", () => {
+        const gh = new FakeGh([featureIssue(42, "docs/features/beta")]);
+        const root = repoWith(OPTED_IN, { alpha: alphaReadme, beta: readme("Beta", "Does beta.") });
+        const index: string = fs.readFileSync(path.join(root, "docs", "features", "README.md"), "utf8");
+        run(root, gh, true);
+        const alpha: string = fs.readFileSync(path.join(root, "docs", "features", "alpha", "README.md"), "utf8");
+        const beta: string = fs.readFileSync(path.join(root, "docs", "features", "beta", "README.md"), "utf8");
+        expect(beta).toMatch(/#42\b/);
+        expect(alpha).toMatch(/#500\b/);
+        expect(beta.split("\n").filter((l) => !readme("Beta", "Does beta.").split("\n").includes(l))).toHaveLength(1);
+        expect(fs.readFileSync(path.join(root, "docs", "features", "README.md"), "utf8")).toBe(index);
+    });
+
+    it("a repeated --apply run adds no second line", () => {
+        const gh = new FakeGh([featureIssue(42, "docs/features/alpha")]);
+        const root = repoWith(OPTED_IN, { alpha: alphaReadme });
+        run(root, gh, true);
+        const once: string = fs.readFileSync(path.join(root, "docs", "features", "alpha", "README.md"), "utf8");
+        run(root, gh, true);
+        expect(fs.readFileSync(path.join(root, "docs", "features", "alpha", "README.md"), "utf8")).toBe(once);
+        expect(once.match(/#42\b/g)).toHaveLength(1);
     });
 });

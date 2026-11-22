@@ -63,3 +63,19 @@ describe("/nxs.epic resolves the feature from the listing (D6, D7, D10)", () => 
         expect(read("commands/nxs.epic.md")).not.toContain("**`unmigrated`**");
     });
 });
+
+describe("/nxs.epic writes nothing to the tree when opted in (story #1058, D8)", () => {
+    const body: string = read("commands/nxs.epic.md");
+
+    it("creates the feature directory only when the listing answered off", () => {
+        const phase1: string = section(body, "## Phase 1 — Resolve the feature container");
+        for (const line of phase1.split("\n").filter((l) => /mkdir -p|create the directory/i.test(l))) {
+            expect(line).toMatch(/"off"/);
+        }
+    });
+
+    it("skips the feature README and the features index row unless the listing answered off", () => {
+        expect(body).toMatch(/anything but `"off"`, skip steps 6 and 7/);
+        expect(body).toMatch(/no feature folder, no feature README and no features index row/);
+    });
+});

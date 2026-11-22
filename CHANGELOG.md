@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.5.0
+
+- **`/nxs.epic` writes nothing to the tree in a repository with features as issues.** Filing an
+  epic or stubs creates no feature folder, writes no feature README and adds no features index row;
+  existing READMEs and the index are left unchanged and go stale. Without features as issues the
+  tree is written as before.
+- **`nexus feature-issue migrate --apply` adds one pointer line to each feature README** whose
+  feature has a feature issue, naming that issue. A repeated run adds no second line; a run without
+  `--apply` still writes nothing. Commit the change it leaves.
+
 ## 1.4.0
 
 - **Before you upgrade an opted-in repository, run `nexus feature-issue migrate --apply` until it

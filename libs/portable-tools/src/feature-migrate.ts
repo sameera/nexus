@@ -234,6 +234,21 @@ export function readFeatureFolders(root: string): FeatureFolder[] {
         });
 }
 
+/** The line that names a README's feature issue (D11). Matched on its prefix, so a repeat adds none. */
+const POINTER_PREFIX = "> Feature issue:";
+
+/** Add the pointer line under the README's title once; every other line is left as it is. */
+function addPointerLine(root: string, featurePath: string, issue: number): void {
+    const file: string = path.join(root, featurePath, "README.md");
+    const text: string = fs.readFileSync(file, "utf8");
+    if (text.split("\n").some((l) => l.startsWith(POINTER_PREFIX))) return;
+    const line = `${POINTER_PREFIX} #${issue}. This README is no longer updated; the feature's epics are listed by \`nexus feature-issue epics --feature ${issue}\`.`;
+    const title: RegExpExecArray | null = /^# .*$/m.exec(text);
+    const at: number = title === null ? 0 : title.index + title[0].length;
+    const next: string = title === null ? `${line}\n\n${text}` : `${text.slice(0, at)}\n\n${line}${text.slice(at)}`;
+    fs.writeFileSync(file, next);
+}
+
 function refusal(setting: FeatureSetting): string | null {
     if (setting.state === "off") return "the repository has not opted in to features as issues: set github.features-as-issues: true in .nexus/config/settings.yml";
     if (setting.state === "no-marker") return "the repository classifies issues by type and declares no feature type: set github.feature-type in .nexus/config/settings.yml";
@@ -290,6 +305,8 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
             Object.assign(plan, number === undefined ? { action: "failed" } : { action: "filed", issue: number });
         }
     }
+
+    if (input.apply) for (const p of plans) if (p.action === "reuse" || p.action === "filed") addPointerLine(input.root, p.path, p.issue as number);
 
     const lines: string[] = [input.apply ? "Feature issues:" : "Feature issues (plan only; re-run with --apply to carry it out):"];
     for (const p of plans) lines.push(`  ${describe(p)}`);
