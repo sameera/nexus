@@ -62,6 +62,9 @@ export const DEFAULT_ROUNDS = 5;
 /** The settings key the test command is read from, through the shared resolver (D14, G21). */
 export const TEST_COMMAND_KEY = "test-command";
 
+/** How often the branch watcher reads the run branch while the build stage runs (epic #991, D4). */
+export const WATCH_MS = 5000;
+
 export interface ImplementInput {
     cwd: string;
     epic: number;
@@ -164,7 +167,10 @@ export interface ImplementDeps {
     fileAt(cwd: string, sha: string, file: string): string | null;
     autoModeAvailable(): boolean;
     onPath(command: string): boolean;
-    session(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd>;
+    /** Run one harness session; aborting `signal` ends the session's whole process group. */
+    session(spec: SessionSpec, line: (text: string) => void, signal?: AbortSignal): Promise<SessionEnd>;
+    /** Resolve after `ms` milliseconds. */
+    wait(ms: number): Promise<void>;
 }
 
 export interface ImplementIo {
@@ -261,7 +267,7 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "epic' and 'Committed follow-up' items and Concept-store changes alone — other " +
         "issues and /nxs.distill deliver them. " +
         "Before starting each story, re-read its epic.md section and the decisions it " +
-        `delivers. ${TEST_FIRST_RULE} ${scope}Stay on the current branch. Never amend, rebase or reset a commit, and never use a force operation. Do not push and do not open a PR — the calling command does both. ` +
+        `delivers. ${TEST_FIRST_RULE} ${scope}Stay on the current branch. The calling command publishes each commit as soon as you make it, so never amend, rebase or reset a commit, and never use a force operation. Do not push and do not open a PR — the calling command does both. ` +
         `${suite} Stop after ${turns} turns.` +
         (page === null ? "" : `\n\n${hldParagraph(page)}`)
     );
@@ -336,7 +342,7 @@ export function checkStoryCommits(commits: readonly Commit[], stories: readonly 
         if (!at.has(story)) continue;
         for (const blocker of blockedBy.get(story) ?? []) {
             if (!live.has(blocker)) continue;
-            if ((at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it.`;
+            if (!at.has(blocker) || (at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it.`;
         }
     }
     return null;
@@ -469,6 +475,8 @@ export function inferredAnswers(judgments: Judgments | null, preRunStub: (path: 
     return out;
 }
 
+const noop = (): void => undefined;
+
 class RunStop extends Error {
     constructor(
         readonly stage: string,
@@ -495,9 +503,11 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         return body !== null && deps.editPrBody(cwd, pr, withStatus(body, text));
     };
 
+    // D6: the built and pending stories, while any is pending; null before the run knows them.
+    let progress: string | null = null;
     const stop = (s: RunStop): number => {
         io.stderr(`implement stopped at ${s.stage}: ${s.reason}`);
-        if (pr !== null && !setStatus(`stopped at ${s.stage}. ${s.reason}`)) {
+        if (pr !== null && !setStatus(`stopped at ${s.stage}. ${s.reason}${progress === null ? "" : ` ${progress}`}`)) {
             io.stderr(`implement could not update the status section of PR #${pr}.`);
         }
         return 1;
@@ -617,9 +627,9 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         }
         say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
-        const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
+        const runStage = async (stage: string, prompt: string, signal?: AbortSignal): Promise<SessionEnd> => {
             say(`>>> ${stage}`);
-            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd), (l) => io.stdout(l));
+            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd), (l) => io.stdout(l), signal);
             if (!end.started) fail(stage, `the ${harness} harness could not start: ${end.error ?? "unknown error"}`);
             return end;
         };
@@ -638,7 +648,104 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 forkPoint === null
                     ? null
                     : { remaining, committedBlockers: [...new Set(remaining.flatMap((s) => facts.blockedBy.get(s) ?? []))].filter((b) => committed.has(b)).sort((a, b) => a - b) };
-            const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, resume));
+            // D4: one stage, while the branch watcher checks, pushes and publishes each new commit.
+            const repoNow = deps.prRepo(cwd);
+            if (repoNow === null) return fail("pull-request", "the pull request's repository could not be read.");
+            prRepo = repoNow;
+            const answerRowsNow = (): Set<string> => {
+                if (pr === null) return new Set();
+                const r = deps.answers(cwd, pr, prRepo);
+                if (!r.ok) return fail("implementation", `the answer lines on PR #${pr} could not be read: ${r.message}`);
+                return answerRows(r.value);
+            };
+            const openAtStart = deps.openPr(cwd, branch);
+            if (openAtStart.ok && openAtStart.value !== null) pr = openAtStart.value;
+            const answersBefore = answerRowsNow();
+            let lastChecked = startTip ?? baseSha;
+            let pushedTip: string | null = startTip;
+            let builtSoFar = new Set(committed);
+            let violation: string | null = null;
+            let publishError: { stage: string; reason: string } | null = null;
+            const progressText = (): string => {
+                const builtList = facts.stories.filter((s) => builtSoFar.has(s));
+                const pendingList = facts.stories.filter((s) => !builtSoFar.has(s));
+                const refs = (ns: number[]): string => (ns.length === 0 ? "none" : ns.map((n) => issueRef(n, facts.issuesRepo, prRepo)).join(", "));
+                return `Stories built: ${refs(builtList)}; pending: ${refs(pendingList)}.`;
+            };
+            const ac = new AbortController();
+            const tick = (): void => {
+                if (violation !== null) return;
+                const tip = deps.localTip(cwd, branch);
+                if (tip !== null && tip !== lastChecked) {
+                    if (!deps.isAncestor(cwd, lastChecked, tip)) {
+                        violation = `${branch} moved to ${tip}, which does not descend from the last checked commit ${lastChecked}; a checked commit was rewritten.`;
+                    } else {
+                        const all = deps.commits(cwd, baseSha, tip);
+                        const bad = all === null ? `the commits on ${branch} could not be read.` : checkStoryCommits(all, facts.stories, facts.blockedBy, facts.issuesRepo, "prefix");
+                        if (bad !== null) violation = bad;
+                        else {
+                            lastChecked = tip;
+                            builtSoFar = committedStories(all ?? [], facts.stories, facts.issuesRepo);
+                        }
+                    }
+                    if (violation !== null) {
+                        ac.abort();
+                        return;
+                    }
+                }
+                if (lastChecked === pushedTip || lastChecked === baseSha) return;
+                const before = pushedTip;
+                const p = deps.push(cwd, branch);
+                if (!p.ok) {
+                    publishError = { stage: "push", reason: p.message };
+                    return;
+                }
+                pushedTip = lastChecked;
+                publishError = null;
+                if (builtSoFar.size === 0) return;
+                progress = progressText();
+                if (pr === null) {
+                    const found = deps.openPr(cwd, branch);
+                    if (found.ok && found.value !== null) pr = found.value;
+                    else if (found.ok) {
+                        const opened = deps.createPr(cwd, { base, branch, title: `epic #${epic}: ${facts.title}`, body: prBody(epic, facts.stories, facts.issuesRepo, prRepo, progress) });
+                        if (!opened.ok) {
+                            publishError = { stage: "pull-request", reason: opened.message };
+                            return;
+                        }
+                        pr = opened.value;
+                        say(`implement: draft PR #${pr}`);
+                        return;
+                    } else {
+                        publishError = { stage: "pull-request", reason: found.message };
+                        return;
+                    }
+                }
+                if (before !== pushedTip && !setStatus(progress)) publishError = { stage: "pull-request", reason: `the status section of PR #${pr} could not be rewritten.` };
+            };
+            let ended = false;
+            const session = runStage(
+                "implementation",
+                implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, resume),
+                ac.signal,
+            ).finally(() => {
+                ended = true;
+            });
+            while (!ended) {
+                await Promise.race([session.then(noop, noop), deps.wait(WATCH_MS)]);
+                if (!ended) tick();
+            }
+            const impl = await session;
+            tick();
+            if (violation !== null) fail("story-commit-check", `${violation} The commit was not pushed and the build stage was ended.`);
+            const err = publishError as { stage: string; reason: string } | null;
+            if (err !== null) fail(err.stage, err.reason);
+            // D7: an answer line that appears or changes during the build stage stops the run.
+            if (pr !== null) {
+                const after = answerRowsNow();
+                const postedNow = [...after].filter((row) => !answersBefore.has(row)).map((row) => row.split("\t")[0]);
+                if (postedNow.length > 0) fail("implementation", `an answer line was posted or edited during the stage, which only a person may do: ${[...new Set(postedNow)].join(", ")}`);
+            }
             const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
             if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
             if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
@@ -959,5 +1066,6 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
         autoModeAvailable: () => claudeOffersAuto(run),
         onPath: (command) => onPath(command),
         session: spawnSession,
+        wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     };
 }

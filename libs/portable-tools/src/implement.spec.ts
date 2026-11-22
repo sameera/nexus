@@ -91,6 +91,10 @@ interface World {
     fetchFails: boolean;
     /** The commits already on the run branch when a re-run starts; `commits` when absent. */
     existing?: Commit[];
+    /** The run branch's tips the build stage makes, one per watcher wait, with the commits up to each. */
+    buildTips: Array<{ tip: string; commits: Commit[] }>;
+    /** How many pushes fail before one succeeds. */
+    pushFailures: number;
     /** Answer lines already on the pull request when the run starts. */
     priorAnswers?: PrAnswer[];
     /** Whether the build stage rewrote a commit that was on the branch when the run started. */
@@ -133,6 +137,8 @@ function world(over: Partial<World> = {}): World {
         prBase: "main",
         fetchFails: false,
         rewritten: false,
+        buildTips: [],
+        pushFailures: 0,
         checkout: "main",
         auto: true,
         commits: [storyCommit(1), storyCommit(2)],
@@ -164,6 +170,9 @@ function harness(w: World) {
     let analyzeRuns = 0;
     let lastPublished: { head: string; judgments: Judgments } | null = null;
     let checkout = w.checkout;
+    let cursor = 0;
+    let buildDone: (() => void) | null = null;
+    let pushFailures = w.pushFailures;
     const deps: ImplementDeps = {
         resolveEpic: () => ({
             ok: true,
@@ -176,7 +185,7 @@ function harness(w: World) {
             log.push(`fetch ${branch} ${base}`);
             return w.fetchFails ? { ok: false, message: "could not resolve host" } : { ok: true, value: w.remote };
         },
-        localTip: () => w.local,
+        localTip: () => (cursor > 0 ? w.buildTips[cursor - 1].tip : w.local),
         isAncestor: (_c, a, b) => a === b || w.ancestry.includes(`${a}<${b}`) || (b.startsWith("head") && !w.rewritten),
         setLocalBranch: (_c, branch, sha) => {
             log.push(`set ${branch} ${sha}`);
@@ -196,13 +205,17 @@ function harness(w: World) {
         },
         currentBranch: () => checkout,
         headSha: () => `head${head}`,
-        commits: (_c, _base, tip) => (tip !== undefined ? (w.existing ?? w.commits) : w.commits),
+        commits: (_c, _base, tip) => (tip !== undefined ? (w.buildTips.find((t) => t.tip === tip)?.commits ?? w.existing ?? w.commits) : w.commits),
         push: (_c, branch) => {
             log.push(`push ${branch}`);
+            if (pushFailures > 0) {
+                pushFailures--;
+                return { ok: false, value: undefined, message: "network is unreachable" } as never;
+            }
             return { ok: true, value: null };
         },
         prRepo: () => w.prRepo,
-        openPr: () => ({ ok: true, value: w.openPr }),
+        openPr: () => ({ ok: true, value: w.openPr ?? (log.includes("create-pr") ? 5 : null) }),
         createPr: (_c, p) => {
             log.push("create-pr");
             bodies.push(p.body);
@@ -251,11 +264,28 @@ function harness(w: World) {
         },
         autoModeAvailable: () => w.auto,
         onPath: () => true,
-        session: async (spec): Promise<SessionEnd> => {
+        wait: async () => {
+            if (cursor < w.buildTips.length) cursor++;
+            else if (buildDone !== null) buildDone();
+        },
+        session: async (spec, _line, signal): Promise<SessionEnd> => {
             const index = sessions.length;
             sessions.push(spec);
             log.push(`session ${index}`);
             answers = [...answers, ...(w.answersDuring[index] ?? [])];
+            if (index === 0 && w.buildTips.length > 0) {
+                const end: SessionEnd = { started: true, exitCode: 0, error: null, finalMessage: w.finals[0] ?? "done" };
+                return new Promise((resolve) => {
+                    buildDone = () => {
+                        log.push("build-end");
+                        resolve(end);
+                    };
+                    signal?.addEventListener("abort", () => {
+                        log.push("abort");
+                        resolve({ ...end, exitCode: null });
+                    });
+                });
+            }
             const prompt = spec.args.find((a) => a.includes("nxs.analyze --pr") || a.includes("$nxs-analyze --pr")) ?? "";
             if (prompt.startsWith("/nxs.analyze --pr") || prompt.startsWith("$nxs-analyze --pr")) {
                 const j = w.verdicts[Math.min(analyzeRuns, w.verdicts.length - 1)];
@@ -965,5 +995,72 @@ describe("a re-run continues the analyze and fix rounds on the existing pull req
         const r = await run(resumed());
         expect(r.log).toContain("ready");
         expect(r.out).toMatch(/PR #5 is ready/);
+    });
+});
+
+describe("each story commit reaches the remote as it is made (epic #991, story #995: G12-G17, G21, G22)", () => {
+    const c1 = storyCommit(1, "head-a");
+    const c2 = storyCommit(2, "head-b");
+    const building = (over: Partial<World> = {}): World =>
+        world({ buildTips: [{ tip: "head-a", commits: [c1] }, { tip: "head-b", commits: [c1, c2] }], commits: [c1, c2], ...over });
+    const before = (log: string[], entry: string, marker = "build-end"): boolean => log.indexOf(entry) > -1 && log.indexOf(entry) < log.indexOf(marker);
+
+    it("pushes the first story commit and opens the draft pull request before the build stage ends", async () => {
+        const r = await run(building());
+        expect(r.code).toBe(0);
+        expect(before(r.log, "push nxs/epic-7")).toBe(true);
+        expect(before(r.log, "create-pr")).toBe(true);
+        expect(r.bodies[0]).toMatch(/Closes #1/);
+        expect(r.bodies[0]).toMatch(/Closes #2/);
+    });
+
+    it("pushes each later story commit before the build stage ends", async () => {
+        const r = await run(building());
+        const end = r.log.indexOf("build-end");
+        expect(r.log.slice(0, end).filter((l) => l === "push nxs/epic-7")).toHaveLength(2);
+    });
+
+    it("never pushes a commit that fails the check, ends the build stage and stops with the reason", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [storyCommit(2, "head-a")] }] }));
+        expect(r.code).toBe(1);
+        expect(r.log).toContain("abort");
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+        expect(r.err).toMatch(/stopped at story-commit-check: .*#2 is committed before #1/);
+    });
+
+    it("names built and pending stories in the status section while stories remain", async () => {
+        const r = await run(building());
+        expect(r.bodies[0]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("retries a push that failed during the stage at the next commit, and goes on", async () => {
+        const r = await run(building({ pushFailures: 1 }));
+        expect(r.code).toBe(0);
+        expect(r.log.filter((l) => l === "create-pr")).toHaveLength(1);
+    });
+
+    it("stops naming the push stage when the push still fails after the stage", async () => {
+        const r = await run(building({ pushFailures: 99 }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at push: network is unreachable/);
+    });
+
+    it("stops when an answer line appears on the open pull request during the build stage", async () => {
+        const a: PrAnswer = { id: "F1", verb: "waived", reason: "x", author: "bot", url: "https://x/c/1", at: "t", trusted: true };
+        const r = await run(world({ local: "tip", existing: [], openPr: 5, answersDuring: { 0: [a] } }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at implementation: an answer line was posted/);
+    });
+
+    it("keeps published stories on a blocked stop and names them as built", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [c1] }], commits: [c1], finals: ["Implementation blocked: no access"] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at implementation: the stage ended blocked/);
+        expect(r.bodies[r.bodies.length - 1]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("tells the build stage each commit is published as soon as it is made", async () => {
+        const r = await run(world());
+        expect(r.sessions[0].args[1]).toMatch(/publishes each commit as soon as you make it/);
     });
 });

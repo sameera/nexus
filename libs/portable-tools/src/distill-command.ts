@@ -625,17 +625,26 @@ export function condenseEvent(line: string): CondensedEvent {
 }
 
 /** Run a harness to its end, condensing its event stream line by line. */
-export function spawnSession(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd> {
+export function spawnSession(spec: SessionSpec, line: (text: string) => void, signal?: AbortSignal): Promise<SessionEnd> {
     return new Promise((resolve) => {
         let final: string | null = null;
         let error: string | null = null;
         let child;
         try {
-            child = spawn(spec.command, spec.args, { cwd: spec.cwd, stdio: ["ignore", "pipe", "pipe"] });
+            child = spawn(spec.command, spec.args, { cwd: spec.cwd, stdio: ["ignore", "pipe", "pipe"], detached: signal !== undefined });
         } catch (e) {
             resolve({ started: false, exitCode: null, error: e instanceof Error ? e.message : String(e), finalMessage: null });
             return;
         }
+        // Ending a stage ends its whole process group, so a test run it started ends with it (epic #991, R2).
+        const pid = child.pid;
+        signal?.addEventListener("abort", () => {
+            try {
+                if (pid !== undefined) process.kill(-pid, "SIGTERM");
+            } catch {
+                // Already gone.
+            }
+        });
         let spawnError: string | null = null;
         child.on("error", (e) => {
             spawnError = e.message;
