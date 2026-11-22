@@ -672,6 +672,12 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                 const refs = (ns: number[]): string => (ns.length === 0 ? "none" : ns.map((n) => issueRef(n, facts.issuesRepo, prRepo)).join(", "));
                 return `Stories built: ${refs(builtList)}; pending: ${refs(pendingList)}.`;
             };
+            // G16, G22: the stories an earlier run built are named from the start, and the open PR's status is rewritten with them.
+            let prPending = false;
+            if (builtSoFar.size > 0) {
+                progress = progressText();
+                prPending = pr !== null;
+            }
             const ac = new AbortController();
             const tick = (): void => {
                 if (violation !== null) return;
@@ -693,17 +699,21 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                         return;
                     }
                 }
-                if (lastChecked === pushedTip || lastChecked === baseSha) return;
-                const before = pushedTip;
-                const p = deps.push(cwd, branch);
-                if (!p.ok) {
-                    publishError = { stage: "push", reason: p.message };
-                    return;
+                if (lastChecked !== pushedTip && lastChecked !== baseSha) {
+                    const p = deps.push(cwd, branch);
+                    if (!p.ok) {
+                        publishError = { stage: "push", reason: p.message };
+                        return;
+                    }
+                    pushedTip = lastChecked;
+                    publishError = null;
+                    if (builtSoFar.size > 0) {
+                        progress = progressText();
+                        prPending = true;
+                    }
                 }
-                pushedTip = lastChecked;
-                publishError = null;
-                if (builtSoFar.size === 0) return;
-                progress = progressText();
+                // G17: a pull-request call that failed after its push is retried on every later tick, the after-stage one included.
+                if (!prPending || progress === null) return;
                 if (pr === null) {
                     const found = deps.openPr(cwd, branch);
                     if (found.ok && found.value !== null) pr = found.value;
@@ -714,6 +724,8 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                             return;
                         }
                         pr = opened.value;
+                        prPending = false;
+                        publishError = null;
                         say(`implement: draft PR #${pr}`);
                         return;
                     } else {
@@ -721,7 +733,12 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
                         return;
                     }
                 }
-                if (before !== pushedTip && !setStatus(progress)) publishError = { stage: "pull-request", reason: `the status section of PR #${pr} could not be rewritten.` };
+                if (!setStatus(progress)) {
+                    publishError = { stage: "pull-request", reason: `the status section of PR #${pr} could not be rewritten.` };
+                    return;
+                }
+                prPending = false;
+                publishError = null;
             };
             let ended = false;
             const session = runStage(

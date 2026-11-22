@@ -95,6 +95,8 @@ interface World {
     buildTips: Array<{ tip: string; commits: Commit[] }>;
     /** How many pushes fail before one succeeds. */
     pushFailures: number;
+    /** How many attempts to open the pull request fail before one succeeds. */
+    createPrFailures?: number;
     /** Answer lines already on the pull request when the run starts. */
     priorAnswers?: PrAnswer[];
     /** Whether the build stage rewrote a commit that was on the branch when the run started. */
@@ -173,6 +175,7 @@ function harness(w: World) {
     let cursor = 0;
     let buildDone: (() => void) | null = null;
     let pushFailures = w.pushFailures;
+    let createPrFailures = w.createPrFailures ?? 0;
     const deps: ImplementDeps = {
         resolveEpic: () => ({
             ok: true,
@@ -217,6 +220,11 @@ function harness(w: World) {
         prRepo: () => w.prRepo,
         openPr: () => ({ ok: true, value: w.openPr ?? (log.includes("create-pr") ? 5 : null) }),
         createPr: (_c, p) => {
+            if (createPrFailures > 0) {
+                createPrFailures--;
+                log.push("create-pr-failed");
+                return { ok: false, message: "HTTP 502" } as never;
+            }
             log.push("create-pr");
             bodies.push(p.body);
             return { ok: true, value: 5 };
@@ -1057,6 +1065,26 @@ describe("each story commit reaches the remote as it is made (epic #991, story #
         expect(r.code).toBe(1);
         expect(r.err).toMatch(/stopped at implementation: the stage ended blocked/);
         expect(r.bodies[r.bodies.length - 1]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("retries opening the pull request after the stage when it failed after a successful push", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [c1] }], commits: [c1, c2], createPrFailures: 1 }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("create-pr");
+        expect(r.bodies[0]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("names the stories an earlier run built when a resumed build stage stops blocked", async () => {
+        const r = await run(world({ local: "tip", existing: [c1], commits: [c1], openPr: 5, finals: ["Implementation blocked: no access"] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at implementation: the stage ended blocked/);
+        expect(r.bodies[r.bodies.length - 1]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("rewrites the open pull request's status with the earlier run's stories when a resumed build stage ends", async () => {
+        const r = await run(world({ local: "tip", existing: [c1], commits: [c1, c2], openPr: 5 }));
+        expect(r.code).toBe(0);
+        expect(r.bodies.some((b) => /built: #1; pending: #2/.test(b))).toBe(true);
     });
 
     it("tells the build stage each commit is published as soon as it is made", async () => {
