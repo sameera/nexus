@@ -78,7 +78,31 @@ const storyCommit = (n: number, sha: string = `sha${n}`): Commit => ({ sha, mess
 interface World {
     facts: Partial<EpicFacts>;
     clean: boolean;
-    branchExists: boolean;
+    /** The run branch's local tip, or null when no local branch exists. */
+    local: string | null;
+    /** The run branch's tip on the remote, or null when the remote has no such branch. */
+    remote: string | null;
+    /** Ancestry the fake git knows, as `<older><<newer>` pairs. */
+    ancestry: string[];
+    /** The newest commit the run branch shares with the remote base, or null when none. */
+    fork: string | null;
+    /** The base branch of the branch's open pull request. */
+    prBase: string;
+    fetchFails: boolean;
+    /** The commits already on the run branch when a re-run starts; `commits` when absent. */
+    existing?: Commit[];
+    /** The run branch's tips the build stage makes, one per watcher wait, with the commits up to each. */
+    buildTips: Array<{ tip: string; commits: Commit[] }>;
+    /** How many pushes fail before one succeeds. */
+    pushFailures: number;
+    /** How many attempts to open the pull request fail before one succeeds. */
+    createPrFailures?: number;
+    /** Answer lines already on the pull request when the run starts. */
+    priorAnswers?: PrAnswer[];
+    /** Whether the build stage rewrote a commit that was on the branch when the run started. */
+    rewritten: boolean;
+    /** The branch the lead's checkout is on when the run starts. */
+    checkout: string;
     auto: boolean;
     commits: Commit[];
     openPr: number | null;
@@ -102,13 +126,26 @@ interface World {
     ignored: boolean;
     /** Whether writing the page copy fails. */
     writeFails: boolean;
+    /** How many open-pull-request lookups fail before one succeeds. */
+    openPrFailures?: number;
+    /** The uncommitted paths the working tree holds after an aborted build stage. */
+    leftover?: string[];
 }
 
 function world(over: Partial<World> = {}): World {
     return {
         facts: {},
         clean: true,
-        branchExists: false,
+        local: null,
+        remote: null,
+        ancestry: [],
+        fork: "fork",
+        prBase: "main",
+        fetchFails: false,
+        rewritten: false,
+        buildTips: [],
+        pushFailures: 0,
+        checkout: "main",
         auto: true,
         commits: [storyCommit(1), storyCommit(2)],
         openPr: null,
@@ -134,10 +171,17 @@ function harness(w: World) {
     const bodies: string[] = [];
     const comments: string[] = [];
     const writes: Record<string, string> = {};
-    let answers: PrAnswer[] = [];
+    let answers: PrAnswer[] = [...(w.priorAnswers ?? [])];
     let head = 0;
     let analyzeRuns = 0;
     let lastPublished: { head: string; judgments: Judgments } | null = null;
+    let checkout = w.checkout;
+    let cursor = 0;
+    let buildDone: (() => void) | null = null;
+    let pushFailures = w.pushFailures;
+    let createPrFailures = w.createPrFailures ?? 0;
+    let openPrFailures = w.openPrFailures ?? 0;
+    const pushed: string[] = [];
     const deps: ImplementDeps = {
         resolveEpic: () => ({
             ok: true,
@@ -146,21 +190,55 @@ function harness(w: World) {
         testCommandSetting: () => w.setting,
         defaultBranch: () => "main",
         clean: () => w.clean,
-        branchExists: () => w.branchExists,
+        fetch: (_c, branch, base) => {
+            log.push(`fetch ${branch} ${base}`);
+            return w.fetchFails ? { ok: false, message: "could not resolve host" } : { ok: true, value: w.remote };
+        },
+        localTip: () => (cursor > 0 ? w.buildTips[cursor - 1].tip : w.local),
+        isAncestor: (_c, a, b) => a === b || w.ancestry.includes(`${a}<${b}`) || (b.startsWith("head") && !w.rewritten),
+        setLocalBranch: (_c, branch, sha) => {
+            log.push(`set ${branch} ${sha}`);
+            return { ok: true, value: null };
+        },
+        forkPoint: () => w.fork,
+        prBase: () => w.prBase,
+        switchBranch: (_c, branch) => {
+            log.push(`switch ${branch}`);
+            checkout = branch;
+            return { ok: true, value: null };
+        },
         createBranch: (_c, branch, base) => {
             log.push(`branch ${branch} ${base}`);
+            checkout = branch;
             return { ok: true, value: "base" };
         },
-        currentBranch: () => "nxs/epic-7",
+        currentBranch: () => checkout,
         headSha: () => `head${head}`,
-        commits: () => w.commits,
-        push: (_c, branch) => {
+        commits: (_c, _base, tip) => (tip !== undefined ? (w.buildTips.find((t) => t.tip === tip)?.commits ?? w.existing ?? w.commits) : w.commits),
+        changes: () => (log.includes("abort") ? (w.leftover ?? []) : []),
+        push: (_c, branch, sha) => {
             log.push(`push ${branch}`);
+            pushed.push(sha ?? branch);
+            if (pushFailures > 0) {
+                pushFailures--;
+                return { ok: false, value: undefined, message: "network is unreachable" } as never;
+            }
             return { ok: true, value: null };
         },
         prRepo: () => w.prRepo,
-        openPr: () => ({ ok: true, value: w.openPr }),
+        openPr: () => {
+            if (openPrFailures > 0) {
+                openPrFailures--;
+                return { ok: false, message: "HTTP 502" };
+            }
+            return { ok: true, value: w.openPr ?? (log.includes("create-pr") ? 5 : null) };
+        },
         createPr: (_c, p) => {
+            if (createPrFailures > 0) {
+                createPrFailures--;
+                log.push("create-pr-failed");
+                return { ok: false, message: "HTTP 502" } as never;
+            }
             log.push("create-pr");
             bodies.push(p.body);
             return { ok: true, value: 5 };
@@ -202,13 +280,34 @@ function harness(w: World) {
             writes[file] = text;
             return { ok: true, value: null };
         },
-        fileAt: (_c, _sha, file) => w.files[file] ?? null,
+        fileAt: (_c, sha, file) => {
+            log.push(`file-at ${sha} ${file}`);
+            return w.files[file] ?? null;
+        },
         autoModeAvailable: () => w.auto,
         onPath: () => true,
-        session: async (spec): Promise<SessionEnd> => {
+        wait: async () => {
+            if (cursor < w.buildTips.length) cursor++;
+            else if (buildDone !== null) buildDone();
+        },
+        session: async (spec, _line, signal): Promise<SessionEnd> => {
             const index = sessions.length;
             sessions.push(spec);
+            log.push(`session ${index}`);
             answers = [...answers, ...(w.answersDuring[index] ?? [])];
+            if (index === 0 && w.buildTips.length > 0) {
+                const end: SessionEnd = { started: true, exitCode: 0, error: null, finalMessage: w.finals[0] ?? "done" };
+                return new Promise((resolve) => {
+                    buildDone = () => {
+                        log.push("build-end");
+                        resolve(end);
+                    };
+                    signal?.addEventListener("abort", () => {
+                        log.push("abort");
+                        resolve({ ...end, exitCode: null });
+                    });
+                });
+            }
             const prompt = spec.args.find((a) => a.includes("nxs.analyze --pr") || a.includes("$nxs-analyze --pr")) ?? "";
             if (prompt.startsWith("/nxs.analyze --pr") || prompt.startsWith("$nxs-analyze --pr")) {
                 const j = w.verdicts[Math.min(analyzeRuns, w.verdicts.length - 1)];
@@ -220,7 +319,7 @@ function harness(w: World) {
             return { started: true, exitCode: 0, error: null, finalMessage: w.finals[index] ?? "done" };
         },
     };
-    return { deps, log, sessions, bodies, comments, writes };
+    return { deps, log, sessions, bodies, comments, writes, pushed };
 }
 
 const input = (over: Partial<ImplementInput> = {}): ImplementInput => ({
@@ -251,7 +350,7 @@ describe("starting a run (G1, G3, G23)", () => {
         ["an unapproved record", { facts: { record: { number: 9, state: "open" } } }, /record #9 .* not approved/],
         ["an epic that needs design and has no record", { facts: { record: null, needsDesign: true } }, /needs design and has no decision record/],
         ["a dirty working tree", { clean: false }, /uncommitted changes/],
-        ["a branch that already exists", { branchExists: true }, /nxs\/epic-7 already exists/],
+        ["a fetch that fails, even on a fresh run", { fetchFails: true }, /could not be fetched/],
         ["auto mode unavailable", { auto: false }, /--permission-mode/],
     ])("refuses before any model runs on %s", async (_name, w, reason) => {
         const r = await run(world(w));
@@ -729,5 +828,327 @@ describe("distribution (G22)", () => {
     it("leaves neither implement-epic script in the repository", () => {
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/implement-epic.sh"))).toBe(false);
         expect(fs.existsSync(path.join(REPO_ROOT, "utils/codex/implement-epic.sh"))).toBe(false);
+    });
+});
+
+describe("a re-run continues on the epic's existing run branch (epic #991, story #992: G1-G6, G23)", () => {
+    const resumed = (over: Partial<World> = {}): World => world({ local: "tip", ...over });
+
+    it("continues on a run branch made on top of the base instead of refusing", async () => {
+        const r = await run(resumed());
+        expect(r.code).toBe(0);
+        expect(r.err).not.toMatch(/already exists/);
+        expect(r.log).toContain("switch nxs/epic-7");
+        expect(r.log.some((l) => l.startsWith("branch "))).toBe(false);
+    });
+
+    it("switches the checkout to the run branch before any agent stage, whatever branch it was on", async () => {
+        const r = await run(resumed({ checkout: "some/other" }));
+        expect(r.log.indexOf("switch nxs/epic-7")).toBeGreaterThan(-1);
+        expect(r.log.indexOf("switch nxs/epic-7")).toBeLessThan(r.log.indexOf("session 0"));
+    });
+
+    it.each<[string, Partial<World>, RegExp]>([
+        ["no commit in common with the base", { fork: null }, /nxs\/epic-7 .*no commit in common/],
+        ["a merge commit after it left the base", { commits: [storyCommit(1), { sha: "m", message: "Merge main", merge: true }] }, /nxs\/epic-7 .*merge commit/],
+        ["an open pull request on another base", { openPr: 5, prBase: "develop" }, /nxs\/epic-7 .*develop/],
+    ])("stops before any agent stage on a run branch with %s, naming the branch and the reason", async (_name, over, reason) => {
+        const r = await run(resumed(over));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(reason);
+        expect(r.sessions).toHaveLength(0);
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+    });
+
+    it("says it is resuming, naming the branch, as its first output line", async () => {
+        const r = await run(resumed({ comments: [comment(hldBody(), "2026-11-04T00:00:00Z")] }));
+        expect(r.err.split("\n")[0]).toMatch(/resuming.*nxs\/epic-7/);
+        expect(r.err.split("\n").filter((l) => /resuming/.test(l))).toHaveLength(1);
+    });
+
+    it("prints no resume line on a fresh run", async () => {
+        const r = await run(world());
+        expect(r.err).not.toMatch(/resuming/);
+    });
+
+    it("continues from the remote tip in a clone where the branch exists only on the remote", async () => {
+        const r = await run(world({ remote: "rtip" }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("set nxs/epic-7 rtip");
+        expect(r.log).toContain("switch nxs/epic-7");
+        expect(r.err.split("\n")[0]).toMatch(/resuming.*nxs\/epic-7/);
+    });
+
+    it("brings a local copy that is behind the remote up to date", async () => {
+        const r = await run(resumed({ remote: "rtip", ancestry: ["tip<rtip"] }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("set nxs/epic-7 rtip");
+    });
+
+    it("keeps a local copy that is ahead of the remote", async () => {
+        const r = await run(resumed({ remote: "rtip", ancestry: ["rtip<tip"] }));
+        expect(r.code).toBe(0);
+        expect(r.log.some((l) => l.startsWith("set "))).toBe(false);
+    });
+
+    it("stops on diverged local and remote copies, naming both tips and pushing nothing", async () => {
+        const r = await run(resumed({ remote: "rtip" }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(/tip/);
+        expect(r.err).toMatch(/rtip/);
+        expect(r.sessions).toHaveLength(0);
+        expect(r.log.filter((l) => l.startsWith("push") || l.startsWith("set "))).toHaveLength(0);
+    });
+
+    it("still refuses a dirty working tree on a re-run", async () => {
+        const r = await run(resumed({ clean: false }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/uncommitted changes/);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("rewrites the open pull request's status section when a re-run stops in preflight (G26)", async () => {
+        const r = await run(resumed({ clean: false, openPr: 3 }));
+        expect(r.code).toBe(1);
+        const body = r.bodies[r.bodies.length - 1];
+        expect(body).toMatch(/stopped at preflight/);
+        expect(body).toMatch(/uncommitted changes/);
+    });
+});
+
+describe("a re-run builds only the stories without a commit (epic #991, story #993: G7-G11, G22, G29)", () => {
+    const three = { stories: [1, 2, 3], blockedBy: new Map([[2, [1]], [3, [2]]]) };
+    const resumed = (over: Partial<World> = {}): World =>
+        world({ local: "tip", facts: three, existing: [storyCommit(1), storyCommit(2)], commits: [storyCommit(1), storyCommit(2), storyCommit(3)], ...over });
+    const buildPrompt = (r: { sessions: SessionSpec[] }): string => r.sessions[0].args[1];
+
+    it("gives the build stage only the stories with no commit, naming the committed blocker", async () => {
+        const r = await run(resumed());
+        expect(r.code).toBe(0);
+        const prompt = buildPrompt(r);
+        expect(prompt).toMatch(/only these stories[^.]*#3/);
+        expect(prompt).not.toMatch(/only these stories[^.]*#1\b/);
+        expect(prompt).not.toMatch(/only these stories[^.]*#2\b/);
+        expect(prompt).toMatch(/already committed[^.]*#2/);
+    });
+
+    it("lists the remaining stories in blocked-by order", async () => {
+        const r = await run(resumed({ facts: { stories: [1, 2, 3], blockedBy: new Map([[2, [3]]]) }, existing: [storyCommit(1)], commits: [storyCommit(1), storyCommit(3), storyCommit(2)] }));
+        expect(r.code).toBe(0);
+        expect(buildPrompt(r)).toMatch(/only these stories[^.]*#3, #2/);
+    });
+
+    it("tells a resumed build that blocked means it made no commit in this stage, and forbids rewriting commits", async () => {
+        const prompt = buildPrompt(await run(resumed()));
+        expect(prompt).toMatch(/has made no commit in this stage/);
+        expect(prompt).toMatch(/amend/);
+        expect(prompt).toMatch(/force/);
+    });
+
+    it("runs the story commit check over every live story, from this run and the earlier one", async () => {
+        const r = await run(resumed({ commits: [storyCommit(1), storyCommit(2)] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at story-commit-check: no commit claims #3/);
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+    });
+
+    it.each([
+        ["a story claimed twice", [storyCommit(1, "aaaa1"), storyCommit(1, "bbbb2")], /bbbb2/],
+        ["a story committed before its blocker", [storyCommit(2, "cccc3")], /cccc3/],
+    ])("names the commit when the branch already holds %s", async (_n, existing, commit) => {
+        const r = await run(resumed({ existing }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight: /);
+        expect(r.err).toMatch(commit);
+    });
+
+    it("stops when a commit that was on the branch at the start was rewritten", async () => {
+        const r = await run(resumed({ rewritten: true }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/tip/);
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+    });
+
+    it.each<[string, Commit[], RegExp]>([
+        ["a story committed before its blocker", [storyCommit(2), storyCommit(1)], /#2 is committed before #1/],
+        ["a story claimed twice", [storyCommit(1, "a"), storyCommit(1, "b")], /#1 is claimed by more than one commit/],
+        ["a commit claiming two stories", [{ sha: "ab", message: "both\n\nCloses #1\nCloses #2\n" }], /claims more than one story/],
+    ])("stops before any agent stage when the commits already there show %s", async (_name, existing, reason) => {
+        const r = await run(resumed({ existing }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at preflight/);
+        expect(r.err).toMatch(reason);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("starts no build stage when every live story is committed, and says the suite was not run", async () => {
+        const all = [storyCommit(1), storyCommit(2), storyCommit(3)];
+        const r = await run(resumed({ existing: all, commits: all }));
+        expect(r.code).toBe(0);
+        expect(r.sessions[0].args.join(" ")).toMatch(/nxs\.analyze --pr/);
+        expect(r.log).toContain("push nxs/epic-7");
+        expect(r.log).toContain("ready");
+        expect(r.bodies[0]).toMatch(/did not run the test suite/);
+        expect(r.bodies[r.bodies.length - 1]).toMatch(/did not run the test suite/);
+    });
+
+    it("never says the suite was skipped when the run built a story", async () => {
+        const r = await run(resumed());
+        expect(r.bodies.join("\n")).not.toMatch(/did not run the test suite/);
+    });
+});
+
+describe("a re-run continues the analyze and fix rounds on the existing pull request (epic #991, story #994: G18-G20, G24, G25)", () => {
+    const all = [storyCommit(1), storyCommit(2)];
+    const stub = { path: ".nexus/queue/epic-7/me/decisions-b.md", reason: "kept the old format" };
+    const answer = (id: string, trusted: boolean): PrAnswer => ({ id, verb: "accepted", reason: "fine by me", author: "lead", url: `https://x/a/${id}`, at: "2026-11-20T00:00:00Z", trusted });
+    const resumed = (over: Partial<World> = {}): World => world({ local: "tip", existing: all, commits: all, openPr: 5, ...over });
+
+    it("reuses the open pull request and starts with a full analyze on its head", async () => {
+        const r = await run(resumed());
+        expect(r.code).toBe(0);
+        expect(r.log).not.toContain("create-pr");
+        expect(r.sessions[0].args[1]).toMatch(/^\/nxs\.analyze --pr 5\n/);
+    });
+
+    it("posts no inferred answer for an item an earlier run already answered", async () => {
+        const r = await run(
+            resumed({ priorAnswers: [answer("DV1", true)], verdicts: [judged(departure("DV1", { stub }))], files: { [stub.path]: "- **Why:** kept the old format" } }),
+            { rounds: 1 },
+        );
+        expect(r.comments.join("\n")).not.toMatch(/DV1 — accepted/);
+    });
+
+    it("still answers an item whose only earlier answer came from someone who cannot speak for the repository", async () => {
+        const r = await run(resumed({ priorAnswers: [answer("DV1", false)], verdicts: [judged(departure("DV1", { stub })), judged()], files: { [stub.path]: "- **Why:** kept the old format" } }));
+        expect(r.comments[0]).toMatch(/^DV1 — accepted/);
+    });
+
+    it("cites only decision stubs present where the run branch left the base", async () => {
+        const r = await run(resumed({ verdicts: [judged(departure("DV1", { stub })), judged()], files: { [stub.path]: "- **Why:** kept the old format" } }));
+        expect(r.log).toContain(`file-at fork ${stub.path}`);
+    });
+
+    it("marks the pull request ready on a clean verdict for its head, as an uninterrupted run does", async () => {
+        const r = await run(resumed());
+        expect(r.log).toContain("ready");
+        expect(r.out).toMatch(/PR #5 is ready/);
+    });
+});
+
+describe("each story commit reaches the remote as it is made (epic #991, story #995: G12-G17, G21, G22)", () => {
+    const c1 = storyCommit(1, "head-a");
+    const c2 = storyCommit(2, "head-b");
+    const building = (over: Partial<World> = {}): World =>
+        world({ buildTips: [{ tip: "head-a", commits: [c1] }, { tip: "head-b", commits: [c1, c2] }], commits: [c1, c2], ...over });
+    const before = (log: string[], entry: string, marker = "build-end"): boolean => log.indexOf(entry) > -1 && log.indexOf(entry) < log.indexOf(marker);
+
+    it("pushes the first story commit and opens the draft pull request before the build stage ends", async () => {
+        const r = await run(building());
+        expect(r.code).toBe(0);
+        expect(before(r.log, "push nxs/epic-7")).toBe(true);
+        expect(before(r.log, "create-pr")).toBe(true);
+        expect(r.bodies[0]).toMatch(/Closes #1/);
+        expect(r.bodies[0]).toMatch(/Closes #2/);
+    });
+
+    it("pushes each later story commit before the build stage ends", async () => {
+        const r = await run(building());
+        const end = r.log.indexOf("build-end");
+        expect(r.log.slice(0, end).filter((l) => l === "push nxs/epic-7")).toHaveLength(2);
+    });
+
+    it("never pushes a commit that fails the check, ends the build stage and stops with the reason", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [storyCommit(2, "head-a")] }] }));
+        expect(r.code).toBe(1);
+        expect(r.log).toContain("abort");
+        expect(r.log.filter((l) => l.startsWith("push"))).toHaveLength(0);
+        expect(r.err).toMatch(/stopped at story-commit-check: .*#2 is committed before #1/);
+    });
+
+    it("names built and pending stories in the status section while stories remain", async () => {
+        const r = await run(building());
+        expect(r.bodies[0]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("retries a push that failed during the stage at the next commit, and goes on", async () => {
+        const r = await run(building({ pushFailures: 1 }));
+        expect(r.code).toBe(0);
+        expect(r.log.filter((l) => l === "create-pr")).toHaveLength(1);
+    });
+
+    it("stops naming the push stage when the push still fails after the stage", async () => {
+        const r = await run(building({ pushFailures: 99 }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at push: network is unreachable/);
+    });
+
+    it("stops when an answer line appears on the open pull request during the build stage", async () => {
+        const a: PrAnswer = { id: "F1", verb: "waived", reason: "x", author: "bot", url: "https://x/c/1", at: "t", trusted: true };
+        const r = await run(world({ local: "tip", existing: [], openPr: 5, answersDuring: { 0: [a] } }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at implementation: an answer line was posted/);
+    });
+
+    it("keeps published stories on a blocked stop and names them as built", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [c1] }], commits: [c1], finals: ["Implementation blocked: no access"] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at implementation: the stage ended blocked/);
+        expect(r.bodies[r.bodies.length - 1]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("retries opening the pull request after the stage when it failed after a successful push", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [c1] }], commits: [c1, c2], createPrFailures: 1 }));
+        expect(r.code).toBe(0);
+        expect(r.log).toContain("create-pr");
+        expect(r.bodies[0]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("names the stories an earlier run built when a resumed build stage stops blocked", async () => {
+        const r = await run(world({ local: "tip", existing: [c1], commits: [c1], openPr: 5, finals: ["Implementation blocked: no access"] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at implementation: the stage ended blocked/);
+        expect(r.bodies[r.bodies.length - 1]).toMatch(/built: #1; pending: #2/);
+    });
+
+    it("rewrites the open pull request's status with the earlier run's stories when a resumed build stage ends", async () => {
+        const r = await run(world({ local: "tip", existing: [c1], commits: [c1, c2], openPr: 5 }));
+        expect(r.code).toBe(0);
+        expect(r.bodies.some((b) => /built: #1; pending: #2/.test(b))).toBe(true);
+    });
+
+    it("pushes the commit it checked, not whatever the branch points at when the push runs", async () => {
+        const r = await run(building());
+        const end = r.log.indexOf("build-end");
+        const during = r.log.slice(0, end).filter((l) => l === "push nxs/epic-7").length;
+        expect(r.pushed.slice(0, during)).toEqual(["head-a", "head-b"]);
+    });
+
+    it("names the leftover uncommitted edits when it ends the build stage on a failed check", async () => {
+        const r = await run(building({ buildTips: [{ tip: "head-a", commits: [storyCommit(2, "head-a")] }], leftover: ["src/a.ts", "src/b.ts"] }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/src\/a\.ts/);
+        expect(r.err).toMatch(/src\/b\.ts/);
+    });
+
+    it("retries a failed push at the next commit, not on every watcher tick", async () => {
+        const r = await run(building({ pushFailures: 1, buildTips: [{ tip: "head-a", commits: [c1] }, { tip: "head-a", commits: [c1] }, { tip: "head-b", commits: [c1, c2] }] }));
+        expect(r.code).toBe(0);
+        const end = r.log.indexOf("build-end");
+        expect(r.log.slice(0, end).filter((l) => l === "push nxs/epic-7")).toHaveLength(2);
+    });
+
+    it("stops before the build stage when the open pull request cannot be read at its start", async () => {
+        const r = await run(building({ openPrFailures: 1 }));
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/stopped at pull-request: .*HTTP 502/);
+        expect(r.sessions).toHaveLength(0);
+    });
+
+    it("tells the build stage each commit is published as soon as it is made", async () => {
+        const r = await run(world());
+        expect(r.sessions[0].args[1]).toMatch(/publishes each commit as soon as you make it/);
     });
 });

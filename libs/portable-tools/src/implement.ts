@@ -62,6 +62,9 @@ export const DEFAULT_ROUNDS = 5;
 /** The settings key the test command is read from, through the shared resolver (D14, G21). */
 export const TEST_COMMAND_KEY = "test-command";
 
+/** How often the branch watcher reads the run branch while the build stage runs (epic #991, D4). */
+export const WATCH_MS = 5000;
+
 export interface ImplementInput {
     cwd: string;
     epic: number;
@@ -100,6 +103,8 @@ export interface Commit {
     sha: string;
     /** The full commit message. */
     message: string;
+    /** Whether the commit has more than one parent. */
+    merge?: boolean;
 }
 
 export type VerdictRead =
@@ -115,14 +120,30 @@ export interface ImplementDeps {
     testCommandSetting(root: string): string;
     defaultBranch(cwd: string): string | null;
     clean(cwd: string): boolean;
-    branchExists(cwd: string, branch: string): boolean;
+    /** Fetch the remote base and, when the remote has it, the run branch; the remote run branch's tip, or null when it has none. */
+    fetch(cwd: string, branch: string, base: string): Outcome<string | null>;
+    /** The local run branch's tip, or null when no local branch exists. */
+    localTip(cwd: string, branch: string): string | null;
+    /** Whether commit `a` is `b` or an ancestor of it. */
+    isAncestor(cwd: string, a: string, b: string): boolean;
+    /** Point the local `branch` at `sha`: create it, or fast-forward it. */
+    setLocalBranch(cwd: string, branch: string, sha: string): Outcome<null>;
+    /** The newest commit the local `branch` shares with the remote `base`, or null when none. */
+    forkPoint(cwd: string, branch: string, base: string): string | null;
+    /** The base branch of pull request `pr`, or null when it cannot be read. */
+    prBase(cwd: string, pr: number): string | null;
+    /** Check out the existing local `branch`. */
+    switchBranch(cwd: string, branch: string): Outcome<null>;
     /** Create `branch` off `base` and check it out; the base commit it was cut from. */
     createBranch(cwd: string, branch: string, base: string): Outcome<string>;
     currentBranch(cwd: string): string | null;
     headSha(cwd: string): string | null;
-    /** The commits after `baseSha` up to HEAD, oldest first. */
-    commits(cwd: string, baseSha: string): Commit[] | null;
-    push(cwd: string, branch: string): Outcome<null>;
+    /** The commits after `baseSha` up to `tip` (HEAD when omitted), oldest first. */
+    commits(cwd: string, baseSha: string, tip?: string): Commit[] | null;
+    /** Push `sha` (the local `branch` when omitted) to the remote `branch`. */
+    push(cwd: string, branch: string, sha?: string): Outcome<null>;
+    /** The paths the working tree holds uncommitted changes to, or null when they cannot be read. */
+    changes(cwd: string): string[] | null;
     /** The `owner/repo` the pull request lives in. */
     prRepo(cwd: string): string | null;
     openPr(cwd: string, branch: string): Outcome<number | null>;
@@ -149,7 +170,10 @@ export interface ImplementDeps {
     fileAt(cwd: string, sha: string, file: string): string | null;
     autoModeAvailable(): boolean;
     onPath(command: string): boolean;
-    session(spec: SessionSpec, line: (text: string) => void): Promise<SessionEnd>;
+    /** Run one harness session; aborting `signal` ends the session's whole process group. */
+    session(spec: SessionSpec, line: (text: string) => void, signal?: AbortSignal): Promise<SessionEnd>;
+    /** Resolve after `ms` milliseconds. */
+    wait(ms: number): Promise<void>;
 }
 
 export interface ImplementIo {
@@ -204,17 +228,32 @@ export const TEST_FIRST_RULE =
  * The implementation stage's goal: met by the stories done, or by the blocked outcome (D3). A
  * current HLD page adds one paragraph to it (G4, G7, G14).
  */
-export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null): string {
+/** What a re-run gives its build stage (epic #991, D3): the stories left, and the committed blockers they wait on. */
+export interface ResumeScope {
+    remaining: number[];
+    committedBlockers: number[];
+}
+
+export function implementationPrompt(epic: number, turns: number, testCommand: string | null, page: HldPage | null = null, resume: ResumeScope | null = null): string {
+    const refs = (ns: readonly number[]): string => ns.map((n) => `#${n}`).join(", ");
+    const scope =
+        resume === null
+            ? ""
+            : `This branch already holds story commits from an earlier run. Build only these stories, in this order: ${refs(resume.remaining)}. ` +
+              (resume.committedBlockers.length === 0
+                  ? "None of them waits on a story that is already committed. "
+                  : `Stories they wait on that are already committed on this branch: ${refs(resume.committedBlockers)}. `) +
+              "Leave the earlier commits as they are. If a 'Before implementation' item is already done, confirm it rather than doing it again. ";
     const suite =
         testCommand === null
             ? `No test command is declared. Find the repository's full test suite and run it. When you finish the stories, end your final message with one line beginning exactly '${TEST_COMMAND_PREFIX}' that names the command you ran.`
             : `The full test suite is \`${testCommand}\`.`;
     return (
-        `/goal Either (a) every story sub-issue of epic #${epic} is implemented on this branch — ` +
+        `/goal Either (a) every ${resume === null ? "story sub-issue" : "remaining story"} of epic #${epic} is implemented on this branch — ` +
         "one commit per story, in blocked_by order, each commit body ending with a line " +
         "reading exactly 'Closes #<that story's issue number>' — and the full test suite " +
         "passes, or (b) the run has stopped on something it cannot do from this checkout, " +
-        "has made no commit, and its final message ends with one line beginning exactly " +
+        `has made no commit${resume === null ? "" : " in this stage"}, and its final message ends with one line beginning exactly ` +
         `'${BLOCKED_PREFIX}' that names what blocked it and what would unblock it. ` +
         "Outcome (b) is the only way to stop short; once you have written that line, the " +
         "goal holds and you stop — do not wait for a reply. Prove (a): git log shows one " +
@@ -231,7 +270,7 @@ export function implementationPrompt(epic: number, turns: number, testCommand: s
         "epic' and 'Committed follow-up' items and Concept-store changes alone — other " +
         "issues and /nxs.distill deliver them. " +
         "Before starting each story, re-read its epic.md section and the decisions it " +
-        `delivers. ${TEST_FIRST_RULE} Stay on the current branch. Do not push and do not open a PR — the calling command does both. ` +
+        `delivers. ${TEST_FIRST_RULE} ${scope}Stay on the current branch. The calling command publishes each commit as soon as you make it, so never amend, rebase or reset a commit, and never use a force operation. Do not push and do not open a PR — the calling command does both. ` +
         `${suite} Stop after ${turns} turns.` +
         (page === null ? "" : `\n\n${hldParagraph(page)}`)
     );
@@ -289,7 +328,7 @@ export function claimedStories(message: string, issuesRepo: string): number[] {
  * the dependency graph allows. A commit that claims no story is a follow-up and passes. The reason
  * the branch fails, or null when it passes.
  */
-export function checkStoryCommits(commits: readonly Commit[], stories: readonly number[], blockedBy: Map<number, number[]>, issuesRepo: string): string | null {
+export function checkStoryCommits(commits: readonly Commit[], stories: readonly number[], blockedBy: Map<number, number[]>, issuesRepo: string, mode: "full" | "prefix" = "full"): string | null {
     const live = new Set(stories);
     const at = new Map<number, number>();
     for (let i = 0; i < commits.length; i++) {
@@ -297,18 +336,38 @@ export function checkStoryCommits(commits: readonly Commit[], stories: readonly 
         if (claimed.length > 1) return `commit ${commits[i].sha.slice(0, 12)} claims more than one story (${claimed.map((n) => `#${n}`).join(", ")}); each story needs its own commit.`;
         if (claimed.length === 0) continue;
         const story = claimed[0];
-        if (at.has(story)) return `story #${story} is claimed by more than one commit; each story needs exactly one.`;
+        if (at.has(story)) return `story #${story} is claimed by more than one commit (${commits[at.get(story) ?? i].sha.slice(0, 12)}, ${commits[i].sha.slice(0, 12)}); each story needs exactly one.`;
         at.set(story, i);
     }
     const missing = stories.filter((s) => !at.has(s));
-    if (missing.length > 0) return `no commit claims ${missing.map((n) => `#${n}`).join(", ")} with a 'Closes #<n>' line.`;
+    if (mode === "full" && missing.length > 0) return `no commit claims ${missing.map((n) => `#${n}`).join(", ")} with a 'Closes #<n>' line.`;
     for (const story of stories) {
+        if (!at.has(story)) continue;
         for (const blocker of blockedBy.get(story) ?? []) {
             if (!live.has(blocker)) continue;
-            if ((at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it.`;
+            if (!at.has(blocker) || (at.get(blocker) ?? -1) > (at.get(story) ?? -1)) return `story #${story} is committed before #${blocker}, which blocks it, in commit ${commits[at.get(story) ?? 0].sha.slice(0, 12)}.`;
         }
     }
     return null;
+}
+
+/** The live stories a commit claims, each once. */
+export function committedStories(commits: readonly Commit[], stories: readonly number[], issuesRepo: string): Set<number> {
+    const live = new Set(stories);
+    return new Set(commits.flatMap((c) => claimedStories(c.message, issuesRepo)).filter((n) => live.has(n)));
+}
+
+/** `remaining` in blocked-by order: a story after every remaining story it waits on, ties by ascending number. */
+export function blockedByOrder(remaining: readonly number[], blockedBy: Map<number, number[]>): number[] {
+    const left = new Set(remaining);
+    const out: number[] = [];
+    while (left.size > 0) {
+        const ready = [...left].filter((s) => (blockedBy.get(s) ?? []).every((b) => !left.has(b))).sort((a, b) => a - b);
+        const next = ready.length > 0 ? ready[0] : Math.min(...left);
+        out.push(next);
+        left.delete(next);
+    }
+    return out;
 }
 
 /** A story reference in the pull request's repository (G7): bare when the issues live there. */
@@ -419,6 +478,8 @@ export function inferredAnswers(judgments: Judgments | null, preRunStub: (path: 
     return out;
 }
 
+const noop = (): void => undefined;
+
 class RunStop extends Error {
     constructor(
         readonly stage: string,
@@ -445,9 +506,11 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         return body !== null && deps.editPrBody(cwd, pr, withStatus(body, text));
     };
 
+    // D6: the built and pending stories, while any is pending; null before the run knows them.
+    let progress: string | null = null;
     const stop = (s: RunStop): number => {
         io.stderr(`implement stopped at ${s.stage}: ${s.reason}`);
-        if (pr !== null && !setStatus(`stopped at ${s.stage}. ${s.reason}`)) {
+        if (pr !== null && !setStatus(`stopped at ${s.stage}. ${s.reason}${progress === null ? "" : ` ${progress}`}`)) {
             io.stderr(`implement could not update the status section of PR #${pr}.`);
         }
         return 1;
@@ -466,7 +529,50 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         if (harness === "claude" && mode === "auto" && !deps.autoModeAvailable()) {
             fail("preflight", "auto permission mode is not available to this account. Pass --permission-mode <mode> to choose another mode.");
         }
-        // 1a. The HLD page (epic #971): every stop here comes before the branch exists, so a re-run is never refused for it (G13).
+        // 1a. The run branch (epic #991, D1, D2): every branch decision is made silently, so the resume line comes first.
+        const base = input.base ?? deps.defaultBranch(cwd);
+        if (base === null) return fail("preflight", "the repository's default branch could not be read. Pass --base <branch>.");
+        const branch = branchFor(epic);
+        const fetched = deps.fetch(cwd, branch, base);
+        if (!fetched.ok) return fail("preflight", `branch ${branch} and base ${base} could not be fetched from the remote: ${fetched.message}`);
+        const remoteTip = fetched.value;
+        const localTip = deps.localTip(cwd, branch);
+        let forkPoint: string | null = null;
+        let committed = new Set<number>();
+        let startTip: string | null = null;
+        if (localTip !== null || remoteTip !== null) {
+            const bringTo = (sha: string): void => {
+                const set = deps.setLocalBranch(cwd, branch, sha);
+                if (!set.ok) fail("preflight", `branch ${branch} could not be brought to the remote tip ${sha}: ${set.message}`);
+            };
+            if (localTip === null && remoteTip !== null) bringTo(remoteTip);
+            else if (localTip !== null && remoteTip !== null && localTip !== remoteTip) {
+                if (deps.isAncestor(cwd, localTip, remoteTip)) bringTo(remoteTip);
+                else if (!deps.isAncestor(cwd, remoteTip, localTip)) {
+                    fail("preflight", `branch ${branch} has diverged: the local copy is at ${localTip} and the remote copy at ${remoteTip}. Settling that would rewrite one side, so reconcile them by hand.`);
+                }
+            }
+            forkPoint = deps.forkPoint(cwd, branch, base);
+            if (forkPoint === null) return fail("preflight", `branch ${branch} has no commit in common with ${base} on the remote, so it was not made on top of the base branch.`);
+            const existing = deps.commits(cwd, forkPoint, branch);
+            if (existing === null) return fail("preflight", `the commits on ${branch} could not be read.`);
+            const merge = existing.find((c) => c.merge === true);
+            if (merge !== undefined) fail("preflight", `branch ${branch} holds merge commit ${merge.sha.slice(0, 12)} after it left ${base}; a run branch holds only commits made on top of the base branch.`);
+            const prefix = checkStoryCommits(existing, facts.stories, facts.blockedBy, facts.issuesRepo, "prefix");
+            if (prefix !== null) fail("preflight", `the commits already on ${branch} break the story commit check: ${prefix}`);
+            committed = committedStories(existing, facts.stories, facts.issuesRepo);
+            startTip = deps.localTip(cwd, branch);
+            const open = deps.openPr(cwd, branch);
+            if (!open.ok) return fail("preflight", `the open pull request for ${branch} could not be read: ${open.message}`);
+            if (open.value !== null) {
+                const prBaseName = deps.prBase(cwd, open.value);
+                if (prBaseName !== base) fail("preflight", `branch ${branch} has open PR #${open.value} targeting ${prBaseName ?? "an unreadable base"}, not ${base}.`);
+                // G26: every later stop rewrites the status section of the pull request the re-run continues.
+                pr = open.value;
+            }
+            say(`implement: resuming epic #${epic} on existing branch ${branch}.`);
+        }
+        // 1b. The HLD page (epic #971): every stop here comes before the branch exists, so a re-run is never refused for it (G13).
         let page: { url: string; text: string } | null = null;
         if (input.recordOnly) {
             say("implement: --record-only: the HLD page was skipped at the lead's request; building from the decision record alone.");
@@ -508,24 +614,27 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             const declared = deps.testCommandSetting(facts.root).trim();
             testCommand = declared === "" ? null : declared;
         }
-        const base = input.base ?? deps.defaultBranch(cwd);
-        if (base === null) return fail("preflight", "the repository's default branch could not be read. Pass --base <branch>.");
         if (!deps.clean(cwd)) fail("preflight", "the working tree has uncommitted changes. Commit or stash them first.");
-        const branch = branchFor(epic);
-        if (deps.branchExists(cwd, branch)) fail("preflight", `branch ${branch} already exists. Delete or rename it, or continue by hand with /nxs.analyze --pr.`);
         // The copy is gitignored, so writing it before the branch exists leaves the checkout clean and a failed write refuses nothing on re-run (G13).
         if (page !== null) {
             const wrote = deps.writeFile(cwd, pageCopyPath(epic), page.text);
             if (!wrote.ok) fail("preflight", `the HLD page copy could not be written to ${pageCopyPath(epic)}: ${wrote.message}`);
         }
-        const created = deps.createBranch(cwd, branch, base);
-        if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
-        const baseSha = created.value;
+        let baseSha: string;
+        if (forkPoint === null) {
+            const created = deps.createBranch(cwd, branch, base);
+            if (!created.ok) return fail("preflight", `branch ${branch} could not be created off ${base}: ${created.message}`);
+            baseSha = created.value;
+        } else {
+            const switched = deps.switchBranch(cwd, branch);
+            if (!switched.ok) return fail("preflight", `the checkout could not be switched to ${branch}: ${switched.message}`);
+            baseSha = forkPoint;
+        }
         say(`implement: epic #${epic} on ${branch} off ${base} | harness ${harness} | permission mode ${mode} | test command ${testCommand ?? "found by the implementation stage"}`);
 
-        const runStage = async (stage: string, prompt: string): Promise<SessionEnd> => {
+        const runStage = async (stage: string, prompt: string, signal?: AbortSignal): Promise<SessionEnd> => {
             say(`>>> ${stage}`);
-            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd), (l) => io.stdout(l));
+            const end = await deps.session(stageSpec(harness, prompt + UNATTENDED_CLAUSE, mode, input.harnessArgs, cwd), (l) => io.stdout(l), signal);
             if (!end.started) fail(stage, `the ${harness} harness could not start: ${end.error ?? "unknown error"}`);
             return end;
         };
@@ -533,13 +642,159 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             if (deps.currentBranch(cwd) !== branch) fail(stage, `the stage left the checkout off ${branch}; the command pushes only that branch.`);
         };
 
-        // 2. Implementation stage (D3).
-        const impl = await runStage("implementation", implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }));
-        const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
-        if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
-        if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
-        if (testCommand === null) testCommand = prefixedLine(impl.finalMessage, TEST_COMMAND_PREFIX);
-        onBranch("implementation");
+        // 2. Implementation stage (D3), given only the stories with no commit (epic #991, D3, D9).
+        const remaining = blockedByOrder(
+            facts.stories.filter((s) => !committed.has(s)),
+            facts.blockedBy,
+        );
+        const built = remaining.length > 0;
+        if (built) {
+            const resume: ResumeScope | null =
+                forkPoint === null
+                    ? null
+                    : { remaining, committedBlockers: [...new Set(remaining.flatMap((s) => facts.blockedBy.get(s) ?? []))].filter((b) => committed.has(b)).sort((a, b) => a - b) };
+            // D4: one stage, while the branch watcher checks, pushes and publishes each new commit.
+            const repoNow = deps.prRepo(cwd);
+            if (repoNow === null) return fail("pull-request", "the pull request's repository could not be read.");
+            prRepo = repoNow;
+            const answerRowsNow = (): Set<string> => {
+                if (pr === null) return new Set();
+                const r = deps.answers(cwd, pr, prRepo);
+                if (!r.ok) return fail("implementation", `the answer lines on PR #${pr} could not be read: ${r.message}`);
+                return answerRows(r.value);
+            };
+            // D7: without the open pull request read at the start, every answer already on it would later look newly posted.
+            const openAtStart = deps.openPr(cwd, branch);
+            if (!openAtStart.ok) return fail("pull-request", `the open pull request for ${branch} could not be read: ${openAtStart.message}`);
+            if (openAtStart.value !== null) pr = openAtStart.value;
+            const answersBefore = answerRowsNow();
+            let lastChecked = startTip ?? baseSha;
+            let pushedTip: string | null = startTip;
+            let builtSoFar = new Set(committed);
+            let violation: string | null = null;
+            let publishError: { stage: string; reason: string } | null = null;
+            // G17: the checked tip a push or pull-request call last failed at; the call waits for the next commit, or the after-stage tick.
+            let failedAt: string | null = null;
+            const progressText = (): string => {
+                const builtList = facts.stories.filter((s) => builtSoFar.has(s));
+                const pendingList = facts.stories.filter((s) => !builtSoFar.has(s));
+                const refs = (ns: number[]): string => (ns.length === 0 ? "none" : ns.map((n) => issueRef(n, facts.issuesRepo, prRepo)).join(", "));
+                return `Stories built: ${refs(builtList)}; pending: ${refs(pendingList)}.`;
+            };
+            // G16, G22: the stories an earlier run built are named from the start, and the open PR's status is rewritten with them.
+            let prPending = false;
+            if (builtSoFar.size > 0) {
+                progress = progressText();
+                prPending = pr !== null;
+            }
+            const ac = new AbortController();
+            const tick = (final = false): void => {
+                if (violation !== null) return;
+                const tip = deps.localTip(cwd, branch);
+                if (tip !== null && tip !== lastChecked) {
+                    if (!deps.isAncestor(cwd, lastChecked, tip)) {
+                        violation = `${branch} moved to ${tip}, which does not descend from the last checked commit ${lastChecked}; a checked commit was rewritten.`;
+                    } else {
+                        const all = deps.commits(cwd, baseSha, tip);
+                        const bad = all === null ? `the commits on ${branch} could not be read.` : checkStoryCommits(all, facts.stories, facts.blockedBy, facts.issuesRepo, "prefix");
+                        if (bad !== null) violation = bad;
+                        else {
+                            lastChecked = tip;
+                            builtSoFar = committedStories(all ?? [], facts.stories, facts.issuesRepo);
+                        }
+                    }
+                    if (violation !== null) {
+                        ac.abort();
+                        return;
+                    }
+                }
+                if (publishError !== null && !final && lastChecked === failedAt) return;
+                const failed = (stage: string, reason: string): void => {
+                    publishError = { stage, reason };
+                    failedAt = lastChecked;
+                };
+                if (lastChecked !== pushedTip && lastChecked !== baseSha) {
+                    // G14: push the commit that passed the check, never a later one the agent made since.
+                    const p = deps.push(cwd, branch, lastChecked);
+                    if (!p.ok) {
+                        failed("push", p.message);
+                        return;
+                    }
+                    pushedTip = lastChecked;
+                    publishError = null;
+                    if (builtSoFar.size > 0) {
+                        progress = progressText();
+                        prPending = true;
+                    }
+                }
+                // G17: a pull-request call that failed after its push is retried at the next commit and after the stage.
+                if (!prPending || progress === null) return;
+                if (pr === null) {
+                    const found = deps.openPr(cwd, branch);
+                    if (found.ok && found.value !== null) pr = found.value;
+                    else if (found.ok) {
+                        const opened = deps.createPr(cwd, { base, branch, title: `epic #${epic}: ${facts.title}`, body: prBody(epic, facts.stories, facts.issuesRepo, prRepo, progress) });
+                        if (!opened.ok) {
+                            failed("pull-request", opened.message);
+                            return;
+                        }
+                        pr = opened.value;
+                        prPending = false;
+                        publishError = null;
+                        say(`implement: draft PR #${pr}`);
+                        return;
+                    } else {
+                        failed("pull-request", found.message);
+                        return;
+                    }
+                }
+                if (!setStatus(progress)) {
+                    failed("pull-request", `the status section of PR #${pr} could not be rewritten.`);
+                    return;
+                }
+                prPending = false;
+                publishError = null;
+            };
+            let ended = false;
+            const session = runStage(
+                "implementation",
+                implementationPrompt(epic, input.turns, testCommand, page === null ? null : { copy: pageCopyPath(epic), url: page.url }, resume),
+                ac.signal,
+            ).finally(() => {
+                ended = true;
+            });
+            while (!ended) {
+                await Promise.race([session.then(noop, noop), deps.wait(WATCH_MS)]);
+                if (!ended) tick();
+            }
+            const impl = await session;
+            tick(true);
+            if (violation !== null) {
+                // R2: the ended stage may leave uncommitted edits; the dirty-tree refusal stops the next run until the lead cleans them up.
+                const left = deps.changes(cwd);
+                const leftover =
+                    left === null ? " The working tree could not be read for leftover edits." : left.length === 0 ? "" : ` Uncommitted edits left in the working tree: ${left.join(", ")}. Clean them up before the next run.`;
+                fail("story-commit-check", `${violation} The commit was not pushed and the build stage was ended.${leftover}`);
+            }
+            const err = publishError as { stage: string; reason: string } | null;
+            if (err !== null) fail(err.stage, err.reason);
+            // D7: an answer line that appears or changes during the build stage stops the run.
+            if (pr !== null) {
+                const after = answerRowsNow();
+                const postedNow = [...after].filter((row) => !answersBefore.has(row)).map((row) => row.split("\t")[0]);
+                if (postedNow.length > 0) fail("implementation", `an answer line was posted or edited during the stage, which only a person may do: ${[...new Set(postedNow)].join(", ")}`);
+            }
+            const blocked = prefixedLine(impl.finalMessage, BLOCKED_PREFIX);
+            if (blocked !== null) fail("implementation", `the stage ended blocked: ${blocked}`);
+            if (impl.exitCode !== 0 || impl.error !== null) fail("implementation", `the stage failed: ${impl.error ?? `exit ${impl.exitCode}`}`);
+            if (testCommand === null) testCommand = prefixedLine(impl.finalMessage, TEST_COMMAND_PREFIX);
+            onBranch("implementation");
+        }
+        // D5: every commit on the branch when the run started is still there, unchanged.
+        if (startTip !== null) {
+            const head = deps.headSha(cwd);
+            if (head === null || !deps.isAncestor(cwd, startTip, head)) fail("story-commit-check", `${branch} no longer descends from its start tip ${startTip}; a commit already on the branch was rewritten.`);
+        }
 
         // 3. Story commit check, push and draft pull request (D3, D4).
         const commits = deps.commits(cwd, baseSha);
@@ -551,7 +806,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
         const repo = deps.prRepo(cwd);
         if (repo === null) return fail("pull-request", "the pull request's repository could not be read.");
         prRepo = repo;
-        const testNote = testCommand === null ? "no test command was declared or named" : `test command \`${testCommand}\``;
+        // D10: a run that built nothing ran no suite, and says so.
+        const testNote =
+            (testCommand === null ? "no test command was declared or named" : `test command \`${testCommand}\``) +
+            (built ? "" : "; every story was already committed, so this run did not run the test suite — the lead or CI confirms it before merge");
         const body = prBody(epic, facts.stories, facts.issuesRepo, prRepo, `implemented; analyze runs next (${testNote}).`);
         const existing = deps.openPr(cwd, branch);
         if (!existing.ok) fail("pull-request", existing.message);
@@ -581,7 +839,10 @@ export async function runImplementEpic(deps: ImplementDeps, input: ImplementInpu
             return end;
         };
 
-        const posted = new Set<string>();
+        // D8: an item that already has a trusted answer on the pull request, whoever wrote it, gets no inferred answer.
+        const prior = deps.answers(cwd, prNum, prRepo);
+        if (!prior.ok) return fail("answers", `the answer lines on PR #${prNum} could not be read: ${prior.message}`);
+        const posted = new Set<string>(prior.value.filter((a) => a.trusted).map((a) => a.id));
         let round = 0;
         let lastIds: string | null = null;
         let resolveNext = false;
@@ -706,31 +967,66 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
             const r = run("git", ["status", "--porcelain"], { cwd });
             return r.status === 0 && r.stdout.trim() === "";
         },
-        branchExists: (cwd, branch) =>
-            run("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd }).status === 0 ||
-            run("git", ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`], { cwd }).status === 0,
+        fetch: (cwd, branch, base) => {
+            const b = run("git", ["fetch", "origin", `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd });
+            if (b.status !== 0) return err(b, "git fetch");
+            const ls = run("git", ["ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`], { cwd });
+            if (ls.status === 2) return ok(null);
+            if (ls.status !== 0) return err(ls, "git ls-remote");
+            const f = run("git", ["fetch", "origin", `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd });
+            if (f.status !== 0) return err(f, "git fetch");
+            const tip = git(run, cwd, "rev-parse", `refs/remotes/origin/${branch}`);
+            return tip === null ? { ok: false, message: `origin/${branch} could not be read after the fetch` } : ok(tip);
+        },
+        localTip: (cwd, branch) => {
+            const r = run("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd });
+            return r.status === 0 && r.stdout.trim() !== "" ? r.stdout.trim() : null;
+        },
+        isAncestor: (cwd, a, b) => run("git", ["merge-base", "--is-ancestor", a, b], { cwd }).status === 0,
+        setLocalBranch: (cwd, branch, sha) => {
+            const onIt = git(run, cwd, "rev-parse", "--abbrev-ref", "HEAD") === branch;
+            const r = onIt ? run("git", ["merge", "--ff-only", sha], { cwd }) : run("git", ["branch", "-f", branch, sha], { cwd });
+            return r.status === 0 ? ok(null) : err(r, "git");
+        },
+        forkPoint: (cwd, branch, base) => git(run, cwd, "merge-base", `refs/heads/${branch}`, `refs/remotes/origin/${base}`),
+        prBase: (cwd, pr) => {
+            const r = run("gh", ["pr", "view", String(pr), "--json", "baseRefName", "--jq", ".baseRefName"], { cwd });
+            return r.status === 0 && r.stdout.trim() !== "" ? r.stdout.trim() : null;
+        },
+        switchBranch: (cwd, branch) => {
+            const r = run("git", ["switch", branch], { cwd });
+            return r.status === 0 ? ok(null) : err(r, "git switch");
+        },
         createBranch: (cwd, branch, base) => {
-            const r = run("git", ["switch", "-c", branch, base], { cwd });
+            const r = run("git", ["switch", "-c", branch, `refs/remotes/origin/${base}`, "--no-track"], { cwd });
             if (r.status !== 0) return err(r, "git switch");
             const sha = git(run, cwd, "rev-parse", "HEAD");
             return sha === null ? { ok: false, message: "HEAD could not be read" } : ok(sha);
         },
         currentBranch: (cwd) => git(run, cwd, "rev-parse", "--abbrev-ref", "HEAD"),
         headSha: (cwd) => git(run, cwd, "rev-parse", "HEAD"),
-        commits: (cwd, baseSha) => {
-            const r = run("git", ["log", "--reverse", "--format=%H%x1f%B%x1e", `${baseSha}..HEAD`], { cwd });
+        commits: (cwd, baseSha, tip) => {
+            const r = run("git", ["log", "--reverse", "--format=%H%x1f%P%x1f%B%x1e", `${baseSha}..${tip ?? "HEAD"}`], { cwd });
             if (r.status !== 0) return null;
             return r.stdout
                 .split("\x1e")
                 .map((rec) => rec.replace(/^\s+/, ""))
                 .filter((rec) => rec !== "")
                 .map((rec) => {
-                    const [sha, message] = rec.split("\x1f");
-                    return { sha: sha.trim(), message: message ?? "" };
+                    const [sha, parents, message] = rec.split("\x1f");
+                    return { sha: sha.trim(), message: message ?? "", merge: (parents ?? "").trim().split(/\s+/).length > 1 };
                 });
         },
-        push: (cwd, branch) => {
-            const r = run("git", ["push", "-u", "origin", `${branch}:${branch}`], { cwd });
+        changes: (cwd) => {
+            const r = run("git", ["status", "--porcelain"], { cwd });
+            if (r.status !== 0) return null;
+            return r.stdout
+                .split("\n")
+                .filter((l) => l.trim() !== "")
+                .map((l) => l.slice(3));
+        },
+        push: (cwd, branch, sha) => {
+            const r = run("git", ["push", "-u", "origin", `${sha ?? branch}:refs/heads/${branch}`], { cwd });
             return r.status === 0 ? ok(null) : err(r, "git push");
         },
         prRepo: (cwd) => {
@@ -816,5 +1112,6 @@ export function implementEpicDeps(run: Runner): ImplementDeps {
         autoModeAvailable: () => claudeOffersAuto(run),
         onPath: (command) => onPath(command),
         session: spawnSession,
+        wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     };
 }
