@@ -8,7 +8,17 @@
 import { describe, expect, it } from "vitest";
 import { type HarnessModels } from "@nexus/delivery-config/harness-models";
 import { type SessionSpec } from "./distill-command.js";
-import { runStageCommand, STAGE_SLASH, type StageDeps, type StageInput, type StageSessionEnd, type StageVerb } from "./stage-command.js";
+import {
+    runStageCommand,
+    spawnInteractive,
+    stageDeps,
+    stageUsage,
+    STAGE_SLASH,
+    type StageDeps,
+    type StageInput,
+    type StageSessionEnd,
+    type StageVerb,
+} from "./stage-command.js";
 
 const MODELS: HarnessModels = { planning: { value: "opus", layer: "built-in" }, implementing: null, unknownKeys: [] };
 
@@ -210,5 +220,45 @@ describe("the session the three verbs start (epic #1068)", () => {
 
     it("names the slash command each verb starts", () => {
         expect(STAGE_SLASH).toEqual({ epic: "/nxs.epic", "decision-record": "/nxs.decision-record", analyze: "/nxs.analyze" });
+    });
+
+    it.each<[StageVerb, string]>([
+        ["epic", "usage: nexus epic <description>"],
+        ["decision-record", "usage: nexus decision-record <N>"],
+        ["analyze", "usage: nexus analyze"],
+    ])("names %s's own usage, with the model flag it accepts", (verb, usage) => {
+        expect(stageUsage(verb)).toContain(usage);
+        expect(stageUsage(verb)).toContain("--planning-model <model>");
+    });
+
+    it("warns about settings keys it does not know, and still starts the session", async () => {
+        const models: HarnessModels = { planning: { value: "opus", layer: "built-in" }, implementing: null, unknownKeys: ["planning-modle"] };
+        const r = await run(world({ models }), { verb: "analyze", args: [] });
+        expect(r.code).toBe(0);
+        expect(r.sessions).toHaveLength(1);
+        expect(r.err).toContain("planning-modle");
+    });
+});
+
+describe("the harness launcher (epic #1068)", () => {
+    it("returns the session's own exit code, with the terminal left to the harness", async () => {
+        const end = await spawnInteractive({ command: process.execPath, args: ["-e", "process.exit(3)"], cwd: "/" });
+        expect(end).toEqual({ started: true, exitCode: 3, error: null, finalMessage: null });
+    });
+
+    it("reports a harness that cannot start rather than hanging", async () => {
+        const end = await spawnInteractive({ command: "nexus-no-such-harness", args: [], cwd: "/" });
+        expect(end.started).toBe(false);
+        expect(end.error).toContain("nexus-no-such-harness");
+    });
+
+    it("wires the one model catalogue and the PATH, and runs a real session", async () => {
+        const deps: StageDeps = stageDeps();
+        expect(deps.onPath("sh")).toBe(true);
+        expect(deps.onPath("nexus-no-such-harness")).toBe(false);
+        expect(deps.modelSettings("/", "claude").planning?.value).toBeTruthy();
+        const end = await deps.session({ command: process.execPath, args: ["-e", "process.exit(0)"], cwd: "/" });
+        expect(end.started).toBe(true);
+        expect(end.exitCode).toBe(0);
     });
 });
