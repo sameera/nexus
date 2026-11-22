@@ -26,6 +26,7 @@ import {
     parseFeaturePath,
     readLedgerNumber,
     renderFeatureWorkItem,
+    featureClassification,
     resolveFeatureSetting,
 } from "./feature-issue.js";
 
@@ -122,15 +123,16 @@ function runLookup(flags: Map<string, string>, io: FeatureIssueIo, run: Runner):
         namedNumber: named === undefined ? null : Number(named.replace(/^#/, "")),
         readIssue: (n) => gh.read(n),
         listIssues: () => (setting.state === "on" ? gh.list(setting) : []),
+        hasIssueType: (name) => gh.hasIssueType(name),
     });
     if (gh.failure !== null) {
         io.stderr(`feature-issue gh-failed: ${gh.failure}. Nothing may be filed; repeat the run once GitHub answers.`);
         return 1;
     }
     const line: string = describeLookup(lookup, featurePath);
-    const marker = setting.state === "on" ? { classification: setting.markers.mode, label: setting.label, type: setting.type, ref: featureRef(featurePath) } : {};
+    const marker = setting.state === "on" ? { classification: featureClassification(setting), label: setting.label, type: setting.type, ref: featureRef(featurePath) } : {};
     io.stdout(JSON.stringify({ ...lookup, line, ...marker }));
-    if (lookup.outcome === "ambiguous" || lookup.outcome === "not-a-feature") {
+    if (lookup.outcome === "ambiguous" || lookup.outcome === "not-a-feature" || lookup.outcome === "no-type" || lookup.outcome === "type-missing") {
         io.stderr(`feature-issue ${lookup.outcome}: ${line}`);
         return 1;
     }
@@ -179,8 +181,8 @@ function runListing(sub: "features" | "epics" | "stubs", flags: Map<string, stri
         io.stdout(JSON.stringify({ state: "off", line: "Features as issues is off; features are read from the docs tree." }));
         return 0;
     }
-    if (setting.state === "no-marker") {
-        io.stderr(`feature-issue no-marker: ${setting.message}`);
+    if (setting.state === "no-marker" || setting.state === "no-type") {
+        io.stderr(`feature-issue ${setting.state}: ${setting.message}`);
         return 1;
     }
     const reader = new GhReader(run, root, resolvePublishingKey(root, "epic-repo"));
@@ -236,7 +238,7 @@ function listingFailed(reader: GhReader, io: FeatureIssueIo): number {
 }
 
 function featureFilter(setting: Extract<FeatureSetting, { state: "on" }>): string {
-    return setting.markers.mode === "types" ? `type=${encodeURIComponent(setting.type)}` : `labels=${encodeURIComponent(setting.label)}`;
+    return featureClassification(setting) === "types" ? `type=${encodeURIComponent(setting.type)}` : `labels=${encodeURIComponent(setting.label)}`;
 }
 
 /** The epic-marked listings, both states: the label and the type wherever the mode reads them. */
@@ -333,11 +335,23 @@ class GhReader {
     }
 
     list(setting: Extract<FeatureSetting, { state: "on" }>): FeatureIssueRef[] {
-        const filter: string = setting.markers.mode === "types" ? `type=${encodeURIComponent(setting.type)}` : `labels=${encodeURIComponent(setting.label)}`;
+        const filter: string = featureClassification(setting) === "types" ? `type=${encodeURIComponent(setting.type)}` : `labels=${encodeURIComponent(setting.label)}`;
         const issues: RestIssue[] | null = this.api<RestIssue[]>(["--paginate", "--slurp", `repos/${this.repo}/issues?state=all&per_page=100&${filter}`], true);
         if (issues === null) return [];
         const flat: RestIssue[] = (issues as unknown[]).flat() as RestIssue[];
         return flat.filter((i) => i.pull_request === undefined).map(toRef);
+    }
+
+    /** Whether the epic repository has the named issue type. Unanswered reads as missing. */
+    hasIssueType(name: string): boolean {
+        const [owner, repo] = this.repo.split("/");
+        const query = "query($o:String!,$r:String!){repository(owner:$o,name:$r){issueTypes(first:100){nodes{name}}}}";
+        const answer = this.api<{ data?: { repository?: { issueTypes?: { nodes?: { name: string }[] } } } }>(
+            ["graphql", "-f", `query=${query}`, "-f", `o=${owner}`, "-f", `r=${repo}`],
+            false,
+        );
+        const names: string[] = answer?.data?.repository?.issueTypes?.nodes?.map((n) => n.name.toLowerCase()) ?? [];
+        return names.includes(name.toLowerCase());
     }
 
     /** Close one issue if it is open. True once it reads closed. */

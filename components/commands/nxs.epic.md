@@ -239,7 +239,8 @@ nexus feature-issue lookup --feature-path "<feature-path>" \
 It prints `{ outcome, line, ... }`. Keep `line` for the digest and the stubs consent text, and act on `outcome`:
 
 - **`off`**: the repository has not opted in. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
-- **`no-marker`**: opted in, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
+- **`no-marker`**: opted in through the legacy `features-as-issues: true`, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
+- **`no-type`** or **`type-missing`** (exit 1): the repository set `github.features: types` and names no feature issue type, or the epic repository does not have the one it names. Stop **before the approval digest**, say `line`, and **file nothing, not even the epic**. Never fall back to a label.
 - **`file-new`**: no feature issue records this feature path, whether or not a README exists there. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
 - **`reuse`**: `issue` is the feature issue to use, open or closed as `state` says. File no feature issue.
 
@@ -253,8 +254,8 @@ nexus feature-issue work-item --name "<Feature Name>" --statement "<one-line cap
 EPIC_REPO="$(nexus config resolve epic-repo)"
 nexus create-story "${RUN_DIR}/feature" \
     ${EPIC_REPO:+--issues-repo "$EPIC_REPO"} \
-    --classification-label "<label>" \
-    --classification-type "<type>" \
+    --classification-label "<label>" \    # omit when label is empty
+    --classification-type "<type>" \      # omit when type is empty
     --keep-manifest
 ```
 

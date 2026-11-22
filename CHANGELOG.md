@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.7.0
+
+- **New setting `github.features: docs | types | labels`** chooses how features are recorded.
+  `docs`, the default, keeps them in the docs tree. `types` marks feature issues with the issue type
+  `github.feature-type` names and no label, even when epics use labels; `labels` marks them with
+  the feature label, even when epics use types. When `features` is set it wins over
+  `features-as-issues`, which still works as before when `features` is absent.
+- **Under `types`, `/nxs.epic` stops before approval and files nothing, not even the epic,** when no
+  feature type is named or the repository does not have it. It never falls back to a label.
+
 ## 1.6.0
 
 - **New feature issues are filed closed.** `/nxs.epic` and `nexus feature-issue migrate --apply`

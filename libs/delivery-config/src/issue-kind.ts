@@ -118,6 +118,11 @@ export interface KindClassification {
     featureLabel: string;
     /** Empty unless opted in and a type is declared: there is no built-in issue type (D2). */
     featureType: string;
+    /**
+     * The mode the feature marker is read in when `github.features` names one (decision record
+     * #1061, D2), which may differ from `mode`. Absent in the legacy case, where `mode` decides.
+     */
+    featureMode?: "types" | "labels";
 }
 
 /** The classification-relevant markers carried by one issue, with the number to name it by. */
@@ -146,8 +151,27 @@ function kindFrom(c: KindMarkers, by: (label: string, type: string) => boolean):
     // and an issue carrying any other kind's marker is never read as a feature (decision record
     // #1010, D3). Both markers are empty unless the repository opted in, and an empty marker
     // matches nothing, which is the whole of the off switch.
-    if (by(c.featureLabel, c.featureType)) return "feature";
+    if (c.featureMode === undefined && by(c.featureLabel, c.featureType)) return "feature";
     return "other";
+}
+
+/** Whether an issue carries the feature marker of an explicit feature mode (decision record #1061, D2). */
+function readsExplicitFeature(c: KindClassification, markers: SubIssueMarkers, byLabel: IssueKind, byType: IssueKind): boolean {
+    if (c.featureMode === undefined || byLabel !== "other" || byType !== "other") return false;
+    return c.featureMode === "types" ? matches(markers.issueType, c.featureType) : markers.labels.some((name) => matches(name, c.featureLabel));
+}
+
+/** The feature mode a repository resolves to: docs (off), types, labels, or legacy (#1061 D1). */
+export function resolveFeatureMode(targetRoot: string): "docs" | "types" | "labels" | "legacy" {
+    const declared: string = resolveKey(targetRoot, "features").trim().toLowerCase();
+    if (declared === "types" || declared === "labels" || declared === "docs") return declared;
+    if (declared !== "") return "docs";
+    return featuresOptedIn(targetRoot) ? "legacy" : "docs";
+}
+
+/** The mode the feature marker is read and filed in. */
+export function featureMarkerMode(c: KindClassification): "types" | "labels" | "legacy-auto" {
+    return c.featureMode ?? (c.mode === "types" ? "types" : c.mode === "labels" ? "labels" : "legacy-auto");
 }
 
 /** Whether the repository opted in to features as issues: only the value `true`, whatever its case. */
@@ -161,8 +185,12 @@ function featuresOptedIn(targetRoot: string): boolean {
  * that has not. The declared mode picks which one answers; the other stays inert, and never raises a
  * mode mismatch.
  */
-function featureMarkers(targetRoot: string): Pick<KindClassification, "featureLabel" | "featureType"> {
-    if (!featuresOptedIn(targetRoot)) return { featureLabel: "", featureType: "" };
+function featureMarkers(targetRoot: string): Pick<KindClassification, "featureLabel" | "featureType" | "featureMode"> {
+    const mode = resolveFeatureMode(targetRoot);
+    if (mode === "docs") return { featureLabel: "", featureType: "" };
+    // An explicit mode carries only its own marker, so a feature issue is filed with nothing else.
+    if (mode === "types") return { featureLabel: "", featureType: resolveKey(targetRoot, "feature-type"), featureMode: "types" };
+    if (mode === "labels") return { featureLabel: resolveKey(targetRoot, "feature-label"), featureType: "", featureMode: "labels" };
     return {
         featureLabel: resolveKey(targetRoot, "feature-label"),
         featureType: resolveKey(targetRoot, "feature-type"),
@@ -238,6 +266,7 @@ export function classifyIssueKind(c: KindClassification, markers: IssueMarkers):
     const byLabel: IssueKind = kindFrom(c, (label) => markers.labels.some((name) => matches(name, label)));
     const byType: IssueKind = kindFrom(c, (_label, type) => matches(markers.issueType, type));
 
+    if (readsExplicitFeature(c, markers, byLabel, byType)) return { ok: true, kind: "feature" };
     if (c.mode === "legacy-auto") return { ok: true, kind: byLabel !== "other" ? byLabel : byType };
 
     const declared: IssueKind = c.mode === "labels" ? byLabel : byType;
@@ -310,7 +339,7 @@ export function isDeclaredInitiative(c: KindClassification, markers: SubIssueMar
 
 /** Whether deciding {@link isDeclaredFeature} needs the issue's type, or its labels alone answer. */
 export function featureNeedsIssueType(c: KindClassification): boolean {
-    return c.mode !== "labels" && c.featureType.length > 0;
+    return featureMarkerMode(c) !== "labels" && c.featureType.length > 0;
 }
 
 /**
@@ -324,6 +353,7 @@ export function featureNeedsIssueType(c: KindClassification): boolean {
 export function isDeclaredFeature(c: KindClassification, markers: SubIssueMarkers): boolean {
     const byLabel: IssueKind = kindFrom(c, (label) => markers.labels.some((name) => matches(name, label)));
     const byType: IssueKind = kindFrom(c, (_label, type) => matches(markers.issueType, type));
+    if (c.featureMode !== undefined) return readsExplicitFeature(c, markers, byLabel, byType);
     if (c.mode === "labels") return byLabel === "feature";
     if (c.mode === "types") return byType === "feature";
     return (byLabel !== "other" ? byLabel : byType) === "feature";

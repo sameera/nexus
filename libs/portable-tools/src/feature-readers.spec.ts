@@ -79,3 +79,10 @@ describe("/nxs.epic writes nothing to the tree when opted in (story #1058, D8)",
         expect(body).toMatch(/no feature folder, no feature README and no features index row/);
     });
 });
+
+describe("/nxs.epic stops on a missing typed feature marker (story #1060, D3)", () => {
+    it("stops before approval and files nothing, not even the epic", () => {
+        const body: string = read("commands/nxs.epic.md");
+        expect(body).toMatch(/`type-missing`[^\n]*before the approval digest[^\n]*file nothing, not even the epic/);
+    });
+});

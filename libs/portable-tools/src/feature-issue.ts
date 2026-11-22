@@ -8,8 +8,7 @@
  */
 
 import * as fs from "node:fs";
-import { type KindClassification, featureNeedsIssueType, isDeclaredFeature, readKindMarkers } from "@nexus/delivery-config/issue-kind";
-import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
+import { type KindClassification, featureMarkerMode, featureNeedsIssueType, isDeclaredFeature, readKindMarkers, resolveFeatureMode } from "@nexus/delivery-config/issue-kind";
 
 /** The hidden block in a feature issue's body that records the feature path. Lookup matches on it. */
 export const FEATURE_META_MARKER = "nexus:feature-meta";
@@ -41,14 +40,23 @@ export type FeatureSetting =
     | { state: "off" }
     /** Opted in, but the repository files by issue type and declares no feature type. */
     | { state: "no-marker"; message: string }
+    /** `features: types` names no feature type: nothing may be filed, not even the epic (#1061 D3). */
+    | { state: "no-type"; message: string }
     | { state: "on"; markers: KindClassification; label: string; type: string };
 
 /** Resolve the opt-in and the marker through the shared kind rule's own reading. */
 export function resolveFeatureSetting(root: string): FeatureSetting {
-    if (!optedInTo(root)) return { state: "off" };
+    const mode = resolveFeatureMode(root);
+    if (mode === "docs") return { state: "off" };
     const markers: KindClassification = readKindMarkers(root);
+    if (mode === "types" && markers.featureType === "") {
+        return {
+            state: "no-type",
+            message: "github.features is types but github.feature-type is not declared in .nexus/config/settings.yml; declare the feature issue type, and nothing is filed until then",
+        };
+    }
     // Under issue-type mode the type alone is the marker, and there is no built-in one.
-    if (markers.mode === "types" && markers.featureType === "") {
+    if (mode === "legacy" && markers.mode === "types" && markers.featureType === "") {
         return {
             state: "no-marker",
             message:
@@ -59,8 +67,10 @@ export function resolveFeatureSetting(root: string): FeatureSetting {
     return { state: "on", markers, label: markers.featureLabel, type: markers.featureType };
 }
 
-function optedInTo(root: string): boolean {
-    return resolvePublishingKey(root, "features-as-issues").trim().toLowerCase() === "true";
+/** The classification mode the feature marker is filed under: the feature mode, else `classification`. */
+export function featureClassification(setting: Extract<FeatureSetting, { state: "on" }>): string {
+    const mode = featureMarkerMode(setting.markers);
+    return mode === "legacy-auto" ? setting.markers.mode : mode;
 }
 
 /** One issue read from the epic repository's listing. */
@@ -75,6 +85,9 @@ export interface FeatureIssueRef {
 export type FeatureLookup =
     | { outcome: "off" }
     | { outcome: "no-marker"; message: string }
+    | { outcome: "no-type"; message: string }
+    /** `features: types` and the epic repository has no such type: nothing is filed (#1061 D3). */
+    | { outcome: "type-missing"; type: string }
     | { outcome: "reuse"; issue: number; state: "open" | "closed"; source: "ledger" | "named" | "listing" }
     /** No issue records the path: this run files a new feature issue, README or not (#1061 D7). */
     | { outcome: "file-new" }
@@ -93,6 +106,8 @@ export interface LookupInput {
     readIssue: (number: number) => FeatureIssueRef | null;
     /** The repository's feature-marked issues, open and closed. Called only when an earlier step did not answer. */
     listIssues: () => FeatureIssueRef[] | null;
+    /** Whether the epic repository has an issue type; asked only before filing a new typed feature. */
+    hasIssueType?: (name: string) => boolean;
 }
 
 function readsAsFeature(markers: KindClassification, issue: FeatureIssueRef): boolean {
@@ -108,6 +123,7 @@ export function lookupFeature(input: LookupInput): FeatureLookup {
     const { setting } = input;
     if (setting.state === "off") return { outcome: "off" };
     if (setting.state === "no-marker") return { outcome: "no-marker", message: setting.message };
+    if (setting.state === "no-type") return { outcome: "no-type", message: setting.message };
 
     for (const [number, source] of [[input.ledgerNumber, "ledger"], [input.namedNumber, "named"]] as const) {
         if (number === null) continue;
@@ -122,6 +138,9 @@ export function lookupFeature(input: LookupInput): FeatureLookup {
     );
     if (matches.length > 1) return { outcome: "ambiguous", issues: matches.map((m) => m.number).sort((a, b) => a - b) };
     if (matches.length === 1) return { outcome: "reuse", issue: matches[0].number, state: matches[0].state, source: "listing" };
+    if (setting.markers.featureMode === "types" && input.hasIssueType !== undefined && !input.hasIssueType(setting.type)) {
+        return { outcome: "type-missing", type: setting.type };
+    }
     return { outcome: "file-new" };
 }
 
@@ -131,7 +150,10 @@ export function describeLookup(lookup: FeatureLookup, featurePath: string): stri
         case "off":
             return "";
         case "no-marker":
+        case "no-type":
             return lookup.message;
+        case "type-missing":
+            return `Feature issue: the epic repository has no '${lookup.type}' issue type, which github.feature-type names; nothing is filed, not even the epic.`;
         case "reuse":
             return `Feature issue: #${lookup.issue} (${lookup.state}) is used for ${featurePath}; no new feature issue is filed.`;
         case "file-new":
