@@ -21,4 +21,6 @@ generated: 2026-11-22
 - `libs/delivery-config/src/story-filer/stub-parent.ts` — the filer's parent check, reading a parent's kind through this rule.
 - `libs/epic-verdicts/src/close-command.ts` — close reads an issue's kind through this rule and refuses an initiative.
 - `libs/pr-worktree/src/story-candidates.ts` — validates a pull request's story candidates through this rule.
+- `libs/delivery-config/src/issue-kind.ts` — the feature kind, read from the declared mode's marker and tested last (#1038)
+- `libs/delivery-config/src/issue-kind.spec.ts` — coverage for the feature kind and its test order (#1038)
 - `libs/portable-tools/src/feature-migrate.ts` — classifies issues by declared kind to find feature issues and exclude initiatives.

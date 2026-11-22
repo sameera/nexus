@@ -22,4 +22,6 @@ generated: 2026-11-22
 - `libs/epic-resolve/src/classify.spec.ts` — classification coverage across the three modes and the case-folding rule.
 - `libs/epic-resolve/src/resolve.spec.ts` — resolver coverage for the record field, the byte-identical no-record output, and the fail-closed aborts.
 - `libs/epic-resolve/src/planning-dir.ts` — the run folder the epic materializes from before this resolver reconstructs it from the filed issue graph (#638)
+- `libs/epic-resolve/src/resolve.ts` — carries the feature issue number in the frontmatter the resolver returns (#1038)
+- `components/skills/nxs-epic-resolve/SKILL.md` — the resolver's contract, including the feature refusal (#1038)
 - `libs/epic-resolve/src/serialize.ts` — adds the epic title to a hidden block that lacks it, so the read-back changes only the feature reference.
