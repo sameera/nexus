@@ -181,7 +181,11 @@ function runListing(sub: "features" | "epics" | "stubs", flags: Map<string, stri
         io.stdout(JSON.stringify({ state: "off", line: "Features as issues is off; features are read from the docs tree." }));
         return 0;
     }
-    if (setting.state === "no-marker" || setting.state === "no-type") {
+    if (setting.state === "no-marker") {
+        io.stdout(JSON.stringify({ state: "off", line: `Features are read from the docs tree: ${setting.message}` }));
+        return 0;
+    }
+    if (setting.state === "no-type") {
         io.stderr(`feature-issue ${setting.state}: ${setting.message}`);
         return 1;
     }
