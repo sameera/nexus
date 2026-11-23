@@ -43,7 +43,11 @@ genuinely-absent file stays graceful (ask the user / proceed), never a hard fail
     - If the file doesn't exist, ask the user for critical context or work with provided information
 
 2. **Related Features & Patterns**
-    - Read `<docs-root>/features/README.md` for feature inventory and patterns
+    - Run `nexus feature-issue features` for the feature inventory. On `"off"`, read
+      `<docs-root>/features/README.md` from the tree instead, as before. On any other answer, the
+      features and epics you name come only from the listing: run
+      `nexus feature-issue epics --feature <N>` for each feature you judge related, read those epic
+      issues with `gh issue view` for detail, and read no feature README and no features index.
     - Check `<docs-root>/decisions/` for relevant prior decisions
 
 ## Conditional Research

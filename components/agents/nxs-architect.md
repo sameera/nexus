@@ -29,8 +29,11 @@ Read, in this order:
    authoritative scope; it comes before everything below.
 2. `<docs-root>/product/context.md` — vision, personas, constraints, success metrics. Reference,
    don't re-tabulate.
-3. `<docs-root>/features/README.md`, following links to similar features — prior technical decisions
-   and their rationale, patterns that worked vs. patterns that created problems.
+3. Similar features — prior technical decisions and their rationale, patterns that worked vs.
+   patterns that created problems. Run `nexus feature-issue features`. On `"off"`, read
+   `<docs-root>/features/README.md` from the tree and follow its links, as before. On any other
+   answer, run `nexus feature-issue epics --feature <N>` for each feature you judge similar and read
+   those epic issues with `gh issue view`; read no feature README and no features index.
 4. `<docs-root>/system/stack.md` — the actual stack. Guarantees and refuted alternatives must fit it.
 5. `<docs-root>/system/standards/*` — the conformance pass below.
 

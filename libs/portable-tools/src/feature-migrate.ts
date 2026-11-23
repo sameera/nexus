@@ -39,6 +39,10 @@ export interface FeatureToFile {
 
 /** The GitHub side of a run. Each method answers null or a failure rather than throwing. */
 export interface MigrationGh {
+    /** Close a feature issue this run filed (D9). False when it could not be closed. */
+    closeFeature?: (number: number) => boolean;
+    /** Whether the epic repository has the named issue type (#1061 D3). Absent: not probed. */
+    hasIssueType?: (name: string) => boolean;
     /** Every issue carrying the feature marker, open and closed. Null when GitHub did not answer. */
     listFeatures(): FeatureIssueRef[] | null;
     /** File the feature issues through the guarded filer. `numbers` maps feature path to issue. */
@@ -234,8 +238,24 @@ export function readFeatureFolders(root: string): FeatureFolder[] {
         });
 }
 
+/** The line that names a README's feature issue (D11). Matched on its prefix, so a repeat adds none. */
+const POINTER_PREFIX = "> Feature issue:";
+
+/** Add the pointer line under the README's title once; every other line is left as it is. */
+function addPointerLine(root: string, featurePath: string, issue: number): void {
+    const file: string = path.join(root, featurePath, "README.md");
+    const text: string = fs.readFileSync(file, "utf8");
+    if (text.split("\n").some((l) => l.startsWith(POINTER_PREFIX))) return;
+    const line = `${POINTER_PREFIX} #${issue}. This README is no longer updated; the feature's epics are listed by \`nexus feature-issue epics --feature ${issue}\`.`;
+    const title: RegExpExecArray | null = /^# .*$/m.exec(text);
+    const at: number = title === null ? 0 : title.index + title[0].length;
+    const next: string = title === null ? `${line}\n\n${text}` : `${text.slice(0, at)}\n\n${line}${text.slice(at)}`;
+    fs.writeFileSync(file, next);
+}
+
 function refusal(setting: FeatureSetting): string | null {
     if (setting.state === "off") return "the repository has not opted in to features as issues: set github.features-as-issues: true in .nexus/config/settings.yml";
+    if (setting.state === "no-type" || setting.state === "unknown-mode") return setting.message;
     if (setting.state === "no-marker") return "the repository classifies issues by type and declares no feature type: set github.feature-type in .nexus/config/settings.yml";
     return null;
 }
@@ -254,18 +274,24 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
     const ledger: string = path.join(input.root, MIGRATION_DIR, LEDGER_FILE);
     const byNumber: Map<number, FeatureIssueRef> = new Map(listed.map((i) => [i.number, i]));
 
+    let typeMissing: string | null = null;
+    const closeOwn: number[] = [];
     const plans: FeaturePlan[] = readFeatureFolders(input.root).map((folder) => {
+        const ledgerNumber: number | null = readLedgerNumber(ledger, folder.path);
         const lookup: FeatureLookup = lookupFeature({
             setting,
             featurePath: folder.path,
-            hasReadme: false,
-            ledgerNumber: readLedgerNumber(ledger, folder.path),
+            ledgerNumber,
             namedNumber: null,
             readIssue: (n) => byNumber.get(n) ?? null,
             listIssues: () => listed,
+            ...(input.gh.hasIssueType !== undefined ? { hasIssueType: input.gh.hasIssueType.bind(input.gh) } : {}),
         });
+        if (lookup.outcome === "type-missing") typeMissing = lookup.type;
         if (lookup.outcome === "reuse") {
             const issue: FeatureIssueRef | undefined = byNumber.get(lookup.issue);
+            // Only an issue this migration's own ledger records was filed by it, so only that one is closed (D9).
+            if (lookup.issue === ledgerNumber && issue?.state === "open") closeOwn.push(lookup.issue);
             const retired: boolean = retiredLabel !== "" && (issue?.labels ?? []).some((l) => l.toLowerCase() === retiredLabel);
             return { path: folder.path, name: folder.name, action: "reuse", issue: lookup.issue, ...(retired ? { retired } : {}) };
         }
@@ -275,6 +301,11 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
         return { path: folder.path, name: folder.name, action: "file" };
     });
 
+    if (typeMissing !== null) {
+        const refused = `the epic repository has no '${typeMissing}' issue type, which github.feature-type names`;
+        return { refused, features: [], lines: [`Refused: ${refused}. Nothing was written; create the type or correct github.feature-type.`], complete: false };
+    }
+
     const toFile: FeatureToFile[] = [];
     for (const plan of plans) {
         if (plan.action !== "file") continue;
@@ -282,21 +313,29 @@ export function migrateFeatures(input: MigrationInput): MigrationReport {
         toFile.push({ featurePath: plan.path, name: plan.name, statement: folder.statement as string });
     }
     let failure: string | null = null;
+    if (input.apply && input.gh.closeFeature !== undefined) {
+        for (const number of closeOwn) if (!input.gh.closeFeature(number)) failure = failure ?? `#${number} was filed but could not be closed`;
+    }
     if (input.apply && toFile.length > 0) {
         const filed = input.gh.fileFeatures(toFile);
-        failure = filed.failure;
+        failure = failure ?? filed.failure;
         for (const plan of plans) {
             if (plan.action !== "file") continue;
             const number: number | undefined = filed.numbers.get(plan.path);
             Object.assign(plan, number === undefined ? { action: "failed" } : { action: "filed", issue: number });
+            if (number !== undefined && input.gh.closeFeature !== undefined && !input.gh.closeFeature(number)) {
+                failure = failure ?? `#${number} was filed but could not be closed`;
+            }
         }
     }
+
+    if (input.apply) for (const p of plans) if (p.action === "reuse" || p.action === "filed") addPointerLine(input.root, p.path, p.issue as number);
 
     const lines: string[] = [input.apply ? "Feature issues:" : "Feature issues (plan only; re-run with --apply to carry it out):"];
     for (const p of plans) lines.push(`  ${describe(p)}`);
     if (failure !== null) lines.push(`Stopped filing: ${failure}. Re-run with --apply; it files only the feature issues still missing.`);
     let open: boolean = plans.some((p) => p.action !== "reuse" && p.action !== "filed");
-    if (input.gh.listMembers === undefined || failure !== null) return { refused: null, features: plans, lines, complete: !open };
+    if (input.gh.listMembers === undefined || failure !== null) return { refused: null, features: plans, lines, complete: !open && failure === null };
 
     const members = migrateMembers(input, plans, lines);
     open = open || members === null || members.some((m) => m.action !== "done" && m.action !== "updated");

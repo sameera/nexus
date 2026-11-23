@@ -194,14 +194,24 @@ gh issue close <n> $REPO_ARG --reason "not planned"
 
 The container must exist before writing: the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter. That frontmatter is carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
-1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. Create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
-2. **Discovery mode** → already resolved: the `feature_path` recorded in the discovery doc, confirmed once when the discovery was started. Create the directory if it does not exist. A per-stub override is offered in Phase 2b; nothing is re-confirmed here.
-3. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
+**List the features first.** Ask the listing command once, before any step below. It applies the opt-in itself; never decide it here:
+
+```bash
+nexus feature-issue features
+```
+
+- On `"off"`, features are recorded in the docs tree: run the steps below exactly as before, reading the feature folders and `<docs-root>/features/README.md` as today.
+- On any other answer, the repository records features as issues. Its `features` list is every feature, open or closed, each with `number`, `name`, `state`, `featurePath`, `statement` and `retired`. **Read no feature README and no features index in this run.** Match features only against that list. A non-zero exit stops the run with nothing filed: report its stderr line.
+
+1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. When the listing answered `"off"`, create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
+2. **Discovery mode** → already resolved: the `feature_path` recorded in the discovery doc, confirmed once when the discovery was started. When the listing answered `"off"`, create the directory if it does not exist. A per-stub override is offered in Phase 2b; nothing is re-confirmed here.
+3. **Intent already inside a feature** → when the listing answered `"off"`, if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
 4. **Otherwise infer and confirm once**:
+    - When the listing did not answer `"off"`, first match the intent against every listed feature, open or closed. Offer the best match in the one confirmation below, by its name and `#<number>`. Name a feature whose `retired` is true as retired, and never put a retired feature forward as the default. When the lead confirms a **listed feature**, use its `featurePath` as `<feature-path>`, take its name and `statement` from the listing, and pass its number to the lookup below as `--named "<N>"`: that issue is the feature issue, and no second one is filed. When nothing matches, or the lead names a new feature, continue with the bullets below.
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
     - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `README.md` from.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ One prompt, cheap. Accept the user's correction if any.
-    - Ensure the directory exists (`mkdir -p <feature-path>`); the draft's `feature_path` needs it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
+    - When the listing answered `"off"`, ensure the directory exists (`mkdir -p <feature-path>`); the draft's `feature_path` needs it. Otherwise create nothing: `<feature-path>` is only the feature's recorded name, kept for repeat runs, the migration and the asset folder name, and it points to no folder. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
 
 **Establish the run folder (`RUN_DIR`), once, before the right-size gate decides whether this run drafts an epic or a set of stubs.** Everything the run will file from — the draft, the materialized source text, the derived filing body, and, on the decomposition path, the stub work items — lives in this one folder, and its name is fixed for the life of the run:
 
@@ -222,16 +232,17 @@ Look up the feature issue once for each distinct feature path the run files unde
 ```bash
 nexus feature-issue lookup --feature-path "<feature-path>" \
     --ledger "${RUN_DIR}/feature/.nxs-created.json" \
-    [--named "<N>"]     # promotion mode, when the stub's Meta names a feature issue
+    [--named "<N>"]     # promotion mode, when the stub's Meta names a feature issue,
+                        # or the listed feature the lead confirmed in Phase 1
 ```
 
 It prints `{ outcome, line, ... }`. Keep `line` for the digest and the stubs consent text, and act on `outcome`:
 
 - **`off`**: the repository has not opted in. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
-- **`no-marker`**: opted in, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
-- **`file-new`**: no feature issue and no feature README. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
+- **`no-marker`**: opted in through the legacy `features-as-issues: true`, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
+- **`no-type`**, **`unknown-mode`** or **`type-missing`** (exit 1): the repository set `github.features: types` and names no feature issue type, set `github.features` to a value other than `docs`, `types` or `labels`, or the epic repository does not have the type it names. Stop **before the approval digest**, say `line`, and **file nothing, not even the epic**. Never fall back to a label.
+- **`file-new`**: no feature issue records this feature path, whether or not a README exists there. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
 - **`reuse`**: `issue` is the feature issue to use, open or closed as `state` says. File no feature issue.
-- **`unmigrated`**: the feature has a README and no feature issue. File none, and name none on the epic or the stubs.
 
 A non-zero exit (`ambiguous`, `not-a-feature`, or a listing GitHub did not answer) stops the run: report the stderr line and **file nothing**. Never file a feature issue by hand to get past it.
 
@@ -243,12 +254,19 @@ nexus feature-issue work-item --name "<Feature Name>" --statement "<one-line cap
 EPIC_REPO="$(nexus config resolve epic-repo)"
 nexus create-story "${RUN_DIR}/feature" \
     ${EPIC_REPO:+--issues-repo "$EPIC_REPO"} \
-    --classification-label "<label>" \
-    --classification-type "<type>" \
+    --classification "<classification>" \ # omit unless it is types or labels
+    --classification-label "<label>" \    # omit when label is empty
+    --classification-type "<type>" \      # omit when type is empty
     --keep-manifest
 ```
 
-The work item has no parent and no labels, so the issue carries only the feature marker. It is filed open, into the epic repository, and no stage ever closes it. `--issues-repo` names that repository, because the filer otherwise files into the story repository, and the lookup, the epic filer and the read-back all look for the feature issue in the epic repository. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
+Then close it, before the epic, any initiative and any stub is filed:
+
+```bash
+nexus feature-issue close --ledger "${RUN_DIR}/feature/.nxs-created.json" --feature-path "<feature-path>"
+```
+
+The close step closes only the issue this run's ledger records, never reopens one, and is repeat-safe. If it exits non-zero, still file the epic and stubs, then report the run incomplete and keep the run folder; a repeat closes the issue without filing another. A reused feature issue, open or closed, is left in its state: never close or reopen a feature issue this run did not file. The final read-back confirms the new feature issue is closed: when this run filed it, pass `--filed` to the read-back below. The work item has no parent and no labels, and `--classification` files it in the feature mode whatever the epics use, so the issue carries only the feature marker. It is filed into the epic repository. `--issues-repo` names that repository, because the filer otherwise files into the story repository, and the lookup, the epic filer and the read-back all look for the feature issue in the epic repository. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
 
 **Naming the feature issue.** Once a feature issue is known, from `reuse` or from the feature batch, call its number `FEATURE_ISSUE`. Every epic and stub this run files under that feature path names it beside the feature path, and is linked to it by the filer:
 
@@ -256,15 +274,15 @@ The work item has no parent and no labels, so the issue carries only the feature
 - Each stub work item, including the deferral stub and the successors of a split stub, carries `feature_issue: "#<FEATURE_ISSUE>"` in its frontmatter and a `- **feature issue:** #<FEATURE_ISSUE>` line under `- **feature:**` in its Meta.
 - A promoted stub's epic names the feature issue its stub named.
 
-On `off`, `no-marker` and `unmigrated` there is no `FEATURE_ISSUE`: write neither the key nor the line. Never make the feature issue a `parent:`. The link is a relates-to link, and the filer adds it itself, after the issue is recorded, once it has checked that `FEATURE_ISSUE` reads as a feature; a batch naming any other issue is refused with nothing created. A link that fails only warns, so the run checks the links after filing.
+On `off` and `no-marker` there is no `FEATURE_ISSUE`: write neither the key nor the line. Never make the feature issue a `parent:`. The link is a relates-to link, and the filer adds it itself, after the issue is recorded, once it has checked that `FEATURE_ISSUE` reads as a feature; a batch naming any other issue is refused with nothing created. A link that fails only warns, so the run checks the links after filing.
 
 **Read-back.** After the filing that names `FEATURE_ISSUE` reports `✅ Complete` (Phase 2b step 4, or Phase 6 steps 1, 4 and 8 together), confirm the feature issue lists every epic and stub of this run:
 
 ```bash
-nexus feature-issue check-related --feature "#<FEATURE_ISSUE>" --issues "<n>,<n>,..."
+nexus feature-issue check-related --feature "#<FEATURE_ISSUE>" --issues "<n>,<n>,..." [--filed]
 ```
 
-A non-zero exit means a link is missing or could not be confirmed: report the run incomplete, name the missing issues, and **keep the run folder**. Repeating the same filing adds the missing links and files nothing twice.
+Add `--filed` when this run filed `FEATURE_ISSUE` (the lookup answered `file-new`): the read-back then also reads its state and exits non-zero while it is open. Never pass it for a reused feature issue, whose state this run leaves alone. A non-zero exit means a link is missing or could not be confirmed, or the feature issue this run filed is still open: report the run incomplete, name the missing issues or the open feature issue, and **keep the run folder**. Repeating the same filing adds the missing links and files nothing twice.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
@@ -1053,6 +1071,8 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 
     Report the sequence by **issue number**; the `STORY-<EPIC>.<SEQ>` refs died at step 4. They exist only to wire `blocked_by` inside a batch that has no issue numbers yet. Once the issues are filed a story has exactly one name, and the ref is positional, so keeping it would hand every story a second name that silently shifts whenever the epic is re-scoped.
 
+**When the listing answered anything but `"off"`, skip steps 6 and 7: an opted-in repository writes no feature folder, no feature README and no features index row, in intent, promotion, discovery and stub runs alike, and leaves an existing README and the index unchanged.** Filing then leaves the working tree unchanged.
+
 6. **Write the feature nav index.** Now that the issue exists, write `<feature-path>/README.md` with an `## Epics` entry that links **directly to the epic issue `#<EPIC>`**: no draft, no later update. The entry must be a clickable **markdown link** to the issue, not a bare `#<EPIC>` ref (a bare ref does not resolve in a repo `.md` file). Resolve the issue URL from the `gh` CLI: `gh issue view <EPIC> $REPO_ARG --json url -q .url`, where `$REPO_ARG` is `-R <repo>` for the `nexus config resolve epic-repo` value this epic was filed into (empty when that resolves to nothing). Only if that call itself fails, fall back to `gh repo view $REPO_ARG --json url -q .url` + `/issues/<EPIC>` with the same `$REPO_ARG`. Never use a bare `gh repo view`: it answers for the current repo and builds a URL into the wrong repository whenever the epic was filed elsewhere.
    If the README does not exist (new feature), create it from the skeleton below using the name + one-line statement recorded in Phase 1. If it exists (a multi-epic feature), append the new entry to `## Epics`. The capability statement is a durable read surface and carries the same style as the epic body (see *Prose convention*).
 
@@ -1080,7 +1100,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 
     Anything that must outlive a discovery is copied in full into a durable artifact. A reference is never sufficient, because the folder is removed once the discovery ends.
 
-7. **Add the new feature to the features index** when Phase 1 created the container. Append a row to the table in `<docs-root>/features/README.md` linking `<feature-path>/README.md` and its one-line capability statement. An existing feature needs nothing here.
+7. **Add the new feature to the features index** when Phase 1 created the container (only when the listing answered `"off"`). Append a row to the table in `<docs-root>/features/README.md` linking `<feature-path>/README.md` and its one-line capability statement. An existing feature needs nothing here.
 
 8. **File the deferral stub: asked-for scope the reviewer left unticked.** This runs **after the epic issue and every story issue exist**, and only on the approval that filed them: nothing is created before an explicit approval selection.
 
@@ -1287,5 +1307,7 @@ Issues are **durable**; the queue (`.nexus/queue/…`, a close-time buffer) is *
 Any durable `.md` link placed in an issue body should be an absolute GitHub URL so it resolves from the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-nexus abs-doc-path "<feature-path>/README.md"
+nexus abs-doc-path "<docs-root>/product/context.md"
 ```
+
+Link a feature README only when the listing answered `"off"`: in an opted-in repository the feature path points to no folder, so link the feature issue by number instead.

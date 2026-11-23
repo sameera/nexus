@@ -102,9 +102,9 @@ describe("nexus feature-issue lookup", () => {
         expect(parsed.outcome).toBe("file-new");
     });
 
-    it("files none for an existing feature with a README and no issue (G12)", async () => {
+    it("files a new feature issue whether or not a README exists at the path (#1061 D7, retiring #998 G12)", async () => {
         const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN, true), fakeGh([]).run)).out);
-        expect(parsed.outcome).toBe("unmigrated");
+        expect(parsed.outcome).toBe("file-new");
     });
 
     it("reuses the issue its ledger recorded on a repeat (story #1007)", async () => {
@@ -162,9 +162,10 @@ describe("nexus feature-issue work-item", () => {
 });
 
 describe("nexus feature-issue check-related — the read-back (D9, G18)", () => {
-    function relatedGh(related: string[] | null): Runner {
+    function relatedGh(related: string[] | null, featureState: "open" | "closed" = "closed"): Runner {
         return (_cmd, args) => {
             if (related === null) return { status: 1, stdout: "", stderr: "Not Found" };
+            if (!args.includes("graphql")) return { status: 0, stdout: JSON.stringify({ number: 5, state: featureState }), stderr: "" };
             const issue = {
                 id: "ID_5",
                 issueType: null,
@@ -193,6 +194,25 @@ describe("nexus feature-issue check-related — the read-back (D9, G18)", () => 
     it("exits 1 when the feature cannot be read, never reporting complete", async () => {
         const result = await call(["check-related", "--feature", "#5", "--issues", "9"], repoWith(settings), relatedGh(null));
         expect(result.code).toBe(1);
+    });
+
+    it("with --filed, passes once the feature issue this run filed reads closed", async () => {
+        const result = await call(["check-related", "--feature", "#5", "--issues", "9", "--filed"], repoWith(settings), relatedGh(["acme/tracker#9"], "closed"));
+        expect(result.code).toBe(0);
+        expect(JSON.parse(result.out)).toMatchObject({ missing: [], state: "closed" });
+    });
+
+    it("with --filed, reports the run incomplete when the feature issue this run filed is still open", async () => {
+        const result = await call(["check-related", "--feature", "#5", "--issues", "9", "--filed"], repoWith(settings), relatedGh(["acme/tracker#9"], "open"));
+        expect(result.code).toBe(1);
+        expect(JSON.parse(result.out)).toMatchObject({ state: "open" });
+        expect(result.err).toContain("open");
+    });
+
+    it("without --filed, never reads the feature issue's state", async () => {
+        const result = await call(["check-related", "--feature", "#5", "--issues", "9"], repoWith(settings), relatedGh(["acme/tracker#9"], "open"));
+        expect(result.code).toBe(0);
+        expect(JSON.parse(result.out)).toEqual({ feature: "acme/tracker#5", missing: [] });
     });
 });
 

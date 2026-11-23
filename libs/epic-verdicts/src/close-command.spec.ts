@@ -2794,6 +2794,14 @@ describe("close names the feature issue on the stubs it files (epic #999, decisi
         for (const root of [h.repoRoot, h.wtPath]) expect(tree(path.join(root, "docs", "features"))).toEqual([]);
     });
 
+    it("names the feature issue in a repository opted in through github.features alone (#1061 G29)", () => {
+        const h = harness(withFeature("#77"));
+        fs.mkdirSync(path.join(h.repoRoot, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(h.repoRoot, ".nexus", "config", "settings.yml"), "github:\n  classification: labels\n  features: labels\n");
+        closed(h);
+        expect(h.filed[0][0].featureIssue).toBe("#77");
+    });
+
     it("files the stubs as today in a repository that has not opted in (G20)", () => {
         const on = harness(withFeature("#77"));
         optIn(on, false);

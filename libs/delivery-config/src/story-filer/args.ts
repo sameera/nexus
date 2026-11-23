@@ -22,6 +22,8 @@ export interface FilerArgs {
     keepManifest: boolean;
     classificationLabel: string | null;
     classificationType: string | null;
+    /** `types` or `labels`, over the repository's classification mode; null to use the configured one. */
+    classification: string | null;
     /** `owner/repo` to file into, over the configured story repository; null to use the configured one. */
     issuesRepo: string | null;
 }
@@ -54,6 +56,8 @@ export function filerUsage(): string {
         "  --keep-manifest               Keep the resume ledger after a fully successful run.",
         "  --classification-label <name> Canonical label applied to every issue this run creates.",
         "  --classification-type <name>  Canonical GitHub issue-type applied in `types` mode.",
+        "  --classification <mode>       File in this mode (`types` or `labels`) instead of the",
+        "                                repository's own classification.",
         "  --issues-repo <owner/repo>    File into this repository instead of the configured story repo.",
     ].join("\n");
 }
@@ -69,6 +73,7 @@ export function parseFilerArgs(argv: string[]): ArgsOutcome {
         keepManifest: false,
         classificationLabel: null,
         classificationType: null,
+        classification: null,
         issuesRepo: null,
     };
     const positional: string[] = [];
@@ -122,6 +127,12 @@ export function parseFilerArgs(argv: string[]): ArgsOutcome {
             case "--classification-type":
                 args.classificationType = value(++i, token) ?? args.classificationType;
                 break;
+            case "--classification": {
+                const mode: string | null = value(++i, token);
+                if (mode !== null && mode !== "types" && mode !== "labels") invalid = `${token}: invalid value '${mode}'`;
+                else args.classification = mode ?? args.classification;
+                break;
+            }
             case "--issues-repo":
                 args.issuesRepo = value(++i, token) ?? args.issuesRepo;
                 break;
@@ -158,6 +169,7 @@ export function reconstructFlags(args: FilerArgs): string[] {
     if (args.keepManifest) flags.push("--keep-manifest");
     if (args.classificationLabel !== null) flags.push("--classification-label", args.classificationLabel);
     if (args.classificationType !== null) flags.push("--classification-type", args.classificationType);
+    if (args.classification !== null) flags.push("--classification", args.classification);
     if (args.issuesRepo !== null) flags.push("--issues-repo", args.issuesRepo);
     if (args.retries !== DEFAULT_RETRIES) flags.push("--retries", String(args.retries));
     if (args.retryBaseDelay !== DEFAULT_RETRY_BASE_DELAY) {
