@@ -240,7 +240,7 @@ It prints `{ outcome, line, ... }`. Keep `line` for the digest and the stubs con
 
 - **`off`**: the repository has not opted in. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
 - **`no-marker`**: opted in through the legacy `features-as-issues: true`, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
-- **`no-type`** or **`type-missing`** (exit 1): the repository set `github.features: types` and names no feature issue type, or the epic repository does not have the one it names. Stop **before the approval digest**, say `line`, and **file nothing, not even the epic**. Never fall back to a label.
+- **`no-type`**, **`unknown-mode`** or **`type-missing`** (exit 1): the repository set `github.features: types` and names no feature issue type, set `github.features` to a value other than `docs`, `types` or `labels`, or the epic repository does not have the type it names. Stop **before the approval digest**, say `line`, and **file nothing, not even the epic**. Never fall back to a label.
 - **`file-new`**: no feature issue records this feature path, whether or not a README exists there. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
 - **`reuse`**: `issue` is the feature issue to use, open or closed as `state` says. File no feature issue.
 
@@ -266,7 +266,7 @@ Then close it, before the epic, any initiative and any stub is filed:
 nexus feature-issue close --ledger "${RUN_DIR}/feature/.nxs-created.json" --feature-path "<feature-path>"
 ```
 
-The close step closes only the issue this run's ledger records, never reopens one, and is repeat-safe. If it exits non-zero, still file the epic and stubs, then report the run incomplete and keep the run folder; a repeat closes the issue without filing another. A reused feature issue, open or closed, is left in its state: never close or reopen a feature issue this run did not file. The close step's zero exit, which prints `"state": "closed"`, is what confirms the new feature issue is closed; the final read-back checks links only, never state. The work item has no parent and no labels, and `--classification` files it in the feature mode whatever the epics use, so the issue carries only the feature marker. It is filed into the epic repository. `--issues-repo` names that repository, because the filer otherwise files into the story repository, and the lookup, the epic filer and the read-back all look for the feature issue in the epic repository. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
+The close step closes only the issue this run's ledger records, never reopens one, and is repeat-safe. If it exits non-zero, still file the epic and stubs, then report the run incomplete and keep the run folder; a repeat closes the issue without filing another. A reused feature issue, open or closed, is left in its state: never close or reopen a feature issue this run did not file. The final read-back confirms the new feature issue is closed: when this run filed it, pass `--filed` to the read-back below. The work item has no parent and no labels, and `--classification` files it in the feature mode whatever the epics use, so the issue carries only the feature marker. It is filed into the epic repository. `--issues-repo` names that repository, because the filer otherwise files into the story repository, and the lookup, the epic filer and the read-back all look for the feature issue in the epic repository. The kept ledger is what makes a repeat reuse it: the next lookup reads `--ledger` first and answers `reuse`. Read its number from the ledger under the `ref` the lookup printed. If the filing is `⚠️ INCOMPLETE`, or the filer warned that the feature's issue type was not found, stop and report the run incomplete: file no epic and no stub until the feature issue exists and carries its marker. With several feature paths, file each path's batch in its own folder, `${RUN_DIR}/feature-<n>`, and pass that folder's ledger to its lookup.
 
 **Naming the feature issue.** Once a feature issue is known, from `reuse` or from the feature batch, call its number `FEATURE_ISSUE`. Every epic and stub this run files under that feature path names it beside the feature path, and is linked to it by the filer:
 
@@ -279,10 +279,10 @@ On `off` and `no-marker` there is no `FEATURE_ISSUE`: write neither the key nor 
 **Read-back.** After the filing that names `FEATURE_ISSUE` reports `✅ Complete` (Phase 2b step 4, or Phase 6 steps 1, 4 and 8 together), confirm the feature issue lists every epic and stub of this run:
 
 ```bash
-nexus feature-issue check-related --feature "#<FEATURE_ISSUE>" --issues "<n>,<n>,..."
+nexus feature-issue check-related --feature "#<FEATURE_ISSUE>" --issues "<n>,<n>,..." [--filed]
 ```
 
-A non-zero exit means a link is missing or could not be confirmed: report the run incomplete, name the missing issues, and **keep the run folder**. Repeating the same filing adds the missing links and files nothing twice.
+Add `--filed` when this run filed `FEATURE_ISSUE` (the lookup answered `file-new`): the read-back then also reads its state and exits non-zero while it is open. Never pass it for a reused feature issue, whose state this run leaves alone. A non-zero exit means a link is missing or could not be confirmed, or the feature issue this run filed is still open: report the run incomplete, name the missing issues or the open feature issue, and **keep the run folder**. Repeating the same filing adds the missing links and files nothing twice.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
@@ -1307,5 +1307,7 @@ Issues are **durable**; the queue (`.nexus/queue/…`, a close-time buffer) is *
 Any durable `.md` link placed in an issue body should be an absolute GitHub URL so it resolves from the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-nexus abs-doc-path "<feature-path>/README.md"
+nexus abs-doc-path "<docs-root>/product/context.md"
 ```
+
+Link a feature README only when the listing answered `"off"`: in an opted-in repository the feature path points to no folder, so link the feature issue by number instead.

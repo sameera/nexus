@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.9.0
+
+- **`/nxs.epic`'s final read-back now confirms the feature issue it filed is closed.** It passes the
+  new `--filed` flag to `nexus feature-issue check-related`, which then reads the feature issue's
+  state and exits 1 while it is open, so the run reports incomplete. A reused feature issue is never
+  checked for state.
+- **A `github.features` value other than `docs`, `types` or `labels` now stops the run** with
+  nothing filed, naming the setting and the value. It used to fall back to the docs tree silently.
+  The feature lookup answers `unknown-mode`, and the listings and the migration refuse.
+- **`/nxs.epic` no longer gives a feature README as its issue-link example.** In an opted-in
+  repository the feature path points to no folder; link the feature issue by number instead.
+
 ## 1.8.0
 
 - **Feature issues carry the feature mode's marker alone, whatever the epics use.** With

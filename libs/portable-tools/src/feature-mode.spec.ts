@@ -117,6 +117,20 @@ describe("the default and the legacy spelling", () => {
         expect(gh.calls).toEqual([]);
     });
 
+    it("an unrecognised features value stops the lookup and the listing, naming the setting, and reads nothing from GitHub", async () => {
+        const gh = fakeGh([]);
+        const root: string = repoWith("  classification: labels\n  features: typse\n  features-as-issues: true\n");
+        const lookup = await call(["lookup", "--feature-path", FEATURE_PATH], root, gh.run);
+        expect(lookup.code).toBe(1);
+        expect(JSON.parse(lookup.out).outcome).toBe("unknown-mode");
+        expect(lookup.err).toContain("github.features");
+        expect(lookup.err).toContain("typse");
+        const listing = await call(["features"], root, gh.run);
+        expect(listing.code).toBe(1);
+        expect(listing.out).toBe("");
+        expect(gh.calls).toEqual([]);
+    });
+
     it("features: docs wins over features-as-issues: true", async () => {
         const gh = fakeGh([]);
         const root: string = repoWith("  classification: labels\n  features: docs\n  features-as-issues: true\n");

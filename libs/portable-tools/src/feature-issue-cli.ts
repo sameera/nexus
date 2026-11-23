@@ -55,7 +55,7 @@ export const FEATURE_ISSUE_USAGE: string = [
     "      Repeat-safe. Prints { issue, state }; a ledger with no entry or a failed close exits 1.",
     "  nexus feature-issue work-item --name <name> --statement <text> --feature-path <path> --dir <folder>",
     "      Write the work item a new feature issue is filed from into <folder>. Prints { file, ref }.",
-    "  nexus feature-issue check-related --feature <N|owner/repo#N> --issues <n,n,...>",
+    "  nexus feature-issue check-related --feature <N|owner/repo#N> --issues <n,n,...> [--filed]",
     "      Read the feature issue's related list and confirm every listed issue of the epic",
     "      repository is on it. Prints { feature, missing }; any missing issue, or a feature that",
     "      cannot be read, exits 1.",
@@ -90,6 +90,11 @@ export async function runFeatureIssue(argv: string[], io: FeatureIssueIo, run: R
 function readFlags(argv: string[]): Map<string, string> | null {
     const flags: Map<string, string> = new Map();
     for (let i = 0; i < argv.length; i += 2) {
+        if (argv[i] === "--filed") {
+            flags.set("filed", "true");
+            i -= 1;
+            continue;
+        }
         const value: string | undefined = argv[i + 1];
         if (!argv[i].startsWith("--") || value === undefined || value === "") return null;
         flags.set(argv[i].slice(2), value);
@@ -132,7 +137,7 @@ function runLookup(flags: Map<string, string>, io: FeatureIssueIo, run: Runner):
     const line: string = describeLookup(lookup, featurePath);
     const marker = setting.state === "on" ? { classification: featureClassification(setting), label: setting.label, type: setting.type, ref: featureRef(featurePath) } : {};
     io.stdout(JSON.stringify({ ...lookup, line, ...marker }));
-    if (lookup.outcome === "ambiguous" || lookup.outcome === "not-a-feature" || lookup.outcome === "no-type" || lookup.outcome === "type-missing") {
+    if (lookup.outcome === "ambiguous" || lookup.outcome === "not-a-feature" || lookup.outcome === "no-type" || lookup.outcome === "unknown-mode" || lookup.outcome === "type-missing") {
         io.stderr(`feature-issue ${lookup.outcome}: ${line}`);
         return 1;
     }
@@ -185,7 +190,7 @@ function runListing(sub: "features" | "epics" | "stubs", flags: Map<string, stri
         io.stdout(JSON.stringify({ state: "off", line: `Features are read from the docs tree: ${setting.message}` }));
         return 0;
     }
-    if (setting.state === "no-type") {
+    if (setting.state === "no-type" || setting.state === "unknown-mode") {
         io.stderr(`feature-issue ${setting.state}: ${setting.message}`);
         return 1;
     }
@@ -278,10 +283,27 @@ function runCheckRelated(flags: Map<string, string>, io: FeatureIssueIo, run: Ru
         io.stderr(`feature-issue gh-failed: ${featureKey} could not be read, so its related list is unconfirmed. Report the run incomplete.`);
         return 1;
     }
-    io.stdout(JSON.stringify({ feature: featureKey, missing }));
-    if (missing.length === 0) return 0;
-    io.stderr(`feature-issue incomplete: ${featureKey} does not list ${missing.join(", ")} as related. Repeat the filing to add the link.`);
-    return 1;
+    // A feature issue this run filed must read closed before the run reports complete (#1061 D9).
+    let state: "open" | "closed" | undefined;
+    if (flags.has("filed")) {
+        const read = run("gh", ["api", `repos/${feature.owner}/${feature.name}/issues/${feature.number}`], { cwd: root });
+        const parsed: string | undefined = read.status === 0 ? (JSON.parse(read.stdout) as { state?: string }).state : undefined;
+        if (parsed !== "open" && parsed !== "closed") {
+            io.stderr(`feature-issue gh-failed: the state of ${featureKey} could not be read. Report the run incomplete.`);
+            return 1;
+        }
+        state = parsed;
+    }
+    io.stdout(JSON.stringify({ feature: featureKey, missing, ...(state === undefined ? {} : { state }) }));
+    if (missing.length > 0) {
+        io.stderr(`feature-issue incomplete: ${featureKey} does not list ${missing.join(", ")} as related. Repeat the filing to add the link.`);
+        return 1;
+    }
+    if (state === "open") {
+        io.stderr(`feature-issue incomplete: ${featureKey}, which this run filed, is still open. Report the run incomplete; a repeat closes it.`);
+        return 1;
+    }
+    return 0;
 }
 
 /** The epic repository as owner and name: the declared one, or the checkout's own. */

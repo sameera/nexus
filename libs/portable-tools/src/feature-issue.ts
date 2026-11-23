@@ -8,6 +8,7 @@
  */
 
 import * as fs from "node:fs";
+import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { type KindClassification, featureMarkerMode, featureNeedsIssueType, isDeclaredFeature, readKindMarkers, resolveFeatureMode } from "@nexus/delivery-config/issue-kind";
 
 /** The hidden block in a feature issue's body that records the feature path. Lookup matches on it. */
@@ -42,10 +43,19 @@ export type FeatureSetting =
     | { state: "no-marker"; message: string }
     /** `features: types` names no feature type: nothing may be filed, not even the epic (#1061 D3). */
     | { state: "no-type"; message: string }
+    /** `github.features` names a value other than docs, types or labels: nothing may be filed. */
+    | { state: "unknown-mode"; message: string }
     | { state: "on"; markers: KindClassification; label: string; type: string };
 
 /** Resolve the opt-in and the marker through the shared kind rule's own reading. */
 export function resolveFeatureSetting(root: string): FeatureSetting {
+    const declared: string = resolvePublishingKey(root, "features").trim();
+    if (declared !== "" && !["docs", "types", "labels"].includes(declared.toLowerCase())) {
+        return {
+            state: "unknown-mode",
+            message: `github.features is '${declared}', which is none of docs, types or labels; correct it in .nexus/config/settings.yml, and nothing is filed until then`,
+        };
+    }
     const mode = resolveFeatureMode(root);
     if (mode === "docs") return { state: "off" };
     const markers: KindClassification = readKindMarkers(root);
@@ -86,6 +96,7 @@ export type FeatureLookup =
     | { outcome: "off" }
     | { outcome: "no-marker"; message: string }
     | { outcome: "no-type"; message: string }
+    | { outcome: "unknown-mode"; message: string }
     /** `features: types` and the epic repository has no such type: nothing is filed (#1061 D3). */
     | { outcome: "type-missing"; type: string }
     | { outcome: "reuse"; issue: number; state: "open" | "closed"; source: "ledger" | "named" | "listing" }
@@ -124,6 +135,7 @@ export function lookupFeature(input: LookupInput): FeatureLookup {
     if (setting.state === "off") return { outcome: "off" };
     if (setting.state === "no-marker") return { outcome: "no-marker", message: setting.message };
     if (setting.state === "no-type") return { outcome: "no-type", message: setting.message };
+    if (setting.state === "unknown-mode") return { outcome: "unknown-mode", message: setting.message };
 
     for (const [number, source] of [[input.ledgerNumber, "ledger"], [input.namedNumber, "named"]] as const) {
         if (number === null) continue;
@@ -151,6 +163,7 @@ export function describeLookup(lookup: FeatureLookup, featurePath: string): stri
             return "";
         case "no-marker":
         case "no-type":
+        case "unknown-mode":
             return lookup.message;
         case "type-missing":
             return `Feature issue: the epic repository has no '${lookup.type}' issue type, which github.feature-type names; nothing is filed, not even the epic.`;
