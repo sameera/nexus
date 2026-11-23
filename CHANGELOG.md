@@ -5,6 +5,78 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.9.0
+
+- **`/nxs.epic`'s final read-back now confirms the feature issue it filed is closed.** It passes the
+  new `--filed` flag to `nexus feature-issue check-related`, which then reads the feature issue's
+  state and exits 1 while it is open, so the run reports incomplete. A reused feature issue is never
+  checked for state.
+- **A `github.features` value other than `docs`, `types` or `labels` now stops the run** with
+  nothing filed, naming the setting and the value. It used to fall back to the docs tree silently.
+  The feature lookup answers `unknown-mode`, and the listings and the migration refuse.
+- **`/nxs.epic` no longer gives a feature README as its issue-link example.** In an opted-in
+  repository the feature path points to no folder; link the feature issue by number instead.
+
+## 1.8.0
+
+- **Feature issues carry the feature mode's marker alone, whatever the epics use.** With
+  `features: types` and labelled epics a new feature issue gets the feature type and no story label;
+  with `features: labels` and typed epics it gets the feature label and no Story type. The filer
+  takes a new `--classification types|labels` flag that `/nxs.epic` and the migration pass.
+- **`nexus feature-issue migrate` refuses under `features: types` when the epic repository lacks
+  the named type,** filing nothing, instead of filing untyped.
+- **A migration whose close of a filed feature issue fails reports incomplete and exits 1.** A
+  repeat closes the open feature issue its own ledger records, and files none. A repeat that cannot
+  close that issue reports incomplete even when the new feature issues it files succeed.
+- **A workspace hub can declare `github.features`** in its manifest, once for every member, as it
+  can `features-as-issues`.
+- **`nexus close` names the feature issue on the stubs it files in a repository opted in through
+  `github.features`** as well as through `features-as-issues: true`.
+
+## 1.7.0
+
+- **New setting `github.features: docs | types | labels`** chooses how features are recorded.
+  `docs`, the default, keeps them in the docs tree. `types` marks feature issues with the issue type
+  `github.feature-type` names and no label, even when epics use labels; `labels` marks them with
+  the feature label, even when epics use types. When `features` is set it wins over
+  `features-as-issues`, which still works as before when `features` is absent.
+- **Under `types`, `/nxs.epic` stops before approval and files nothing, not even the epic,** when no
+  feature type is named or the repository does not have it. It never falls back to a label.
+
+## 1.6.0
+
+- **New feature issues are filed closed.** `/nxs.epic` and `nexus feature-issue migrate --apply`
+  close each feature issue they file, through the new `nexus feature-issue close`, before filing
+  the epic. A failed close still files the epic and reports the run incomplete; a repeat closes it.
+  A reused feature issue keeps its state. Close existing open feature issues by hand.
+
+## 1.5.0
+
+- **`/nxs.epic` writes nothing to the tree in a repository with features as issues.** Filing an
+  epic or stubs creates no feature folder, writes no feature README and adds no features index row;
+  existing READMEs and the index are left unchanged and go stale. Without features as issues the
+  tree is written as before.
+- **`nexus feature-issue migrate --apply` adds one pointer line to each feature README** whose
+  feature has a feature issue, naming that issue. A repeated run adds no second line; a run without
+  `--apply` still writes nothing. Commit the change it leaves.
+
+## 1.4.0
+
+- **Before you upgrade an opted-in repository, run `nexus feature-issue migrate --apply` until it
+  exits 0.** From this release, planning in a repository with features as issues stops reading the
+  docs tree. A feature folder the migration never filed drops out of feature matching and out of the
+  advisory agents' surveys. No command checks this for you.
+- **`nexus feature-issue` lists features.** `features` lists every feature issue, open or closed,
+  that records its feature, marking retired ones. `epics --feature <N>` and `stubs --feature <N>`
+  list a feature's planned epics and its open stubs, found by the feature issue each body names.
+  Without features as issues, each says it is off and reads nothing from GitHub.
+- **`/nxs.epic`, `nxs-pm` and `nxs-architect` find features through that listing** in an opted-in
+  repository, and read no feature README and no features index. `/nxs.epic` offers every listed
+  feature, open or closed, names a retired one as retired, and reuses a confirmed feature's issue.
+  Without features as issues they read the tree as before.
+- **A feature path with no feature issue now gets one filed, README or not.** The lookup's
+  `unmigrated` outcome is gone.
+
 ## 1.3.0
 
 - **`nexus implement --retroactive` builds an epic that has no decision record.** With the flag and

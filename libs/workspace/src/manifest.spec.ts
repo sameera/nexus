@@ -169,6 +169,14 @@ describe("parseAndValidateManifest — github defaults (STORY-121.05)", () => {
         }
     });
 
+    it("accepts a hub-declared features setting (record #1061, D1)", () => {
+        for (const value of ["docs", "types", "labels"]) {
+            const raw = VALID + `github:\n  features: ${value}\n`;
+            const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
+            expect(ws.github).toEqual({ features: value });
+        }
+    });
+
     it("rejects an unknown key inside the github block", () => {
         const raw = VALID + `github:\n  classification: labels\n  banana: yes\n`;
         const err = asError(parseAndValidateManifest(raw, FILE, HUB));

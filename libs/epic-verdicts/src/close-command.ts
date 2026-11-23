@@ -49,7 +49,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/delivery-config/issue-kind";
+import { classifyIssueKind, resolveFeatureMode, resolveKindClassification, type IssueKind } from "@nexus/delivery-config/issue-kind";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
@@ -1397,10 +1397,10 @@ const MENTIONS_JQ =
 
 /**
  * The feature issue the closed epic names, as `#N`, when the repository opted in to features as
- * issues (decision record #1049, D8). Otherwise nothing, so close files its stubs as it did (G20).
+ * issues, through either `github.features` or the legacy key (decision records #1049 D8, #1061 G29). Otherwise nothing, so close files its stubs as it did (G20).
  */
 function featureIssueOf(root: string, fm: Map<string, string>): { featureIssue?: string } {
-    if (resolvePublishingKey(root, "features-as-issues").trim().toLowerCase() !== "true") return {};
+    if (resolveFeatureMode(root) === "docs") return {};
     const m = /^#?([1-9]\d*)$/.exec((fm.get("feature_issue") ?? "").trim().replace(/^["']|["']$/g, ""));
     return m === null ? {} : { featureIssue: `#${m[1]}` };
 }

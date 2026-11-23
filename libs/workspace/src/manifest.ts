@@ -127,6 +127,9 @@ const GITHUB_DEFAULT_KEYS = [
     // store — a key absent from this allowlist cannot be declared on a hub at all, and a workspace
     // opts in once for every member.
     "features-as-issues",
+    // Decision record #1061, D1: how features are recorded (docs, types or labels). Registered for
+    // the same reason — a workspace sets it once for every member.
+    "features",
 ];
 /** The hub-role default docs root when no explicit override is given: the repo root. */
 const DEFAULT_HUB_DOCS_ROOT = ".";

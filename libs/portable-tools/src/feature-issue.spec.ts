@@ -73,7 +73,6 @@ describe("lookupFeature — finding a feature's issue (D5, G8, G9, G12)", () => 
     const input = (over: Partial<Parameters<typeof lookupFeature>[0]> = {}) => ({
         setting: on,
         featurePath: FEATURE_PATH,
-        hasReadme: false,
         ledgerNumber: null,
         namedNumber: null,
         readIssue: () => null,
@@ -92,8 +91,8 @@ describe("lookupFeature — finding a feature's issue (D5, G8, G9, G12)", () => 
         expect(lookupFeature(input()).outcome).toBe("file-new");
     });
 
-    it("files none for an existing feature that has a README and no issue (G12)", () => {
-        expect(lookupFeature(input({ hasReadme: true })).outcome).toBe("unmigrated");
+    it("files a new feature issue for a path with no issue, README or not (#1061 D7, retiring #998 G12)", () => {
+        expect(lookupFeature(input()).outcome).toBe("file-new");
     });
 
     it("reuses the issue its listing matches on the recorded feature path, even after a rename", () => {

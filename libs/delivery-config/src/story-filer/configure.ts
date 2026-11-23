@@ -40,7 +40,7 @@ export function resolveFilerConfig(layers: RootLayers, args: FilerArgs): FilerCo
     return {
         issuesRepo,
         featureRepo: resolveKeyFromLayers(layers, "epic-repo") || issuesRepo,
-        classification: resolveClassification({
+        classification: args.classification ?? resolveClassification({
             classification: resolveKeyFromLayers(layers, "classification") ?? "",
         }),
         classificationLabel: args.classificationLabel ?? storyLabel,
