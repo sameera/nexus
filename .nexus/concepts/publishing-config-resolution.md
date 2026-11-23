@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation", "feature-issue-migration", "harness-model-selection"]
-last_updated_by: "#1041"
+touches: ["workspace-resolution", "hub-settings-layer", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store", "initiative", "filing-preflight", "unattended-epic-implementation", "feature-issue-migration", "harness-model-selection", "feature-listing"]
+last_updated_by: "#1000"
 status: active
 verification: verified
 ---
@@ -51,6 +51,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [unattended-epic-implementation](unattended-epic-implementation.md) — more keys on this chain are read only by this command: the test command, and each harness's planning and implementing models, declared in a section named for the harness.
 - [feature-issue-migration](feature-issue-migration.md) — supplies the opt-in, feature marker and retired-feature label name the migration reads, never guessing a marker.
 - [harness-model-selection](harness-model-selection.md) — the planning and implementing models, resolved through this chain from a section named for each harness.
+- [feature-listing](feature-listing.md) — the listing resolves the features setting and the feature type name through this resolver.
 
 ## Decision Log
 
@@ -117,3 +118,7 @@ A new setting names the label a lead puts on a feature no longer in use, with a 
 ### 2026-11-22 — #1041 — Resolve each harness's models through the same chain
 
 Each coding-agent harness now has its own settings section holding a planning and an implementing model, and the shared resolver supplies both. They sit on the same precedence chain as every other key, so nothing reads them from the settings file on its own. Refuted alternative: flat keys with a harness prefix inside the GitHub publishing block. That needs no reader change. It lost because a model choice is not a publishing setting.
+
+### 2026-11-23 — #1000 — One features setting states how features are recorded
+
+A separate features setting chooses how features are recorded: the docs tree, as the default, issues marked by the Feature type, or issues marked by a label. It reuses the words the classification setting uses. When it is set at any level it decides, and the older features-as-issues switch applies only when it is absent. A value outside the three is refused by name, because a typo had fallen back to the docs tree. Refuted alternative: keep the older switch and add a second setting for the marker. It lost because the two settings can contradict each other and every reader would need a rule to settle the conflict. Mechanical reciprocity: the feature-listing page resolves this setting.

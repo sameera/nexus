@@ -1,8 +1,8 @@
 ---
 title: "Issue Kind Classification"
 aliases: ["issue kind", "what an issue is filed as", "epic or story", "classification mode mismatch", "declared marker over graph shape"]
-touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight", "epic-kind-refusal", "feature-issue-migration"]
-last_updated_by: "#999"
+touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership", "initiative", "filing-preflight", "epic-kind-refusal", "feature-issue-migration", "feature-listing"]
+last_updated_by: "#1000"
 status: active
 verification: verified
 ---
@@ -22,7 +22,7 @@ Which kinds each stage refuses as its epic, and the order the markers are tested
 ## Key Invariants
 
 1. A kind comes from a declared marker; no stage infers a kind from the issue graph's shape.
-2. Only the declared mode's marker is read; the legacy default alone reads either marker.
+2. Only the declared mode's marker is read, except the feature marker, which follows the feature setting; the legacy default alone reads either.
 3. A declared mode whose marker is absent, where the other mode's marker would have answered, stops the run and names the mismatch.
 4. Marker names match case-insensitively.
 5. Markers come only from the shared publishing resolver, so reading a kind can never disagree with filing it.
@@ -38,6 +38,7 @@ Which kinds each stage refuses as its epic, and the order the markers are tested
 - [epic-kind-refusal](epic-kind-refusal.md) — which kinds a stage refuses as its epic, and the order the markers are tested in.
 - [filing-preflight](filing-preflight.md) — reads through this rule whether a stub's named parent is an initiative.
 - [feature-issue-migration](feature-issue-migration.md) — finds feature issues by their declared kind and keeps initiatives and feature issues out of the migration's epic set.
+- [feature-listing](feature-listing.md) — the listing reads the feature marker under the feature setting, which may differ from the classification mode.
 
 ## Decision Log
 
@@ -60,3 +61,7 @@ A repository that opts in to features as issues needs a feature issue to read as
 ### 2026-11-22 — #999 — Reciprocal link from feature-issue-migration
 
 The feature-issue migration classifies issues through this kind rule. It stops when the repository classifies by type and declares no feature type, instead of falling back to a label.
+
+### 2026-11-23 — #1000 — The feature marker follows the feature setting, not the classification mode
+
+A repository that marks its epics with labels can still give its features the Feature issue type, so the feature marker no longer rides on the classification mode. Feature is still tested last, so an issue with an epic, story, record or initiative marker never reads as a feature, and a feature marker never raises a mismatch. Refuted alternative: keep the feature marker tied to the classification mode. It changes no rule here. It lost because a label-marked repository could then never use the Feature type for its features. Mechanical reciprocity: the feature-listing page reads this marker.

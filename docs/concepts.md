@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 133 active concepts. Each links to its full page
+Orientation map of the concept store — 134 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -15,9 +15,9 @@ Orientation map of the concept store — 133 active concepts. Each links to its 
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [Publishing Config Resolution](../.nexus/concepts/publishing-config-resolution.md) — Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, plus a models section per harness, resolved by a single shared resolver every consumer goes through.
 - [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the acceptance criteria in scope, the decision record, and the invariants on the concept pages the epic lists, and names every place the code departs from them.
+- [Issue-Sourced Planning](../.nexus/concepts/issue-sourced-planning.md) — Issue-Sourced Planning makes GitHub issues the single source of truth for epic and story planning: nothing is committed at planning, and one deterministic resolver reconstructs the epic from its issue number.
 - [PR-Driven Post-Merge Flow](../.nexus/concepts/pr-driven-flow.md) — The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch.
 - [Epic Stub](../.nexus/concepts/backlog-stub.md) — An epic stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state.
-- [Issue-Sourced Planning](../.nexus/concepts/issue-sourced-planning.md) — Issue-Sourced Planning makes GitHub issues the single source of truth for epic and story planning: nothing is committed at planning, and one deterministic resolver reconstructs the epic from its issue number.
 - [Verb Reachability](../.nexus/concepts/verb-reachability.md) — A capability becomes reachable by name, a verb on one named executable, exactly when a Nexus component body invokes it.
 - [The Scope Razor](../.nexus/concepts/scope-razor.md) — The scope razor is the axis every other planning gate was missing: not how big the work is or whether a criterion can be tested, but whether anyone asked for the scope in the first place.
 - [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
@@ -28,6 +28,7 @@ Orientation map of the concept store — 133 active concepts. Each links to its 
 - [Initiative](../.nexus/concepts/initiative.md) — An initiative is the parent issue of a decomposition's stubs when the lead accepts that those stubs serve one objective.
 - [Concept Store](../.nexus/concepts/concept-store.md) — The concept store is Nexus's machine knowledge surface: one distilled concept per file, keyed by a readable slug, holding current behavior, hard invariants, blast radius, and the durable why.
 - [Fix Lane](../.nexus/concepts/fix-lane.md) — The fix lane records why a small change that has already landed mattered, taking one GitHub reference as input.
+- [Issue Kind Classification](../.nexus/concepts/issue-kind-classification.md) — An issue's kind is read from the marker its repository declares for that kind.
 - [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body or a story body, and every stage that stamps or verifies either value invokes it.
 - [Release Identity](../.nexus/concepts/release-identity.md) — One semantic version identifies the whole release — the executable and the component payload together — because they ship as one artifact and cannot be at different versions.
 - [Resumable Batch Filing](../.nexus/concepts/resumable-batch-filing.md) — Filing a folder of work items into issues is a batch that is always safe to re-run.
@@ -37,7 +38,6 @@ Orientation map of the concept store — 133 active concepts. Each links to its 
 - [Component Invocation Gate](../.nexus/concepts/component-invocation-gate.md) — Every invocation written in a shipped component body must name the executable and a dispatch name it declares, checked by the source repository's own gate.
 - [Environment Guard](../.nexus/concepts/environment-guard.md) — An environment defect is named where a human will see it, without any verb's output contract being disturbed.
 - [Install Location](../.nexus/concepts/install-location.md) — Exactly one Nexus component set exists per user account, at the account's resolved configuration directory.
-- [Issue Kind Classification](../.nexus/concepts/issue-kind-classification.md) — An issue's kind is read from the marker its repository declares for that kind.
 - [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, and declaring or growing a multi-repo workspace.
 - [Portable Tooling](../.nexus/concepts/portable-tooling.md) — Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime.
 - [Pre-Epic Discovery](../.nexus/concepts/pre-epic-discovery.md) — Pre-epic discovery is the stage that runs before an epic is planned, and only when the initiative is underspecified, meaning the split itself hangs on decisions nobody has made.
@@ -75,6 +75,7 @@ Orientation map of the concept store — 133 active concepts. Each links to its 
 - [Citation Check](../.nexus/concepts/citation-check.md) — An `asked` label carries a fragment quoted from what the lead actually said, and the check compares that fragment against one materialized copy of the lead's own words.
 - [Drain Invocation](../.nexus/concepts/drain-invocation.md) — A drain starts only when the lead asks for it: directly, through the `nexus distill` command after close has finished, or through the close-and-distill command right after an approved close.
 - [Entry Slot Ownership](../.nexus/concepts/entry-slot-ownership.md) — A number holds one entry slot, and exactly three kinds compete for it: an epic's materialization, a fix entry, and an intake entry.
+- [Feature Issue Migration](../.nexus/concepts/feature-issue-migration.md) — Feature issue migration moves every feature that existed before features became GitHub issues onto a feature issue.
 - [Filing Preflight](../.nexus/concepts/filing-preflight.md) — The filing preflight proves a batch of work items legal, and makes every label it will apply exist, before the batch files any issue.
 - [The Fix Razor](../.nexus/concepts/fix-razor.md) — The fix razor is the bound that lets the fix lane be cheap without letting the store lie: a fix may append one decision log entry to a page that already exists, and nothing else.
 - [Forcing-Function Razor](../.nexus/concepts/forcing-function-razor.md) — Every artifact must exist to force a decision a human must make, or it is cut scaffolding.
@@ -94,7 +95,7 @@ Orientation map of the concept store — 133 active concepts. Each links to its 
 - [Discovery Graduation](../.nexus/concepts/discovery-graduation.md) — A finished discovery becomes issues only through the epic stage, which reads the discovery document as its intent and files through the emission path it already owns.
 - [Distill Command](../.nexus/concepts/distill-command.md) — The distill command takes a closed epic, named by its number or by any merged pull request of it, and runs the drain unattended in the worktree close prepared.
 - [Epic Issue Filing](../.nexus/concepts/epic-issue-filing.md) — Filing a single epic is a create-or-promote operation, never inferred from remote state: creation makes a new issue and promotion edits an existing one in place, clearing its unplanned marker.
-- [Feature Issue Migration](../.nexus/concepts/feature-issue-migration.md) — Feature issue migration moves every feature that existed before features became GitHub issues onto a feature issue.
+- [Feature Listing](../.nexus/concepts/feature-listing.md) — Feature listing answers three questions from GitHub issues: which features exist, which epics a feature has, and which open stubs it has.
 - [HLD Page as Build Input](../.nexus/concepts/hld-build-input.md) — When an approved epic's decision record carries a current high-level design page, the unattended implement command tells its implementation agent to build from that page.
 - [Pointing Install](../.nexus/concepts/pointing-install.md) — The second of the two contents an account's install location can hold: one pointer per payload file at a maintainer's authored checkout, rather than a copy of a release.
 - [Prose Translation](../.nexus/concepts/prose-translation.md) — Nexus's plain-language rules split by who executes each rule.
