@@ -1,8 +1,8 @@
 ---
 title: "Issue-Sourced Planning"
 aliases: ["issues as source of truth", "epic resolver", "materialized epic", "resolve from issue number", "no-commit planning", "epic-meta round-trip"]
-touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder", "initiative", "feature-issue-migration"]
-last_updated_by: "#999"
+touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact", "planning-run-folder", "initiative", "feature-issue-migration", "feature-listing"]
+last_updated_by: "#1000"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Issue-Sourced Planning makes GitHub issues the single source of truth for epic a
 
 ## How It Works
 
-At approval the epic stage files the epic issue and its story sub-issues as children, committing nothing. The resolver later rebuilds the epic from its issue number, fetching the body, sub-issues, and native dependency graph into the existing epic field shape, outside version control. Reconstruction is byte-identical on an unchanged issue graph and fail-closed — an unfetchable sub-issue aborts with no output. A sub-issue carrying the configured record marker — from the shared publishing resolver, matched case-insensitively — is the decision record: kept out of the story set, surfaced as a recoverable field; a second candidate aborts. Frontmatter the issue body cannot carry rides a hidden machine comment the resolver reads back, falling back to recoverable fields alone for a hand-filed epic. In a repository that opts in to features as issues, the feature issue number sits in that frontmatter beside the feature path, so a rebuilt epic still names its feature issue. Downstream stages resolve the number instead of reading a committed file; the entry is deferred to close.
+At approval the epic stage files the epic issue and its story sub-issues as children, committing nothing. The resolver later rebuilds the epic from its issue number, fetching the body, sub-issues, and native dependency graph into the existing epic field shape, outside version control. Reconstruction is byte-identical on an unchanged issue graph and fail-closed — an unfetchable sub-issue aborts with no output. A sub-issue carrying the configured record marker — from the shared publishing resolver, matched case-insensitively — is the decision record: kept out of the story set, surfaced as a recoverable field; a second candidate aborts. Frontmatter the issue body cannot carry rides a hidden machine comment the resolver reads back, falling back to recoverable fields alone for a hand-filed epic. In a repository that opts in to features as issues, the feature issue number sits in that frontmatter beside the feature path, so a rebuilt epic still names its feature issue. Downstream stages resolve the number instead of reading a committed file; the entry is deferred to close. In a repository that opts in, the epic stage and both advisory agents find features through the feature listing, and filing writes no feature folder, README or index row.
 
 ## Key Invariants
 
@@ -41,6 +41,7 @@ At approval the epic stage files the epic issue and its story sub-issues as chil
 - [planning-run-folder](planning-run-folder.md) — where the epic materializes from before it is filed as the issues this resolver later reconstructs.
 - [initiative](initiative.md) — the planning container this resolver refuses by name, instead of reconstructing it as an epic whose stubs read as stories.
 - [feature-issue-migration](feature-issue-migration.md) — the migration writes each existing epic's feature issue into the hidden block this resolver reads back.
+- [feature-listing](feature-listing.md) — the epic stage and both advisory agents read features from this listing, and filing writes no feature folder.
 
 ## Decision Log
 
@@ -88,3 +89,7 @@ An epic and each stub it files name their feature issue by number beside the fea
 ### 2026-11-22 — #999 — Existing epics name their feature issue in the hidden block
 
 The feature-issue migration now writes the feature reference into the hidden machine comment of every existing epic, and adds a hidden block holding only that reference when an epic has none. The rest of the body stays byte-identical, so the resolver reads the same epic plus the feature reference.
+
+### 2026-11-23 — #1000 — Feature lookup moves from the tree to a listing
+
+Opted-in planning stopped reading and writing the feature folders, so filing an epic no longer changes the repository. A stage branches only on the listing's answer, and its answer that features are in the tree selects the old tree reading. One reader of that answer keeps stages from deciding the mode themselves. Refuted alternative: read both the listing and the tree and merge them. It would keep unmigrated features visible. It lost because the two sources disagree once READMEs stop being written. Mechanical reciprocity: the feature-listing page is the listing these stages read.
