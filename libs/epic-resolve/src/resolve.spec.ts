@@ -767,7 +767,7 @@ describe("resolveEpic — a feature issue is never resolved as an epic (decision
         expect(resolveEpic(makeGhRunner(feature(["feature"], "Feature")), root, 998).ok).toBe(true);
     });
 
-    it("reads no issue as a feature in a repository that has not opted in (G2)", () => {
+    it("reads no issue as a feature in a repository that keeps features in the docs tree (G2)", () => {
         const root: string = repoDeclaring("  classification: labels\n");
         for (const opts of [{}, { requireEpic: true }]) {
             expect(resolveEpic(makeGhRunner(feature(["feature"])), root, 998, opts).ok).toBe(true);

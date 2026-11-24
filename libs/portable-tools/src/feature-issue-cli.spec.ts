@@ -61,10 +61,10 @@ async function call(argv: string[], root: string, run: Runner): Promise<{ code: 
     return { code, out, err };
 }
 
-const OPTED_IN = "  classification: labels\n  features: labels\n";
+const LABEL_FEATURES = "  classification: labels\n  features: labels\n";
 
 describe("nexus feature-issue lookup", () => {
-    it("answers off and reads nothing from GitHub when the repository has not opted in (G1)", async () => {
+    it("answers off and reads nothing from GitHub when github.features is unset (G1)", async () => {
         const gh = fakeGh([]);
         const result = await call(["lookup", "--feature-path", FEATURE_PATH], repoWith("  classification: labels\n"), gh.run);
         expect(result.code).toBe(0);
@@ -73,14 +73,14 @@ describe("nexus feature-issue lookup", () => {
     });
 
     it("tells the stage to file a new issue, with the marker to file it under", async () => {
-        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN), fakeGh([]).run)).out);
+        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(LABEL_FEATURES), fakeGh([]).run)).out);
         expect(parsed).toMatchObject({ outcome: "file-new", classification: "labels", label: "feature" });
         expect(parsed.line).toMatch(/new feature issue will be filed/);
     });
 
     it("reuses the issue that records the feature path, read from the marker's own listing", async () => {
         const gh = fakeGh([restIssue(5, "docs/features/other"), restIssue(6, FEATURE_PATH, ["feature"], "closed")]);
-        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN), gh.run)).out);
+        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(LABEL_FEATURES), gh.run)).out);
         expect(parsed).toMatchObject({ outcome: "reuse", issue: 6, state: "closed" });
         const listing: string = gh.calls[0].join(" ");
         expect(listing).toContain("labels=feature");
@@ -89,17 +89,17 @@ describe("nexus feature-issue lookup", () => {
 
     it("ignores pull requests the listing returns", async () => {
         const pr: RestIssue = { ...restIssue(8, FEATURE_PATH), pull_request: {} };
-        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN), fakeGh([pr]).run)).out);
+        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(LABEL_FEATURES), fakeGh([pr]).run)).out);
         expect(parsed.outcome).toBe("file-new");
     });
 
     it("files a new feature issue whether or not a README exists at the path (#1061 D7, retiring #998 G12)", async () => {
-        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN, true), fakeGh([]).run)).out);
+        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(LABEL_FEATURES, true), fakeGh([]).run)).out);
         expect(parsed.outcome).toBe("file-new");
     });
 
     it("reuses the issue its ledger recorded on a repeat (story #1007)", async () => {
-        const root: string = repoWith(OPTED_IN);
+        const root: string = repoWith(LABEL_FEATURES);
         const ledger: string = path.join(root, "ledger.json");
         fs.writeFileSync(ledger, JSON.stringify({ [featureRef(FEATURE_PATH)]: { number: "11" } }));
         const gh = fakeGh([restIssue(11, FEATURE_PATH)]);
@@ -110,7 +110,7 @@ describe("nexus feature-issue lookup", () => {
 
     it("exits 1 naming both issues when two record the same path", async () => {
         const gh = fakeGh([restIssue(3, FEATURE_PATH), restIssue(4, FEATURE_PATH)]);
-        const result = await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN), gh.run);
+        const result = await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(LABEL_FEATURES), gh.run);
         expect(result.code).toBe(1);
         expect(JSON.parse(result.out).outcome).toBe("ambiguous");
         expect(result.err).toMatch(/#3 and #4/);
@@ -118,26 +118,26 @@ describe("nexus feature-issue lookup", () => {
 
     it("exits 1 when a named issue does not read as a feature", async () => {
         const gh = fakeGh([restIssue(9, FEATURE_PATH, ["epic"])]);
-        const result = await call(["lookup", "--feature-path", FEATURE_PATH, "--named", "9"], repoWith(OPTED_IN), gh.run);
+        const result = await call(["lookup", "--feature-path", FEATURE_PATH, "--named", "9"], repoWith(LABEL_FEATURES), gh.run);
         expect(result.code).toBe(1);
         expect(JSON.parse(result.out)).toMatchObject({ outcome: "not-a-feature", issue: 9 });
     });
 
     it("exits 1 rather than filing a duplicate when the listing cannot be read", async () => {
         const failing: Runner = () => ({ status: 1, stdout: "", stderr: "HTTP 502" });
-        const result = await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(OPTED_IN), failing);
+        const result = await call(["lookup", "--feature-path", FEATURE_PATH], repoWith(LABEL_FEATURES), failing);
         expect(result.code).toBe(1);
         expect(result.err).toContain("HTTP 502");
     });
 
     it("refuses a call without a feature path", async () => {
-        expect((await call(["lookup"], repoWith(OPTED_IN), fakeGh([]).run)).code).toBe(2);
+        expect((await call(["lookup"], repoWith(LABEL_FEATURES), fakeGh([]).run)).code).toBe(2);
     });
 });
 
 describe("nexus feature-issue work-item", () => {
     it("writes the feature's work item into the batch folder", async () => {
-        const root: string = repoWith(OPTED_IN);
+        const root: string = repoWith(LABEL_FEATURES);
         const dir: string = path.join(root, "feature-batch");
         const result = await call(
             ["work-item", "--name", "Issue-Sourced Planning", "--statement", "Plan from issues.", "--feature-path", FEATURE_PATH, "--dir", dir],
@@ -210,10 +210,10 @@ describe("nexus feature-issue check-related — the read-back (D9, G18)", () => 
 describe("nexus feature-issue migrate", () => {
     it("rejects any flag but --apply with a usage error", async () => {
         const gh = fakeGh([]);
-        expect((await call(["migrate", "--force"], repoWith(OPTED_IN), gh.run)).code).toBe(2);
+        expect((await call(["migrate", "--force"], repoWith(LABEL_FEATURES), gh.run)).code).toBe(2);
     });
 
-    it("refuses in a repository that has not opted in, reading nothing (G22)", async () => {
+    it("refuses when github.features is unset, reading nothing (G22)", async () => {
         const gh = fakeGh([]);
         const result = await call(["migrate"], repoWith("  classification: labels\n"), gh.run);
         expect(result.code).toBe(1);
@@ -240,7 +240,7 @@ describe("nexus feature-issue migrate", () => {
 
     it("prints the plan and exits 0 when every feature folder already has its feature issue (G5)", async () => {
         const gh = fakeGh([restIssue(42, FEATURE_PATH)]);
-        const result = await call(["migrate"], repoWith(OPTED_IN, true), gh.run);
+        const result = await call(["migrate"], repoWith(LABEL_FEATURES, true), gh.run);
         expect(result.out).toContain("#42");
         expect(result.code).toBe(0);
     });

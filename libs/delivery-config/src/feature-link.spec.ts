@@ -84,7 +84,7 @@ describe("checkFeatureIssue — a filing names only an issue that reads as a fea
         expect(checkFeatureIssue(run, OPTED_IN, "#5", HOME).ok).toBe(true);
     });
 
-    it("refuses an epic, an unknown issue, and any issue in a repository that has not opted in", () => {
+    it("refuses an epic, an unknown issue, and any issue in a repository that keeps features in the docs tree", () => {
         const { run } = graph({ "acme/tracker#5": { labels: ["feature"], related: [] }, "acme/tracker#6": { labels: ["epic"], related: [] } });
         expect(checkFeatureIssue(run, OPTED_IN, "#6", HOME).ok).toBe(false);
         expect(checkFeatureIssue(run, OPTED_IN, "#404", HOME).ok).toBe(false);

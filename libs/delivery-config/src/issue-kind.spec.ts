@@ -15,6 +15,7 @@ import {
     isDeclaredFeature,
     isDeclaredInitiative,
     readKindMarkers,
+    resolveFeatureMode,
     resolveKindClassification,
     resolveRecordClassification,
 } from "./issue-kind.js";
@@ -317,8 +318,17 @@ describe("isDeclaredInitiative — the one question the filer and the resolver b
 });
 
 describe("the feature kind — mode, marker and kind (decision records #1010, D1-D3; #1061, D1-D2)", () => {
-    const OPT_IN = "  features: labels\n";
-    const TYPES_OPT_IN = "  features: types\n";
+    const LABEL_FEATURES = "  features: labels\n";
+    const TYPE_FEATURES = "  features: types\n";
+
+    describe("an unsupported github.features value", () => {
+        it("stops every reading of the feature marker, naming the value, rather than falling back to the docs tree", () => {
+            const root: string = repoWith("github:\n  classification: labels\n  features: typse\n");
+            expect(() => resolveFeatureMode(root)).toThrow("typse");
+            expect(() => resolveKindClassification(root)).toThrow("github.features");
+            expect(() => readKindMarkers(root)).toThrow("github.features");
+        });
+    });
 
     describe("a repository that keeps features in the docs tree (G1, G2)", () => {
         it("resolves no feature marker, though the built-in label exists", () => {
@@ -326,8 +336,6 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
                 "github:\n  classification: labels\n",
                 "github:\n  classification: labels\n  features: docs\n",
                 "github:\n  classification: labels\n  features: \n  feature-label: feature\n",
-                // The retired switch has no effect: it neither turns features on nor is it an error.
-                "github:\n  classification: labels\n  features-as-issues: true\n",
             ]) {
                 const r = resolveKindClassification(repoWith(settings));
                 expect(r.ok).toBe(true);
@@ -350,9 +358,9 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
         });
     });
 
-    describe("the marker an opted-in repository resolves (G3, G4)", () => {
+    describe("the marker a repository with features: types or labels resolves (G3, G4)", () => {
         it("is the built-in label `feature` under label mode when none is declared", () => {
-            const r = resolveKindClassification(repoWith(`github:\n  classification: labels\n${OPT_IN}`));
+            const r = resolveKindClassification(repoWith(`github:\n  classification: labels\n${LABEL_FEATURES}`));
             expect(r.ok).toBe(true);
             if (!r.ok) return;
             expect(r.classification.featureLabel).toBe("feature");
@@ -361,7 +369,7 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
         it("is the declared label under label mode and under the legacy mode", () => {
             for (const mode of ["labels", "legacy-auto"]) {
                 const r = resolveKindClassification(
-                    repoWith(`github:\n  classification: ${mode}\n${OPT_IN}  feature-label: capability\n`),
+                    repoWith(`github:\n  classification: ${mode}\n${LABEL_FEATURES}  feature-label: capability\n`),
                 );
                 expect(r.ok).toBe(true);
                 if (!r.ok) return;
@@ -372,7 +380,7 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
         it("is the declared issue type under type mode", () => {
             const r = resolveKindClassification(
                 repoWith(
-                    `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${TYPES_OPT_IN}  feature-type: Feature\n`,
+                    `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${TYPE_FEATURES}  feature-type: Feature\n`,
                 ),
             );
             expect(r.ok).toBe(true);
@@ -385,7 +393,7 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
 
         it("has no built-in issue type, so type mode with none declared marks nothing", () => {
             const root: string = repoWith(
-                `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${TYPES_OPT_IN}`,
+                `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${TYPE_FEATURES}`,
             );
             const r = resolveKindClassification(root);
             expect(r.ok).toBe(true);
@@ -399,16 +407,14 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
         });
 
         it("resolves the mode through the one shared publishing resolver, as any publishing key", () => {
-            const root: string = repoWith(`github:\n  classification: labels\n${OPT_IN}`);
+            const root: string = repoWith(`github:\n  classification: labels\n${LABEL_FEATURES}`);
             expect(resolvePublishingKey(root, "features")).toBe("labels");
             expect(resolvePublishingKey(repoWith("github:\n  classification: labels\n"), "features")).toBe("");
-            // The retired switch is no longer a publishing key at all.
-            expect(resolvePublishingKey(repoWith("github:\n  features-as-issues: true\n"), "features-as-issues")).toBe("");
         });
     });
 
-    describe("what an opted-in repository reads an issue as (G5, G6, G24)", () => {
-        const optedIn = { ...labelsMarkers(), featureLabel: "feature", featureMode: "labels" as const };
+    describe("what a repository with features: labels reads an issue as (G5, G6, G24)", () => {
+        const labelFeatures = { ...labelsMarkers(), featureLabel: "feature", featureMode: "labels" as const };
         function labelsMarkers() {
             return {
                 mode: "labels" as const,
@@ -427,8 +433,8 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
 
         it("calls an issue carrying the feature marker and no other kind's marker a feature", () => {
             const issue = { number: 12, labels: ["Feature"], issueType: null };
-            expect(classifyIssueKind(optedIn, issue)).toEqual({ ok: true, kind: "feature" });
-            expect(isDeclaredFeature(optedIn, issue)).toBe(true);
+            expect(classifyIssueKind(labelFeatures, issue)).toEqual({ ok: true, kind: "feature" });
+            expect(isDeclaredFeature(labelFeatures, issue)).toBe(true);
         });
 
         it("keeps every other marker ahead of the feature marker", () => {
@@ -439,15 +445,15 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
                 ["initiative", "initiative"],
             ] as const) {
                 const issue = { number: 12, labels: ["feature", label], issueType: null };
-                expect(classifyIssueKind(optedIn, issue)).toEqual({ ok: true, kind });
-                expect(isDeclaredFeature(optedIn, issue)).toBe(false);
+                expect(classifyIssueKind(labelFeatures, issue)).toEqual({ ok: true, kind });
+                expect(isDeclaredFeature(labelFeatures, issue)).toBe(false);
             }
         });
 
         it("keeps an epic or an initiative in a repository whose label for it is the feature word", () => {
-            const sharedEpic = { ...optedIn, epicLabel: "feature" };
+            const sharedEpic = { ...labelFeatures, epicLabel: "feature" };
             expect(classifyIssueKind(sharedEpic, { number: 1, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "epic" });
-            const sharedInitiative = { ...optedIn, initiativeLabel: "feature" };
+            const sharedInitiative = { ...labelFeatures, initiativeLabel: "feature" };
             expect(classifyIssueKind(sharedInitiative, { number: 1, labels: ["feature"], issueType: null })).toEqual({
                 ok: true,
                 kind: "initiative",
@@ -456,21 +462,21 @@ describe("the feature kind — mode, marker and kind (decision records #1010, D1
 
         it("reads an initiative marker as an initiative still, ahead of the feature (G24)", () => {
             const issue = { number: 12, labels: ["initiative"], issueType: null };
-            expect(isDeclaredInitiative(optedIn, issue)).toBe(true);
+            expect(isDeclaredInitiative(labelFeatures, issue)).toBe(true);
         });
 
         it("reads a feature marker carried the undeclared way as none of these, and never stops on a mismatch", () => {
-            const typed = { ...optedIn, mode: "types" as const, featureLabel: "", featureType: "Feature", featureMode: "types" as const };
+            const typed = { ...labelFeatures, mode: "types" as const, featureLabel: "", featureType: "Feature", featureMode: "types" as const };
             // Declared by type; this issue carries the label alone.
             expect(classifyIssueKind(typed, { number: 12, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "other" });
             // Declared by label; this issue carries the type alone.
             expect(
-                classifyIssueKind({ ...optedIn, featureType: "Feature" }, { number: 12, labels: [], issueType: "Feature" }),
+                classifyIssueKind({ ...labelFeatures, featureType: "Feature" }, { number: 12, labels: [], issueType: "Feature" }),
             ).toEqual({ ok: true, kind: "other" });
         });
 
         it("reads no feature when no feature mode is declared, whatever the markers say", () => {
-            const undeclared = { ...optedIn, featureType: "Feature", featureMode: undefined };
+            const undeclared = { ...labelFeatures, featureType: "Feature", featureMode: undefined };
             expect(classifyIssueKind(undeclared, { number: 1, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "other" });
             expect(classifyIssueKind(undeclared, { number: 1, labels: [], issueType: "Feature" })).toEqual({ ok: true, kind: "other" });
             expect(isDeclaredFeature(undeclared, { labels: ["feature"], issueType: "Feature" })).toBe(false);

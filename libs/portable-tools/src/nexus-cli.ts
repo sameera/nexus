@@ -3600,7 +3600,12 @@ async function main(): Promise<void> {
             process.stderr.write(line + "\n");
         },
     };
-    process.exit(await runNexusCli(process.argv.slice(2), io));
+    try {
+        process.exit(await runNexusCli(process.argv.slice(2), io));
+    } catch (error) {
+        io.stderr(`nexus: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+    }
 }
 
 if (isDirectRun(import.meta.url, process.argv[1])) {

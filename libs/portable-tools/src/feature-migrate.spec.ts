@@ -96,7 +96,7 @@ function snapshot(dir: string): string {
 }
 
 describe("migrate — preconditions (D9)", () => {
-    it("refuses before reading any issue when the repository has not opted in (G22)", () => {
+    it("refuses before reading any issue when github.features is unset (G22)", () => {
         const gh = new FakeGh();
         const report = run(repoWith("  classification: labels\n", { alpha: readme("Alpha", "Does alpha.") }), gh, false);
         expect(report.refused).toMatch(/github\.features/);

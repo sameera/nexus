@@ -122,3 +122,7 @@ Each coding-agent harness now has its own settings section holding a planning an
 ### 2026-11-23 — #1000 — One features setting states how features are recorded
 
 A separate features setting chooses how features are recorded: the docs tree, as the default, issues marked by the Feature type, or issues marked by a label. It reuses the words the classification setting uses. When it is set at any level it decides, and the older features-as-issues switch applies only when it is absent. A value outside the three is refused by name, because a typo had fallen back to the docs tree. Refuted alternative: keep the older switch and add a second setting for the marker. It lost because the two settings can contradict each other and every reader would need a rule to settle the conflict. Mechanical reciprocity: the feature-listing page resolves this setting.
+
+### 2026-11-24 — #1076 — The features-as-issues switch is removed
+
+The older features-as-issues switch is gone, so the features setting is the only one that decides how features are recorded. A settings file that still declares the switch is refused, naming it as an unknown key, as is any other key the github block does not support. A features value outside docs, types and labels stops every reader, never falling back to the docs tree. Refuted alternative: ignore the retired switch silently. A repository that relied on it would lose its feature issues with no warning.

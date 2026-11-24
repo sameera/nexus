@@ -9,7 +9,7 @@
 
 import * as fs from "node:fs";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
-import { type KindClassification, featureNeedsIssueType, isDeclaredFeature, readKindMarkers, resolveFeatureMode } from "@nexus/delivery-config/issue-kind";
+import { type KindClassification, featureNeedsIssueType, isDeclaredFeature, readKindMarkers, resolveFeatureMode, unsupportedFeatureModeMessage } from "@nexus/delivery-config/issue-kind";
 
 /** The hidden block in a feature issue's body that records the feature path. Lookup matches on it. */
 export const FEATURE_META_MARKER = "nexus:feature-meta";
@@ -49,10 +49,7 @@ export type FeatureSetting =
 export function resolveFeatureSetting(root: string): FeatureSetting {
     const declared: string = resolvePublishingKey(root, "features").trim();
     if (declared !== "" && !["docs", "types", "labels"].includes(declared.toLowerCase())) {
-        return {
-            state: "unknown-mode",
-            message: `github.features is '${declared}', which is none of docs, types or labels; correct it in .nexus/config/settings.yml, and nothing is filed until then`,
-        };
+        return { state: "unknown-mode", message: unsupportedFeatureModeMessage(declared) };
     }
     const mode = resolveFeatureMode(root);
     if (mode === "docs") return { state: "off" };
