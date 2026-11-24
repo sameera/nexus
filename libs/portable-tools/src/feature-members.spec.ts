@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { type FeatureIssueRef, renderFeatureMeta, resolveFeatureSetting } from "./feature-issue.js";
 import { type FeatureToFile, type MemberIssue, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
 
-const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
+const OPTED_IN = "  classification: labels\n  features: labels\n";
 
 function repo(readmeEpics: Record<string, number[]> = {}): string {
     const root: string = fs.mkdtempSync(path.join(os.tmpdir(), "feature-members-"));

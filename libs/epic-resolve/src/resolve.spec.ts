@@ -723,7 +723,7 @@ describe("resolveEpic — an initiative is never resolved as an epic (decision r
 });
 
 describe("resolveEpic — a feature issue is never resolved as an epic (decision record #1010, D4)", () => {
-    const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
+    const OPTED_IN = "  classification: labels\n  features: labels\n";
     const feature = (labels: string[], issueType?: string): FixtureGraph => ({
         // A feature issue has no parent, so the pre-classification rule would resolve it as an epic.
         epic: { number: 998, title: "Issue-Sourced Planning", body: "A capability.", labels, issueType },
@@ -752,7 +752,7 @@ describe("resolveEpic — a feature issue is never resolved as an epic (decision
 
     it("refuses by the declared issue type where the repository classifies by type", () => {
         const root: string = repoDeclaring(
-            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n  feature-type: Feature\n",
+            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features: types\n  feature-type: Feature\n",
         );
         const r = resolveEpic(makeGhRunner(feature([], "Feature")), root, 998);
         expect(r.ok).toBe(false);
@@ -762,7 +762,7 @@ describe("resolveEpic — a feature issue is never resolved as an epic (decision
 
     it("adds no failure where the repository declares no feature type under type mode", () => {
         const root: string = repoDeclaring(
-            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n",
+            "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features: types\n",
         );
         expect(resolveEpic(makeGhRunner(feature(["feature"], "Feature")), root, 998).ok).toBe(true);
     });

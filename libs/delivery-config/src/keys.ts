@@ -66,12 +66,8 @@ export const DECLARED_KEYS: readonly GithubKey[] = [
     // none, like the epic type, because a guessed type name marks nothing.
     { githubKey: "initiative-type", normalized: "initiativeType" },
     { githubKey: "initiative-label", normalized: "initiativeLabel", builtin: "initiative" },
-    // The opt-in to features as issues (decision record #1010, D1). Off unless it reads `true`, and
-    // deliberately without a built-in: an absent key is "not opted in", which is what keeps every
-    // repository that never set it planning, filing and closing exactly as before.
-    { githubKey: "features-as-issues", normalized: "featuresAsIssues" },
     // How features are recorded (decision record #1061, D1): docs, types or labels. No built-in, so
-    // an absent key leaves `features-as-issues` deciding, and both absent mean docs.
+    // an absent key means docs.
     { githubKey: "features", normalized: "features" },
     // The marker on a feature issue (decision record #1010, D2). Like the initiative: the label
     // carries a built-in, the issue type deliberately carries none, because a guessed type name

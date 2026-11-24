@@ -2773,7 +2773,7 @@ describe("close names the feature issue on the stubs it files (epic #999, decisi
     });
     const optIn = (h: Harness, on: boolean): void => {
         fs.mkdirSync(path.join(h.repoRoot, ".nexus", "config"), { recursive: true });
-        fs.writeFileSync(path.join(h.repoRoot, ".nexus", "config", "settings.yml"), `github:\n  classification: labels\n${on ? "  features-as-issues: true\n" : ""}`);
+        fs.writeFileSync(path.join(h.repoRoot, ".nexus", "config", "settings.yml"), `github:\n  classification: labels\n${on ? "  features: labels\n" : ""}`);
     };
     const tree = (root: string): string[] => {
         const out: string[] = [];

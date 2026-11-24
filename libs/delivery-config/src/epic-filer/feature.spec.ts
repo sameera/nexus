@@ -42,7 +42,7 @@ function answers(g: Graph) {
 }
 
 function file(featureIssue: string, g: Graph) {
-    const root: string = checkoutWith({ classification: "labels", project: "none", "features-as-issues": "true" });
+    const root: string = checkoutWith({ classification: "labels", project: "none", features: "labels" });
     const path: string = writeDraft(root, draft({ complexity: "S", feature_issue: featureIssue }));
     const fake = fakeEnvironment({ answer: answers(g) });
     const io = recordingIo(root);

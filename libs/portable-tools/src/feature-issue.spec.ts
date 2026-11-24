@@ -34,39 +34,39 @@ function issue(number: number, featurePath: string | null, over: Partial<Feature
 }
 
 describe("resolveFeatureSetting — what a repository declares about features as issues", () => {
-    it("is off unless the repository opted in, whatever markers it declares (G1, G2)", () => {
-        for (const github of ["  classification: labels\n", "  classification: labels\n  features-as-issues: false\n  feature-label: feature\n"]) {
+    it("is off unless github.features is types or labels, whatever markers it declares, and the retired switch changes nothing (G1, G2)", () => {
+        for (const github of ["  classification: labels\n", "  classification: labels\n  features: docs\n  feature-label: feature\n", "  classification: labels\n  features-as-issues: true\n"]) {
             expect(resolveFeatureSetting(repoWith(github))).toEqual({ state: "off" });
         }
     });
 
     it("is on with the built-in label, or the declared one, under label mode", () => {
-        const builtin = resolveFeatureSetting(repoWith("  classification: labels\n  features-as-issues: true\n"));
+        const builtin = resolveFeatureSetting(repoWith("  classification: labels\n  features: labels\n"));
         expect(builtin.state === "on" && builtin.label).toBe("feature");
-        const declared = resolveFeatureSetting(repoWith("  classification: labels\n  features-as-issues: true\n  feature-label: capability\n"));
+        const declared = resolveFeatureSetting(repoWith("  classification: labels\n  features: labels\n  feature-label: capability\n"));
         expect(declared.state === "on" && declared.label).toBe("capability");
     });
 
     it("is on with the declared issue type under type mode", () => {
         const typed = resolveFeatureSetting(
-            repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n  feature-type: Feature\n"),
+            repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features: types\n  feature-type: Feature\n"),
         );
         expect(typed.state === "on" && typed.type).toBe("Feature");
     });
 
     it("reports one line naming the missing setting under type mode with no feature type (G4)", () => {
         const none = resolveFeatureSetting(
-            repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n"),
+            repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features: types\n"),
         );
-        expect(none.state).toBe("no-marker");
-        if (none.state !== "no-marker") return;
+        expect(none.state).toBe("no-type");
+        if (none.state !== "no-type") return;
         expect(none.message).toContain("github.feature-type");
         expect(none.message).not.toContain("\n");
     });
 });
 
 describe("lookupFeature — finding a feature's issue (D5, G8, G9, G12)", () => {
-    const on: FeatureSetting = resolveFeatureSetting(repoWith("  classification: labels\n  features-as-issues: true\n"));
+    const on: FeatureSetting = resolveFeatureSetting(repoWith("  classification: labels\n  features: labels\n"));
     const never = (): never => {
         throw new Error("no call was expected");
     };
@@ -80,11 +80,9 @@ describe("lookupFeature — finding a feature's issue (D5, G8, G9, G12)", () => 
         ...over,
     });
 
-    it("makes no call at all when the repository has not opted in, or has no marker (G1)", () => {
+    it("makes no call at all when features are kept in the docs tree (G1)", () => {
         const off = lookupFeature(input({ setting: { state: "off" }, readIssue: never, listIssues: never }));
         expect(off).toEqual({ outcome: "off" });
-        const none = lookupFeature(input({ setting: { state: "no-marker", message: "m" }, readIssue: never, listIssues: never }));
-        expect(none.outcome).toBe("no-marker");
     });
 
     it("files a new feature issue for a feature with no issue and no README", () => {

@@ -69,7 +69,7 @@ async function call(argv: string[], root: string, run: Runner): Promise<{ code: 
     return { code, out, err };
 }
 
-const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
+const OPTED_IN = "  classification: labels\n  features: labels\n";
 
 const GRAPH: RestIssue[] = [
     featureIssue(10, "Planning", "docs/features/planning", "open"),
@@ -111,15 +111,14 @@ describe("nexus feature-issue features", () => {
         }
     });
 
-    it("answers off with the missing feature type named when issue types declare no feature type, so readers keep the tree (D4)", async () => {
-        const legacy: string = "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n";
+    it("refuses with the missing feature type named when features: types declares none, reading nothing (#1061 D3)", async () => {
+        const legacy: string = "  classification: types\n  epic-type: Epic\n  story-type: Story\n  features: types\n";
         for (const sub of [["features"], ["epics", "--feature", "10"], ["stubs", "--feature", "10"]]) {
             const gh = fakeGh(GRAPH);
             const result = await call(sub, repoWith(legacy), gh.run);
-            expect(result.code).toBe(0);
-            const parsed = JSON.parse(result.out);
-            expect(parsed.state).toBe("off");
-            expect(parsed.line).toContain("github.feature-type");
+            expect(result.code).toBe(1);
+            expect(result.out).toBe("");
+            expect(result.err).toContain("github.feature-type");
             expect(gh.calls).toEqual([]);
         }
     });

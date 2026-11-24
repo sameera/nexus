@@ -1396,8 +1396,8 @@ const MENTIONS_JQ =
     'pullRequest: (.pull_request != null), association: (.author_association // "") } | @json';
 
 /**
- * The feature issue the closed epic names, as `#N`, when the repository opted in to features as
- * issues, through either `github.features` or the legacy key (decision records #1049 D8, #1061 G29). Otherwise nothing, so close files its stubs as it did (G20).
+ * The feature issue the closed epic names, as `#N`, when the repository records features as
+ * issues through `github.features` (decision records #1049 D8, #1061 G29). Otherwise nothing, so close files its stubs as it did (G20).
  */
 function featureIssueOf(root: string, fm: Map<string, string>): { featureIssue?: string } {
     if (resolveFeatureMode(root) === "docs") return {};

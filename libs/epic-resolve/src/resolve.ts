@@ -164,7 +164,7 @@ export function resolveEpic(
     // A feature issue is a planning record, not work: it has no parent and no stories, so under
     // the unmarked-and-parentless rule it would resolve as an epic with nothing in it (decision
     // record #1010, D4). Refuse it by name, beside the initiative. The reading cannot fail and is
-    // empty in a repository that has not opted in, so it adds no failure and no read there.
+    // empty while features are kept in the docs tree, so it adds no failure and no read there.
     if (isDeclaredFeature(kindMarkers, { labels: epic.issue.labels, issueType: epicType })) {
         return {
             ok: false,

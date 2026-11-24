@@ -160,7 +160,7 @@ describe("a stub that names its epic's feature issue (epic #999, decision record
     const named: StubToFile = { ...stub(1), featureIssue: "#77" };
 
     it("links each filed stub to the feature issue as related (G19)", () => {
-        const root = checkout("github:\n  classification: labels\n  project: none\n  features-as-issues: true\n");
+        const root = checkout("github:\n  classification: labels\n  project: none\n  features: labels\n");
         const p = featurePlatform(false);
         const r = fileDeferredStubs(root, "acme/epics", "epic-830", [named], p.env);
         expect(r.ok).toBe(true);
@@ -168,7 +168,7 @@ describe("a stub that names its epic's feature issue (epic #999, decision record
     });
 
     it("keeps every filed stub when the related link fails, and only warns (G21)", () => {
-        const root = checkout("github:\n  classification: labels\n  project: none\n  features-as-issues: true\n");
+        const root = checkout("github:\n  classification: labels\n  project: none\n  features: labels\n");
         const p = featurePlatform(true);
         const r = fileDeferredStubs(root, "acme/epics", "epic-830", [named], p.env);
         expect(r.ok).toBe(true);
