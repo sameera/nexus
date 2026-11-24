@@ -42,10 +42,9 @@ describe("harness model settings", () => {
         expect(harnessModels(root, "codex").planning).toEqual({ value: "gpt-x", layer: "repository settings" });
     });
 
-    it("never reads a model key from the github block", () => {
+    it("refuses a model key written in the github block, naming it", () => {
         const root = repoWith("github:\n  planning-model: sonnet\n");
-        expect(readDeliveryConfig(root)["claudePlanningModel"]).toBeUndefined();
-        expect(harnessModels(root, "claude").planning?.value).toBe("opus");
+        expect(() => readDeliveryConfig(root)).toThrow("unknown key 'planning-model' on 'github'");
     });
 
     it("names the layer a model came from, and reports a declared empty value instead of dropping it (G46)", () => {

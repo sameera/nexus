@@ -1,5 +1,5 @@
 /**
- * The feature issue's rules (epic #998, decision record #1010): the opt-in and marker, the lookup, and
+ * The feature issue's rules (epic #998, decision record #1010): the github.features mode and marker, the lookup, and
  * the work item a new feature issue is filed from.
  */
 
@@ -34,8 +34,8 @@ function issue(number: number, featurePath: string | null, over: Partial<Feature
 }
 
 describe("resolveFeatureSetting — what a repository declares about features as issues", () => {
-    it("is off unless github.features is types or labels, whatever markers it declares, and the retired switch changes nothing (G1, G2)", () => {
-        for (const github of ["  classification: labels\n", "  classification: labels\n  features: docs\n  feature-label: feature\n", "  classification: labels\n  features-as-issues: true\n"]) {
+    it("is off unless github.features is types or labels, whatever markers it declares (G1, G2)", () => {
+        for (const github of ["  classification: labels\n", "  classification: labels\n  features: docs\n  feature-label: feature\n"]) {
             expect(resolveFeatureSetting(repoWith(github))).toEqual({ state: "off" });
         }
     });

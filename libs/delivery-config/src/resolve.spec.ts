@@ -84,6 +84,18 @@ describe("reading a repository's declared settings", () => {
         }
     });
 
+    it("refuses a github-block key the catalogue does not declare, naming it, the retired features-as-issues included", () => {
+        for (const key of ["features-as-issues", "isues-repo"]) {
+            const root: string = repoWith({ ".nexus/config/settings.yml": `github:\n  project: none\n  ${key}: true\n` });
+            expect(() => readDeliveryConfig(root)).toThrow(`unknown key '${key}' on 'github'`);
+        }
+    });
+
+    it("leaves keys outside the github block unchecked", () => {
+        const root: string = repoWith({ ".nexus/config/settings.yml": "cross-ref:\n  anything: x\ngithub:\n  project: none\n" });
+        expect(resolved(root, "project").value).toBe("none");
+    });
+
     it("prints an empty line for a key declared at no layer and carrying no built-in", () => {
         const root: string = repoWith({ ".nexus/config/settings.yml": "github:\n  project: none\n" });
         expect(resolved(root, "worktree-path")).toEqual({ code: 0, value: "" });

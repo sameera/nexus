@@ -101,7 +101,7 @@ describe("nexus feature-issue features", () => {
         expect(parsed.features.find((f: { number: number }) => f.number === 12).retired).toBe(true);
     });
 
-    it("says features as issues is off and reads nothing from GitHub when the repository has not opted in", async () => {
+    it("says features as issues is off and reads nothing from GitHub when the repository keeps features in the docs tree", async () => {
         for (const sub of [["features"], ["epics", "--feature", "10"], ["stubs", "--feature", "10"]]) {
             const gh = fakeGh(GRAPH);
             const result = await call(sub, repoWith("  classification: labels\n"), gh.run);

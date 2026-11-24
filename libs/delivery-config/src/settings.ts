@@ -10,7 +10,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { DECLARED_KEYS, nameInSection, sectionOf } from "./keys.js";
+import { DECLARED_KEYS, GITHUB_KEYS, nameInSection, sectionOf } from "./keys.js";
+
+/** The keys the `github:` block may declare: every catalogued key that lives in that block. */
+const GITHUB_BLOCK_KEYS: ReadonlySet<string> = new Set<string>(GITHUB_KEYS.map((key) => key.githubKey));
 
 /** The declared configuration, keyed by the resolver's normalized names. */
 export type DeliveryConfig = Record<string, string>;
@@ -44,10 +47,16 @@ export function parseSimpleYaml(content: string): Record<string, Record<string, 
  * layer and the `resolve <key>` argument translate through. Enumerating the keys here separately is
  * what once let a key be *read* by a resolver but never *populated* here, losing a declared value
  * silently to a built-in.
+ *
+ * A `github:` key the catalogue does not declare throws, naming the key. A misspelt or retired key
+ * would otherwise be ignored, and the stage would run on a built-in the repository did not choose.
  */
 export function readDeliveryConfig(projectRoot: string): DeliveryConfig {
     const raw = readRawSettings(projectRoot);
     if (raw === null) return {};
+    for (const key of Object.keys(raw["github"] ?? {})) {
+        if (!GITHUB_BLOCK_KEYS.has(key)) throw new Error(`.nexus/config/settings.yml: unknown key '${key}' on 'github'`);
+    }
     const result: DeliveryConfig = {};
     const crossRef: Record<string, string> = raw["cross-ref"] ?? {};
     if (crossRef["docs-root"]) result["docRoot"] = crossRef["docs-root"];

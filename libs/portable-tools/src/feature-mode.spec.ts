@@ -110,7 +110,7 @@ describe("github.features: labels with typed epics", () => {
     });
 });
 
-describe("the default and the legacy spelling", () => {
+describe("github.features: the docs default and unsupported values", () => {
     it("no choice keeps features in the docs tree", async () => {
         const gh = fakeGh([]);
         expect(JSON.parse((await call(["features"], repoWith("  classification: labels\n"), gh.run)).out).state).toBe("off");
@@ -131,10 +131,10 @@ describe("the default and the legacy spelling", () => {
         expect(gh.calls).toEqual([]);
     });
 
-    it("the retired features-as-issues: true switch no longer turns features on", async () => {
+    it("the retired features-as-issues key stops the lookup as an unknown key, reading nothing from GitHub", async () => {
         const gh = fakeGh([]);
         const root: string = repoWith("  classification: labels\n  features-as-issues: true\n");
-        expect(JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], root, gh.run)).out).outcome).toBe("off");
+        await expect(call(["lookup", "--feature-path", FEATURE_PATH], root, gh.run)).rejects.toThrow("unknown key 'features-as-issues' on 'github'");
         expect(gh.calls).toEqual([]);
     });
 

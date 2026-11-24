@@ -3,8 +3,8 @@
  *
  * An issue's kind comes only from the marker the repository declares for it: a label, or a GitHub
  * issue type, whichever the declared classification mode selects. The kinds are initiative, epic,
- * story, decision record, feature, and none of these. Feature exists only in a repository that opts
- * in to features as issues (decision record #1010). The rule lives in the settings layer, beside the
+ * story, decision record, feature, and none of these. Feature exists only in a repository that sets
+ * `github.features` to `types` or `labels` (decision records #1010, #1061). The rule lives in the settings layer, beside the
  * resolver that reads those markers, because both the epic resolver and the batch filer need it and
  * the filer cannot reach up into the resolver's package. A second copy inside the filer would let
  * filing and reading disagree about the same issue.
@@ -156,10 +156,23 @@ function readsExplicitFeature(c: KindClassification, markers: SubIssueMarkers, b
     return c.featureMode === "types" ? matches(markers.issueType, c.featureType) : markers.labels.some((name) => matches(name, c.featureLabel));
 }
 
-/** The feature mode a repository resolves to: docs (the default), types or labels (#1061 D1). */
+/** The message every stage stops with when `github.features` names an unsupported value. */
+export function unsupportedFeatureModeMessage(declared: string): string {
+    return `github.features is '${declared}', which is none of docs, types or labels; correct it in .nexus/config/settings.yml, and nothing is filed until then`;
+}
+
+/**
+ * The feature mode a repository resolves to: docs (the default), types or labels (#1061 D1).
+ *
+ * Any other value throws. A typo never falls back to the docs tree, because a repository that
+ * meant to record features as issues would then silently lose them.
+ */
 export function resolveFeatureMode(targetRoot: string): "docs" | "types" | "labels" {
-    const declared: string = resolveKey(targetRoot, "features").trim().toLowerCase();
-    return declared === "types" || declared === "labels" ? declared : "docs";
+    const raw: string = resolveKey(targetRoot, "features");
+    const declared: string = raw.toLowerCase();
+    if (declared === "") return "docs";
+    if (declared === "docs" || declared === "types" || declared === "labels") return declared;
+    throw new Error(unsupportedFeatureModeMessage(raw));
 }
 
 /**
@@ -251,9 +264,9 @@ export function classifyIssueKind(c: KindClassification, markers: IssueMarkers):
     const declared: IssueKind = c.mode === "labels" ? byLabel : byType;
     const other: IssueKind = c.mode === "labels" ? byType : byLabel;
     if (declared !== "other") return { ok: true, kind: declared };
-    // An initiative or a feature marked the undeclared way was `other` before the kind existed, and
-    // stays so: the mismatch below is about how the repository files epics, stories and records.
-    if (other !== "other" && other !== "initiative" && other !== "feature") {
+    // An initiative marked the undeclared way was `other` before the kind existed, and stays so:
+    // the mismatch below is about how the repository files epics, stories and records.
+    if (other !== "other" && other !== "initiative") {
         const found: string = c.mode === "labels" ? `issue type '${markers.issueType ?? ""}'` : `label '${other}'`;
         return {
             ok: false,
@@ -326,8 +339,8 @@ export function featureNeedsIssueType(c: KindClassification): boolean {
  * declared mode's marker, without the mismatch check and so without a way to fail.
  *
  * Every stage refuses a feature as its epic (decision record #1010, D4). An issue that also carries
- * the epic, story, record or initiative marker is that kind first, and a repository that has not
- * keeps features in the docs tree has no feature marker, so no issue is a feature there.
+ * the epic, story, record or initiative marker is that kind first, and a repository that keeps
+ * features in the docs tree has no feature marker, so no issue is a feature there.
  */
 export function isDeclaredFeature(c: KindClassification, markers: SubIssueMarkers): boolean {
     const byLabel: IssueKind = kindFrom(c, (label) => markers.labels.some((name) => matches(name, label)));

@@ -64,7 +64,7 @@ describe("/nxs.epic resolves the feature from the listing (D6, D7, D10)", () => 
     });
 });
 
-describe("/nxs.epic writes nothing to the tree when opted in (story #1058, D8)", () => {
+describe("/nxs.epic writes nothing to the tree when github.features is types or labels (story #1058, D8)", () => {
     const body: string = read("commands/nxs.epic.md");
 
     it("creates the feature directory only when the listing answered off", () => {

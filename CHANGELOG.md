@@ -5,19 +5,27 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 2.0.0
+## 1.20.0
 
 - **Breaking: `features-as-issues` is removed and `github.features` is the only way to record
-  features as issues.** A repository that set `features-as-issues: true` and not `features` now has
-  its features read from the docs tree, as if neither were set, with no warning. To keep features as
-  issues, set `github.features` to `types` or `labels` in the repository settings, and name
-  the type in `github.feature-type` for `types`.
+  features as issues.** A `settings.yml` that still declares `features-as-issues` stops every stage
+  that reads the settings, naming it as an unknown key. To keep features as issues, delete the key
+  and set `github.features` to `types` or `labels`, and name the type in `github.feature-type` for
+  `types`.
+- **Breaking: any key the `github:` block of `settings.yml` does not support stops the run.** The
+  stage names the key as unknown instead of ignoring it, as the workspace manifest already did. A
+  misspelt key used to fall back to the built-in silently.
 - **Breaking: a workspace manifest that declares `features-as-issues` is refused.** The manifest
   check names the key as unknown. Declare `github.features` on the hub instead.
-- **`/nxs.epic` no longer has a `no-marker` outcome.** That answer existed only for the removed
-  switch on a repository filing by issue type with no feature type named. Such a repository now
-  sets `github.features: types`, and `/nxs.epic`, the listings and the migration stop before filing
-  anything, naming `github.feature-type`, until the type is declared.
+- **Breaking: a `github.features` value other than `docs`, `types` or `labels` now stops every
+  stage that reads it,** naming the setting and the value. `nexus close` and the kind rule
+  `/nxs.analyze`, `/nxs.decision-record` and the epic resolver share used to read such a value as
+  `docs` silently; only `/nxs.epic`, the listings and the migration stopped.
+- **Breaking: `/nxs.epic` no longer has a `no-marker` outcome.** That answer existed only for the
+  removed switch on a repository filing by issue type with no feature type named. Such a repository
+  now sets `github.features: types`. `/nxs.epic`, `nexus feature-issue features`, `epics`, `stubs`
+  and `migrate` then exit 1 before filing or listing anything, naming `github.feature-type`, until
+  the type is declared.
 
 ## 1.10.0
 
