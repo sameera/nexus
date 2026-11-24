@@ -15,7 +15,7 @@ import { runCreateStory } from "./run";
 const REPO = "acme/tracker";
 
 function repo(): string {
-    return checkoutWith({ classification: "labels", "story-repo": REPO, project: "none", "features-as-issues": "true" });
+    return checkoutWith({ classification: "labels", "story-repo": REPO, project: "none", features: "labels" });
 }
 
 function stub(ref: string, extra = ""): string {
@@ -108,7 +108,7 @@ describe("create-story — stubs that name their feature issue", () => {
             "story-repo": "acme/specs",
             "epic-repo": REPO,
             project: "none",
-            "features-as-issues": "true",
+            features: "labels",
         });
         writeItem(root, "STORY-STUB-01.md", stub("STUB-01", 'feature_issue: "#5"\n'));
         const g: Graph = graph();

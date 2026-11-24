@@ -316,16 +316,18 @@ describe("isDeclaredInitiative — the one question the filer and the resolver b
     });
 });
 
-describe("the feature kind — opt-in, marker and kind (decision record #1010, D1-D3)", () => {
-    const OPT_IN = "  features-as-issues: true\n";
+describe("the feature kind — mode, marker and kind (decision records #1010, D1-D3; #1061, D1-D2)", () => {
+    const OPT_IN = "  features: labels\n";
+    const TYPES_OPT_IN = "  features: types\n";
 
-    describe("a repository that has not opted in (G1, G2)", () => {
+    describe("a repository that keeps features in the docs tree (G1, G2)", () => {
         it("resolves no feature marker, though the built-in label exists", () => {
             for (const settings of [
                 "github:\n  classification: labels\n",
-                "github:\n  classification: labels\n  features-as-issues: false\n",
-                "github:\n  classification: labels\n  features-as-issues: yes\n",
-                "github:\n  classification: labels\n  features-as-issues: \n  feature-label: feature\n",
+                "github:\n  classification: labels\n  features: docs\n",
+                "github:\n  classification: labels\n  features: \n  feature-label: feature\n",
+                // The retired switch has no effect: it neither turns features on nor is it an error.
+                "github:\n  classification: labels\n  features-as-issues: true\n",
             ]) {
                 const r = resolveKindClassification(repoWith(settings));
                 expect(r.ok).toBe(true);
@@ -370,7 +372,7 @@ describe("the feature kind — opt-in, marker and kind (decision record #1010, D
         it("is the declared issue type under type mode", () => {
             const r = resolveKindClassification(
                 repoWith(
-                    `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${OPT_IN}  feature-type: Feature\n`,
+                    `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${TYPES_OPT_IN}  feature-type: Feature\n`,
                 ),
             );
             expect(r.ok).toBe(true);
@@ -383,7 +385,7 @@ describe("the feature kind — opt-in, marker and kind (decision record #1010, D
 
         it("has no built-in issue type, so type mode with none declared marks nothing", () => {
             const root: string = repoWith(
-                `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${OPT_IN}`,
+                `github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n${TYPES_OPT_IN}`,
             );
             const r = resolveKindClassification(root);
             expect(r.ok).toBe(true);
@@ -396,15 +398,17 @@ describe("the feature kind — opt-in, marker and kind (decision record #1010, D
             expect(featureNeedsIssueType(r.classification)).toBe(false);
         });
 
-        it("resolves the opt-in through the one shared publishing resolver, as any publishing key", () => {
+        it("resolves the mode through the one shared publishing resolver, as any publishing key", () => {
             const root: string = repoWith(`github:\n  classification: labels\n${OPT_IN}`);
-            expect(resolvePublishingKey(root, "features-as-issues")).toBe("true");
-            expect(resolvePublishingKey(repoWith("github:\n  classification: labels\n"), "features-as-issues")).toBe("");
+            expect(resolvePublishingKey(root, "features")).toBe("labels");
+            expect(resolvePublishingKey(repoWith("github:\n  classification: labels\n"), "features")).toBe("");
+            // The retired switch is no longer a publishing key at all.
+            expect(resolvePublishingKey(repoWith("github:\n  features-as-issues: true\n"), "features-as-issues")).toBe("");
         });
     });
 
     describe("what an opted-in repository reads an issue as (G5, G6, G24)", () => {
-        const optedIn = { ...labelsMarkers(), featureLabel: "feature" };
+        const optedIn = { ...labelsMarkers(), featureLabel: "feature", featureMode: "labels" as const };
         function labelsMarkers() {
             return {
                 mode: "labels" as const,
@@ -456,7 +460,7 @@ describe("the feature kind — opt-in, marker and kind (decision record #1010, D
         });
 
         it("reads a feature marker carried the undeclared way as none of these, and never stops on a mismatch", () => {
-            const typed = { ...optedIn, mode: "types" as const, featureType: "Feature" };
+            const typed = { ...optedIn, mode: "types" as const, featureLabel: "", featureType: "Feature", featureMode: "types" as const };
             // Declared by type; this issue carries the label alone.
             expect(classifyIssueKind(typed, { number: 12, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "other" });
             // Declared by label; this issue carries the type alone.
@@ -465,10 +469,11 @@ describe("the feature kind — opt-in, marker and kind (decision record #1010, D
             ).toEqual({ ok: true, kind: "other" });
         });
 
-        it("under the legacy mode reads the label first, then the type", () => {
-            const legacy = { ...optedIn, mode: "legacy-auto" as const, featureType: "Feature" };
-            expect(classifyIssueKind(legacy, { number: 1, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "feature" });
-            expect(classifyIssueKind(legacy, { number: 1, labels: [], issueType: "Feature" })).toEqual({ ok: true, kind: "feature" });
+        it("reads no feature when no feature mode is declared, whatever the markers say", () => {
+            const undeclared = { ...optedIn, featureType: "Feature", featureMode: undefined };
+            expect(classifyIssueKind(undeclared, { number: 1, labels: ["feature"], issueType: null })).toEqual({ ok: true, kind: "other" });
+            expect(classifyIssueKind(undeclared, { number: 1, labels: [], issueType: "Feature" })).toEqual({ ok: true, kind: "other" });
+            expect(isDeclaredFeature(undeclared, { labels: ["feature"], issueType: "Feature" })).toBe(false);
         });
     });
 });

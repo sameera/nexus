@@ -123,10 +123,6 @@ const GITHUB_DEFAULT_KEYS = [
     // for the same reason as the store — a key absent from this allowlist cannot be declared on a
     // hub at all, and a workspace names one renderer for every member.
     "asset-renderer",
-    // Epic #998: the opt-in to features as issues. Registered here for the same reason as the
-    // store — a key absent from this allowlist cannot be declared on a hub at all, and a workspace
-    // opts in once for every member.
-    "features-as-issues",
     // Decision record #1061, D1: how features are recorded (docs, types or labels). Registered for
     // the same reason — a workspace sets it once for every member.
     "features",
@@ -321,10 +317,7 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
             if (!GITHUB_DEFAULT_KEYS.includes(key)) {
                 return fail("unknown-key", "github", `${name}: unknown key '${key}' on 'github'`);
             }
-            // The opt-in is a switch, and YAML reads an unquoted `true` as a boolean, which is how a
-            // lead writes it. A repository's settings.yml reads the same line as the text `true`, so
-            // the hub reads it the same way rather than refusing the spelling.
-            const scalar = key === "features-as-issues" && typeof value === "boolean" ? String(value) : stringField(value);
+            const scalar = stringField(value);
             if (!scalar) {
                 return fail("wrong-type", "github", `${name}: github key '${key}' must be a non-empty string`);
             }

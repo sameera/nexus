@@ -238,8 +238,7 @@ nexus feature-issue lookup --feature-path "<feature-path>" \
 
 It prints `{ outcome, line, ... }`. Keep `line` for the digest and the stubs consent text, and act on `outcome`:
 
-- **`off`**: the repository has not opted in. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
-- **`no-marker`**: opted in through the legacy `features-as-issues: true`, but the repository files by issue type and declares no feature type. Say `line` once, as one line, and run as for `off`.
+- **`off`**: `github.features` is `docs` or unset. It read nothing from GitHub, and `line` is empty. Run exactly as without features as issues: no feature line anywhere, no feature batch, nothing else changes.
 - **`no-type`**, **`unknown-mode`** or **`type-missing`** (exit 1): the repository set `github.features: types` and names no feature issue type, set `github.features` to a value other than `docs`, `types` or `labels`, or the epic repository does not have the type it names. Stop **before the approval digest**, say `line`, and **file nothing, not even the epic**. Never fall back to a label.
 - **`file-new`**: no feature issue records this feature path, whether or not a README exists there. This run files one, in the feature batch, after the approval or the stubs consent. Keep `classification`, `label`, `type` and `ref` from the output for that batch.
 - **`reuse`**: `issue` is the feature issue to use, open or closed as `state` says. File no feature issue.
@@ -274,7 +273,7 @@ The close step closes only the issue this run's ledger records, never reopens on
 - Each stub work item, including the deferral stub and the successors of a split stub, carries `feature_issue: "#<FEATURE_ISSUE>"` in its frontmatter and a `- **feature issue:** #<FEATURE_ISSUE>` line under `- **feature:**` in its Meta.
 - A promoted stub's epic names the feature issue its stub named.
 
-On `off` and `no-marker` there is no `FEATURE_ISSUE`: write neither the key nor the line. Never make the feature issue a `parent:`. The link is a relates-to link, and the filer adds it itself, after the issue is recorded, once it has checked that `FEATURE_ISSUE` reads as a feature; a batch naming any other issue is refused with nothing created. A link that fails only warns, so the run checks the links after filing.
+On `off` there is no `FEATURE_ISSUE`: write neither the key nor the line. Never make the feature issue a `parent:`. The link is a relates-to link, and the filer adds it itself, after the issue is recorded, once it has checked that `FEATURE_ISSUE` reads as a feature; a batch naming any other issue is refused with nothing created. A link that fails only warns, so the run checks the links after filing.
 
 **Read-back.** After the filing that names `FEATURE_ISSUE` reports `✅ Complete` (Phase 2b step 4, or Phase 6 steps 1, 4 and 8 together), confirm the feature issue lists every epic and stub of this run:
 

@@ -61,7 +61,7 @@ async function call(argv: string[], root: string, run: Runner): Promise<{ code: 
     return { code, out, err };
 }
 
-const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
+const OPTED_IN = "  classification: labels\n  features: labels\n";
 
 describe("nexus feature-issue lookup", () => {
     it("answers off and reads nothing from GitHub when the repository has not opted in (G1)", async () => {
@@ -69,15 +69,6 @@ describe("nexus feature-issue lookup", () => {
         const result = await call(["lookup", "--feature-path", FEATURE_PATH], repoWith("  classification: labels\n"), gh.run);
         expect(result.code).toBe(0);
         expect(JSON.parse(result.out)).toMatchObject({ outcome: "off", line: "" });
-        expect(gh.calls).toEqual([]);
-    });
-
-    it("names the missing feature type in one line under issue-type mode (G4)", async () => {
-        const gh = fakeGh([]);
-        const root: string = repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n");
-        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], root, gh.run)).out);
-        expect(parsed.outcome).toBe("no-marker");
-        expect(parsed.line).toContain("github.feature-type");
         expect(gh.calls).toEqual([]);
     });
 
@@ -176,7 +167,7 @@ describe("nexus feature-issue check-related — the read-back (D9, G18)", () => 
             return { status: 0, stdout: JSON.stringify({ data: { repository: { issue } } }), stderr: "" };
         };
     }
-    const settings = "  classification: labels\n  features-as-issues: true\n  epic-repo: acme/tracker\n";
+    const settings = "  classification: labels\n  features: labels\n  epic-repo: acme/tracker\n";
 
     it("passes when the feature lists every filed issue as related", async () => {
         const result = await call(["check-related", "--feature", "#5", "--issues", "9,10"], repoWith(settings), relatedGh(["acme/tracker#9", "acme/tracker#10"]));
@@ -226,7 +217,7 @@ describe("nexus feature-issue migrate", () => {
         const gh = fakeGh([]);
         const result = await call(["migrate"], repoWith("  classification: labels\n"), gh.run);
         expect(result.code).toBe(1);
-        expect(result.out).toContain("features-as-issues");
+        expect(result.out).toContain("github.features");
         expect(gh.calls).toEqual([]);
     });
 
@@ -242,7 +233,7 @@ describe("nexus feature-issue migrate", () => {
                 (type === null || i.type?.name === decodeURIComponent(type[1])) && (label === null || i.labels.some((l) => l.name === decodeURIComponent(label[1]))));
             return { status: 0, stdout: JSON.stringify(endpoint.includes("?") ? hits : all), stderr: "" };
         };
-        const result = await call(["migrate"], repoWith("  classification: legacy-auto\n  epic-type: Epic\n  features-as-issues: true\n", true), run);
+        const result = await call(["migrate"], repoWith("  classification: legacy-auto\n  epic-type: Epic\n  features: labels\n", true), run);
         expect(result.out).toMatch(/#50: update/);
         expect(result.out.match(/#51: update/g)?.length).toBe(1);
     });

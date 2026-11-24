@@ -36,15 +36,15 @@ export const FEATURE_ISSUE_USAGE: string = [
     "  nexus feature-issue lookup --feature-path <path> [--ledger <file>] [--named <N>]",
     "      Find the feature issue for one feature path: the run's ledger on a repeat, then the",
     "      issue a promoted stub names, then the epic repository's feature-marked issues matched",
-    "      on the path they record. Prints { outcome, line, ... }: outcome is off, no-marker,",
+    "      on the path they record. Prints { outcome, line, ... }: outcome is off,",
     "      reuse or file-new, and line is the sentence the digest shows. When a feature",
     "      issue is used it also prints classification, label and type, the marker to file under.",
-    "      Not opted in, it reads nothing from GitHub. ambiguous, not-a-feature or an unreadable",
-    "      listing exits 1, naming why; nothing may be filed then.",
+    "      With features in the docs tree, it reads nothing from GitHub. ambiguous, not-a-feature",
+    "      or an unreadable listing exits 1, naming why; nothing may be filed then.",
     "  nexus feature-issue features",
     "      List every feature issue, open and closed, that records its feature. Prints",
     "      { state, features: [{ number, name, state, featurePath, statement, retired }] }.",
-    "      Not opted in, it prints { state: \"off\" } and reads nothing from GitHub.",
+    "      With features in the docs tree, it prints { state: \"off\" } and reads nothing from GitHub.",
     "  nexus feature-issue epics --feature <N>",
     "  nexus feature-issue stubs --feature <N>",
     "      List the planned epics (open and closed) or the open stubs whose body names feature",
@@ -62,7 +62,7 @@ export const FEATURE_ISSUE_USAGE: string = [
     "  nexus feature-issue migrate [--apply]",
     "      Move existing feature folders onto feature issues. Without --apply it prints the",
     "      migration plan and writes nothing; with it, files each missing feature issue through",
-    "      the guarded filer. Refuses unless the repository opted in to features as issues.",
+    "      the guarded filer. Refuses unless github.features is types or labels.",
     "      Exits 1 when anything is left to do or to fix by hand.",
 ].join("\n");
 
@@ -184,10 +184,6 @@ function runListing(sub: "features" | "epics" | "stubs", flags: Map<string, stri
     const setting: FeatureSetting = resolveFeatureSetting(root);
     if (setting.state === "off") {
         io.stdout(JSON.stringify({ state: "off", line: "Features as issues is off; features are read from the docs tree." }));
-        return 0;
-    }
-    if (setting.state === "no-marker") {
-        io.stdout(JSON.stringify({ state: "off", line: `Features are read from the docs tree: ${setting.message}` }));
         return 0;
     }
     if (setting.state === "no-type" || setting.state === "unknown-mode") {

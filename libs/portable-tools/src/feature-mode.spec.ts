@@ -119,7 +119,7 @@ describe("the default and the legacy spelling", () => {
 
     it("an unrecognised features value stops the lookup and the listing, naming the setting, and reads nothing from GitHub", async () => {
         const gh = fakeGh([]);
-        const root: string = repoWith("  classification: labels\n  features: typse\n  features-as-issues: true\n");
+        const root: string = repoWith("  classification: labels\n  features: typse\n");
         const lookup = await call(["lookup", "--feature-path", FEATURE_PATH], root, gh.run);
         expect(lookup.code).toBe(1);
         expect(JSON.parse(lookup.out).outcome).toBe("unknown-mode");
@@ -131,15 +131,15 @@ describe("the default and the legacy spelling", () => {
         expect(gh.calls).toEqual([]);
     });
 
-    it("features: docs wins over features-as-issues: true", async () => {
+    it("the retired features-as-issues: true switch no longer turns features on", async () => {
         const gh = fakeGh([]);
-        const root: string = repoWith("  classification: labels\n  features: docs\n  features-as-issues: true\n");
+        const root: string = repoWith("  classification: labels\n  features-as-issues: true\n");
         expect(JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], root, gh.run)).out).outcome).toBe("off");
         expect(gh.calls).toEqual([]);
     });
 
-    it("features-as-issues: true alone keeps the marker classification gives", async () => {
-        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith("  classification: labels\n  features-as-issues: true\n"), fakeGh([]).run)).out);
+    it("features: labels files under the label marker", async () => {
+        const parsed = JSON.parse((await call(["lookup", "--feature-path", FEATURE_PATH], repoWith("  classification: labels\n  features: labels\n"), fakeGh([]).run)).out);
         expect(parsed).toMatchObject({ outcome: "file-new", classification: "labels", label: "feature" });
     });
 });

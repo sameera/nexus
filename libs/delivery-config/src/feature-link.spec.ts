@@ -20,7 +20,7 @@ function repoWith(github: string): string {
     return root;
 }
 
-const OPTED_IN: string = repoWith("  classification: labels\n  features-as-issues: true\n");
+const OPTED_IN: string = repoWith("  classification: labels\n  features: labels\n");
 
 interface FakeIssue {
     labels: string[];

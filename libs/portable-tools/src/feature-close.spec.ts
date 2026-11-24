@@ -16,7 +16,7 @@ function repo(): { root: string; ledger: string } {
     const root: string = fs.mkdtempSync(path.join(os.tmpdir(), "feature-close-"));
     fs.mkdirSync(path.join(root, ".git"));
     fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
-    fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), "github:\n  classification: labels\n  features-as-issues: true\n");
+    fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), "github:\n  classification: labels\n  features: labels\n");
     const ledger: string = path.join(root, "ledger.json");
     fs.writeFileSync(ledger, JSON.stringify({ [featureRef(FEATURE_PATH)]: { number: 77 } }));
     return { root, ledger };

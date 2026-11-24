@@ -159,13 +159,12 @@ describe("parseAndValidateManifest — github defaults (STORY-121.05)", () => {
         expect(ws.github).toEqual({ "asset-store": "acme/assets@media" });
     });
 
-    it("accepts a hub-declared features-as-issues opt-in (record #1010, D1)", () => {
-        // The allowlist rejects unlisted keys outright, so a hub cannot opt a whole workspace in
-        // until the key is registered here as well as in the resolver's catalogue.
+    it("rejects the retired features-as-issues key as unknown", () => {
         for (const written of ["true", '"true"']) {
             const raw = VALID + `github:\n  features-as-issues: ${written}\n`;
-            const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
-            expect(ws.github).toEqual({ "features-as-issues": "true" });
+            const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+            expect(err.problem).toBe("unknown-key");
+            expect(err.message).toContain("features-as-issues");
         }
     });
 

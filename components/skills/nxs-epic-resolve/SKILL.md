@@ -85,18 +85,18 @@ this.
 
 ## Features
 
-A **feature issue** is the GitHub issue a feature is filed as, in a repository that opted in to
-features as issues (epic #998, `features-as-issues: true` in the publishing settings). Epics are
+A **feature issue** is the GitHub issue a feature is filed as, in a repository that records
+features as issues (epic #998, `github.features: types` or `labels` in the publishing settings). Epics are
 related to it and are never its sub-issues. It is a planning record: no code is delivered against
 it, and it has no stories or decision record. A feature issue has no parent, so left alone it would
 resolve as an epic with no stories.
 
 So the resolver refuses it by name: `is-a-feature`, on every path, `--require-epic` or not. The
 marker is read through the shared publishing resolver (`feature-label`, whose built-in is `feature`,
-or `feature-type` under `classification: types`, which has no built-in), never hard-coded. The check
-reads only that marker and only when the repository opted in. A repository that has not opted in
-reads no issue as a feature, and a repository on issue types that declares no feature type has none
-either. An issue that also carries the epic, story, record or initiative marker is that kind.
+under `github.features: labels`, or `feature-type` under `github.features: types`, which has no
+built-in), never hard-coded. The check reads only that marker and only when `github.features` is
+`types` or `labels`. A repository that keeps features in the docs tree reads no issue as a feature,
+and one on `types` that declares no feature type has none either. An issue that also carries the epic, story, record or initiative marker is that kind.
 
 ## Withdrawn stories
 

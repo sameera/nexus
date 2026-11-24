@@ -9,7 +9,7 @@
 
 import * as fs from "node:fs";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
-import { type KindClassification, featureMarkerMode, featureNeedsIssueType, isDeclaredFeature, readKindMarkers, resolveFeatureMode } from "@nexus/delivery-config/issue-kind";
+import { type KindClassification, featureNeedsIssueType, isDeclaredFeature, readKindMarkers, resolveFeatureMode } from "@nexus/delivery-config/issue-kind";
 
 /** The hidden block in a feature issue's body that records the feature path. Lookup matches on it. */
 export const FEATURE_META_MARKER = "nexus:feature-meta";
@@ -37,10 +37,8 @@ export function featureRef(featurePath: string): string {
 
 /** What the repository declares about features as issues. */
 export type FeatureSetting =
-    /** Not opted in: every stage acts as it does without features as issues. */
+    /** Features are kept in the docs tree: every stage acts as it does without features as issues. */
     | { state: "off" }
-    /** Opted in, but the repository files by issue type and declares no feature type. */
-    | { state: "no-marker"; message: string }
     /** `features: types` names no feature type: nothing may be filed, not even the epic (#1061 D3). */
     | { state: "no-type"; message: string }
     /** `github.features` names a value other than docs, types or labels: nothing may be filed. */
@@ -65,22 +63,12 @@ export function resolveFeatureSetting(root: string): FeatureSetting {
             message: "github.features is types but github.feature-type is not declared in .nexus/config/settings.yml; declare the feature issue type, and nothing is filed until then",
         };
     }
-    // Under issue-type mode the type alone is the marker, and there is no built-in one.
-    if (mode === "legacy" && markers.mode === "types" && markers.featureType === "") {
-        return {
-            state: "no-marker",
-            message:
-                "no feature issue is filed because github.feature-type is not declared in " +
-                ".nexus/config/settings.yml; the epic is filed as it is without features as issues",
-        };
-    }
     return { state: "on", markers, label: markers.featureLabel, type: markers.featureType };
 }
 
 /** The classification mode the feature marker is filed under: the feature mode, else `classification`. */
 export function featureClassification(setting: Extract<FeatureSetting, { state: "on" }>): string {
-    const mode = featureMarkerMode(setting.markers);
-    return mode === "legacy-auto" ? setting.markers.mode : mode;
+    return setting.markers.featureMode ?? "labels";
 }
 
 /** One issue read from the epic repository's listing. */
@@ -94,7 +82,6 @@ export interface FeatureIssueRef {
 
 export type FeatureLookup =
     | { outcome: "off" }
-    | { outcome: "no-marker"; message: string }
     | { outcome: "no-type"; message: string }
     | { outcome: "unknown-mode"; message: string }
     /** `features: types` and the epic repository has no such type: nothing is filed (#1061 D3). */
@@ -127,13 +114,12 @@ function readsAsFeature(markers: KindClassification, issue: FeatureIssueRef): bo
 
 /**
  * Find the feature issue for one feature path, in the order the record gives: the run's ledger, then
- * the stub's named issue, then a listing matched on the feature meta block. Off and no-marker answer
- * before any read, so a repository that has not opted in makes no feature call.
+ * the stub's named issue, then a listing matched on the feature meta block. Off answers
+ * before any read, so a repository that keeps features in the docs tree makes no feature call.
  */
 export function lookupFeature(input: LookupInput): FeatureLookup {
     const { setting } = input;
     if (setting.state === "off") return { outcome: "off" };
-    if (setting.state === "no-marker") return { outcome: "no-marker", message: setting.message };
     if (setting.state === "no-type") return { outcome: "no-type", message: setting.message };
     if (setting.state === "unknown-mode") return { outcome: "unknown-mode", message: setting.message };
 
@@ -161,7 +147,6 @@ export function describeLookup(lookup: FeatureLookup, featurePath: string): stri
     switch (lookup.outcome) {
         case "off":
             return "";
-        case "no-marker":
         case "no-type":
         case "unknown-mode":
             return lookup.message;

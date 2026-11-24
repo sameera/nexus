@@ -254,9 +254,8 @@ function addPointerLine(root: string, featurePath: string, issue: number): void 
 }
 
 function refusal(setting: FeatureSetting): string | null {
-    if (setting.state === "off") return "the repository has not opted in to features as issues: set github.features-as-issues: true in .nexus/config/settings.yml";
+    if (setting.state === "off") return "the repository keeps features in the docs tree: set github.features to types or labels in .nexus/config/settings.yml";
     if (setting.state === "no-type" || setting.state === "unknown-mode") return setting.message;
-    if (setting.state === "no-marker") return "the repository classifies issues by type and declares no feature type: set github.feature-type in .nexus/config/settings.yml";
     return null;
 }
 

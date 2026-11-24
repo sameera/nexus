@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 2.0.0
+
+- **Breaking: `features-as-issues` is removed and `github.features` is the only way to record
+  features as issues.** A repository that set `features-as-issues: true` and not `features` now has
+  its features read from the docs tree, as if neither were set, with no warning. To keep features as
+  issues, set `github.features` to `types` or `labels` in the repository settings, and name
+  the type in `github.feature-type` for `types`.
+- **Breaking: a workspace manifest that declares `features-as-issues` is refused.** The manifest
+  check names the key as unknown. Declare `github.features` on the hub instead.
+- **`/nxs.epic` no longer has a `no-marker` outcome.** That answer existed only for the removed
+  switch on a repository filing by issue type with no feature type named. Such a repository now
+  sets `github.features: types`, and `/nxs.epic`, the listings and the migration stop before filing
+  anything, naming `github.feature-type`, until the type is declared.
+
 ## 1.10.0
 
 - **`nexus epic`, `nexus decision-record` and `nexus analyze` start their stages from the shell.**

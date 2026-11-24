@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { type FeatureIssueRef, featureRef, parseFeaturePath, renderFeatureMeta, resolveFeatureSetting } from "./feature-issue.js";
 import { type FeatureToFile, LEDGER_FILE, MIGRATION_DIR, type MigrationGh, type MigrationReport, migrateFeatures } from "./feature-migrate.js";
 
-const OPTED_IN = "  classification: labels\n  features-as-issues: true\n";
+const OPTED_IN = "  classification: labels\n  features: labels\n";
 
 function repoWith(github: string, folders: Record<string, string>): string {
     const root: string = fs.mkdtempSync(path.join(os.tmpdir(), "feature-migrate-"));
@@ -99,13 +99,13 @@ describe("migrate — preconditions (D9)", () => {
     it("refuses before reading any issue when the repository has not opted in (G22)", () => {
         const gh = new FakeGh();
         const report = run(repoWith("  classification: labels\n", { alpha: readme("Alpha", "Does alpha.") }), gh, false);
-        expect(report.refused).toMatch(/features-as-issues/);
+        expect(report.refused).toMatch(/github\.features/);
         expect(gh.listCalls).toBe(0);
     });
 
     it("refuses and names the missing feature type under issue-type mode, never falling back to a label (G22)", () => {
         const gh = new FakeGh();
-        const root = repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features-as-issues: true\n", { alpha: readme("Alpha", "Does alpha.") });
+        const root = repoWith("  classification: types\n  epic-type: Epic\n  story-type: Story\n  features: types\n", { alpha: readme("Alpha", "Does alpha.") });
         const report = run(root, gh, true);
         expect(report.refused).toMatch(/feature-type/);
         expect(gh.listCalls).toBe(0);
