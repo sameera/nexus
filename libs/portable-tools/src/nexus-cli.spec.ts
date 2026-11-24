@@ -2203,6 +2203,60 @@ describe("nexus verdict-judgments (#877)", () => {
     });
 });
 
+// Epic #1068, stories #1069, #1070, #1071: one command per planning stage. The session itself is
+// specified in stage-command.spec.ts; here, the verbs' own surface on the executable.
+describe("nexus epic, nexus decision-record and nexus analyze (epic #1068)", () => {
+    it("registers the three verbs, and --help lists each with the slash command it starts", async () => {
+        expect(VERB_NAMES).toEqual(expect.arrayContaining(["epic", "decision-record", "analyze"]));
+        expect(DISPATCH_NAMES).toEqual(expect.arrayContaining(["epic", "decision-record", "analyze"]));
+        const io: CapturedIo = makeIo(makeTmpDir("cli-stages-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        const help: string = io.out.join("\n");
+        expect(help).toContain("nexus epic <description>");
+        expect(help).toContain("nexus decision-record <N>");
+        expect(help).toContain("nexus analyze [--pr <N>]");
+        expect(help).toContain("/nxs.epic");
+        expect(help).toContain("/nxs.decision-record");
+        expect(help).toContain("/nxs.analyze");
+    });
+
+    it("refuses nexus epic with no argument, naming its usage and starting no session", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-stage-epic-"));
+        expect(await runNexusCli(["epic"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("usage: nexus epic");
+    });
+
+    it("refuses nexus decision-record without an epic number, naming its usage", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-stage-record-"));
+        expect(await runNexusCli(["decision-record"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("usage: nexus decision-record");
+    });
+
+    it("refuses a planning model that could be read as an option, naming its layer", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-stage-model-"));
+        expect(await runNexusCli(["epic", "x", "--planning-model", "--dangerously-skip-permissions"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--planning-model");
+    });
+
+    it("runs each verb on plain node with no installed packages, refusing rather than starting a session", async () => {
+        const toolsDir: string = makeTmpDir("cli-tools-stages-");
+        const { code } = await buildBundle(path.join(__dirname, "nexus-cli.ts"));
+        const bundlePath: string = path.join(toolsDir, "nexus.mjs");
+        fs.writeFileSync(bundlePath, code);
+        const repo: string = makeTmpDir("cli-bare-repo-stages-");
+
+        let stderr = "";
+        try {
+            execFileSync(process.execPath, [bundlePath, "decision-record"], { cwd: repo, encoding: "utf8" });
+            throw new Error("expected the verb to exit non-zero");
+        } catch (e) {
+            stderr = (e as { stderr?: string }).stderr ?? "";
+        }
+
+        expect(stderr).toContain("usage: nexus decision-record");
+    });
+});
+
 // Epic #830, story #864 (decision record #872, D1, D3): close as a plain command. The gates and the
 // worktree step are specified in close-command.spec.ts; here, the verb's own surface.
 describe("nexus close (story #864)", () => {

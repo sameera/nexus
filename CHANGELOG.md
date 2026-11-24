@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.10.0
+
+- **`nexus epic`, `nexus decision-record` and `nexus analyze` start their stages from the shell.**
+  Each runs one interactive Claude Code session in the lead's current checkout and hands it the
+  matching slash command with the arguments typed, unchanged and in the order typed; the lead answers
+  the stage's gates in that session, as before. `nexus decision-record` takes the epic as `N` or
+  `'#N'` and starts the same session either way. A verb with nothing to start refuses, names its
+  usage and starts no session.
+- **Those three stages run on the planning model.** The session takes the planning model the
+  `claude` section of the settings declares — Opus unless another is set — so one setting governs
+  these commands and the planning session of `nexus implement`. `--planning-model <model>` names
+  another model for one run, and never reaches the stage's arguments. A model value that starts with
+  a dash, holds whitespace or is empty refuses the command before any session starts.
+
 ## 1.9.0
 
 - **`/nxs.epic`'s final read-back now confirms the feature issue it filed is closed.** It passes the

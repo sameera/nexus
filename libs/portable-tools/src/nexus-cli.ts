@@ -126,6 +126,7 @@ import { MERMAID_CHECK_USAGE, runMermaidCheck } from "./mermaid-check.js";
 import { REVIEW_POST_USAGE, runReviewPost } from "./review-post.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
+import { runStageCommand, stageDeps, stageUsage, type StageVerb } from "./stage-command.js";
 
 export interface CliIo {
     /** The invoking working directory (the repo a verb acts on / resolves from). */
@@ -204,6 +205,41 @@ const IMPLEMENT_USAGE: string = [
 ].join("\n");
 
 const REGISTRY: Record<string, VerbEntry> = {
+    epic: {
+        summary: "Start /nxs.epic on the planning model in one interactive session.",
+        usage: [
+            `  ${stageUsage("epic")}`,
+            "      Start one interactive Claude Code session in this checkout and hand it /nxs.epic with",
+            "      the arguments you typed, unchanged and in order: a capability description, a stub's",
+            "      issue number, --from #<n>, --discovery <folder>, --assets <path> or --plan <path>.",
+            "      The session runs on the planning model — Opus on Claude Code unless the settings'",
+            "      claude section or --planning-model names another — which never reaches the stage's",
+            "      arguments. Answer the stage's gates in that session, as before.",
+        ].join("\n"),
+        run: (argv, io) => runStageVerb("epic", argv, io),
+    },
+    "decision-record": {
+        summary: "Start /nxs.decision-record on the planning model in one interactive session.",
+        usage: [
+            `  ${stageUsage("decision-record")}`,
+            "      Start one interactive Claude Code session in this checkout and hand it",
+            "      /nxs.decision-record #N with the further arguments you typed, unchanged: --from <path>",
+            "      or --revise. N and '#N' name the same epic and start the same session. The session",
+            "      runs on the planning model, which --planning-model overrides for this one run.",
+        ].join("\n"),
+        run: (argv, io) => runStageVerb("decision-record", argv, io),
+    },
+    analyze: {
+        summary: "Start /nxs.analyze on the planning model in one interactive session.",
+        usage: [
+            `  ${stageUsage("analyze")}`,
+            "      Start one interactive Claude Code session in this checkout and hand it /nxs.analyze",
+            "      with the arguments you typed, unchanged: --pr <N> and --resolve, or nothing to",
+            "      analyze the epic of the current branch. The session runs on the planning model, which",
+            "      --planning-model overrides for this one run.",
+        ].join("\n"),
+        run: (argv, io) => runStageVerb("analyze", argv, io),
+    },
     deploy: {
         summary: "Install the Nexus Claude components into the target repo.",
         usage: [
@@ -3353,6 +3389,11 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     return rendered.exitCode;
 }
 
+
+/** `nexus epic`, `nexus decision-record` and `nexus analyze` — one stage each (epic #1068). */
+async function runStageVerb(verb: StageVerb, argv: string[], io: CliIo): Promise<number> {
+    return runStageCommand(stageDeps(), { cwd: io.cwd, verb, args: argv }, io);
+}
 
 /** `nexus distill` — distill a closed epic with one command (epic #909, decision record #946). */
 /** `nexus implement` — parse the invocation and run the command (decision record #966). */
