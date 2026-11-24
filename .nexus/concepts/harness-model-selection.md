@@ -1,8 +1,8 @@
 ---
 title: "Harness Model Selection"
 aliases: ["planning model", "implementing model", "harness section", "per-harness models", "model settings"]
-touches: ["unattended-epic-implementation", "retroactive-implementation", "publishing-config-resolution", "settings-key-catalogue", "hub-settings-layer", "implement-fix-loop"]
-last_updated_by: "#1041"
+touches: ["unattended-epic-implementation", "retroactive-implementation", "publishing-config-resolution", "settings-key-catalogue", "hub-settings-layer", "implement-fix-loop", "stage-session-command"]
+last_updated_by: "#1068"
 status: active
 verification: verified
 ---
@@ -32,9 +32,14 @@ The four model keys are rows in the one key catalogue, each recording its sectio
 - [settings-key-catalogue](settings-key-catalogue.md) — declares the four model keys, each with the harness section it lives in.
 - [hub-settings-layer](hub-settings-layer.md) — a member takes an unset model from the hub's own settings, never from the manifest defaults.
 - [implement-fix-loop](implement-fix-loop.md) — each fix round runs on the implementing model; analyze rounds get none from the command.
+- [stage-session-command](stage-session-command.md) — the epic, decision-record and analyze commands start their session on the planning model.
 
 ## Decision Log
 
 ### 2026-11-22 — #1041 — Set planning and implementing models per harness
 
 The lead asked for one settings section per harness, each with a planning and an implementing model. A model name only makes sense for one harness, so keying it by section stops a hub's Claude Code model from reaching a Codex run. The keys sit in the one catalogue, so nothing parses settings itself. The implementing model applies to every run, because a team that sets it would otherwise see it ignored in ordinary runs. With no planning model, planning falls back instead of refusing, because the plan is never enforced. A model value becomes an argument to the coding agent and can come from a hub, so a value that could read as an option refuses the run. Refuted alternative: flat keys with a harness prefix inside the GitHub publishing block. That needs no resolver change. It lost because a model choice is not a publishing setting, and prefixed keys hide the grouping by harness the lead asked for.
+
+### 2026-11-24 — #1068 — Reciprocal link from stage-session-command
+
+The stage commands for the epic, decision-record and analyze stages read the planning model through this page's settings, so the two pages now link both ways.

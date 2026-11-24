@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 134 active concepts. Each links to its full page
+Orientation map of the concept store — 135 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -50,6 +50,7 @@ Orientation map of the concept store — 134 active concepts. Each links to its 
 - [Cut Gate](../.nexus/concepts/cut-gate.md) — A gate that shows a reviewer what the model added must also let them act on it in one action, or the labelling is decoration.
 - [Delegating Port](../.nexus/concepts/delegating-port.md) — A delegating port moves a toolkit's implementation onto another runtime one capability at a time, with no flag day and no second name.
 - [Ephemeral Hand-Off Entry](../.nexus/concepts/ephemeral-handoff-entry.md) — An ephemeral hand-off entry is a version-ignored directory holding an epic file and a close record, none of them committed, for the very next drain.
+- [Harness Model Selection](../.nexus/concepts/harness-model-selection.md) — The settings file has one section per coding-agent harness, named like the harness, and each section can name a planning model and an implementing model.
 - [Issue Asset Store](../.nexus/concepts/issue-asset-store.md) — A team names one repository — or one unprotected branch of one — that its filing stages publish issue graphics into.
 - [Close Over Several Pull Requests](../.nexus/concepts/multi-pr-close.md) — A close is addressed at the epic rather than at one pull request, so an epic whose stories shipped as several pull requests closes in one run.
 - [Pull-Request Verdict Answers](../.nexus/concepts/pr-verdict-answers.md) — Every departure, finding and deferred-scope proposal a pull request's verdict lists carries an ID, and an engineer answers one with a single fixed line in a pull-request comment.
@@ -62,7 +63,6 @@ Orientation map of the concept store — 134 active concepts. Each links to its 
 - [Draft-Time Ordering Block](../.nexus/concepts/draft-ordering-block.md) — A drafted epic carries one block naming what each story waits on, keyed on story titles.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search: search, list, and read.
-- [Harness Model Selection](../.nexus/concepts/harness-model-selection.md) — The settings file has one section per coding-agent harness, named like the harness, and each section can name a planning model and an implementing model.
 - [Inert Declaration Removal](../.nexus/concepts/inert-declaration-removal.md) — When a dependency leaves a release, every declaration that described it is deleted rather than emptied, nulled, or softened to an advisory.
 - [Initiative Context](../.nexus/concepts/initiative-context.md) — An initiative context is the planning context kept for one initiative, on the initiative issue itself.
 - [Pipeline Store Exclusion](../.nexus/concepts/pipeline-store-exclusion.md) — Some folders under the Nexus root are surfaces the pipeline writes or teaches from, never behaviour it reads back, so every stage that derives a diff withholds all of them.
@@ -143,6 +143,7 @@ Orientation map of the concept store — 134 active concepts. Each links to its 
 - [On-Demand Stage Contract](../.nexus/concepts/on-demand-stage-contract.md) — A stage whose behaviour varies by run shape states each exceptional path's rules in a contract of its own, and reads a contract only once the run has resolved that it needs it.
 - [Record Revision](../.nexus/concepts/record-revision.md) — An approved decision record changes in only two ways.
 - [Review Posting Gate](../.nexus/concepts/review-posting-gate.md) — A ranked review reaches the pull request only after the lead chooses request changes, comment or approve in the same run.
+- [Stage Session Command](../.nexus/concepts/stage-session-command.md) — Three Nexus commands start a planning stage from the shell: one for the epic stage, one for the decision-record stage and one for the analyze stage.
 
 ## Standalone
 
