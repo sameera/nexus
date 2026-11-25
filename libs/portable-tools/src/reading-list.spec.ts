@@ -144,6 +144,11 @@ describe("runReadingList", () => {
         return { code, out: out.join("\n"), err: err.join("\n") };
     }
 
+    /** The shape `epic-resolve` writes from a CRLF issue body: LF `---` delimiters, CRLF field lines. */
+    function crlfFields(text: string): string {
+        return text.replace(/^(---\n)([\s\S]*?)(\n---\n)/, (_m: string, open: string, front: string, close: string) => `${open}${front.split("\n").map((l: string) => `${l}\r`).join("\n")}${close}`);
+    }
+
     it("loads only active store files that are pages", () => {
         const { store } = workspace();
         expect(loadStore(store).map((p) => p.name).sort()).toEqual(["decision-record", "distiller"]);
@@ -184,6 +189,24 @@ describe("runReadingList", () => {
         expect(report.missing).toEqual(["gone"]);
         expect(report.sentence).toMatch(/distiller/);
         expect(report.sentence).toMatch(/gone/);
+    });
+
+    it.each([
+        ["CRLF field lines, as epic-resolve writes from a CRLF issue body", crlfFields],
+        ["CRLF throughout", (t: string) => t.replace(/\n/g, "\r\n")],
+    ])("reads the list from an epic with %s", (_shape: string, toShape: (t: string) => string) => {
+        const w = workspace();
+        fs.writeFileSync(w.draft, toShape(fs.readFileSync(w.draft, "utf8").replace("concepts: []          # reading-list", "concepts: [\"distiller\"]")));
+        const report = JSON.parse(run(["--check", w.draft, "--store", w.store], w.dir).out) as { read: Array<{ page: string }>; missing: string[] };
+        expect(report.read.map((r) => r.page)).toEqual(["distiller"]);
+        expect(report.missing).toEqual([]);
+    });
+
+    it("keeps a list a CRLF-field draft already carries instead of overwriting it", () => {
+        const w = workspace();
+        fs.writeFileSync(w.draft, crlfFields(fs.readFileSync(w.draft, "utf8").replace("concepts: []          # reading-list", "concepts: [\"decision-record\"]")));
+        run(["--draft", w.draft, "--input", w.input, "--store", w.store], w.dir);
+        expect(fs.readFileSync(w.draft, "utf8")).toMatch(/concepts: \["decision-record"\]/);
     });
 
     it("names an inactive listed page as not read and continues", () => {

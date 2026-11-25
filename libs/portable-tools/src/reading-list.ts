@@ -149,8 +149,9 @@ export function loadStore(dir: string): StorePage[] {
 
 const CONCEPTS_LINE = /^concepts:.*$/m;
 
+/** A resolved epic keeps an issue body's CRLF line endings; a `\r` left on a field line makes its value unreadable. */
 function draftParts(text: string): { front: string; rest: string } | undefined {
-    const match: RegExpMatchArray | null = text.match(/^---\n([\s\S]*?)\n---(\n[\s\S]*)?$/);
+    const match: RegExpMatchArray | null = text.replace(/\r\n?/g, "\n").match(/^---\n([\s\S]*?)\n---(\n[\s\S]*)?$/);
     return match === null ? undefined : { front: match[1], rest: match[2] ?? "" };
 }
 
