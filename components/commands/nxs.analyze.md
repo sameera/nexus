@@ -11,7 +11,7 @@ tools: Read, Grep, Glob, Bash, Write, Task, Skill
 Act as a verification reviewer. Check that the **implemented code** for one epic actually satisfies
 what its planning promised — the stories' acceptance criteria, the epic's success metrics, and the
 decision record's guarantees, or its constraints and invariants in a record approved in the old
-format. The unit of work is the **story** (0009): each story is
+format. The unit of work is the **story**: each story is
 a GitHub issue, and you check the code against each story's acceptance criteria.
 
 This is a **conformance** gate, not a quality gate. You answer *"does the build do what the epic
@@ -46,8 +46,8 @@ If `$ARGUMENTS` contains `--pr <ref>` (recognized by string match, like `/nxs.ep
 against a PR **in an isolated worktree** instead of the current checkout. The PR may still be
 **open** — conformance runs *before* merge in the new pipeline (`analyze → merge → close`).
 
-`<ref>` is a bare PR number, a member-qualified `owner/repo#N`, or a full pull-request URL
-(decision record #495). A bare number keeps today's meaning: this checkout's own repository,
+`<ref>` is a bare PR number, a member-qualified `owner/repo#N`, or a full pull-request URL.
+A bare number means this checkout's own repository,
 whether that is single-repo, a hub, or a member analyzing its own PR. A qualified reference or a
 URL may instead name any member the hub's `.nexus/config/workspace.yml` declares — the lead stands
 in the hub and gates a member's PR from there. A reference naming a repository the workspace does
@@ -72,7 +72,7 @@ target repository.
     `<ref>` is qualified). **Every path operation below — the diff, the code reads — happens
     inside `wtPath`.**
 2. **Resolve the story (or stories) the PR implements**, through the validated candidate ladder
-   (decision record #495) — never GitHub's closing-keyword linkage alone, which is same-repository
+   — never GitHub's closing-keyword linkage alone, which is same-repository
    only and produces nothing for a member PR whose story lives in the hub:
 
     ```bash
@@ -115,9 +115,8 @@ target repository.
     ```
 
     Use the directory of the printed `outPath` (under `<mainCheckoutRoot>/.nexus/tmp/`) as the
-    entry. Under #114 nothing is committed at planning, so the feature PR carries **no** queue
-    entry — the resolver path is the norm here; the committed-entry branch is the transitional case
-    (invariant 14).
+    entry. Nothing is committed at planning, so the feature PR carries **no** queue
+    entry — the resolver path is the norm here; the committed-entry branch is the transitional case.
 4. **Always remove the worktree** at the end of the run and on any error:
 
     ```bash
@@ -127,17 +126,17 @@ target repository.
 Without `--pr`, resolve the epic context from the current checkout as usual.
 
 Resolve in priority order — **dual-read**: a committed entry when one exists, else resolve from the
-issue number (invariant 14):
+issue number:
 
 1. **Explicit path in `$ARGUMENTS`** — a queue entry, an `epic.md`, or its directory.
 2. **Committed queue entry in the current tree** — glob `.nexus/queue/*/epic.md`; a single entry is
-   used, multiple prompt a selection. (Old-contract epics, including #114 itself.) The `epic.md`
+   used, multiple prompt a selection. (Old-contract epics.) The `epic.md`
    requirement matters: an in-flight epic's `.nexus/queue/epic-<n>/` holds only per-user scratch and is
    **not** an entry — treating it as one would fail on a missing `epic.md` instead of resolving from
    the issue.
-3. **Resolve from the issue number (invariant 11)** — if no committed entry exists, reconstruct the
+3. **Resolve from the issue number** — if no committed entry exists, reconstruct the
    epic instead of failing with "queue entry not found":
-    - Epic issue number (invariant 12): the explicit `#<n>` / `<n>` in `$ARGUMENTS`, else derived from
+    - Epic issue number: the explicit `#<n>` / `<n>` in `$ARGUMENTS`, else derived from
       the current branch's linked issue — its parent epic. If undeterminable, ask and stop.
     - `nexus epic-resolve --epic <n>` → a materialized
       `epic.md` under the gitignored `.nexus/tmp/`; use its directory as the entry. On a non-zero
@@ -149,7 +148,7 @@ issue number (invariant 14):
 ## Phase 0.1 — Run only for an epic entry
 
 Before loading anything, read the resolved entry's `epic.md` frontmatter. **The gate runs only for
-an epic entry.** The kind set is closed (`epic`, `fix`, `intake`, record #504); an absent
+an epic entry.** The kind set is closed (`epic`, `fix`, `intake`); an absent
 `entry_kind` and `entry_kind: epic` both mean epic. **Any other recorded kind — `fix`, `intake`, or
 one this list does not yet name — stops the gate here.** Inverting the check this way, instead of
 naming each non-epic kind in its own refusal clause, is deliberate: a kind added later and never
@@ -177,10 +176,10 @@ frontmatter `link` to get the epic issue number; it anchors the story issues.
 
 The decision record supplies the **conditions** to check (its guarantees, or an old-format
 record's invariants), and its home is a **sub-issue of the epic
-issue** (#139). Resolve it before anything else — a blocked run must emit nothing at all.
+issue**. Resolve it before anything else — a blocked run must emit nothing at all.
 
 1. Resolve the target repo and the needs-design label name **through the shared publishing
-   resolver**, never by parsing `settings.yml` (see `/nxs.close` Phase 1.0):
+   resolver**, never by parsing `settings.yml`:
 
     ```bash
     ISSUES_REPO="$(nexus config resolve epic-repo --root "<root>")"
@@ -207,10 +206,10 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     | **full** | record sub-issue exists and is **closed as completed** | Run in full mode; the conditions come from the record issue body. |
     | **block — unapproved** | record sub-issue is **open**, or closed as **not planned** | **Stop.** A not-planned closure is a withdrawn design, not an approval. |
     | **block — claimed but unfiled** | epic carries the needs-design label but has **no** record sub-issue | **Stop.** The epic says it needs a record and none exists. |
-    | **degraded** | **no** record sub-issue **and no** needs-design claim | Run in the no-invariant mode and state that you did (invariant 13). |
+    | **degraded** | **no** record sub-issue **and no** needs-design claim | Run in the no-invariant mode and state that you did. |
 
     An **old-contract** entry carrying a committed `decision-record.md` resolves to **full** from
-    that file, exactly as today — baseline precedence is per entry: record sub-issue, else committed
+    that file — baseline precedence is per entry: record sub-issue, else committed
     file, else no record.
 
     A **fetch failure** — the record issue cannot be read, the body cannot be fetched — never reaches
@@ -265,9 +264,8 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
 
     - `new` — the conditions are the `guarantees` list, every entry of every group, "Existing
       behaviour to preserve" included. Each is named by its ID (`G4`).
-    - `old` — the conditions are the record's constraints and invariants, read exactly as before.
-    - `neither` — the headings match neither format, so read the whole body for its constraints,
-      as before the approval-first format existed.
+    - `old` — the conditions are the record's constraints and invariants, read as written.
+    - `neither` — the headings match neither format, so read the whole body for its constraints.
 
     The body is still read as prose for its context. The reader only fixes the list, so no
     guarantee under a group heading is skipped.
@@ -275,8 +273,7 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
 ## Phase 0.6 — Analyze addressed by epic number
 
 **Local mode only** (not `--pr`), whenever the epic resolved from its issue number (Phase 0, step
-3). The epic-wide verdict built from story verdicts is gone (epic #829, record #871, D11): analyze
-never combines the verdicts its pull requests already carry into an epic verdict, and never judges
+3). Analyze never combines the verdicts its pull requests already carry into an epic verdict, and never judges
 a combined change set. The epic-level judgment runs on the pull request that completes the epic
 instead (§2.3). Run the claiming read first:
 
@@ -301,7 +298,7 @@ stop. A failed read is not the same as no merged pull request.
 ## Phase 0.7 — Does this pull request complete its epic (`--pr` mode only)
 
 Whether this pull request gets the epic-level judgment (§2.3) comes from the claiming read close
-gates on (record #871, D9), never from the resolved story list alone:
+gates on, never from the resolved story list alone:
 
 ```bash
 nexus epic-verdicts completion --epic <epic-issue> --pr <N> --repo <repoIdentity> --stories <n,...> --worktree "$wtPath" --root <mainCheckoutRoot>
@@ -322,8 +319,7 @@ would skip the epic judgment silently.
 ## Phase 0.8 — Recording answers (`--pr <ref> --resolve`)
 
 **Only when `$ARGUMENTS` also contains `--resolve`.** Engineers answered items on the pull request
-(§2.6), and this run records the answers without judging unchanged code again (epic #829, record
-#871, D8). Run Phase 0 to 0.7 first, exactly as for a full run: an unapproved record (Phase 0.5) or
+(§2.6), and this run records the answers without judging unchanged code again. Run Phase 0 to 0.7 first, exactly as for a full run: an unapproved record (Phase 0.5) or
 a failed claiming read (Phase 0.7) stops this run too, and publishes nothing. Then ask the toolkit
 what this run may carry forward from the newest trusted verdict on the pull request — **never
 decide the mode yourself**:
@@ -385,7 +381,7 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
 In either recording mode, tick every story's line once `<run>/analyze-review.md` is written: it holds
 every result. `scope-stale` means a newer verdict was published after the scope was
 computed: run `nexus verdict-scope` again. The ID step wrote the whole verdict body from the
-carried judgments and the run facts, the scope's lines included (epic #923, D3): **write no verdict
+carried judgments and the run facts, the scope's lines included: **write no verdict
 text**, on this path either. Each `unconfirmed` result travels with its `looked` and `confirmBy`,
 and the verdict lists it again as a check by hand. Then check the body with `nexus verdict-check`
 and publish it exactly as Phase 3's pull-request path does.
@@ -415,7 +411,7 @@ Determine what was actually built for this epic. Use, in order of availability:
     surfaces Nexus writes and teaches from, never behaviour it reads back, so a conformance verdict
     must never be drawn from one. Ask the toolkit for the set (`nexus excluded-stores --form reasons`
     prints it with the reason each store is a member); it is stated in exactly one place, and this
-    body restating it could drift from the code (record #450, invariants 4-5). Each store is withheld
+    body restating it could drift from the code. Each store is withheld
     entire — never a slice of one.
 
     **Substitute `$(nexus excluded-stores)` inline on the `git diff` line — never capture it into a
@@ -475,7 +471,7 @@ Classify the AC:
   looked, by file or by surface, and what would confirm it. It is never met, partial, unmet or
   contradicted, it is not a finding, and it is never passed silently (see Phase 3).
 
-**Propose the missing part for deferral** (record #871, D7) when a criterion is **unmet** or
+**Propose the missing part for deferral** when a criterion is **unmet** or
 **partial** in a story this pull request covers and the missing part could ship later on its own:
 put it on that criterion's finding as `deferred` (§2.5). It becomes a deferred-scope proposal with
 a `DS<n>` ID that belongs to the finding. Never propose a criterion of a story this run does not
@@ -506,9 +502,8 @@ needs one answer. A guarantee or invariant the code you read can neither confirm
 says. It is not a departure.
 
 Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
-record. That is now the exception rather than the norm: the record has a durable home (the record
-sub-issue), so degraded mode is reached only by the deliberate no-record outcome — never, as before,
-because the record had nowhere to live.
+record. The record has a durable home (the record sub-issue), so degraded mode is reached only by
+the deliberate no-record outcome.
 
 ## 2.2b Concept invariants (full and degraded mode)
 
@@ -532,8 +527,8 @@ Put the lister's `sentence` in the human-readable report as one line (§2.7 layo
 ## 2.3 Epic-level judgment
 
 The success metrics and the guarantees that span stories are properties of the finished
-capability. **In `--pr` mode they are judged only on the pull request that completes the epic**
-(record #871, D9, D10), as Phase 0.7's `epicLevel` says:
+capability. **In `--pr` mode they are judged only on the pull request that completes the epic**,
+as Phase 0.7's `epicLevel` says:
 
 - **`skip`** — the pull request leaves another live story unshipped. Judge **no** success metric
   and no cross-story guarantee; state on the `Epic level:` line which stories keep it from
@@ -576,7 +571,7 @@ invariant, or departs from the record — then it is a departure (§2.5).
 
 ## 2.5 Departures from the decision record
 
-List every place the change **departs** from the approved design (epic #829, record #871, D1). A
+List every place the change **departs** from the approved design. A
 departure is where the code differs from what the baseline says: an approach changed, a named
 component replaced, a constraint relaxed, a guarantee or an invariant broken. Code that matches
 the baseline lists **no** departure — an empty list is the conformant result, not a gap.
@@ -612,7 +607,7 @@ invariant, **high** otherwise. A departure from a concept page's invariant (§2.
 critical: the approver never approved that invariant again for this epic, and some recorded
 invariants are stale. Count each one in the severity tally, once.
 
-**IDs are numbered per pull request, by the toolkit, never by you** (D2). In `--pr` mode, write the
+**IDs are numbered per pull request, by the toolkit, never by you**. In `--pr` mode, write the
 departures **and every finding** to one draft and hand it to the ID step — it reads the newest
 trusted verdict on this pull request as the registry, so an item found again keeps its ID and an
 answer survives a re-run, and it then applies the answers posted on the pull request (§2.6):
@@ -625,7 +620,7 @@ nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<run>/items.json" --
 verdict block stamps; omit both only in degraded mode. The step builds the record half of the key
 decisions from them (§2.7).
 
-**The toolkit writes the verdict; you write none of it** (epic #923, record #949, D1, D2). The ID
+**The toolkit writes the verdict; you write none of it**. The ID
 step numbers the items, applies the answers, and then writes the **whole** verdict body to `--out`
 — the visible text, the receipt block and the judgments block — from the judgments and the **run
 facts** in `--facts`. You hand it only what the run knows that is not a judgment; write
@@ -641,22 +636,22 @@ facts** in `--facts`. You hand it only what the run knows that is not a judgment
 ```
 
 `record` is null only in degraded mode; the references follow the `nxs-issue-reference` rule
-(Phase 3). The published verdict reads top down (D7, D8): its first line says **Blocked** exactly
+(Phase 3). The published verdict reads top down: its first line says **Blocked** exactly
 when a critical or high item is open, else **Clear to merge**, then the open count per severity
 and the checks to make by hand, which never block. Then come the items in four sections: needs
 action, worth a look, already answered, and no longer found. Below them sit the stories table with
 counts only, the evidence per criterion, guarantee and success metric in a collapsed section, and
 a collapsed run-details section holding the mode, the record and its full hash, the
 head, the key decisions and the concept-invariant sentence, and then the receipt and judgments
-blocks (epic #923, D11). A section with nothing to report is left out. The step prints `blocked`: true exactly when a critical or high item is open, and the
+blocks. A section with nothing to report is left out. The step prints `blocked`: true exactly when a critical or high item is open, and the
 review event follows it (Phase 3). Text you put in the draft is written as plain inline text, so a
-line break, a heading or a marker in it changes nothing about the verdict's structure (D6).
+line break, a heading or a marker in it changes nothing about the verdict's structure.
 
-**Every open item you judge must carry what the verdict shows** (D4). An open item judged in this
+**Every open item you judge must carry what the verdict shows**. An open item judged in this
 run that lacks one is refused: the step exits 1 with `item-incomplete`, names the item's ID, its
 subject and the missing field, and writes nothing. Add the field to the draft and run the step
-again. An item carried unchanged from a verdict published before this release is shown without the
-fields it never had, and is never refused.
+again. An item carried unchanged from an earlier verdict that lacks those fields is shown without
+them, and is never refused.
 
 The draft is `{ "departures": [ ... ], "findings": [ ... ], "confirmedStubs": [ ... ] }`. One entry
 per departure: `{ "departsFrom": "<D<n>, G<n>, title or section>", "summary": "<what the code
@@ -671,8 +666,7 @@ null }`. `deferred` is set only as §2.7 allows. One entry per **confirmed stub*
 "<stub>", "choice": "<what was chosen>", "reason": "<why>", "refuted": "<the alternative not
 taken, or none>" }`. Every departure and finding also carries `"fix": "<one sentence: what to change in the code to
 resolve it>"` and, when it has files, `"location": { "file": "<path>", "line": <n> }` — the one
-place at the analyzed head where it shows, which the verdict links at that commit (epic #923, D9,
-D10). Add `"scopeDrift": ["<unplanned behaviour>", ...]` (§2.4) and `"notes":
+place at the analyzed head where it shows, which the verdict links at that commit. Add `"scopeDrift": ["<unplanned behaviour>", ...]` (§2.4) and `"notes":
 ["<stories still open, ...>", ...]` when there are any; the judgments block carries both, so a
 recording run shows them again.
 Cite the same element, or name the same thing judged, and the files it was judged on each run: two
@@ -685,7 +679,7 @@ diagnostic verbatim. `draft-malformed` names the entry to fix; `judgments-malfor
 newest verdict's registry cannot be read; `gh-failed` means the pull request or its comments could
 not be read, which is never "no answer".
 
-**Every full run also records each result with its file list** (D8), so a later answer-recording
+**Every full run also records each result with its file list**, so a later answer-recording
 run (Phase 0.8) can tell what a change affects. Add to the same draft one entry per acceptance
 criterion of §2.1, per guarantee or invariant of §2.2, and per success metric judged in §2.3:
 
@@ -703,7 +697,7 @@ Give each result `"evidence": "<where the judgment rests, as locations: file:lin
 or D<n>>"` — the verdict shows it in the collapsed evidence section, and the judgments block
 carries it for a recording run. List the files each judgment actually read. An empty list counts as affected by any change, so it
 is safe but costly; a list that leaves out a file the result depends on can carry a stale result
-across a moved head (record #871, R5). Write `looked` and `confirmBy` on an `unconfirmed` result
+across a moved head. Write `looked` and `confirmBy` on an `unconfirmed` result
 only; the step refuses an unconfirmed result without them. A criterion's `unverifiable` in a
 verdict written before `unconfirmed` existed is still read: report it as unconfirmed, with its
 files as where it looked.
@@ -712,7 +706,7 @@ Without a pull request there is no registry: list the departures without IDs.
 
 ## 2.6 Answers on the pull request (`--pr` mode)
 
-An engineer answers an item on the pull request, while the reason is still fresh (D3). An answer
+An engineer answers an item on the pull request, while the reason is still fresh. An answer
 is **one line** in a pull-request comment — the ID, a dash, a verb, a colon and a reason — and one
 comment may hold several:
 
@@ -744,24 +738,24 @@ and link, under the item it names — never drop one from the terminal report, a
 judgment. A decision stub
 explains a departure and answers nothing; a freely worded reply answers nothing either.
 
-**The severity counts are the open counts** (D4). An item is open while it is found and
+**The severity counts are the open counts**. An item is open while it is found and
 unanswered: an accepted departure and a waived finding count nothing. The ID step writes the `open` counts into the published verdict's headline and the machine
 block's `findings:` — never totals. It lists each answered item separately, with who answered and
-the link. You write none of this into the published verdict yourself (epic #923, D1); the terminal
+the link. You write none of this into the published verdict yourself; the terminal
 report carries the same `open` counts on its `Severity:` line, never a count of your own.
 A comment that carries a verdict is never read as an answer. So the published verdict prints, under
 each answerable open item, the exact line to paste in its own code block — `DV<n> — accepted:`,
 `F<n> — waived:`, and `DS<n> — approved:` only on the item that proposal settles — and the command
-to run afterwards (epic #923, D9). The accepted and waived lines stop after the colon: pasted
+to run afterwards. The accepted and waived lines stop after the colon: pasted
 unedited they give no reason and apply nothing, and the next verdict names them as `no-reason`.
 
 ## 2.7 What the verdict carries for close (`--pr` mode)
 
-The verdict carries what close writes into its record (epic #829, record #871, D5–D7), so close
+The verdict carries what close writes into its record, so close
 never reads the diff or asks the lead for it: the key decisions, every departure with its answer,
 who gave it and the link, the record decisions the code supersedes, and the deferred scope.
 
-**The key decisions** (D6) are every record decision plus every confirmed stub. **You never list
+**The key decisions** are every record decision plus every confirmed stub. **You never list
 the record's decisions yourself**: the ID step builds them from `--record-body`, every decision by
 its ID (by title in an old-format record), tied to the digest the verdict stamps as
 `record_hash` — close resolves their text from the record body that digest pins. Only a record in
@@ -771,7 +765,7 @@ key decision**: it may explain a departure instead (§2.5). A decision recorded 
 comment, or visible only in the code, is not a key decision; the code's own choices surface as
 departures or scope drift.
 
-**Deferred scope** (D7) is proposed from exactly two places, and nowhere else:
+**Deferred scope** is proposed from exactly two places, and nowhere else:
 
 1. the missing part of an **unmet or partial criterion in a story this pull request covers** —
    `deferred` on that criterion's finding;
@@ -800,8 +794,7 @@ block existed reads as having no judgments, never as an error, for close and the
 # Phase 3 — Report, and on a pull request publish the verdict
 
 Return a concise summary, in the run-discipline skill's layout. Without a pull request it is the
-whole terminal report, in the layout below. **In `--pr` mode the two separate** (epic #923, record
-#949, D12): the ID step already wrote the published verdict (§2.5), so the terminal report is the
+whole terminal report, in the layout below. **In `--pr` mode the two separate**: the ID step already wrote the published verdict (§2.5), so the terminal report is the
 run-discipline completion report — short, naming the open counts and `blocked` the step printed,
 and linking to the published verdict. Write no part of the published body yourself.
 
@@ -890,7 +883,7 @@ qualifies against `$STORY_REPO` instead, when that resolves to a different repos
 **Open story issues are a note, never a finding.** They carry no severity, count nothing towards the
 receipt's `findings:` tally, and never block. State them on the `Notes:` line — "stories <story-refs>
 are still open; close them before `/nxs.close`" — and omit the line entirely when every story is
-closed. An open sub-issue is `/nxs.close`'s hard block (its §1.1), not this gate's: here the question
+closed. An open sub-issue is a hard stop for `nexus close`, not for this gate: here the question
 is whether the code does what the planning said, and the code is readable from the diff whether or
 not the issue has been closed yet.
 
@@ -901,8 +894,7 @@ code does not yet satisfy the epic. Fix the implementation, or answer the item o
 the record. This command does not edit
 code, issues, or the epic, and never posts an answer; it reports so the user can gate.
 
-Without a pull request, analyze leaves **no file** behind once it finishes (epic #829, record #871,
-D12) — not beside a materialized `epic.md` under `.nexus/tmp/`, and not in an
+Without a pull request, analyze leaves **no file** behind once it finishes — not beside a materialized `epic.md` under `.nexus/tmp/`, and not in an
 old-contract committed entry. The terminal report is the whole result. Nothing downstream reads a
 local analysis file: `/nxs.close` reads only the verdict published on the pull request. Its
 run folder (Phase 0.5) is working scratch: the run removes it before printing the report, as the
@@ -956,19 +948,18 @@ file is written here either, and the worktree is removed after this phase. A **b
     ```
     `````
 
-    `repo` is the `repoIdentity` the `open` step printed (epic #211): it names what was actually
+    `repo` is the `repoIdentity` the `open` step printed: it names what was actually
     read, so a reader never has to assume "this repository" when the PR could belong to any
     declared member — the **code** repository the analyzed pull request lives in. `issues_repo` is
     the different question: the repository `epic`, `record` and `stories` resolve against — the
     checkout's own `$ISSUES_REPO`, or this repository's own `owner/repo` when `$ISSUES_REPO`
     resolved to nothing.
 
-    **`issues_repo` is written on every publish** (epic #751), whether or not it equals `repo`.
-    The rule that omitted it when the two matched is gone: that conditional is what produced a
-    published verdict whose bare story numbers cross-matched an unrelated issue in the code
-    repository. Two repositories stated is never ambiguous; one stated and one inferred is. An
-    absent key now means only one thing — a verdict written before this change — and a reader
-    still falls back to `repo` for those, which is why nothing already published is rejected.
+    **`issues_repo` is written on every publish**, whether or not it equals `repo`.
+    Omitting it when the two match would let a verdict's bare story numbers cross-match an
+    unrelated issue in the code repository. Two repositories stated is never ambiguous; one stated and one inferred is. An
+    absent key means a verdict written before the key was always stamped, and a reader falls
+    back to `repo` for those, so nothing already published is rejected.
 
     Stamp `epic-ref` and `record-ref` under the **`nxs-issue-reference`** skill: bare when they
     name `issues_repo`, qualified `owner/repo#N` when they do not — which, since this block is
@@ -979,12 +970,12 @@ file is written here either, and the worktree is removed after this phase. A **b
     is `issues_repo`, declared once, immediately above. Stamp the **full**, un-abbreviated repo
     identity and every covered story number; never truncate either.
 
-    The block records **no story text** (epic #828): no `story_fingerprints` line. A story edited
+    The block records **no story text**: no `story_fingerprints` line. A story edited
     after this analysis is not stale for that reason; a design change still is, through
     `record_hash`. Receipts written by 0.82.0 to 0.86.0 carry that line, and every reader still
     accepts it and ignores it.
 
-    `nexus_version` is the **writer stamp** (story #306): the release that wrote this block, taken
+    `nexus_version` is the **writer stamp**: the release that wrote this block, taken
     from `nexus version`. It is a fact about the writer, never a gate — a reader that finds no stamp
     treats the writer as unknown and proceeds, and a reader whose own version differs from the stamp
     proceeds too. It sits beside the digests, never inside the bytes any of them cover. Omit the key
@@ -1022,7 +1013,7 @@ file is written here either, and the worktree is removed after this phase. A **b
     prints `{ issuesRepo, repo }` when the body names the repository its story numbers resolve
     against. A non-zero exit is a **failure of the publish step**: publish nothing, report the
     diagnostic verbatim, and do not report the run as successful. Every correction goes through the
-    ID step, never through the body (epic #923, record #949, G3): fix the draft or `facts.json`, run
+    ID step, never through the body: fix the draft or `facts.json`, run
     §2.5's ID step again, and check the body it writes. `issues-repo-missing` and
     `issues-repo-mismatch` name the issues repository the block should have carried: set
     `issuesRepo` in `facts.json` to that value. `key-decisions-missing` and `key-decisions-stale`
@@ -1035,14 +1026,14 @@ file is written here either, and the worktree is removed after this phase. A **b
     and `counts-not-open` mean the body is not the one the ID step wrote — it was edited after the
     step, or not written by it: run the step again and check its body unedited.
 
-    **The size budget** (D5). The platform takes at most 65,536 characters. When the body is over,
+    **The size budget**. The platform takes at most 65,536 characters. When the body is over,
     the check drops the results' file lists, puts a line saying so above the verdict block, records
     `filesDropped` in the judgments block — so the next `--resolve` run on a moved head judges the
     whole pull request again — and **writes the result back to the body file**: those are the bytes
     to publish, and it prints `filesDropped: true` and the `size`. It never drops a departure's or a
     finding's file list: the next full run gives an item found again its ID by that list, so the
     items keep their IDs and answers. If the body is still too large, it exits 1 with
-    `verdict-too-large`, naming the size and the longest draft fields by item ID (epic #923, D13):
+    `verdict-too-large`, naming the size and the longest draft fields by item ID:
     **publish nothing**, report the size, shorten those fields in the draft, and run the ID step
     and the check again. This runs on the review path and the comment fallback path
     alike; the body it approves is the exact body that goes on the wire.
@@ -1057,8 +1048,8 @@ file is written here either, and the worktree is removed after this phase. A **b
     ```
 
     Every call carries `-R <repoIdentity>` (the same value the machine block stamps as `repo`):
-    left to itself `gh` picks a base repository from the worktree's remotes, which is exactly the
-    ambiguity 0.48.0 fixed for the pull-request **reads** in this same flow — the review is a
+    left to itself `gh` picks a base repository from the worktree's remotes, the same
+    ambiguity the pull-request **reads** in this flow avoid by naming it — the review is a
     write on the same pull request and needs the same repository named explicitly.
 
     **Fallback:** GitHub forbids reviewing your own PR. If the review call fails because the lead
@@ -1070,18 +1061,18 @@ file is written here either, and the worktree is removed after this phase. A **b
 
     Then tick the final line in the run checklist with the review's or the comment's URL.
 
-4. **Write nothing on the epic issue**, before or after the merge (epic #828, story #843). The
-   review above is the whole published result. Analyze no longer writes a shipped record: close
+4. **Write nothing on the epic issue**, before or after the merge. The
+   review above is the whole published result. Analyze writes no shipped record: close
    derives each story's range itself, in the checkout of the repository the pull request merged
-   in, and reads this review's receipt through the one trusted reader. Records that earlier runs
-   wrote stay on the epic issue and are still read, by close. Run
+   in, and reads this review's receipt through the one trusted reader. Shipped records already on
+   an epic issue are read by close. Run
    analyze **before** the merge; close does not run it afterwards.
 
 5. Remove the worktree, per the lifecycle rule in the `--pr` preamble above, then the run folder.
 
 ## Asking an epic what it has shipped
 
-This gate reports **no coverage of its own** (epic #828, story #843; record #849, D8). Asked what an
+This gate reports **no coverage of its own**. Asked what an
 epic has shipped, name `nexus close --epic <epic>` as the place that reports each story's state, and
 report nothing more from here. Close's evidence gate runs
 
@@ -1098,7 +1089,7 @@ more, so a merged pull request with no record is the ordinary case, not a gap.
 
 `head` is the **full** `analyzedHead` so the commit the analysis judged is named without
 ambiguity. `/nxs.close` compares it with the merged head, and
-the merge pre-check with the pull request's current head (epic #828). Re-running analyze publishes
+the merge pre-check with the pull request's current head. Re-running analyze publishes
 a fresh review; `/nxs.close` takes the latest trusted machine block.
 
 # Usage
@@ -1119,7 +1110,7 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
 - **Read-only.** Never edit code, the epic, the decision record, or GitHub issues — in particular,
   never close, reopen, or comment on the record sub-issue. Findings are inline. **No file is
   written** — no receipt, no `task-review.md`, no other report file — with or without a pull
-  request (D12). Nothing is written on the epic issue: no shipped record (epic #828).
+  request. Nothing is written on the epic issue: no shipped record.
 - **An unapproved record blocks, and a block emits nothing.** No result line, no PR review, no PR
   comment — so a missing receipt keeps its single downstream meaning ("analyze never ran"). Approval
   is the close of the record sub-issue; a not-planned closure is a withdrawn design and blocks too.
@@ -1129,17 +1120,15 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
 - **The record hash comes from the one digest program** (`nxs-record-digest`), computed over the
   body as fetched from GitHub, and is stamped in full on the PR machine block
   beside the analysed commit. Never re-derive it with a shell one-liner and never truncate it.
-- **A verdict is never published without naming its issues repository (epic #751).** The
+- **A verdict is never published without naming its issues repository.** The
   `nexus verdict-check` call in `--pr` mode step 2 is the boundary: the gate publishes only a body
   that check approved, and a refusal stops the publish rather than downgrading to a warning. Never
-  restate its rule in prose here and never publish around it — the prose version of this rule
-  existed for as long as the key did, and was followed everywhere except the one case it was
-  written for.
-- **Without a pull request, the terminal report is the whole result (D12).** It ends with the
+  restate its rule in prose here and never publish around it.
+- **Without a pull request, the terminal report is the whole result.** It ends with the
   fixed `Analyze result:` line (Phase 3) and writes no file in any placement, old-contract
   committed entries included. No stage reads a local analysis file; `/nxs.close` reads only the
   verdict on the pull request.
-- **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
+- **No task analysis.** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
 - **An open story is a note, not a blocker.** Story issues close on merge and this gate runs before
   the merge, so open stories are ordinary here: report them on the `Notes:` line as work to close
@@ -1153,7 +1142,7 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
   home is `.nexus/queue/epic-<epic-issue>/` — resolved from the epic issue number, never from `QDIR`,
   which under issue-sourced planning is a gitignored `.nexus/tmp/` materialization.
 - **`--pr` mode resolves stories through a validated candidate ladder, never GitHub's
-  closing-keyword linkage alone** (decision record #495) — that linkage is same-repository only,
+  closing-keyword linkage alone** — that linkage is same-repository only,
   and it reads the pull-request *body* alone, so it gives nothing for a member PR whose story lives
   in the hub and nothing for a PR that carries its `Closes #<n>` lines one per commit.
   `nexus pr-worktree stories` gathers candidates (linked/closing issues when the PR is in the issues

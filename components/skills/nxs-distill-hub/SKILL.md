@@ -17,16 +17,27 @@ not name runs exactly as the base stage states it.
 Nothing here writes to GitHub, the concept store, the queue or a branch on its own. Branch creation,
 the checkpoint stop and the pull-request opening stay in the base stage.
 
+## The hub root
+
+The **hub root** is the hub repository's main checkout: the path on the first `worktree` line of
+`git worktree list --porcelain`, run once, before any command names a worktree. The member
+checkouts are the directories beside it. A worktree is never the hub root. This holds in the
+worktree form (`/nxs.distill <worktree-path>`), and it holds when the session itself started inside
+close's worktree. Close's worktree usually sits under a temporary directory, so the directories
+beside it are not the member checkouts, and the diff reader would stop with `missing-checkout`.
+Every `<hub-root>` and every member checkout below uses this resolved value, even when the command
+itself runs inside the worktree.
+
 ## Input Resolution 3 — the drain-SLO report spans the whole hub queue
 
 Every undrained entry (skipped-not-closed and blocked-underivable alike) is listed, and each is
-**attributed to every distinct repo its `range:` list names** (epic #214, story #508). Never
+**attributed to every distinct repo its `range:` list names**. Never
 attribute only to the first entry's repo; that attributes an entry that shipped over several pull
 requests to whichever repo was stamped first. List every distinct, host-stripped `repo` (e.g.
 `acme/web-app`) across the entry's `close-record.md` `range:` list, in the order they first appear.
 When the entry carries no close record yet, list the hub repo itself: an unclosed hub-queue entry is
 the hub's own, because migration happens only at close, after the close record is written. **Age is
-one figure per entry, never one per repo or per range entry**. Measure it as today, from the
+one figure per entry, never one per repo or per range entry**. Measure it from the
 introducing commit. For a migrated entry that commit *is* the migration commit, so age measures how
 long the entry has been drainable in the hub queue. Drain-SLO is measured against the hub queue
 only. Never scan member checkouts for closed-but-unmigrated entries; that is migration-lag, owned by
@@ -42,7 +53,7 @@ trunk; migration-lag is a drain-SLO concern (Input Resolution 3), not this gate.
 ## Phase 0.6 — every provenance reference is qualified
 
 Every provenance reference is the **qualified `<owner>/<repo>#n` form**, resolved deterministically
-from the entry's recorded originating repo (epic #214, story #508; this is no longer positional).
+from the entry's recorded originating repo.
 When the entry's `range:` list names exactly **one** distinct repo, that is the originating repo.
 Strip the leading host segment and append the epic's `link` number: `github.com/acme/web-app` + `#3`
 → `acme/web-app#3`. No network round-trip is needed, because the recorded repo is ground truth. When

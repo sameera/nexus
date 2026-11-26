@@ -1,3 +1,8 @@
+---
+name: nxs-abs-doc-path
+description: Convert repository-relative paths to absolute GitHub URLs with `nexus abs-doc-path`, so links in generated documents and issue bodies resolve from any viewing context. Load before writing a repository link into a filed issue or generated doc.
+---
+
 # nxs-abs-doc-path
 
 Convert repository-relative paths to absolute GitHub URLs for use in documentation.
@@ -23,7 +28,7 @@ If the settings file is missing or the setting isn't set, the script falls
 back to a placeholder default: `https://github.com/{username|orgname}/{reponame}/blob/main/docs`.
 
 `docs-root` must point at the same place the workspace resolver's docs root
-resolves to (`@nexus/workspace/resolve`, epic #74) — `docs/` for a single-repo
+resolves to (`@nexus/workspace/resolve`) — `docs/` for a single-repo
 checkout or a workspace member, or the repo root for a hub with no override
 (or its explicit `docs-root` override). The script resolves the local docs
 root itself and checks the two agree; a mismatch (e.g. this URL still ends in
@@ -62,6 +67,7 @@ checkout, shown below; nothing in a hub whose docs root is the repo root):
 | Code | Meaning                            |
 | ---- | ----------------------------------- |
 | 0    | Success                             |
+| 1    | Docs-root mismatch or another named problem, on stderr |
 | 3    | Invalid arguments (no path provided) |
 
 ## Integration

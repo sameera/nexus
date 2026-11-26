@@ -1,6 +1,6 @@
 ---
 name: nxs.setup
-description: One-time project bootstrap. Auto-detects the stack, generates system docs/standards, scaffolds the Nexus surfaces, then runs an interactive interview (via the nxs-setup skill) to build the product context. Replaces the old nxs.init + nxs.product-context.
+description: One-time project bootstrap. Auto-detects the stack, generates system docs/standards, scaffolds the Nexus surfaces, then runs an interactive interview (via the nxs-setup skill) to build the product context.
 category: setup
 tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, Skill
 model: inherit
@@ -208,10 +208,9 @@ Use the standards template at the location Phase 1 looked up (`$STANDARD_TEMPLAT
 ## Phase 4: Scaffold the Nexus surfaces
 
 1. **`.nexus/config/issue-labels.yaml`** — seed it with this project's label set. Setup is the seeder for project-generated config.
-2. **`.nexus/config/settings.yml` — seed the `github:` publishing block** (epic #121). Setup is the
+2. **`.nexus/config/settings.yml` — seed the `github:` publishing block**. Setup is the
    **producer** of this block: it detects classification and project **now, while you are present to
-   confirm ambiguous choices**, replacing the crash-prone probe that otherwise ran at issue-creation
-   time. Detect, then write the block **surgically** — the write is add-only, so the existing
+   confirm ambiguous choices**. Detect, then write the block **surgically** — the write is add-only, so the existing
    `cross-ref:` block, comments, and any key already declared are preserved untouched:
     1. **Classification.** Run the probe (it never crashes — it degrades):
         ```bash
@@ -246,8 +245,7 @@ Use the standards template at the location Phase 1 looked up (`$STANDARD_TEMPLAT
        keys `nexus config resolve <key>` still resolves to nothing.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **`.nexus/discovery/`** — the pre-epic discovery store (`/nxs.discover`), also **committed, not gitignored**. It is deliberately a sibling of the queue rather than a folder inside it: the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Do not create it at setup — `/nxs.discover` creates it on first use — and do not add an ignore rule for it.
-5. **`.nexus/tmp/` is gitignored.** `/nxs.epic` drafts a planning run's scratch (decision record
-   #646) under `.nexus/tmp/planning/`, and the resolver materializes epics under `.nexus/tmp/epic-<n>/`
+5. **`.nexus/tmp/` is gitignored.** `/nxs.epic` drafts a planning run's scratch under `.nexus/tmp/planning/`, and the resolver materializes epics under `.nexus/tmp/epic-<n>/`
    — both assume the tree already excludes `.nexus/tmp/` from version control. Making that true is
    this stage's job, done once, rather than a check every planning run repeats: if `.gitignore` has
    no `.nexus/tmp/` line (exact match, any leading `/`), append one. Idempotent — do nothing when

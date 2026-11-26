@@ -18,7 +18,7 @@ checkpoint stop and the pull-request opening stay in the base stage.
 
 `--recover <epic-issue>` rebuilds that one entry from durable GitHub state when the local copy is
 gone (a different machine, a cleared `.nexus/tmp/`, a run days after the close). Recovery is an
-**explicit per-entry path, never a discovery source** (record #176, invariant 14): the no-argument
+**explicit per-entry path, never a discovery source**: the no-argument
 scan never queries closed epic issues looking for undistilled closes. The lead knows which epic they
 are recovering, so an explicit invocation is sufficient and bounded.
 
@@ -27,7 +27,7 @@ are recovering, so an explicit invocation is sufficient and bounded.
    materialized `epic.md` under `.nexus/tmp/epic-<n>/`. A resolver failure is that diagnostic,
    reported verbatim; stop.
 2. **Take the *why* and the *what*-facts from the epic issue's close comment**. That comment is
-   the durable close record in every mode, local and `--pr` alike (record #176, invariant 4/5).
+   the durable close record in every mode, local and `--pr` alike.
    Fetch the epic issue's comments. Take the newest one authored by a maintainer of the
    repository the epic lives in (`authorAssociation` `OWNER`/`MEMBER`/`COLLABORATOR`) whose
    `<!-- nexus:close-record -->` marker opens a line outside a quote or code block and whose machine block stamps this epic
@@ -50,7 +50,7 @@ are recovering, so an explicit invocation is sufficient and bounded.
    the recovered range, Phase 5.6 re-aims the committed removal at the scratch dir. The record's
    rationale is read from the same sections as in an ordinary run: Phase 0 lists the verified
    body's parts with `nexus record-sections --body <why file>`, so a new-format record gives its
-   decisions, their reasons and its Concept-store changes, and an old-format one reads as before.
+   decisions, their reasons and its Concept-store changes, and an old-format one is read whole.
 3. **Where the epic has a linked PR**, recover the analyze verdict from that pull request rather
    than treating conformance as unknown. The verdict is whatever the command returns:
 
@@ -59,11 +59,10 @@ are recovering, so an explicit invocation is sufficient and bounded.
     ```
 
    `<range-repo>` is the `repo` of the recovered `range:` entry naming that pull request — the
-   repository the pull request lives in, which is what the command runs its trust check against
-   (record #750, invariant 9). **Report what it returns and read nothing else** — never open the
+   repository the pull request lives in, which is what the command runs its trust check against.
+  **Report what it returns and read nothing else** — never open the
    pull request's reviews and comments to pick a block by hand. A pull request may carry several
-   published blocks, and which one is its verdict is the command's decision, not yours (record
-   #750, invariant 8). `found: false` is a pull request carrying no verdict, which leaves the close
+   published blocks, and which one is its verdict is the command's decision, not yours. `found: false` is a pull request carrying no verdict, which leaves the close
    comment's verdict standing. Otherwise the close comment's verdict and the returned `receipt`
    must agree, and the returned one is the tie-breaker, because it is the surface
    `nexus close` itself read.
@@ -72,6 +71,6 @@ are recovering, so an explicit invocation is sufficient and bounded.
    closed", and never process them with fabricated or empty rationale:
     - `no-close-comment`: the epic issue has no trusted close comment (or none carrying the
       machine block), so there is no durable rationale anywhere. Nothing is written.
-    - `range-unresolvable` (invariant 11): the recovered range cannot be resolved locally and
+    - `range-unresolvable`: the recovered range cannot be resolved locally and
       no PR resolves its head. Never a silent empty diff, never a partial one, never an
       invented range.

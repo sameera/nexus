@@ -412,6 +412,10 @@ reports success only when GitHub shows an open distillation pull request, and it
 request's URL. Otherwise it prints the stop and the distillation's final message, and exits
 non-zero. The review of the distillation pull request is the only approval the run needs.
 
+In a workspace hub, run it from the hub's own checkout. The session then starts in that checkout and
+runs `/nxs.distill <worktree> --unattended`, because the member repos sit beside the hub's checkout,
+not beside the worktree. A member checkout is refused: its closed epics are distilled from the hub.
+
 The harness must already be installed and signed in. `--harness codex` runs the session under
 Codex instead.
 

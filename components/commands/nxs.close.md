@@ -8,8 +8,8 @@ model: inherit
 
 # Role
 
-Relay one close to `nexus close`. Close is now a plain command: it runs no model and asks
-nothing. Everything it used to ask must already be on the pull requests and recorded by
+Relay one close to `nexus close`. Close is a plain command: it runs no model and asks
+nothing. Every answer it needs must already be on the pull requests and recorded by
 `/nxs.analyze --pr <N>` before it runs. This document only passes the lead's arguments through
 and shows the result.
 

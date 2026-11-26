@@ -22,8 +22,8 @@ copying a release.
 what a stage does — its instructions, its gates, its refusals, or an agent or skill it loads —
 increments `version` in the root `package.json` and adds the matching `CHANGELOG.md` entry, in the
 same commit as the change. That version is the only signal an adopter gets, because the components
-no longer appear in their own diff. Version against adopter-visible stage behaviour, not the size of
-the diff: a stage that now decides something differently is a minor release even if one line moved.
+are installed from a release and never appear in the adopter's own diff. Version against
+adopter-visible stage behaviour, not the size of the diff: a stage that now decides something differently is a minor release even if one line moved.
 A typo fix or a comment-only edit is not substantive and needs no bump. The full release loop is in
 `docs/delivery/release-procedure.md`.
 
@@ -44,12 +44,8 @@ Guidelines:
 - Test user-visible behavior and interactions — not implementation.
 - Assert on outcomes, not internal component details.
 - Don't assert on exact strings unless the exact text is itself the requirement.
-- Don't assert on CSS classes, styles, or layout/positioning — unless styling is the feature.
-  For the terminal emulator, rendered output (character grid, colors, cursor) often _is_ the
-  user-visible behavior; assert it as the user perceives it, not through implementation-specific
-  DOM.
-- Don't test component internals: state, private methods, or DOM structure.
-- Keep tests resilient to refactors by matching how a real user experiences the UI.
+- Don't test internals: private functions, intermediate state, or module structure.
+- Keep tests resilient to refactors by matching how a user experiences the CLI and its output.
 
 After implementation, application source at **95% test coverage**. Treat coverage as a
 signal, not a score to game — never add internal-facing tests solely to move the number. If a

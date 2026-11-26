@@ -5,6 +5,47 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.22.0
+
+- **When `distill` blocks an entry because its decision record was revised after close, it now
+  names the recovery `nexus close --recover` runs.** The block message tells the lead to re-approve
+  the record, give each merged pull request a verdict against the new revision or a trusted waiver,
+  and run `nexus close --recover <epic>`. It no longer tells the lead to re-stamp the record hash by
+  hand. `decision-record` names the same recovery when it revises the record of a closed epic.
+- **`epic` hands its planning gate the draft epic and its source, and the gate reads them
+  directly.** The gate no longer looks for an epic inside a queue entry, which does not exist
+  until close.
+- **The product-manager agent that `council` and the other stages call is now chosen by its full
+  description.** It recommends `/nxs.epic` and `/nxs.decision-record` for significant decisions,
+  instead of decision and feature files in the docs tree, and it looks for prior decisions in the
+  record sub-issues of related epics.
+- **The asset-store and document-link guidance that `epic`, `decision-record` and `hld` load now
+  carries a description,** so Claude Code lists each one by what it does.
+- **`/nxs.code-review` groups and numbers findings through `nexus review-rank`.** The review still
+  rates each finding on the same four scales, and says whether its fix needs a decision or rests on
+  a judgment call. The new command applies the fixed group rules and numbering order and recommends
+  the verdict, so the same ratings always give the same groups, numbers and recommendation. The
+  installed `nexus` must be this release or later. `nexus review-rank` refuses a `needsDecision`
+  or `judgmentCall` value that is not `true` or `false`, instead of reading it as false.
+- **`distill` in a hub now finds the member repositories when the session starts inside close's
+  worktree.** It takes the hub root from the hub repository's main checkout, not from the folder
+  the session started in, so a run started inside the worktree no longer stops with
+  `missing-checkout`.
+- Every stage's instructions now state each rule as it stands. They no longer cite Nexus's own
+  issue numbers, which in an adopter's repository point at the adopter's own issues, and no longer
+  describe a rule as a change from an earlier version. No stage decides anything differently.
+
+## 1.21.0
+
+- **`nexus distill` now runs in a workspace hub.** Run it from the hub's own checkout, as in a
+  single-repo checkout. The session starts in the hub's checkout and runs `/nxs.distill` on the
+  worktree `nexus close` prepared, unattended, because the member repositories sit beside the hub's
+  checkout and not beside the worktree. A member checkout is still refused, and the refusal now
+  names the hub as the place to run it.
+- **`distill` in a hub reads each member repository's changes from the checkout beside the hub,
+  also when it is given a worktree path.** Before, a run given close's worktree could look for the
+  member checkouts beside that worktree and stop because they were missing.
+
 ## 1.20.0
 
 - **Breaking: `features-as-issues` is removed and `github.features` is the only way to record

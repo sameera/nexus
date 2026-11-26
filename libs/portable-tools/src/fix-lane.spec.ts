@@ -41,8 +41,8 @@ describe("/nxs.fix delegates reference and range resolution to the shared skill 
         expect(FIX).not.toMatch(/`\.nexus\/tmp\/epic-<n>\/` already exists/);
     });
 
-    it("gains the intake collision it did not check before (story #541)", () => {
-        expect(FIX).toMatch(/catches a number that already carries an \*\*intake\*\* entry/);
+    it("refuses a number that already carries an intake entry (story #541)", () => {
+        expect(FIX.replace(/\s+/g, " ")).toMatch(/shadowing another kind's materialization for the same number, an intake entry included/);
     });
 
     it("substitutes its own command name into the shared member-checkout refusal", () => {
@@ -343,7 +343,7 @@ const ANALYZE: string = body("nxs.analyze.md");
 
 describe("/nxs.analyze refuses a fix entry (story #270, inverted to run only for an epic entry by story #489)", () => {
     it("stops on any non-epic entry_kind and says the check is undefined, not optional", () => {
-        expect(ANALYZE).toMatch(/The kind set is closed \(`epic`, `fix`, `intake`, record #504\)/);
+        expect(ANALYZE).toMatch(/The kind set is closed \(`epic`, `fix`, `intake`\)/);
         expect(ANALYZE).toMatch(/does not run against a <kind> entry/);
         expect(ANALYZE).toMatch(/acceptance criteria, its success metrics, and a decision record's invariants/);
         expect(ANALYZE).toMatch(/none of the three/);

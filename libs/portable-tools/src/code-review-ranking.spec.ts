@@ -4,14 +4,15 @@
  * The findings come only from Claude Code's own `/code-review`, run without its posting or fixing
  * options and with the lead's effort level passed through (D1: G1, G2, G3, G4, G8, G14). The run
  * refuses when that review cannot be run (D5: G20). Each finding is moved to its line at the pull
- * request's head before ranking (D6: G6), and the rating scales, group rules and numbering order
- * ship fixed in the skill (D2: G5, G7, G16, G17). The skill ships under the name a personal skill
+ * request's head before ranking (D6: G6). The rating scales ship fixed in the skill (D2: G5); the
+ * group rules and numbering order run in `nexus review-rank` (G7, G16, G17), pinned in its own spec. The skill ships under the name a personal skill
  * may already use, so installing replaces it (G15).
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { DISPATCH_NAMES } from "./nexus-cli.js";
 import { authoredComponentRoot } from "./vendor-components.js";
 
 const ROOT: string = authoredComponentRoot(__dirname);
@@ -108,10 +109,9 @@ describe("/nxs.code-review shows each finding at its line at the pull request's 
     });
 });
 
-describe("/nxs.code-review rates, groups and numbers findings by fixed rules (D2)", () => {
+describe("/nxs.code-review rates findings on fixed scales and ranks them through nexus review-rank (D2)", () => {
     const scales: string = section("## Rating scales");
-    const groups: string = section("## Group rules");
-    const numbering: string = section("## Numbering order");
+    const rank: string = section("## Group and number");
 
     it("defines a scale for each of the four axes (G5)", () => {
         expect(scales).toMatch(/Probability.*certain.*high.*medium.*low/s);
@@ -145,24 +145,22 @@ describe("/nxs.code-review rates, groups and numbers findings by fixed rules (D2
         expect(scales).toMatch(/\*\*Negligible\*\*: performance or tidiness only/);
     });
 
-    it("checks the four groups in a fixed order and puts each finding in the first one it matches (G7, G16)", () => {
-        const order: number[] = ["Follow-up issues", "Fix in this pull request", "Fix if the author agrees", "Optional"].map((g) =>
-            groups.indexOf(`**${g}**`),
-        );
-        expect(order.every((i) => i > -1)).toBe(true);
-        expect([...order].sort((a, b) => a - b)).toEqual(order);
-        expect(groups).toMatch(/first group it matches/);
-        expect(groups).toMatch(/exactly one group/);
+    it("hands grouping and numbering to nexus review-rank, a name the executable answers to (G7, G16, G17)", () => {
+        expect(rank).toMatch(/nexus review-rank --ratings \S+/);
+        expect(DISPATCH_NAMES).toContain("review-rank");
+        expect(rank).toMatch(/Use its numbers and groups as printed/);
     });
 
-    it("numbers findings by group, then severity, probability and lowest effort, with ties in review order (G7, G17)", () => {
-        expect(numbering).toMatch(/fix in this pull request, fix if the author agrees, optional, follow-up issues/);
-        expect(numbering).toMatch(/severity, highest first, then probability, highest first, then fix effort, lowest first/);
-        expect(numbering).toMatch(/Ties keep the order/);
+    it("rates in review order and records the two judgments the rules need", () => {
+        expect(rank).toMatch(/in the order Claude Code's review returned them/);
+        const judgments: string = section("## Two judgments the rules need");
+        expect(judgments).toMatch(/needsDecision/);
+        expect(judgments).toMatch(/judgmentCall/);
     });
 
-    it("lets no finding lose its group to judgment: one that fits no earlier rule lands in a later group", () => {
-        expect(groups).toMatch(/every remaining finding/);
+    it("does not restate the group rules, so the skill and the executable cannot disagree", () => {
+        expect(BODY).not.toMatch(/first group it matches/);
+        expect(BODY).not.toMatch(/Ties keep the order/);
     });
 });
 

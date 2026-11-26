@@ -18,7 +18,7 @@ review cycles, so it was not being recorded at all. It buys that cheapness with 
 bound, **the razor**: a fix may append one decision log entry to a page that already exists, and
 nothing else. It may not create a page, retire one, or change what a page asserts. A change that
 needs to alter what a page asserts is a **design change**, and it keeps taking `/nxs.epic`. The
-razor is enforced mechanically at the drain, not here (`/nxs.distill`, invariant 13) — your own
+razor is enforced mechanically at the drain by `/nxs.distill`, not here — your own
 razor check is advisory and fails soft.
 
 **Finish line:** the fix entry's two files are written and the Phase 7 report is printed.
@@ -49,10 +49,9 @@ taken from that pull request. Only the *qualification* may be added, in Phase 4.
 
 # Phase 2 — Apply the shared epic-classification and collision refusal
 
-Both refusals guard the same failure as before: a fix entry silently shadowing another kind's
-materialization for the same number. Apply the **`nxs-landed-reference`** skill's **Section E**,
-loaded already in Phase 0/1, substituting `/nxs.fix` for `<lane-command>`. The check now also
-catches a number that already carries an **intake** entry, which this lane did not check before.
+Both refusals guard one failure: a fix entry silently shadowing another kind's materialization
+for the same number, an intake entry included. Apply the **`nxs-landed-reference`** skill's **Section E**,
+loaded already in Phase 0/1, substituting `/nxs.fix` for `<lane-command>`.
 
 # Phase 3/4 — Resolve the range, or ask, then qualify the reference
 

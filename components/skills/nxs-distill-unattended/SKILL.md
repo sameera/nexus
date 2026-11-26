@@ -7,8 +7,7 @@ description: The unattended-run contract of /nxs.distill. Read it only when `--u
 
 `/nxs.distill --unattended` says, once, on the command line, that nobody is here to answer this
 run's questions — an explicit answer given in advance, never inferred from a non-interactive
-session (decision record #818, D1). The close-and-distill command (`utils/close-epic.sh`, story
-#817) always passes this flag when it starts distill; a lead invoking `/nxs.distill` directly
+session. The close-and-distill command (`utils/close-epic.sh`) always passes this flag when it starts distill; a lead invoking `/nxs.distill` directly
 chooses whether to pass it. Without the flag, every phase runs exactly as the base stage states it,
 whoever is or is not watching — this contract is read only when the flag is present.
 
@@ -20,7 +19,7 @@ this file does not name runs exactly as the base stage or its other loaded contr
 ## The blocking-condition table
 
 **Every point where an ordinary run calls `AskUserQuestion` is, under this flag, a blocking
-condition instead — never answered, never defaulted, never waived** (D2, G2):
+condition instead — never answered, never defaulted, never waived**:
 
 | Question point | Phase | Under `--unattended` |
 |---|---|---|
@@ -29,7 +28,7 @@ condition instead — never answered, never defaulted, never waived** (D2, G2):
 | Hub provenance question (`nxs-distill-hub` Phase 0.6) | 0.6 | Same: it stops the whole run. |
 | Taxonomy forced-fit gate (`nxs-distill-taxonomy` Phase 6.1) | resolved here, right after Phase 3, before Phase 4 cuts a branch | Any forced-fit delta, in any entry, stops the whole run before a branch is ever cut or a commit made. |
 
-Every row stops the **whole run** and opens no pull request (D2): a question the run would have
+Every row stops the **whole run** and opens no pull request: a question the run would have
 asked about one entry is still a question nobody answered, so no entry drains past it.
 
 The base stage's existing run-level stops are blocking conditions too, unchanged in when they
@@ -56,7 +55,7 @@ loaded, so no delta carries a domain-fit classification).
 
 Once every entry's deltas are drafted (Phase 3), before Phase 4 does anything — no branch, no
 commit — collect every `create` delta, across every entry, that contract classified as a forced
-fit. Any such delta stops the whole run right here (D2, G2, G7): record it as a blocking condition
+fit. Any such delta stops the whole run right here: record it as a blocking condition
 naming every forced-fit concept, and go straight to the stop report
 below. Nothing this run has done up to this point ever touched git, so there is nothing to unwind.
 
@@ -72,9 +71,7 @@ later entry blocks.
 
 ## Phase 5 step 5 — the validator's unattended outcome
 
-A blocking finding this stage cannot resolve by fixing the page is a blocking condition (D2, G2,
-G6), never left half-fixed. Earlier entries this run's loop already committed must be undone first
-(G7):
+A blocking finding this stage cannot resolve by fixing the page is a blocking condition, never left half-fixed. Earlier entries this run's loop already committed must be undone first:
 
 - **`START_REF` was the trunk** (this run cut its own branch) → `git checkout "$START_REF"` then
   `git branch -D` the distill branch. Every commit this run made is gone with it.
@@ -87,18 +84,18 @@ Then go to the stop report below. Nothing is pushed either way.
 ## Phase 6 — the checkpoint is skipped
 
 The flag is the lead's own approval, given in advance, to open the pull request once drafting
-finishes with no blocking condition (D1, G1). Phase 6.3's run summary is still written in full —
+finishes with no blocking condition. Phase 6.3's run summary is still written in full —
 the pull request description below reads it — only the `AskUserQuestion` stop itself is skipped.
 
 ## Phase 7 — the pull request description
 
 The body is the base stage's Phase 7 layout, unchanged — its run summary already renders every
-Phase 6.3 field (D3, G8), so a reviewer of this checkpoint-skipped run sees exactly what the
+Phase 6.3 field, so a reviewer of this checkpoint-skipped run sees exactly what the
 checkpoint would have shown. The `waived` line is always absent here: a not-merged entry stops the
 run rather than being waived.
 
 As the first line of the body, state: this run opened without a checkpoint (`--unattended`); this
-review is its only approval (G9).
+review is its only approval.
 
 ## Phase 8 — the stop report
 

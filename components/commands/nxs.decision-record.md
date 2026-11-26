@@ -20,12 +20,12 @@ every stage downstream of it.
 
 **The design spans the whole epic, not a single story.** One record covers the epic. Its decisions
 and guarantees must hold across every story; that is what coverage means. The **story** is the unit
-of *implementation* and of the GitHub issue (0009), and there is no task layer below it. The story is
+of *implementation* and of the GitHub issue, and there is no task layer below it. The story is
 not the unit of design. Read all stories together and design for the epic.
 
 You delegate the analysis to the `nxs-architect` agent, then format its output into the
 decision-record template the installed release ships, and file it as the record sub-issue. For an old-contract epic that has a
-committed queue entry, write the record into that entry as before.
+committed queue entry, write the record into that entry.
 
 **Finish line:** the record is filed as a sub-issue of the epic, closed as approved or left open
 for review, and the Phase 5 report is printed. **Gates:** the no-record confirmation when the epic
@@ -53,7 +53,7 @@ approval"). The doc supplies the *why*; the queued `epic.md` still supplies the 
 cover. Strip the `--from <path>` token before resolving the entry path from the rest of `$ARGUMENTS`.
 
 **As-built mode (`--as-built <pr>`).** Only the retroactive `nexus implement` run selects this
-mode (epic #1041, decision record #1051, D6), always together with `--from <path>` naming the
+mode, always together with `--from <path>` naming the
 as-built design document it wrote. `<pr>` is the run's pull request. Refuse, filing nothing, unless
 the epic has no decision record sub-issue and the named pull request is open, its head branch is
 `nxs/epic-<epic>`, and its body states that the epic was built without a decision record. In this
@@ -65,7 +65,7 @@ mode every interactive stop is replaced by a defined run decision:
   never supply one.
 - Run the shared draft checker as in every run; its blocking findings still block filing.
 - If anything would be placed under "Resolve before approval" — a BLOCKER risk, or an ADDRESS risk
-  another epic delivers that nobody has accepted — file nothing and stop, naming those items (D7).
+  another epic delivers that nobody has accepted — file nothing and stop, naming those items.
   "Before implementation" is empty by construction, because the build is done.
 - Skip the Phase 3.5 checkpoint. File the record as drafted: the body opens, after its title, with
   this paragraph, with `<pr>` as the pull request reference:
@@ -78,7 +78,7 @@ mode every interactive stop is replaced by a defined run decision:
 - End by listing the checkpoint's "what the model added" lines and the checker's observations, so
   the run can quote them onto its pull request.
 
-Run by hand without `--as-built`, the stage stops at every gate exactly as before: the no-record
+Run by hand without `--as-built`, the stage stops at every gate: the no-record
 confirmation, the clarification gate, the pre-filing checkpoint and the approval gate.
 
 **Revision mode (`--revise`).** If `$ARGUMENTS` contains `--revise` (string-matched), the epic's
@@ -146,8 +146,8 @@ Run the phases in order.
 ## Phase 0 — Resolve the epic (dual-read: committed entry, else resolve from the issue)
 
 The epic and its story issues already exist (filed by `/nxs.epic`). Obtain the epic from a committed
-queue entry (an old-contract epic, including #114 itself). When nothing was committed at planning
-(#114), resolve its issue number through the resolver instead. `/nxs.decision-record` **reads** the
+queue entry (an old-contract epic). When nothing was committed at planning,
+resolve its issue number through the resolver instead. `/nxs.decision-record` **reads** the
 epic; it never hard-fails with "queue entry not found" just because planning committed nothing.
 
 1. **Explicit path**: if `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
@@ -161,15 +161,14 @@ epic; it never hard-fails with "queue entry not found" just because planning com
     A `.nexus/queue/epic-<n>/` holding only per-user decision scratch (`--revise` on an epic already
     in implementation) is **not** a committed entry, which is why `epic.md` is required.
 
-    - **≥1 entry** → today's behavior: **1** → use it; **>1** → read each `epic.md` title and ask
+    - **≥1 entry** → **1** → use it; **>1** → read each `epic.md` title and ask
       which via `AskUserQuestion` (label = epic title, description = queue path + complexity). Record
-      `QDIR`. This is the path #114's own entry (and any other old-contract epic) takes. The resolver
-      path (invariant 14) applies to epics planned after the migration.
+      `QDIR`. Old-contract epics take this path; every other epic takes the resolver path.
     - **0 entries** → go to step 3.
 3. **Resolve from the issue number**: no committed entry exists, so reconstruct the epic (invariant
    11: zero reads of a committed planning file; the story set + success metrics come from the live
    GitHub issue state at resolve time):
-    - **Epic issue number (invariant 12):** the explicit `#<n>` / `<n>` in `$ARGUMENTS` if given.
+    - **Epic issue number:** the explicit `#<n>` / `<n>` in `$ARGUMENTS` if given.
       Otherwise derive it from the current branch's linked issue: the issue its open PR closes, then
       that issue's **parent epic** (`gh pr view --json ...` for the branch's PR and its closing issue;
       or the `#<n>` in the branch name). If you cannot determine it unambiguously, ask the user for
@@ -187,8 +186,8 @@ epic; it never hard-fails with "queue entry not found" just because planning com
 4. `QDIR` **must** contain `epic.md`. If it does not, ERROR. Stop.
 
 **Decision-record home.** On the **committed-entry** path (an old-contract epic), `QDIR` is the
-committed queue entry and the record is committed there as today. On the **resolver** path the
-record's home is a **sub-issue of the epic issue** (#139); see Phase 4. On that path
+committed queue entry and the record is committed there. On the **resolver** path the
+record's home is a **sub-issue of the epic issue**; see Phase 4. On that path
 **no `decision-record.md` is written anywhere**.
 
 ## Phase 0.2 — Does this epic warrant a decision record?
@@ -199,7 +198,7 @@ That is what makes an epic filed by hand outside Nexus, with no label and no rec
 
 1. Resolve the target repo and the label names **through the shared publishing resolver**, never by
    parsing `settings.yml` yourself. The epic issue may live in a repo other than the one this
-   command runs in, exactly as `/nxs.close` Phase 1.0 resolves it:
+   command runs in:
 
     ```bash
     ISSUES_REPO="$(nexus config resolve epic-repo --root "<root>")"
@@ -276,7 +275,7 @@ and revision) and needs no flag: the epic issue either carries marked comments o
 
     `$REPO_ARG` is the resolved issues-repo from Phase 0.2.
 
-2. **No marked comment** → this epic did not come from a discovery. Continue exactly as today: no
+2. **No marked comment** → this epic did not come from a discovery. Continue with no
    new prompt, no new question, and **no empty section** anywhere in the record. Skip the rest of
    this phase.
 
@@ -313,7 +312,7 @@ nexus initiative-context lookup --issue <epic-issue> --out "${QDIR}/initiative-c
   reads the initiative issue only, never the checkout. `context-missing` names the initiative and the
   part that is missing; `comments-unreadable` means its comments could not be read; `legacy-folder`
   means its body still names a context folder, which must be moved onto the issue.
-- **`no-initiative`**: the epic has no initiative above it. Continue exactly as today: no new prompt,
+- **`no-initiative`**: the epic has no initiative above it. Continue with no new prompt,
   no new question, and **no empty section** anywhere in the record. Skip the rest of this phase.
 - **`body-only`**: say that no additional context was found. Keep the initiative's body, which the
   lookup wrote to `${QDIR}/initiative-context.md`, as **`INITIATIVE_CONTEXT`** for Phase 1.
@@ -522,7 +521,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     nothing. Printing nothing means the `nexus` on the path predates the template lookup; the remedy
     is to upgrade the release, or for a maintainer to rebuild it. Do not look for the template
     anywhere else.
-2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
+2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup
    and selects the **required-section tier**. Apply the tier explicitly, not as a heuristic. If
    `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta`
    block), default to **L**: require all sections rather than risk under-documenting.
@@ -677,8 +676,8 @@ and that body is the artifact the record hash is taken over. So:
   issue timeline. Anything in the body that churns for a non-design reason (a re-run date, a rating
   recomputed upstream) would produce false staleness and block a close for no reason.
 - Start the body at the `# Decision Record: <epic title>` heading.
-- **Old-contract epics only** (the committed-entry path) keep the template's frontmatter, exactly as
-  today: `rating` = the epic's `complexity`; `epic` = the epic issue ref, bare, because this entry's
+- **Old-contract epics only** (the committed-entry path) keep the template's frontmatter:
+  `rating` = the epic's `complexity`; `epic` = the epic issue ref, bare, because this entry's
   own `issues_repo`, when the epic was filed into one, names what it resolves against;
   `feature`/`title`/`date`; and `concepts:` carried over from the epic.
 
@@ -785,7 +784,7 @@ the planning gate.
 
 **An old-format revision** (drafted from the old-format template in Phase 3, step 1) is read by its
 old sections: every refuted alternative under Key Decisions, and every invariant and every risk the
-model added. Its approved lines are marked frozen exactly as before. The checker tells the two
+model added. Its approved lines are marked frozen. The checker tells the two
 formats apart by their headings, so the stage passes the same flags for both. Nothing converts an old
 record to the new format.
 
@@ -891,7 +890,7 @@ it is gone before any issue is created or updated.
   renumbering would make every later citation name the wrong item. Note the ID of each cut guarantee
   and risk (`G3`, `R2`), and pass them to Phase 3.6 as `--cut`. Do not edit a line that cites a cut
   ID yet: the derive step names every such line, and the lead fixes each one.
-- **An old-format revision renumbers, as before.** Renumber its invariant list without gaps, and
+- **An old-format revision renumbers its invariants.** Renumber its invariant list without gaps, and
   check that no surviving prose refers to a cut item by its old number.
 
 A reviewer may cut every line, including every guarantee; the section then files empty or is omitted
@@ -980,7 +979,7 @@ coverage-verified there. Phase 0.2 and the `--revise` token select *which* filin
 file, and filing a stale one would overwrite a live record.
 
 **Old-contract path (a committed queue entry):** write the filled template to
-`${QDIR}/decision-record.md` exactly as today and skip the rest of this phase. Both paths coexist;
+`${QDIR}/decision-record.md` and skip the rest of this phase. Both paths coexist;
 in-flight entries clear on their own.
 
 **Issue-sourced path (the norm):** the record's durable home is a **sub-issue of the epic issue**,
@@ -1079,7 +1078,7 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
     ```
 
 8. **A workbook that teaches this epic pins its sources from the closed record.** That pinning is
-   the teaching stage's step, not this one — the teaching stage ships as its own package now, and a
+   the teaching stage's step, not this one — the teaching stage ships as its own package, and a
    stage does not drive a verb it does not ship. Nothing here does it and nothing here waits for it.
    Say in the Phase 5 report that the record is closed and available to be pinned from, so a lead
    who is teaching this epic knows the material is fixed; a lead who is not can ignore the line.
@@ -1190,8 +1189,8 @@ Report the revision in the run-discipline skill's layout:
 committed `close-record.md` stamped the superseded hash, so `/nxs.distill` will hard-error that
 entry. There is deliberately no drain-side waiver. Recovery is the named procedure `/nxs.close` §
 **"Recovery — re-stamp a closed entry whose record was revised after close"**: re-approve (done
-above), re-stamp `record_hash`, rewrite the close record's Key Decisions / Deviation Rationale if
-the design and not just the wording moved, then re-run the drain.
+above), give each merged pull request a verdict against the new revision or a trusted waiver, run
+`nexus close --recover <epic>`, then re-run the drain.
 
 ## Phase 5 — Report
 
@@ -1235,12 +1234,12 @@ Report concisely, in the run-discipline skill's layout:
 # Constraints
 
 - **The record is not an HLD. No per-task LLD, no task index, no `story_ref`**: the story is the
-  implementation unit (0009) and `/nxs.tasks` is cut (0010). The record holds the decisions and
+  implementation unit and there is no task layer. The record holds the decisions and
   their why; the step toward implementation after it is `/nxs.hld`, which renders a page derived
   from the filed record and never writes into it. A design split changes an existing
   story's scope, not a new task. It is recorded as an Epic commitment affected for the lead to apply.
 - **Human prose only.** System A emits no machine artifact; the distiller (System B) derives the
-  ConceptDelta later from the record + close record and the diff (0006). On the issue-sourced path
+  ConceptDelta later from the record + close record and the diff. On the issue-sourced path
   the body carries **no frontmatter and no hidden machine comment**, because the body is the hashed
   artifact.
 - **One record per epic, and exactly one copy of it.** A re-run targets the existing record
@@ -1254,8 +1253,8 @@ Report concisely, in the run-discipline skill's layout:
   superseded, dated. So every previously approved state is reconstructible from the comment trail
   alone. Describing the change instead of embedding it would lose the state, because the platform's
   own edit history is not reliably retrievable by tooling.
-- **Never write `docs/`.** `docs/` is permanent human artifacts only (0005). An old-contract epic's
-  record stays in its committed queue entry, as today.
+- **Never write `docs/`.** `docs/` is permanent human artifacts only. An old-contract epic's
+  record stays in its committed queue entry.
 - **An asset is a picture of a decision, never a substitute for its why.** With `--assets` the
   body still carries every rationale in prose. The files are published to the declared store only
   after the Phase 3.5 checkpoint is answered with an approval, each reference pins the commit that
@@ -1275,14 +1274,14 @@ Report concisely, in the run-discipline skill's layout:
 - **Discovery gists are an input, never a substitute.** The marked comments on the epic issue are
   read as decisions the discovery already settled, and the command still runs its own architectural
   analysis and still checks story coverage. It **never edits or removes** those comments, and it
-  reads **only** the marked ones. An epic with no marked comment behaves exactly as before: no new
-  prompt, no empty section.
+  reads **only** the marked ones. An epic with no marked comment gets no new
+  prompt and no empty section.
 - **The initiative's context is settled input, never a substitute.** An epic under an initiative
   with a kept context is designed on top of the decisions that context made: each appears in the
   record as decided, with its reasoning, or as an Open Clarification when the context gives none.
   The epic wins a disagreement, and the record names the departure. A checkout that lacks a context
-  the initiative names stops the run before drafting. An epic with no initiative above it behaves
-  exactly as before.
+  the initiative names stops the run before drafting. An epic with no initiative above it gets
+  no initiative prompt and no initiative section.
 - **`--from` imports a design doc; it does not copy it.** The doc is the authoritative *why*
   source, but the record it produces is still abstracted domain prose (no code / file paths / type
   names) covering every story, and every decision still carries its *why*. A doc that states a
