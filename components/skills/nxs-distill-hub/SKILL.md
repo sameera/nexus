@@ -17,6 +17,15 @@ not name runs exactly as the base stage states it.
 Nothing here writes to GitHub, the concept store, the queue or a branch on its own. Branch creation,
 the checkpoint stop and the pull-request opening stay in the base stage.
 
+## The hub root
+
+The **hub root** is the checkout this session started in: `git rev-parse --show-toplevel` run once,
+before any command names a worktree. The member checkouts are the directories beside it. In the
+worktree form (`/nxs.distill <worktree-path>`), the worktree is never the hub root. It usually sits
+under a temporary directory, so the directories beside it are not the member checkouts, and the diff
+reader would stop with `missing-checkout`. Every `<hub-root>` and every member checkout below uses
+this resolved value, even when the command itself runs inside the worktree.
+
 ## Input Resolution 3 — the drain-SLO report spans the whole hub queue
 
 Every undrained entry (skipped-not-closed and blocked-underivable alike) is listed, and each is

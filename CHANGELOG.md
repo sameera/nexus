@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.21.0
+
+- **`nexus distill` now runs in a workspace hub.** Run it from the hub's own checkout, as in a
+  single-repo checkout. The session starts in the hub's checkout and runs `/nxs.distill` on the
+  worktree `nexus close` prepared, unattended, because the member repositories sit beside the hub's
+  checkout and not beside the worktree. A member checkout is still refused, and the refusal now
+  names the hub as the place to run it.
+- **`distill` in a hub reads each member repository's changes from the checkout beside the hub,
+  also when it is given a worktree path.** Before, a run given close's worktree could look for the
+  member checkouts beside that worktree and stop because they were missing.
+
 ## 1.20.0
 
 - **Breaking: `features-as-issues` is removed and `github.features` is the only way to record

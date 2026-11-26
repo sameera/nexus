@@ -51,10 +51,14 @@ export const UNATTENDED_CLAUSE =
     "asking which option to take, and never wait for a decision. If the stage cannot proceed, state in " +
     "your final message what blocked it and stop.";
 
-/** The fixed prompt every session gets (G9): nothing read from GitHub or the worktree goes into it. */
-export function sessionPrompt(harness: DistillHarness): string {
+/**
+ * The prompt every session gets (G9): fixed text, plus, in a hub, the path git reports for close's
+ * worktree. Nothing read from GitHub or from inside the worktree goes into it.
+ */
+export function sessionPrompt(harness: DistillHarness, worktree: string | null = null): string {
     const stage = harness === "codex" ? "$nxs-distill" : "/nxs.distill";
-    return `${stage} --unattended${UNATTENDED_CLAUSE}`;
+    const target = worktree === null ? "" : ` ${/\s/.test(worktree) ? JSON.stringify(worktree) : worktree}`;
+    return `${stage}${target} --unattended${UNATTENDED_CLAUSE}`;
 }
 
 /** What the lead named: a merged pull request of the epic, or the epic's own number (decision record #956, D2). */
@@ -194,14 +198,16 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
     const closeRerun = input.target.kind === "pr" ? `nexus close --pr ${prArg(input.target.pr)}` : `nexus close --epic ${input.target.epic}`;
     const rerun = input.target.kind === "pr" ? `nexus distill --pr ${prArg(input.target.pr)}` : `nexus distill --epic ${input.target.epic}`;
 
-    // 1. Single-repo checkouts only: the hub and member rules stay where /nxs.distill keeps them (G1).
+    // 1. A single-repo checkout or a workspace hub. A member's entries migrate to the hub at close,
+    //    so the hub distills them; the hub and member rules stay where /nxs.distill keeps them.
     const role = deps.role(input.cwd);
-    if (!role.ok) return refuse(role.error.message, "run nexus distill from inside a single-repo checkout");
+    if (!role.ok) return refuse(role.error.message, "run nexus distill from inside a single-repo checkout or a workspace hub");
     const { repoRoot } = role.preflight;
-    if (role.preflight.role !== "single-repo") {
+    const hub = role.preflight.role === "hub";
+    if (role.preflight.role === "member") {
         return refuse(
-            `this checkout is a workspace ${role.preflight.role}; nexus distill runs only in a single-repo checkout`,
-            "distill by hand: run /nxs.distill <worktree-path> from your session, or /nxs.distill inside the worktree nexus close prepared",
+            "this checkout is a member of a workspace; its closed epics are distilled from the hub",
+            "run nexus distill from the workspace hub",
         );
     }
 
@@ -267,16 +273,20 @@ export function preStart(deps: DistillDeps, input: DistillInput): { ok: true; pl
     }
 
     const permissionMode = input.permissionMode ?? DEFAULT_PERMISSION_MODE[input.harness];
-    const prompt = sessionPrompt(input.harness);
+    // A hub finds its member repos beside its own checkout, never beside close's worktree, so a hub
+    // session starts in the hub's main checkout and names the worktree, as a lead's own run does.
+    const prompt = sessionPrompt(input.harness, hub ? wtPath : null);
+    const cwd = hub ? mainRoot : wtPath;
+    const worktreeDir = hub ? ["--add-dir", wtPath] : [];
     const spec: SessionSpec =
         input.harness === "codex"
             ? {
                   command,
                   // Distill commits in the worktree, and git writes those commits into the shared git folder (G27).
-                  args: ["exec", "--sandbox", permissionMode, "--json", "--add-dir", deps.commonGitDir(repoRoot), ...input.harnessArgs, "--", prompt],
-                  cwd: wtPath,
+                  args: ["exec", "--sandbox", permissionMode, "--json", "--add-dir", deps.commonGitDir(repoRoot), ...worktreeDir, ...input.harnessArgs, "--", prompt],
+                  cwd,
               }
-            : { command, args: ["-p", prompt, "--permission-mode", permissionMode, "--output-format", "stream-json", "--verbose", ...input.harnessArgs], cwd: wtPath };
+            : { command, args: ["-p", prompt, "--permission-mode", permissionMode, ...worktreeDir, "--output-format", "stream-json", "--verbose", ...input.harnessArgs], cwd };
     const pr = input.target.kind === "pr" ? input.target.pr.number : null;
     return { ok: true, plan: { pr, epic, issuesRepo, branch: branch.branch, wtPath, mainRoot, files, spec, permissionMode } };
 }
