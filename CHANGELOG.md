@@ -25,7 +25,12 @@ behaviour says so.
   rates each finding on the same four scales, and says whether its fix needs a decision or rests on
   a judgment call. The new command applies the fixed group rules and numbering order and recommends
   the verdict, so the same ratings always give the same groups, numbers and recommendation. The
-  installed `nexus` must be this release or later.
+  installed `nexus` must be this release or later. `nexus review-rank` refuses a `needsDecision`
+  or `judgmentCall` value that is not `true` or `false`, instead of reading it as false.
+- **`distill` in a hub now finds the member repositories when the session starts inside close's
+  worktree.** It takes the hub root from the hub repository's main checkout, not from the folder
+  the session started in, so a run started inside the worktree no longer stops with
+  `missing-checkout`.
 - Every stage's instructions now state each rule as it stands. They no longer cite Nexus's own
   issue numbers, which in an adopter's repository point at the adopter's own issues, and no longer
   describe a rule as a change from an earlier version. No stage decides anything differently.

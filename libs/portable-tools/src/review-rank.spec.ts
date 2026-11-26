@@ -134,6 +134,15 @@ describe("nexus review-rank refuses input it cannot rank", () => {
         expect(r.err.join("\n")).toMatch(/finding 2.*severity.*critical/);
     });
 
+    it("refuses a needsDecision or judgmentCall that is not true or false, instead of reading it as false", () => {
+        for (const flag of ["needsDecision", "judgmentCall"]) {
+            const r = rank({ findings: [base, { ...base, [flag]: "true" }] });
+            expect(r.code).toBe(1);
+            expect(r.out).toEqual([]);
+            expect(r.err.join("\n")).toMatch(new RegExp(`finding 2.*${flag}`));
+        }
+    });
+
     it("refuses an empty list, a file that is not JSON, and a missing --ratings", () => {
         expect(rank({ findings: [] }).code).toBe(1);
         expect(rank("not json").code).toBe(1);

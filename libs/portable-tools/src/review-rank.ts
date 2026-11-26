@@ -27,7 +27,8 @@ export const REVIEW_RANK_USAGE: string = [
     "      then probability, highest first, then fix effort, lowest first; ties keep review order.",
     "      Prints { command, findings: [{ finding, number, group }], groups, recommendedVerdict }:",
     "      request-changes when a fix-now finding has high severity, else comment. Exits 2 without",
-    "      --ratings, and 1, printing nothing, when the file is unreadable, empty or off the scales.",
+    "      --ratings, and 1, printing nothing, when the file is unreadable, empty or off the scales,",
+    "      or when needsDecision or judgmentCall is present and not true or false.",
 ].join("\n");
 
 const SCALES = {
@@ -85,6 +86,11 @@ function readRatings(file: string): Rated[] | string {
     const rated: Rated[] = [];
     for (const [i, item] of list.entries()) {
         const x = (item ?? {}) as Record<string, unknown>;
+        for (const flag of ["needsDecision", "judgmentCall"] as const) {
+            if (x[flag] !== undefined && typeof x[flag] !== "boolean") {
+                return `finding ${i + 1}: ${flag} is ${JSON.stringify(x[flag])}, not true or false`;
+            }
+        }
         const r: Rated = {
             finding: i + 1,
             probability: 0,
