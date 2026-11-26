@@ -2,7 +2,7 @@
 title: "Ranked Pull Request Review"
 aliases: ["code-review skill", "ranked review", "review finding ranking", "fix-now and follow-up groups", "four rating axes", "body-only finding", "finding moved to its head line"]
 touches: ["review-posting-gate", "component-mirror"]
-last_updated_by: "#918"
+last_updated_by: "#963"
 status: active
 verification: verified
 ---
@@ -38,3 +38,7 @@ The lead sees the ranking before choosing any verdict. The skill changes no file
 ### 2026-10-16 — #918 — Findings come only from Claude Code's review, and the ranking rules ship fixed
 
 The skill has no review logic of its own. Claude Code's review is maintained with Claude Code, and a second review written inside Nexus would drift from it until the two disagreed. Where that review cannot be run, the skill refuses rather than review the code itself; making it work with Codex's own review is the follow-up epic #922. The rating scales, group rules and numbering order are fixed in the skill, so two runs on the same pull request group and number a finding the same way and the author can compare reviews. The base is the lead's personal skill, with three approved changes: the High and Medium severity wording, a group order that puts every finding in exactly one group, and the order inside a group. Low and Negligible severity keep the personal skill's wording. The skill, not the executable, moves each finding to its head line, because the lead must see head lines before choosing a verdict, and the posting check catches a wrong move. The skill ships as a skill folder of the same name, so installing replaces the personal skill. Refuted alternatives: review instructions written into the skill, which duplicate a maintained capability; axis and group names only, with the values left to model judgment, which lets two runs disagree; and an executable command that maps base lines to head lines, which adds a second command for little gain.
+
+### 2026-11-26 — #963 — The ranking is written for the author, and every rating value is defined
+
+A check of this skill against the lead's earlier personal skill found gaps. The rating scales named their values but did not define them, so two runs could read the same value differently. Each value on each scale now has a one-line definition. The review is now written for the pull request's author, not the lead, because the author is the person who acts on it. The review body has a fixed order: a verdict sentence, a table with one row per finding, the body-only findings, then a suggested order of work. Each inline comment starts with a short title, then says what goes wrong in a concrete case, then gives the fix. An inline comment carries no one-click suggestion. When the posting command reports that a failed post may have landed anyway, the skill shows that result and does not post again. No viable alternative was weighed.

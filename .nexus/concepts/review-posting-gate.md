@@ -2,7 +2,7 @@
 title: "Review Posting Gate"
 aliases: ["review post", "posting a ranked review", "checks before posting", "second review on the same head", "inline comment anchoring", "finding number tag"]
 touches: ["ranked-review"]
-last_updated_by: "#918"
+last_updated_by: "#963"
 status: active
 verification: verified
 ---
@@ -37,3 +37,7 @@ When the lead already reviewed the same head commit, the command posts nothing u
 ### 2026-10-16 — #918 — The checks and the posting run in the toolkit, and a finding outside the changed lines goes in the body
 
 A check the model runs can pass silently, and the refusals here exist to stop exactly that. So the comment checks, the second-review check and the posting run in a toolkit command, written test-first and held to the coverage rule. The command also adds the finding-number tag, so tested code applies it. Claude Code's review can flag a line outside the changed lines, where the platform takes no inline comment. Requiring every finding inline would mean such a pull request could never get a review. So that finding is carried in the body and counted beside the inline comments, and the epic's first success metric was amended to promise inline comments only inside the changed lines. Changed lines include the context lines in each hunk, because the platform accepts a comment on exactly those lines. Refuted alternatives: a script inside the skill's own folder, which sits outside the tested libraries; making the lead remove an outside finding by name before posting, which hides real findings from the author; and counting only added lines as changed.
+
+### 2026-11-26 — #963 — Closed pull requests, dismissed reviews, omitted diffs and an uncertain failed post
+
+The same check against the earlier personal skill found four gaps in the posting command. The command now refuses a pull request that is not open, and posts nothing. A review the lead already had dismissed no longer counts as an earlier review on the same head, so it asks for no second-review confirmation. When the platform leaves a file's diff out, because the file is too large or binary, an inline comment on that file gets its own problem line saying the line cannot be confirmed as changed. The check still fails as a whole. When the platform reports a failed post, the command reads the head again. If a new review by the lead is there, the command stops and says the review may already be posted, so the lead checks it before posting again. A second post could otherwise put two copies of one review on the pull request. No viable alternative was weighed.
