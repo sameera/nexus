@@ -2,7 +2,7 @@
 title: "Review Posting Gate"
 aliases: ["review post", "posting a ranked review", "checks before posting", "second review on the same head", "inline comment anchoring", "finding number tag"]
 touches: ["ranked-review"]
-last_updated_by: "#918"
+last_updated_by: "#963"
 status: active
 verification: verified
 ---
@@ -37,3 +37,7 @@ When the lead already reviewed the same head commit, the command posts nothing u
 ### 2026-10-16 — #918 — The checks and the posting run in the toolkit, and a finding outside the changed lines goes in the body
 
 A check the model runs can pass silently, and the refusals here exist to stop exactly that. So the comment checks, the second-review check and the posting run in a toolkit command, written test-first and held to the coverage rule. The command also adds the finding-number tag, so tested code applies it. Claude Code's review can flag a line outside the changed lines, where the platform takes no inline comment. Requiring every finding inline would mean such a pull request could never get a review. So that finding is carried in the body and counted beside the inline comments, and the epic's first success metric was amended to promise inline comments only inside the changed lines. Changed lines include the context lines in each hunk, because the platform accepts a comment on exactly those lines. Refuted alternatives: a script inside the skill's own folder, which sits outside the tested libraries; making the lead remove an outside finding by name before posting, which hides real findings from the author; and counting only added lines as changed.
+
+### 2026-11-26 — #963 — Closed pull requests are refused, dismissed reviews no longer count, and an uncertain post stops
+
+A check against the earlier personal code-review skill found bugs and gaps worth fixing. The posting command now refuses a closed pull request. A dismissed review by the lead on the head commit no longer asks for a second-review confirmation, because it is no longer a review the author sees. An inline comment on a file whose diff the platform left out is named as that, not as a line outside the changed lines. When the platform reports a failed post but a new review by the lead is on the head commit, the command stops with that review's link, and the skill does not post again. That stop prevents a second copy of the same review.
