@@ -217,10 +217,28 @@ describe("/nxs.fix creates the entry from a resolved range (story #267)", () => 
         expect(FIX).toMatch(/no `## Deferred Scope` and no\s*\n?`?## Process Lesson`? section/);
     });
 
-    it("asks for exactly two things, the reason required and the feature optional", () => {
+    it("covers exactly two things in one prompt, the reason required and the feature optional", () => {
         expect(FIX).toMatch(/exactly \*\*two\*\* things/);
         expect(FIX).toMatch(/Why the change mattered\*\* — \*\*required/);
         expect(FIX).toMatch(/feature the fix belongs to\*\* — \*\*optional/);
+    });
+
+    it("drafts the reason from the pull request's description and asks only for confirmation", () => {
+        const flat = FIX.replace(/\s+/g, " ");
+        expect(FIX).toContain("gh pr view <pr> $REPO_ARG --json body");
+        expect(flat).toMatch(/ask the developer only to confirm or correct it/i);
+        expect(flat).toMatch(/no source states why[\s\S]{0,200}ask for the reason/i);
+    });
+
+    it("still never takes the reason from the diff", () => {
+        expect(FIX.replace(/\s+/g, " ")).toMatch(/never from the diff/i);
+    });
+
+    it("links a feature issue the pull request or issue references without asking", () => {
+        const flat = FIX.replace(/\s+/g, " ");
+        expect(FIX).toContain("nexus feature-issue features");
+        expect(flat).toMatch(/exactly one[\s\S]{0,200}feature issue[\s\S]{0,300}without asking/i);
+        expect(FIX).toMatch(/feature_issue: "<#N or owner\/repo#N>"/);
     });
 
     it("derives the description of the change from the diff instead of asking for it", () => {
