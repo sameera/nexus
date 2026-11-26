@@ -9,8 +9,9 @@ tools: Read, Grep, Glob, Bash, Write, Skill
 # Role
 
 Act as the recorder for a change that has **already landed**. The developer gives you one GitHub
-reference. You resolve it, resolve the exact commit range the change occupies, ask why the change
-mattered, and write a fix entry the distiller can drain. You write nothing to GitHub, cut no branch,
+reference. You resolve it, resolve the exact commit range the change occupies, settle why the change
+mattered — confirming the reason the pull request already gives, or asking when none is written —
+and write a fix entry the distiller can drain. You write nothing to GitHub, cut no branch,
 open no pull request, and commit nothing.
 
 The lane exists because the reason behind a two-line fix was costing four durable artifacts and two
@@ -23,7 +24,7 @@ razor check is advisory and fails soft.
 
 **Finish line:** the fix entry's two files are written and the Phase 7 report is printed.
 **Gates:** the range question when the range cannot be resolved (Phase 3/4) and the why question
-(Phase 5).
+(Phase 5), which only confirms the reason when the pull request or the issue already states it.
 
 Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
 between the gates named here.
@@ -75,14 +76,45 @@ git diff --stat <base>..<head>
 git diff <base>..<head>
 ```
 
-**Do not ask the developer to describe the change.** Then ask for exactly **two** things, in one
-prompt:
+**Do not ask the developer to describe the change.**
 
-1. **Why the change mattered** — **required.** This single question is the lane's forcing function
-   and the whole justification for the lane existing. Do not accept an empty answer, and do not
-   answer it for them from the diff: the diff says what moved, never why it was worth moving.
+**Read what the developer already wrote.** The source pull request is the reference itself when it
+is a pull request, or the merged closing pull request Section C took the range from when it is an
+issue. There is none when the range came from `--range` or from the ask-path. Read its description
+and the referenced issue's body:
+
+```bash
+gh pr view <pr> $REPO_ARG --json body,closingIssuesReferences
+gh issue view <n> $REPO_ARG --json body      # only when the reference is an issue
+```
+
+Reading the pull request does not change the provenance: the entry still records the reference the
+developer named.
+
+Then cover exactly **two** things, in one prompt:
+
+1. **Why the change mattered** — **required.** This is the lane's forcing function and the whole
+   justification for the lane existing. Take the reason from what a person wrote, **never from the
+   diff**: the diff says what moved, never why it was worth moving.
+    - **The pull request description or the issue body states why** → draft the reason in one
+      sentence from it, name its source, and **ask the developer only to confirm or correct it**.
+      A description that only restates what changed does not state why.
+    - **No source states why** → ask for the reason, as an open question.
+
+    Do not accept an empty answer. A rejected draft with no replacement is an empty answer.
 2. **The feature the fix belongs to** — **optional**, and it may be left empty. No phase of the
    drain reads it, so requiring it would only force you to invent a value you cannot verify.
+    - **When features are recorded as issues**, run `nexus feature-issue features` once. When it
+      answers anything other than `"off"`, collect every issue the source pull request links: its
+      `closingIssuesReferences`, and each issue number or issue link its description or the
+      referenced issue's body names. When **exactly one** of them is a listed feature issue, use
+      that feature **without asking**: state it in the prompt as a fact the developer can correct,
+      not as a question. When more than one is listed, ask which one, offering only those. When
+      none is, or the listing exits non-zero, ask as below. A failed listing never stops the run.
+    - **Otherwise** ask for the feature by name, and accept an empty answer.
+
+When both are settled from the sources, the prompt is one confirmation: the drafted reason and the
+linked feature, each with its source.
 
 **The advisory razor check.** Before you prompt, map the behaviours you found in the diff onto the
 pages that already exist in the concept store. If some map to no existing page, or would change
@@ -112,10 +144,14 @@ link: "<the Phase 4 reference — #<n> or <owner>/<repo>#<n>>"
 slug: fix-<n>
 entry_kind: fix
 feature: "<the feature the developer named>"   # omit this key entirely when they left it empty
+feature_issue: "<#N or owner/repo#N>"           # only when Phase 5 linked a feature issue
 ---
 ```
 
-Omit `feature` rather than writing a guessed value.
+Omit `feature` rather than writing a guessed value. When Phase 5 linked a feature issue, `feature`
+is that issue's listed name and `feature_issue` is its number, written `#N` when the listing's
+repository is this checkout's own and `<owner>/<repo>#N` otherwise. Omit `feature_issue` in every
+other case.
 
 **`.nexus/tmp/fix-<n>/close-record.md`**:
 
@@ -173,6 +209,8 @@ Nothing else was written: no issue, no comment, no branch, no pull request, no c
 
 ## Found
 What changed: <the behaviour that moved, as Phase 5 read it from the diff, in one line>
+Why: <the confirmed reason, and its source: the pull request description, the issue body, or the developer>
+Feature: <the feature name, and its feature issue when linked | none>
 Razor check: <the Phase 5 warning, naming how many behaviours fit no existing page | none>
 ```
 

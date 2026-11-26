@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 1.23.0
+
+- **`fix` reads why the change mattered from the pull request before it asks.** When the pull
+  request description or the referenced issue states the reason, `fix` drafts it in one sentence,
+  names its source, and asks you only to confirm or correct it. When nothing written states why, it
+  asks the open question as before. It still never takes the reason from the diff. The confirmed
+  reason is the decision log entry `distill` later appends, so it is still a person's words.
+- **`fix` links the feature issue the pull request already references.** In a repository that
+  records features as issues, when exactly one issue the pull request closes or names, or the
+  referenced issue names, is a feature issue, `fix` uses that feature without asking and records
+  its number as `feature_issue` in the entry. When several match, it asks which one. When none
+  does, it asks for the feature as before.
+
 ## 1.22.0
 
 - **When `distill` blocks an entry because its decision record was revised after close, it now
