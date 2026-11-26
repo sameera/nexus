@@ -193,11 +193,17 @@ Two ways a working link goes away without you touching it:
 ## Changing a component
 
 1. Edit under `components/`.
-2. Re-pin the release fingerprint, which hashes the payload the release would ship:
-   `pnpm nexus:pin-bundles`.
+2. Bump `version` in `package.json` and add the matching `CHANGELOG.md` entry. When the change alters
+   nothing an adopter sees — a typo, a comment — add a `Nexus-No-Bump: <reason>` trailer to the
+   commit instead.
 3. Run the suite: `npx nx run-many -t test --all`.
 
-Two standing checks are worth knowing about before they fail on you:
+Three standing checks are worth knowing about before they fail on you:
+
+- **Release bump** — when this branch changes anything that ships (`components/`,
+  `common/templates/`, or library source under `libs/*/src/`, tests aside) and `package.json` still
+  holds the version it had at the merge base with `origin/main`, the suite fails and names the
+  files. Bump the version, or add the `Nexus-No-Bump:` trailer to a commit on the branch.
 
 - **No component at a loaded path** — nothing Nexus-namespaced may appear under `.claude/`.
 - **One definition of the authored root** — `AUTHORED_ROOT_DIRNAME` in

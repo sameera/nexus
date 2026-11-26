@@ -4,8 +4,7 @@
  *
  * There is one entry point per declared binary name (stories #309, #355, #397). The build once
  * produced six, then two; the manifest now declares one name, so it produces one — a self-contained
- * artifact with no runtime dependencies. The fingerprint pin already covers an arbitrary set of
- * bundles by name, so nothing downstream changes.
+ * artifact with no runtime dependencies.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";

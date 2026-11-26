@@ -12,8 +12,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BIN_NAMES, buildReleaseTree, RELEASE_TREE_DIRNAME } from "./pack-release";
-import { PAYLOAD_MANIFEST_FILE } from "./release-payload";
-import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
+import { buildBundle } from "./bundle";
+import { ENTRY_POINTS } from "./build-bundles";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const MANIFEST_PATH: string = path.join(REPO_ROOT, "package.json");
@@ -244,30 +244,22 @@ describe("the published library sources import only what the manifest declares",
 });
 
 /**
- * Story #321 AC4 — the regression check that matters when the authored tree moves: the move must
- * not silently change what ships. The committed payload manifest is the before-image, and it is
- * only a real check while the tree's internal shape is preserved across the move (invariant 3),
- * which is why the relocation moved the root and nothing below it.
+ * Decision record #334, invariant 12: the bytes a build produces are the bytes that ship. Staging
+ * must not change the executable after the build — no interpreter line prepended, no rewrite. The
+ * fingerprint pin used to carry this as a side effect; this states it directly.
  */
-describe("the release built after the authored tree moved ships the same components", () => {
-    it("stages exactly the component files the committed payload manifest records", async () => {
-        const recorded: Record<string, string> = JSON.parse(
-            fs.readFileSync(path.join(REPO_ROOT, "libs", "portable-tools", PAYLOAD_MANIFEST_FILE), "utf8"),
-        );
-        const expected: string[] = Object.keys(recorded)
-            .filter((staged) => staged.startsWith(`${COMPONENT_PAYLOAD_DIRNAME}/`))
-            .sort();
+describe("the staged executable is the built executable, byte for byte (record #334, invariant 12)", () => {
+    it("stages each binary exactly as a fresh in-process build produces it", async () => {
         const outDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "release-tree-"));
+        const srcDir: string = path.join(REPO_ROOT, "libs", "portable-tools", "src");
 
         try {
-            const written: string[] = await buildReleaseTree(REPO_ROOT, outDir);
-            const staged: string[] = written
-                .map((abs) => path.relative(outDir, abs).split(path.sep).join("/"))
-                .filter((rel) => rel.startsWith(`${COMPONENT_PAYLOAD_DIRNAME}/`))
-                .sort();
-
-            expect(expected.length).toBeGreaterThan(0);
-            expect(staged).toEqual(expected);
+            await buildReleaseTree(REPO_ROOT, outDir);
+            for (const [name, relEntry] of Object.entries(ENTRY_POINTS)) {
+                const { code } = await buildBundle(path.join(srcDir, relEntry));
+                const staged: string = fs.readFileSync(path.join(outDir, `${name}.mjs`), "utf8");
+                expect(staged === code, `${name}.mjs differs from a fresh build`).toBe(true);
+            }
         } finally {
             fs.rmSync(outDir, { recursive: true, force: true });
         }

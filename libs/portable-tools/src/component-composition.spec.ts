@@ -4,7 +4,7 @@
  * import a workspace package, unless its path is enumerated in the waiver register — a declared,
  * counted, expiring exception, not a denylist. These specs pin the check itself; the live-tree
  * assertion (does the real `.claude/` tree only violate this at exactly the waived paths) lives in
- * `parity.spec.ts` beside the other payload/fingerprint gates.
+ * `parity.spec.ts` beside the other payload gates.
  */
 
 import * as fs from "node:fs";

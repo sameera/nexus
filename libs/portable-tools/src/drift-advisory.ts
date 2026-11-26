@@ -4,7 +4,7 @@
  * misfiles, refinement hints, low-priority sibling notes, new-domain candidates, and a store-level
  * staleness alarm. Advisory only — always exits 0, never writes a page or the registry, never a CI
  * gate (decision-record Invariant 7). Deterministic by construction: slug-ordered, integer/exact
- * arithmetic, no wall-clock, no randomness (Invariants 6, 10) — held to the same parity + fingerprint
+ * arithmetic, no wall-clock, no randomness (Invariants 6, 10) — held to the same parity
  * gate as the atlas generator and validator.
  *
  * The detection engine here is shared: STORY-94.03 (seed mode) imports detectCommunities and the

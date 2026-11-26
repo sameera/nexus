@@ -11,7 +11,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-    COMPONENT_PAYLOAD_KEY,
     COMPONENT_SUBTREES,
     copyComponentTree,
     hashComponentTree,
@@ -145,9 +144,5 @@ describe("the live component source", () => {
         const files: string[] = listComponentFiles(live);
         expect(files.some((p) => p === "commands/nxs.setup.md")).toBe(true);
         expect(files.some((p) => p.startsWith("skills/nxs-workspace-status/"))).toBe(true);
-    });
-
-    it("exposes the payload pin key", () => {
-        expect(COMPONENT_PAYLOAD_KEY).toBe("claude-components");
     });
 });
