@@ -485,7 +485,7 @@ Re-read `## Not yet specified` against the resolution just recorded.
 1. **Fog the resolution made precisely statable** becomes a ticket: write a new typed ticket file
    for it, flagged with `surface:` by the same test Phase 5 applies. Then, in a second pass once
    every new file exists, wire its `blocked_by`, and **remove the entry from "Not yet specified"**.
-   The test is unchanged: can the question be stated precisely now, not can it be answered now.
+   The test is the same: can the question be stated precisely now, not can it be answered now.
 2. **Work the resolution ruled beyond the destination** moves to `## Out of scope`. Entries there
    **never graduate**.
 3. Everything else stays where it is.

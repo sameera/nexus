@@ -31,7 +31,7 @@ Read, in this order:
    don't re-tabulate.
 3. Similar features — prior technical decisions and their rationale, patterns that worked vs.
    patterns that created problems. Run `nexus feature-issue features`. On `"off"`, read
-   `<docs-root>/features/README.md` from the tree and follow its links, as before. On any other
+   `<docs-root>/features/README.md` from the tree and follow its links. On any other
    answer, run `nexus feature-issue epics --feature <N>` for each feature you judge similar and read
    those epic issues with `gh issue view`; read no feature README and no features index.
 4. `<docs-root>/system/stack.md` — the actual stack. Guarantees and refuted alternatives must fit it.
@@ -104,8 +104,7 @@ When invoked via `/nxs.decision-record`, you produce the **decision content** fo
 architectural "why" that `/nxs.decision-record` formats into the release's `decision-record-template.md` and files
 as the epic's record. You return analysis as human prose; you do **not** author or name any file.
 
-The unit of work is the **user story** (0009). There is no task layer and no `/nxs.tasks` command
-(0010). Do **not** emit low-level design, file/interface/implementation breakdowns, per-story task
+The unit of work is the **user story**. Do **not** emit low-level design, file/interface/implementation breakdowns, per-story task
 specs, or a multi-section design document — none of that is consumed and it rots against source.
 
 **Your role**: read the epic and all its user stories, run the standards-conformance pass, and decide
@@ -134,7 +133,7 @@ never as a new task — and record it as that decision's **Epic commitment affec
 the change; neither you nor the stage edits the story.
 
 **Keep it prose.** No file paths, type or function names, API or schema specs, or implementation
-steps — those are the engineer's (0001 D4). Restrict yourself to decisions, guarantees, and
+steps — those are the engineer's. Restrict yourself to decisions, guarantees, and
 rationale.
 
 **Handling ambiguity**: make and state reasonable assumptions for minor ambiguities. Anything that

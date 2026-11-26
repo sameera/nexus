@@ -41,7 +41,7 @@ describe("/nxs.code-review posts nothing until the lead chooses a verdict (G9)",
     });
 
     it("recommends a verdict but leaves the choice to the lead", () => {
-        expect(VERDICT).toMatch(/Recommend \*\*request changes\*\* when any finding in "Fix in this pull request" has high severity/);
+        expect(VERDICT).toMatch(/`recommendedVerdict`: \*\*request changes\*\* when any finding in "Fix in this pull request" has high severity/);
         expect(VERDICT).toMatch(/The lead chooses/);
     });
 

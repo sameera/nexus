@@ -35,7 +35,7 @@ The axes are the base stage's. These are the rows for the kinds it does not stat
 ## Phase 0.1 — verify an intake entry's pull request body
 
 When the entry-kind table names the pull request body as this entry's *why* source, verify that
-instead (record #504, invariant 14). Re-fetch the body and re-hash it, through the same digest
+instead. Re-fetch the body and re-hash it, through the same digest
 program, over the reference recorded in the entry's `epic.md` `link`:
 
 ```bash
@@ -107,7 +107,7 @@ A developer who hits this needs to learn what kind of change they made, not just
 exited non-zero.
 
 **Before draining an entry whose kind carries a validation mode, establish that the validator you
-will run enforces it** (record #271, invariant 13). One installed toolkit exists per account and it
+will run enforces it**. One installed toolkit exists per account and it
 lags when it is not updated. An older one still fails closed, but it misnames its own cause, and the
 obvious repair for that diagnostic is exactly the silent pass the razor exists to prevent. So
 confirm the mode is declared before you rely on it:

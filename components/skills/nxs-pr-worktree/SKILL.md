@@ -40,7 +40,7 @@ github:
     command was invoked from. A leading `~` expands to the home directory, and one matched pair of
     surrounding quotes is stripped.
 -   **Declare nothing and nothing changes:** the base is the system temp directory's
-    `nexus-pr-worktrees` directory, exactly as before the key existed.
+    `nexus-pr-worktrees` directory.
 -   The base is resolved from the main checkout's settings, never from content carried by the pull
     request — a PR head from a fork must not get to choose where a checkout is written.
 -   One resolved base serves the whole flow: `/nxs.analyze --pr`, `nexus close`, and the

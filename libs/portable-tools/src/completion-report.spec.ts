@@ -171,7 +171,7 @@ describe("analyze's terminal report keeps its layout, and on a pull request the 
 
     it("publishes the body the ID step wrote, never one the stage writes, and keeps the short completion report in the terminal", () => {
         expect(flat(between(ANALYZE, "## PR mode — publish a review", "2. **Check the drafted body"))).toMatch(/which the ID step wrote[\s\S]*\*\*Never write or edit it by hand\.\*\*/);
-        expect(flat(ANALYZE)).toMatch(/In `--pr` mode the two separate\*\* \(epic #923, record #949, D12\)/);
+        expect(flat(ANALYZE)).toMatch(/In `--pr` mode the two separate\*\*: the ID step already wrote the published verdict/);
     });
 
     it("keeps the fixed result line last and spelled as before, after Found", () => {

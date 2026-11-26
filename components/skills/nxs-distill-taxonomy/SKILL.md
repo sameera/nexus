@@ -46,12 +46,12 @@ and `domain_fit` (**create only**: `clear` or `forced`). **Body sections** gain
 `## New Subdomain Draft` (**create + `domain_fit: forced` only**) and `## New Domain Draft`
 (**create + `domain_fit: forced` only**).
 
-**Domain filing (epic #94, STORY-94.01): gated on registry presence, judgment against the
+**Domain filing: gated on registry presence, judgment against the
 rubrics, not a classifier.** For every **create**-action delta, when Phase 2 found a registry:
 match the concept's Summary against every domain's and subdomain's filing rubric (the closed
 list, exactly the role the Phase 2 slug survey plays for slug convergence) and write the
 resolving best-fit as `domain`. **Always resolve to a real, existing path. Never leave a
-created page unfiled, never invent an undefined path** (decision-record Invariant 1). Separately
+created page unfiled, never invent an undefined path**. Separately
 flag the filing:
 
 - **`clear`**: the concept's Summary is plainly within a rubric's stated scope. No draft
@@ -80,12 +80,11 @@ flag the filing:
   best-fit itself is already a subdomain, this drafts a **sibling** subdomain under that same
   parent, never a child of it (the registry caps at domain + subdomain, never a third level).
 
-**`update` and `retire` deltas never carry `domain`, under any circumstance** (decision-record
-Invariant 2). An existing page's filing is untouched by any update; re-filing a live page is
+**`update` and `retire` deltas never carry `domain`, under any circumstance**. An existing page's filing is untouched by any update; re-filing a live page is
 manual curation, out of this stage's scope.
 
 
-- **Domain filing is create-only** (epic #94, STORY-94.01; decision-record Invariant 2): `domain`
+- **Domain filing is create-only**: `domain`
   and `domain_fit` appear on a `create` delta only, and only when Phase 2 found a registry. An
   `update` or `retire` delta never adds, changes, or references `domain`. An existing page's
   `domain:` frontmatter line is untouched by any later delta.
@@ -102,7 +101,7 @@ A `create` delta synthesized by a Phase 4 split is filed like any other create �
 `domain_fit` plus drafts when forced, and the Phase 6.1 gate consumes it like any other create.
 
 
-## Phase 6.1 — Taxonomy gate (forced fits only; epic #94, STORY-94.01)
+## Phase 6.1 — Taxonomy gate (forced fits only)
 
 Collect every `create` delta across every entry in this run whose `domain_fit` is `forced`
 (Phase 3). **Zero such deltas → skip 6.1 and 6.2 entirely, proceed straight to 6.3**. A run in
@@ -121,7 +120,7 @@ same convention as Phase 0.4:
   concept's slug for Phase 6.2.
 
 **The drain does not proceed past 6.1 until every forced-fit concept's question is answered**:
-no default, no timeout, no silent pass-through (epic #94 AC2; decision-record Invariant 3).
+no default, no timeout, no silent pass-through.
 
 ## Phase 6.2 — Apply approved taxonomy changes (only if 6.1 queued any)
 
@@ -137,17 +136,16 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
 3. Re-run the Phase 5.4 atlas regeneration and the Phase 5.5 validator over every file this step
    touched (the registry plus every re-filed page). A new registry entry changes the rendered
    hierarchy, so both must run again. **A non-zero exit blocks exactly like Phase 5.5**: fix and
-   re-run until both exit 0 (decision-record Invariant 4: the validator passes on this branch
-   before the PR opens).
+   re-run until both exit 0: the validator passes on this branch before the PR opens.
 4. Commit **once**, covering every approved change from this step (never amend an entry's Phase 4
    commit): `git add <registry path> <re-filed page paths> <resolved atlas path> && git commit -m
    "distill: taxonomy gate — <n> new domain/subdomain entr(y/ies)"`. This keeps the approved
    registry entry and its motivating page(s) on the same distill branch, in the same
-   distillation-PR (decision-record Invariant 4; epic #94 AC3).
+   distillation-PR.
 
 ## Phase 6.3 — the drift advisory, and the store-level check it adds
 
-**Drift advisory (epic #94, STORY-94.02): deterministic, non-blocking, store-level.** Run the
+**Drift advisory: deterministic, non-blocking, store-level.** Run the
 advisory **once** over the whole store,
 now that every entry is applied and any Phase 6.2 taxonomy change has landed (so the branch holds
 the final store state the atlas was regenerated from):
@@ -186,7 +184,7 @@ Drift advisory:    <n finding(s), or "clean", or "not run — no registry"> (adv
 ## Phase 7 — the advisory section of the PR body
 
 ```markdown
-## Taxonomy drift advisory (epic #94, STORY-94.02 — advisory only, never blocks)
+## Taxonomy drift advisory (advisory only, never blocks)
 <Paste the Phase 6.3 captured advisory markdown verbatim here. If it was empty, write
 "Clean — no drift above thresholds.">
 ```

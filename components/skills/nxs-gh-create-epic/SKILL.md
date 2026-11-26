@@ -55,9 +55,8 @@ nexus create-epic --no-project "<path-to-epic.md>"
      no fallback label is ever added.
    - **labels** — applies the epic label (`github.epic-label`, default `epic`); no issue-type
      probe runs. The label is upserted (`gh label create --force`) before it is applied.
-   - **legacy-auto** — today's probe-then-fallback: resolve the type, try to set it, and if the
-     repo has no such issue-type, fall back to the epic label (default `epic`, **not** the former
-     `enhancement`) — upserted first, so filing never strands on a missing label.
+   - **legacy-auto** — resolve the type and try to set it; if the repo has no such issue type,
+     fall back to the epic label (default `epic`) — upserted first, so filing never strands on a missing label.
 3. Creates temp file with markdown body (frontmatter stripped, non-durable queue/feature
    pointers dropped, and the `## User Stories` section removed — each story is filed as its
    own sub-issue, so keeping the full story bodies here would duplicate and drift them)
@@ -75,13 +74,13 @@ nexus create-epic --no-project "<path-to-epic.md>"
    applying it. The label is created (upserted) before it is applied, so a repository that has
    never seen it never fails a run half-way or leaves the epic mislabelled. This label is the
    declarative gate `/nxs.decision-record` and the downstream gates read; the lead overrides the stated
-   threshold by editing the label on the issue (epic #139).
+   threshold by editing the label on the issue.
 8. If an issue type was resolved, queries the repository's available issue types,
    matches by name, and calls the `updateIssue` GraphQL mutation to set it
 9. Updates frontmatter with `link: "#<issue-number>"`
 10. Cleans up temp file
 
-### Repo targeting (STORY-121.05)
+### Repo targeting
 
 The epic issue is filed into the resolved **epic-repo**: `github.epic-repo` if declared, else
 `github.issues-repo`, else the current repo (an absent target is never pinned). In a multi-repo
@@ -98,7 +97,7 @@ into the member's settings, so a later change on the hub still reaches the membe
 feature: "Feature Name"
 epic: "Epic Title" # Required - becomes issue title
 created: 2025-01-02
-type: Task # Optional - issue-type name; resolved per github.classification (see Script Behavior). Falls back to settings.yml github.epic-type, then the epic label (default "epic")
+type: Task # Optional - issue-type name; resolved per github.classification (see Capability Behavior). Falls back to settings.yml github.epic-type, then the epic label (default "epic")
 ---
 ```
 

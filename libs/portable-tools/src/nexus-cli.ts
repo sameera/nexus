@@ -124,6 +124,7 @@ import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME
 import { runRecordAmendments } from "./record-amendments.js";
 import { MERMAID_CHECK_USAGE, runMermaidCheck } from "./mermaid-check.js";
 import { REVIEW_POST_USAGE, runReviewPost } from "./review-post.js";
+import { REVIEW_RANK_USAGE, runReviewRank } from "./review-rank.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 import { runStageCommand, stageDeps, stageUsage, type StageVerb } from "./stage-command.js";
@@ -924,6 +925,11 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Check a ranked review from /nxs.code-review and post it as one pull request review.",
         usage: REVIEW_POST_USAGE,
         run: (argv, io) => Promise.resolve(runReviewPost(argv, io)),
+    },
+    "review-rank": {
+        summary: "Group and number the findings /nxs.code-review rated, by fixed rules.",
+        usage: REVIEW_RANK_USAGE,
+        run: (argv, io) => Promise.resolve(runReviewRank(argv, io)),
     },
     "template-path": {
         summary: "Print where the installed release keeps a stage template.",

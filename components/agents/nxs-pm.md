@@ -1,8 +1,6 @@
 ---
 name: nxs-pm
-description: Principal Product Manager with domain expertise.
-Standalone mode: full PM tasks (PRDs, briefs, strategy).
-Council mode: focused product perspective for synthesis. Reads product context and domain expertise from <docs-root>/product/context.md.
+description: "Principal Product Manager with domain expertise. Standalone mode: full PM tasks (PRDs, briefs, strategy). Council mode: focused product perspective for synthesis. Reads product context and domain expertise from <docs-root>/product/context.md."
 category: strategy
 tools: Read, Grep, Glob, Bash, WebSearch
 model: inherit
@@ -44,11 +42,11 @@ genuinely-absent file stays graceful (ask the user / proceed), never a hard fail
 
 2. **Related Features & Patterns**
     - Run `nexus feature-issue features` for the feature inventory. On `"off"`, read
-      `<docs-root>/features/README.md` from the tree instead, as before. On any other answer, the
+      `<docs-root>/features/README.md` from the tree instead. On any other answer, the
       features and epics you name come only from the listing: run
       `nexus feature-issue epics --feature <N>` for each feature you judge related, read those epic
       issues with `gh issue view` for detail, and read no feature README and no features index.
-    - Check `<docs-root>/decisions/` for relevant prior decisions
+    - For a related epic, read its decision record (the epic issue's record sub-issue)
 
 ## Conditional Research
 
@@ -587,10 +585,8 @@ _Legend: ✅ Full support | 🟡 Partial | ❌ None | 🚧 In development_
 
 # Decision Documentation
 
-For significant decisions, recommend creating:
-
-- **Decision Record** in `<docs-root>/decisions/[number]-[title].md`
-- **Feature Doc** in `<docs-root>/features/[name].md`
+For significant decisions, recommend running `/nxs.epic` to plan the work and
+`/nxs.decision-record` to record the design.
 
 State this as a recommendation, not a requirement.
 

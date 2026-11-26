@@ -1,8 +1,13 @@
+---
+name: nxs-assets
+description: The durable asset store contract for filed issues — where a team declares it, how a filing stage publishes a local file into it through `nexus assets publish`, and the pinned reference it gets back. Load from /nxs.epic, /nxs.decision-record and /nxs.hld before handling assets.
+---
+
 # nxs-assets
 
-The durable asset store for filed issues (epic #594): where a team declares it, how a filing stage
+The durable asset store for filed issues: where a team declares it, how a filing stage
 publishes a local file into it, and what the pinned reference it gets back looks like — including the
-renderer an HTML mockup is referenced through (epic #613). Load it from
+renderer an HTML mockup is referenced through. Load it from
 `/nxs.epic` and `/nxs.decision-record` before handling `--assets`; neither stage addresses the store
 itself.
 
@@ -45,7 +50,7 @@ github:
   intake** (`assets malformed-renderer:`), before any draft exists. A repository that declares none
   files the plain link it files today. The choice between the two forms turns on this key alone and
   never on the store's visibility — a renderer must be able to read the store, so a private store
-  needs the reader epic #614 builds.
+  needs a renderer that reads it as the reader.
 
 ## Usage
 
@@ -91,8 +96,8 @@ nexus razor-check --draft <file> --assert-clean --asset-path <path> [--asset-pat
    `renderer` is a template, the plain link when it is `null`. A filed reference is frozen, so a
    lead who wanted the other form aborts here, configures and re-runs. A public store under a
    private issues repository is a warning the lead decides on, never a refusal — and so is a
-   **private store with a renderer configured**, which cannot be read by a renderer until epic #614
-   lands.
+   **private store with a renderer configured**, which only a renderer that reads it as the reader
+   can serve.
 4. **After approval**, on the derived filing body and before the clean-body assertion: `rewrite`,
    then `razor-check --assert-clean --asset-path …`. A run that published an HTML asset states on
    the console which form it filed — `assets renderer:` naming the template, or `assets
@@ -112,12 +117,12 @@ so a body's own repository-relative paths are never findings, and the published 
 | 1    | A named problem, on stderr: `assets unsupported:` (no store declared — nothing written), `assets malformed-store:` / `assets malformed-size-cap:` / `assets malformed-renderer:` (the key and the value, named), `assets missing-asset:` / `assets duplicate-filename:` (the intake stops, naming the paths), `assets store-unreadable:` (GitHub cannot read the store), `assets oversize:` (the file's size and the cap — nothing sent), `assets missing-file:`, `assets unreadable-body:`, or `assets github:` / `assets publish:` carrying GitHub's own error verbatim. |
 | 2    | Usage. |
 
-## Rules the verb keeps (decision record #600)
+## Rules the verb keeps
 
 - Nothing is ever deleted from or force-overwritten in the store. A re-publish to an existing path
   is an update commit carrying the existing blob's sha; the earlier commit still resolves.
 - The reference names the **commit** the publish created, never a branch — inside the renderer's
-  address as much as in a plain link (decision record #627).
+  address as much as in a plain link.
 - A reference is frozen when the issue is filed. Changing `asset-renderer` affects only the issues
   filed afterwards; no stage rewrites a body already filed.
 - The choice between the renderer's address and the plain link turns on whether a renderer is

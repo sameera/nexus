@@ -29,13 +29,13 @@ this resolved value, even when the command itself runs inside the worktree.
 ## Input Resolution 3 — the drain-SLO report spans the whole hub queue
 
 Every undrained entry (skipped-not-closed and blocked-underivable alike) is listed, and each is
-**attributed to every distinct repo its `range:` list names** (epic #214, story #508). Never
+**attributed to every distinct repo its `range:` list names**. Never
 attribute only to the first entry's repo; that attributes an entry that shipped over several pull
 requests to whichever repo was stamped first. List every distinct, host-stripped `repo` (e.g.
 `acme/web-app`) across the entry's `close-record.md` `range:` list, in the order they first appear.
 When the entry carries no close record yet, list the hub repo itself: an unclosed hub-queue entry is
 the hub's own, because migration happens only at close, after the close record is written. **Age is
-one figure per entry, never one per repo or per range entry**. Measure it as today, from the
+one figure per entry, never one per repo or per range entry**. Measure it from the
 introducing commit. For a migrated entry that commit *is* the migration commit, so age measures how
 long the entry has been drainable in the hub queue. Drain-SLO is measured against the hub queue
 only. Never scan member checkouts for closed-but-unmigrated entries; that is migration-lag, owned by
@@ -51,7 +51,7 @@ trunk; migration-lag is a drain-SLO concern (Input Resolution 3), not this gate.
 ## Phase 0.6 — every provenance reference is qualified
 
 Every provenance reference is the **qualified `<owner>/<repo>#n` form**, resolved deterministically
-from the entry's recorded originating repo (epic #214, story #508; this is no longer positional).
+from the entry's recorded originating repo.
 When the entry's `range:` list names exactly **one** distinct repo, that is the originating repo.
 Strip the leading host segment and append the epic's `link` number: `github.com/acme/web-app` + `#3`
 → `acme/web-app#3`. No network round-trip is needed, because the recorded repo is ground truth. When
