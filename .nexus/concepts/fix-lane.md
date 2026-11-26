@@ -2,7 +2,7 @@
 title: "Fix Lane"
 aliases: ["lightweight fix lane", "fix entry", "small-fix lane", "fifth entry point", "recording a small fix"]
 touches: ["fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "nexus-pipeline", "conformance-gate", "intake-lane", "entry-slot-ownership"]
-last_updated_by: "#515"
+last_updated_by: "#1083"
 status: active
 verification: verified
 ---
@@ -50,3 +50,7 @@ Mechanical reciprocity fan-out: the intake-lane page names this lane as its sibl
 ### 2026-09-12 — #515 — Both refusals moved out, and the intake collision arrived with them
 
 The two refusals this lane ran before writing anything were stated only in its own file, so the sibling lane that shares every other reference rule had neither of them, and a rule fixed here could drift there unnoticed. Moving them into the skill both lanes already load makes the collision check general: the lane now asks whether the number's slot is held by a kind it does not own, rather than checking for an epic alone, and that gains it the intake collision it never checked before. Re-running the lane against a reference it has already recorded now replaces that entry whole instead of refusing, so correcting a recorded reason no longer requires deleting the entry by hand first. The existing epic refusal keeps its trigger, its wording and its position ahead of range resolution, because the risk in this move was entirely in rewording prose that already worked. Refuted alternative: keep the refusals here and copy them into the sibling lane, which needs no shared section at all. It loses for the reason the move exists: two copies of one rule drift, and the drift is silent.
+
+### 2026-11-26 — #1083 — The reason is confirmed from what the pull request already says
+
+The lane asked the developer to type why the change mattered even when the pull request description already said it. The lane now reads the source pull request's description and the referenced issue's body. When either one states why, the lane drafts the reason in one sentence, names where it came from, and asks the developer only to confirm or correct it. When neither does, it asks the open question as before. The reason still never comes from the diff, and a rejected draft with no replacement is still an empty answer. When features are recorded as issues and exactly one linked issue is a listed feature, the lane records that feature and its issue, and states it as a fact the developer can correct.
