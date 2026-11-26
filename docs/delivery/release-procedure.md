@@ -45,18 +45,18 @@ judgement rather than a gate. Read the release's own component diff before you w
 Every path that list names is a body a lead runs; an item accounts for each behaviour change
 among them, or you decide in the open that it changes nothing a lead experiences.
 
-## 3. Re-pin and verify
+## 3. Verify
 
-    pnpm nexus:pin-bundles
     npx nx run-many -t test --all
 
-The first command rebuilds the executable, recomputes the payload hash and rewrites the
-fingerprint pin and its payload manifest. It copies nothing into any repository. The test run is
-what enforces the changelog rules and the version agreement; a release cannot be cut past a red
-suite.
+The test run enforces the changelog rules, the version agreement and the release-bump check; a
+release cannot be cut past a red suite. The release-bump check fails when the branch changed
+anything that ships — `components/`, `common/templates/`, or library source under `libs/*/src/`,
+tests aside — and `package.json` still holds the version it had at the merge base with
+`origin/main`. A change that alters nothing an adopter sees, such as a typo fix, is waived in the
+open with a `Nexus-No-Bump: <reason>` trailer on a commit in the branch.
 
-Commit the result — `package.json`, `CHANGELOG.md`, `libs/portable-tools/bundle-fingerprint.json` and
-`libs/portable-tools/payload-manifest.json` — and merge it to `main`.
+Commit the result — `package.json` and `CHANGELOG.md` — and merge it to `main`.
 
 ## 4. Check the invocation gate
 

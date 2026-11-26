@@ -1347,8 +1347,7 @@ async function runMigrateComponents(argv: string[], io: CliIo): Promise<number> 
 /**
  * The component payload this artifact would deploy. A distributable carries it vendored beside
  * the bundle; a source checkout has no vendored copy, and there the authored component tree is
- * the payload — it is the same tree the vendor step hashes into the fingerprint pin, so both
- * postures report the fingerprint of the components that would actually be installed.
+ * the payload, so both postures report the fingerprint of the components that would actually be installed.
  */
 function resolvedPayloadDir(): string | null {
     const vendored: string = defaultPayloadDir();

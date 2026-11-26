@@ -21,9 +21,10 @@ GitHub issues, which are the planning surface.
 ## Published artifact
 
 `@sameeraperera/nexus` ships one binary, `nexus` → `dist/nexus.mjs`. The package `files` allowlist is
-`dist`-only, so the component payload never appears in its own diff — its fingerprint is pinned
-instead, by `pnpm nexus:pin-bundles`, and `pnpm nexus:build-release` produces the payload the release
-would ship. `tsx` runs the CLI entry points from source during development; `esbuild` bundles them
+`dist`-only, so the component payload never appears in its own diff. `pnpm nexus:build-release`
+produces the payload the release would ship, and `npm pack` / `npm publish` re-run it through
+`prepack`, so a stale `dist/` cannot ship. A change to anything that ships must move the version —
+the release-bump check in the suite enforces it. `tsx` runs the CLI entry points from source during development; `esbuild` bundles them
 for release.
 
 ## Applications and libraries
@@ -67,7 +68,6 @@ npx nx run-many -t typecheck --all
 
 pnpm nexus:validate-concepts        # the concept store's invariants
 pnpm nexus:check-atlas              # docs/concepts.md matches the store
-pnpm nexus:pin-bundles              # re-pin the release fingerprint
 pnpm nexus:build-release            # build the payload a release would ship
 ```
 

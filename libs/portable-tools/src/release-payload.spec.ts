@@ -1,6 +1,6 @@
 /**
  * The payload is a stated set (story #309). These tests pin the three properties that follow
- * from stating it: nothing incidental ships, the fingerprint is a property of the commit rather
+ * from stating it: nothing incidental ships, the payload order is a property of the commit rather
  * than of the machine, and the build produces one executable.
  */
 
@@ -10,11 +10,10 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
 import { BIN_NAMES, buildReleaseTree } from "./pack-release";
-import { hashPayload, isIgnoredPayloadEntry, listPayloadFiles, PAYLOAD_IGNORE, PAYLOAD_KEY } from "./release-payload";
+import { isIgnoredPayloadEntry, listPayloadFiles, PAYLOAD_IGNORE } from "./release-payload";
 import { listSharedLibraryFiles } from "./shared-library-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
-const PIN_PATH: string = path.resolve(__dirname, "..", "bundle-fingerprint.json");
 
 let tmpDirs: string[] = [];
 
@@ -86,9 +85,8 @@ describe("the shipped payload carries nothing incidental (AC1)", () => {
     });
 });
 
-describe("the fingerprint is a property of the commit, not the machine (AC2)", () => {
-    it("is unchanged by a re-walk, and changes when a shipped file changes", () => {
-        expect(hashPayload(REPO_ROOT)).toBe(hashPayload(REPO_ROOT));
+describe("the payload order is a property of the commit, not the machine (AC2)", () => {
+    it("lists the stated set in code-unit order", () => {
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
         expect(staged).toEqual([...staged].sort());
     });
@@ -97,10 +95,5 @@ describe("the fingerprint is a property of the commit, not the machine (AC2)", (
 describe("the release builds one bundle per declared toolkit name (AC5, story #355)", () => {
     it("declares one JavaScript entry point per binary the manifest names", () => {
         expect(Object.keys(ENTRY_POINTS).sort()).toEqual([...BIN_NAMES].sort());
-    });
-
-    it("pins one entry per bundle plus the payload entry", () => {
-        const pinned: Record<string, string> = JSON.parse(fs.readFileSync(PIN_PATH, "utf8"));
-        expect(Object.keys(pinned).sort()).toEqual([...BIN_NAMES.map((n) => `${n}.mjs`), PAYLOAD_KEY].sort());
     });
 });

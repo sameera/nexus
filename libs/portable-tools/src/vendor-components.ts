@@ -12,10 +12,8 @@
  *
  * The managed set is exactly the three component subtrees (`commands/`, `agents/`, `skills/`).
  * Everything else beside them is user-owned and never vendored, never deployed, never hashed.
- * `hashComponentTree` is the payload half of the fingerprint gate: it hashes a canonical manifest
- * of the managed set (sorted relative paths + per-file content hashes), so a distributable whose
- * payload lags the authored tree fails the source-repo test gate instead of deploying stale
- * components.
+ * `hashComponentTree` hashes a canonical manifest of the managed set (sorted relative paths +
+ * per-file content hashes); `nexus version` reports it as the payload's fingerprint.
  *
  * Node builtins only; bundled into the `nexus` entrypoint.
  */
@@ -26,9 +24,6 @@ import * as path from "node:path";
 
 /** The managed component subtrees — the set the retired update script installed. */
 export const COMPONENT_SUBTREES: string[] = ["commands", "agents", "skills"];
-
-/** Key of the payload entry in the committed fingerprint pin. */
-export const COMPONENT_PAYLOAD_KEY = "claude-components";
 
 /** Directory name the payload travels under, beside the bundled entrypoints. */
 export const COMPONENT_PAYLOAD_DIRNAME = "claude-components";

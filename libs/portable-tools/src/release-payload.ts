@@ -1,9 +1,8 @@
 /**
  * The shipped payload, as an explicit set (story #309).
  *
- * The payload used to be "whatever is on disk under the directories we copy". That made its
- * fingerprint machine-dependent and shipped files an adopter would never run. What ships is now
- * stated here, and the fingerprint is taken over exactly that set.
+ * The payload used to be "whatever is on disk under the directories we copy". That shipped files
+ * an adopter would never run. What ships is now stated here.
  *
  * The filter is a denylist of *incidental* entries rather than an allowlist of files, because a
  * new file that belongs in the payload must ship the moment it is written. Story #392 emptied it:
@@ -11,14 +10,10 @@
  * and the payload no longer walks a tree that can contain either.
  */
 
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { authoredTemplateMasterDir, RELEASE_TEMPLATES, TEMPLATE_PAYLOAD_DIRNAME } from "./template-lookup.js";
 import { authoredComponentRoot, COMPONENT_PAYLOAD_DIRNAME, listComponentFiles } from "./vendor-components.js";
-
-/** Key of the payload entry in the committed fingerprint pin — one entry for the whole payload. */
-export const PAYLOAD_KEY = "payload";
 
 /**
  * The stated ignore filter. Each entry is a directory or file name matched exactly, or a
@@ -99,59 +94,7 @@ export function listPayloadFiles(repoRoot: string): PayloadFile[] {
     for (const name of RELEASE_TEMPLATES) {
         files.push({ staged: `${TEMPLATE_PAYLOAD_DIRNAME}/${name}`, source: path.join(masterDir, name) });
     }
-    // Code-unit order, not locale order: a locale-sensitive comparison would make the
-    // canonical manifest — and so the fingerprint — a property of the machine.
+    // Code-unit order, not locale order: a locale-sensitive comparison would make the order a
+    // property of the machine.
     return files.sort((a, b) => (a.staged < b.staged ? -1 : a.staged > b.staged ? 1 : 0));
-}
-
-/**
- * sha256 of the payload's canonical manifest: one `stagedpath\ncontent-sha256\n` record per file,
- * sorted by staged path. Nothing outside the stated set contributes, so two clean checkouts of
- * the same commit hash identically whatever the machine has cached.
- */
-export function hashPayload(repoRoot: string): string {
-    const manifest = createHash("sha256");
-    for (const file of listPayloadFiles(repoRoot)) {
-        manifest.update(file.staged);
-        manifest.update("\n");
-        manifest.update(createHash("sha256").update(fs.readFileSync(file.source)).digest("hex"));
-        manifest.update("\n");
-    }
-    return manifest.digest("hex");
-}
-
-/** Per-file content hashes of the payload, keyed by staged path. Diagnostic, not the pin. */
-export type PayloadManifest = Record<string, string>;
-
-/** Name of the committed manifest that sits beside the pin. */
-export const PAYLOAD_MANIFEST_FILE = "payload-manifest.json";
-
-export function payloadManifest(repoRoot: string): PayloadManifest {
-    const manifest: PayloadManifest = {};
-    for (const file of listPayloadFiles(repoRoot)) {
-        manifest[file.staged] = createHash("sha256").update(fs.readFileSync(file.source)).digest("hex");
-    }
-    return manifest;
-}
-
-/**
- * What changed between the payload the manifest recorded and the payload on disk now, as one
- * line per difference. Empty when the two agree — this is how the gate names what differs
- * rather than only reporting that two digests are unequal.
- */
-export function diffPayloadManifest(recorded: PayloadManifest, current: PayloadManifest): string[] {
-    const differences: string[] = [];
-    for (const staged of Object.keys(current).sort()) {
-        if (!(staged in recorded)) {
-            differences.push(`added: ${staged}`);
-        } else if (recorded[staged] !== current[staged]) {
-            differences.push(`changed: ${staged}`);
-        }
-    }
-    for (const staged of Object.keys(recorded).sort()) {
-        if (!(staged in current)) {
-            differences.push(`removed: ${staged}`);
-        }
-    }
-    return differences;
 }

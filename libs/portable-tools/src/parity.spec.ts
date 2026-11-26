@@ -2,8 +2,7 @@
  * The parity gate (STORY-44.03). Builds fresh bundles in-process, then runs the in-repo source
  * (via `tsx`) and the fresh bundle (via plain `node`, the artifact a hub actually runs) over the
  * committed corpus, asserting identical validator findings, identical exit codes, and byte-identical
- * atlas output. It also asserts the fresh build's hash equals the committed fingerprint pin, and
- * self-tests that the comparator fails — naming the divergence — when the bundle is doctored.
+ * atlas output. It also self-tests that the comparator fails — naming the divergence — when the bundle is doctored.
  */
 
 import { execFileSync } from "node:child_process";
@@ -14,12 +13,9 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildBundle, type BuiltBundle } from "./bundle";
 import { ENTRY_POINTS } from "./build-bundles";
 import {
-    checkFingerprint,
     diffAtlasBytes,
     diffRunResults,
-    type Fingerprint,
     formatDivergences,
-    hashBundleCode,
     type RunResult,
 } from "./parity";
 import { checkComponentComposition } from "./component-composition";
@@ -34,14 +30,11 @@ import {
     type ToolkitSurfaces,
 } from "./component-invocations";
 import { authoredComponentRoot, listComponentFiles } from "./vendor-components";
-import { diffPayloadManifest, hashPayload, payloadManifest, PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE, type PayloadManifest } from "./release-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const SRC_DIR: string = __dirname;
 const LIB_ROOT: string = path.resolve(__dirname, "..");
 const CORPUS: string = path.join(LIB_ROOT, "corpus");
-const PIN_PATH: string = path.join(LIB_ROOT, "bundle-fingerprint.json");
-const MANIFEST_PATH: string = path.join(LIB_ROOT, PAYLOAD_MANIFEST_FILE);
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
@@ -52,19 +45,13 @@ const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
 const NEXUS_CLI_SRC: string = path.join(SRC_DIR, "nexus-cli.ts");
 
 let freshBundles: Record<string, BuiltBundle>;
-let freshFingerprint: Fingerprint;
 
 beforeAll(async () => {
     freshBundles = {};
-    freshFingerprint = {};
     for (const [name, relEntry] of Object.entries(ENTRY_POINTS)) {
         const built: BuiltBundle = await buildBundle(path.join(SRC_DIR, relEntry));
         freshBundles[name] = built;
-        freshFingerprint[`${name}.mjs`] = hashBundleCode(built.code);
     }
-    // The payload rides the same pin (STORY-60.01): a live component or toolkit edit that skips
-    // the re-pin step fails the fingerprint test exactly like a stale bundle.
-    freshFingerprint[PAYLOAD_KEY] = hashPayload(REPO_ROOT);
 });
 
 let tmpDirs: string[] = [];
@@ -281,73 +268,14 @@ function scratchBaseRepo(): { repo: string; conceptsDir: string; sha: string } {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Fingerprint pin (Invariant 12) — catches "edited source but did not rebuild-and-re-pin".
+// Build determinism: the same source builds to the same bytes, run after run, so what is
+// staged at publish does not depend on which build produced it.
 // ---------------------------------------------------------------------------------------------
-describe("fingerprint pin", () => {
-    it("the freshly built executable and recomputed payload equal the committed pin", () => {
-        const pinned: Fingerprint = JSON.parse(fs.readFileSync(PIN_PATH, "utf8"));
-        const recorded: PayloadManifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
-        const differences: string[] = diffPayloadManifest(recorded, payloadManifest(REPO_ROOT));
-        const mismatch: string | null = checkFingerprint(freshFingerprint, pinned, differences);
-        // On failure the message names what differs and points at the re-pin procedure.
-        expect(mismatch, mismatch ?? undefined).toBeNull();
-    });
-
-    it("compares against the pin alone — no copy of the artifact inside any repository", () => {
-        // Both sides of the comparison are produced here: a fresh in-process build and a fresh
-        // walk of the payload sources. Nothing reads a vendored or deployed copy (story #310).
-        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", PAYLOAD_KEY].sort());
-        expect(freshFingerprint[PAYLOAD_KEY]).toBe(hashPayload(REPO_ROOT));
-    });
-
-    it("names the payload file that differs, not only that the digests differ", () => {
-        const recorded: PayloadManifest = { "claude-components/commands/nxs.epic.md": "bbbb", "claude-components/commands/nxs.close.md": "aaaa" };
-        const current: PayloadManifest = { "claude-components/commands/nxs.close.md": "cccc", "claude-components/commands/nxs.new.md": "dddd" };
-        const differences: string[] = diffPayloadManifest(recorded, current);
-        const message: string | null = checkFingerprint({ [PAYLOAD_KEY]: "x" }, { [PAYLOAD_KEY]: "y" }, differences);
-        expect(message).toContain("changed: claude-components/commands/nxs.close.md");
-        expect(message).toContain("added: claude-components/commands/nxs.new.md");
-        expect(message).toContain("removed: claude-components/commands/nxs.epic.md");
-    });
-
-    it("the remediation names an action that writes into no repository", () => {
-        const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
-        expect(message).toContain("nexus:pin-bundles");
-        expect(message).toContain("copies nothing into any repository");
-        expect(message).not.toContain("--tools-dir");
-    });
-
-    it("the committed payload manifest describes the payload the pin covers", () => {
-        const recorded: PayloadManifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
-        expect(diffPayloadManifest(recorded, payloadManifest(REPO_ROOT))).toEqual([]);
-    });
-
-    it("hashBundleCode is deterministic across repeated in-process builds", async () => {
+describe("build determinism", () => {
+    it("repeated in-process builds of the same source produce identical bytes", async () => {
         const [name, relEntry] = Object.entries(ENTRY_POINTS)[0];
         const rebuilt: BuiltBundle = await buildBundle(path.join(SRC_DIR, relEntry));
-        expect(hashBundleCode(rebuilt.code)).toBe(freshFingerprint[`${name}.mjs`]);
-    });
-
-    it("checkFingerprint returns null when every entry matches", () => {
-        expect(checkFingerprint({ "a.mjs": "abc" }, { "a.mjs": "abc" })).toBeNull();
-    });
-
-    it("checkFingerprint names a stale artifact and the re-pin procedure", () => {
-        const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
-        expect(message).toContain("STALE");
-        expect(message).toContain("stale");
-        expect(message).toContain("nexus:pin-bundles");
-    });
-
-    it("remediates without naming a vendoring operation or a repository-internal destination", () => {
-        const message: string = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" }) ?? "";
-        expect(message.toLowerCase()).not.toContain("vendor");
-        expect(message).not.toContain(".nexus/tools");
-    });
-
-    it("checkFingerprint flags an unpinned bundle and an orphaned pin entry", () => {
-        expect(checkFingerprint({ "new.mjs": "x" }, {})).toContain("no pin entry");
-        expect(checkFingerprint({}, { "old.mjs": "y" })).toContain("no longer built");
+        expect(rebuilt.code === freshBundles[name].code).toBe(true);
     });
 });
 
@@ -377,7 +305,7 @@ describe("component payload boundary (story #275)", () => {
 // ---------------------------------------------------------------------------------------------
 // Component invocations (story #301, decision record #325): every toolkit invocation in a shipped
 // body names a toolkit and a dispatch name that toolkit declares. This rides the same gate as
-// parity, the fingerprint pin, and the payload-composition boundary — the one thing that already
+// parity and the payload-composition boundary — the one thing that already
 // reads the shipped payload and already fails the source-repo test run.
 // ---------------------------------------------------------------------------------------------
 describe("component invocations name a declared toolkit verb (story #301)", () => {
