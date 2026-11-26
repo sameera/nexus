@@ -312,7 +312,7 @@ describe("the decision record reads the initiative's context (story #854)", () =
     });
 
     it("runs exactly as today for an epic with no initiative above it (G14)", () => {
-        expect(RECORD_READ).toMatch(/\*\*`no-initiative`\*\*: the epic has no initiative above it\. Continue exactly as today/);
+        expect(RECORD_READ).toMatch(/\*\*`no-initiative`\*\*: the epic has no initiative above it\. Continue with no new prompt/);
     });
 
     it("passes the context to the architect as settled decisions, stated with their reasoning (D7, G22)", () => {

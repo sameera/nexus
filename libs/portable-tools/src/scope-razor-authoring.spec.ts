@@ -426,7 +426,7 @@ describe("the other drafting stages", () => {
 
     it("keep a new-format record's numbers on a cut, and renumber only an old-format one", () => {
         expect(record).toMatch(/A new-format record keeps its numbers/);
-        expect(record).toMatch(/An old-format revision renumbers, as before/);
+        expect(record).toMatch(/An old-format revision renumbers its invariants/);
     });
 
     it("pass the cut IDs to the derive step, which stops on a line that still cites one", () => {

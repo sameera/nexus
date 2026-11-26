@@ -83,9 +83,9 @@ inline comment only on a changed line.
 
 # Step 4 — Rate, group and number
 
-Rate each finding on the four scales below, put it in a group by the group rules, and number it by
-the numbering order. These definitions are fixed. Apply them as written, so that the same rated
-findings always get the same groups and the same numbers.
+Rate each finding on the four scales below. Then let `nexus review-rank` put each finding in its
+group and number it. The scales are fixed: apply them as written. The group rules and the numbering
+order live in the executable, so the same rated findings always get the same groups and numbers.
 
 ## Rating scales
 
@@ -115,26 +115,32 @@ findings always get the same groups and the same numbers.
   - **Medium**: the fix changes behavior someone may rely on, or adds an escape hatch.
   - **High**: the fix can silently disable what it protects.
 
-## Group rules
+## Two judgments the rules need
 
-The groups are checked in this order, and a finding goes into the first group it matches, so every
-finding lands in exactly one group:
+Beside the four ratings, record for each finding:
 
-1. **Follow-up issues**: the fix needs a design or policy decision, or its fix effort is high, or
-   its regression risk is high.
-2. **Fix in this pull request**: either high severity with probability above low, fix effort medium
-   or lower, and regression risk low or lower; or fix effort very low with regression risk none or
-   very low.
-3. **Fix if the author agrees**: any remaining finding with high or medium severity, and any fix
-   whose value depends on a judgment call.
-4. **Optional**: every remaining finding.
+- **needsDecision**: true when the fix needs a design or policy decision. Such a finding becomes a
+  follow-up issue.
+- **judgmentCall**: true when the fix's value depends on a judgment call. Such a finding is left to
+  the author's agreement at the least.
 
-## Numbering order
+## Group and number
 
-The groups are listed in this order: fix in this pull request, fix if the author agrees, optional,
-follow-up issues. Inside a group, findings sort by severity, highest first, then probability,
-highest first, then fix effort, lowest first. Ties keep the order Claude Code's review returned them
-in. Number the findings from 1 down the whole list, so a finding's number is its priority.
+Write the ratings to `.nexus/tmp/code-review-<pr-number>/ratings.json` as
+`{ "findings": [ { "probability", "severity", "fixEffort", "regressionRisk", "needsDecision", "judgmentCall" } ] }`,
+one entry per finding, in the order Claude Code's review returned them, with each value as the scale
+names it (`very low`, not `very-low`). Then run:
+
+```bash
+nexus review-rank --ratings .nexus/tmp/code-review-<pr-number>/ratings.json
+```
+
+It prints each finding's `number` and `group` (`fix-now`, `if-agreed`, `optional`, `follow-up`),
+the count per group, and `recommendedVerdict`. Use its numbers and groups as printed. On exit 1 it
+names the finding and the value off the scale: fix that rating and run it again.
+
+The groups are shown as **Fix in this pull request** (`fix-now`), **Fix if the author agrees**
+(`if-agreed`), **Optional** (`optional`) and **Follow-up issues** (`follow-up`), in that order.
 
 # Step 5 — Show the ranking
 
@@ -150,8 +156,8 @@ Below the groups, give the count of findings in each group and the count of body
 
 # Step 6 — The lead chooses the verdict
 
-Recommend **request changes** when any finding in "Fix in this pull request" has high severity,
-and **comment** otherwise. Then ask the lead with `AskUserQuestion`. The question itself carries
+Recommend the verdict `nexus review-rank` printed as `recommendedVerdict`: **request changes**
+when any finding in "Fix in this pull request" has high severity, and **comment** otherwise. Then ask the lead with `AskUserQuestion`. The question itself carries
 the group counts, the body-only count and the recommendation, because text shown before the
 question may not be displayed. The options are:
 

@@ -6,7 +6,7 @@ description: Create GitHub issues from STORY-*.md work-item files. Use to bulk-c
 # NXS GitHub Create Story
 
 Create GitHub issues from `STORY-*.md` work-item files in a target folder — one issue per user
-story. The story is the unit of implementation (0009); these issues are the children of the epic
+story. The story is the unit of implementation; these issues are the children of the epic
 issue. `/nxs.epic` emits the `STORY-*.md` files (typically to a scratch folder) and invokes this
 skill at its approval gate.
 
@@ -126,7 +126,7 @@ decides the fallback for every story:
 
 `--no-project` skips project assignment for the whole run regardless of the above.
 
-## Repo targeting (STORY-121.05)
+## Repo targeting
 
 Story issues are filed into the resolved **story-repo**: `github.story-repo` if declared, else
 `github.issues-repo`, else the current repo (an absent target is never pinned). In a multi-repo

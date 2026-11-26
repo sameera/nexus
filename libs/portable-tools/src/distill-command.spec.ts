@@ -126,6 +126,68 @@ describe("nexus distill — a closed epic distills with one command (AC1, D1, G8
     });
 });
 
+describe("nexus distill — a workspace hub distills like a single-repo checkout", () => {
+    function hubHarness(over: Partial<DistillDeps> = {}): Harness {
+        const h = harness(over);
+        h.deps.role = () => ({ ok: true, preflight: { role: "hub", repoRoot: h.mainRoot, repo: { identity: "acme/docs", source: "origin" } as never } });
+        return h;
+    }
+    const prompt = (h: Harness): string => h.sessions[0].args[h.sessions[0].args.indexOf("-p") + 1];
+
+    it("runs the unattended distillation from the hub's own checkout, naming close's worktree, and prints the pull request's URL", async () => {
+        const h = hubHarness();
+        const { code, out } = await run(h);
+        expect(code).toBe(0);
+        expect(out).toContain(URL);
+        expect(h.sessions).toHaveLength(1);
+        // Member repos sit beside the hub's checkout, never beside the worktree, so the session starts in the hub.
+        expect(h.sessions[0].cwd).toBe(h.mainRoot);
+        expect(prompt(h)).toContain(`/nxs.distill ${h.wtPath} --unattended`);
+        expect(h.sessions[0].args).toEqual(expect.arrayContaining(["--add-dir", h.wtPath]));
+    });
+
+    it("starts a hub run by epic number the same way", async () => {
+        const h = hubHarness();
+        const { code } = await run(h, { target: { kind: "epic", epic: EPIC } });
+        expect(code).toBe(0);
+        expect(h.sessions[0].cwd).toBe(h.mainRoot);
+        expect(prompt(h)).toContain(h.wtPath);
+    });
+
+    it("gives a hub session only the worktree path git reports, nothing from the pull request (G9)", async () => {
+        const a = hubHarness();
+        const b = hubHarness();
+        b.deps.worktreeOn = () => a.wtPath;
+        await run(a, { target: { kind: "pr", pr: { repo: null, number: 1 } } });
+        await run(b, { target: { kind: "pr", pr: { repo: "acme/app", number: 777 } } });
+        expect(prompt(a)).toBe(prompt(b));
+        expect(prompt(a)).not.toMatch(/777|acme/);
+    });
+
+    it("quotes a worktree path that holds a space", async () => {
+        const h = hubHarness();
+        const spaced = path.join(h.wtPath, "my worktree");
+        h.deps.worktreeOn = () => spaced;
+        await run(h);
+        expect(prompt(h)).toContain(`/nxs.distill "${spaced}" --unattended`);
+    });
+
+    it("lets a codex session write in close's worktree as well as the shared git folder", async () => {
+        const h = hubHarness();
+        await run(h, { harness: "codex" });
+        const args = h.sessions[0].args;
+        expect(h.sessions[0].cwd).toBe(h.mainRoot);
+        expect(args).toEqual(expect.arrayContaining(["--add-dir", h.wtPath]));
+        expect(args[args.length - 1]).toContain(`$nxs-distill ${h.wtPath} --unattended`);
+    });
+
+    it("keeps its run files in the hub's main checkout", async () => {
+        const h = hubHarness();
+        await run(h);
+        expect(fs.existsSync(path.join(h.mainRoot, ".nexus", "tmp", `distill-run-epic-${EPIC}`, "outcome.txt"))).toBe(true);
+    });
+});
+
 describe("nexus distill — success is read from GitHub only (AC2, AC3, D4, G12, G13)", () => {
     it("reports a stop with the distillation's final message, and exits non-zero, when no pull request opened", async () => {
         const h = harness({}, { started: true, exitCode: 0, error: null, finalMessage: "BLOCKED: forced taxonomy fit" });
@@ -275,15 +337,14 @@ describe("nexus distill — refusals before a session starts (story #911, D2, D3
         expect(err).toContain(BRANCH);
     });
 
-    it("refuses in a hub or a member checkout, naming the manual route (AC4, G1)", async () => {
-        for (const role of ["hub", "member"] as const) {
-            const h = harness({ role: () => ({ ok: true, preflight: { role, repoRoot: "/r", repo: { identity: "acme/app", source: "origin" } as never } }) });
-            let resolved = false;
-            h.deps.epicOfPr = () => ((resolved = true), { ok: true, epic: EPIC, issuesRepo: "acme/app" });
-            const err = await refused(h);
-            expect(err).toContain("/nxs.distill <worktree-path>");
-            expect(resolved).toBe(false);
-        }
+    it("refuses in a member checkout before resolving anything, naming the hub to run it from", async () => {
+        const h = harness({ role: () => ({ ok: true, preflight: { role: "member", repoRoot: "/r", repo: { identity: "acme/app", source: "origin" } as never } }) });
+        let resolved = false;
+        h.deps.epicOfPr = () => ((resolved = true), { ok: true, epic: EPIC, issuesRepo: "acme/app" });
+        const err = await refused(h);
+        expect(err).toMatch(/member/);
+        expect(err).toMatch(/hub/);
+        expect(resolved).toBe(false);
     });
 
     it("refuses when a distillation pull request from the branch is already open, printing its URL (D4, G5)", async () => {
@@ -292,10 +353,10 @@ describe("nexus distill — refusals before a session starts (story #911, D2, D3
         expect(err).toMatch(/already open/);
     });
 
-    it("runs the cheap checks before the GitHub reads: a hub is refused without resolving anything (D3)", async () => {
+    it("runs the cheap checks before the GitHub reads: a member is refused without resolving anything (D3)", async () => {
         const reads: string[] = [];
         const h = harness({
-            role: () => ({ ok: true, preflight: { role: "hub", repoRoot: "/r", repo: { identity: "acme/app", source: "origin" } as never } }),
+            role: () => ({ ok: true, preflight: { role: "member", repoRoot: "/r", repo: { identity: "acme/app", source: "origin" } as never } }),
             epicClosed: () => (reads.push("epic"), { ok: true, closed: true }),
             openPr: () => (reads.push("pr"), { ok: true, url: null }),
         });

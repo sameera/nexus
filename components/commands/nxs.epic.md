@@ -38,7 +38,7 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **Nothing is committed at planning. GitHub issues are the source of truth (#114).** The epic is drafted only into the run's own folder under the gitignored `.nexus/tmp/planning/` (decision record #646), readable inside the checkout the lead already has open; the epic gate runs on that draft; at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer created here. It is created at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage rebuilds the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
+- **Nothing is committed at planning. GitHub issues are the source of truth.** The epic is drafted only into the run's own folder under the gitignored `.nexus/tmp/planning/`, readable inside the checkout the lead already has open; the epic gate runs on that draft; at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer created here. It is created at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage rebuilds the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label, so the feature tree carries no re-triage queue at all.
 - **Underspecified scope is referred to discovery, not answered with stubs.** The right-size phase tests sharpness before it measures size. An intent whose functional goals cannot be stated stops there and recommends `/nxs.discover`, with an explicit override. Big-but-clear is a different problem and keeps the decomposition path below.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal. A stub is an epic identified but not yet planned; it carries the epic classification plus the unplanned label. The full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion. When the lead accepts that the goals serve one objective, the run also files one **initiative** issue that states it, and each stub is filed as its child. The initiative keeps the run's planning context on its own issue, and nothing is committed.
 - **A finished discovery is promoted here.** `/nxs.discover` resolves decisions and writes nothing to GitHub; `--discovery <folder>` turns those resolved decisions into issues through the same emission path everything else uses. That is what makes "a discovery-produced stub is accepted unchanged by promotion" true by construction rather than by a third copy of the stub contract.
@@ -192,7 +192,7 @@ gh issue close <n> $REPO_ARG --reason "not planned"
 
 ## Phase 1 — Resolve the feature container
 
-The container must exist before writing: the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter. That frontmatter is carried onto the epic issue's meta block at filing, so the resolver recovers it.
+The container must exist before writing: the feature nav index (written at filing, Phase 6) links the epic issue from it. The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter. That frontmatter is carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
 **List the features first.** Ask the listing command once, before any step below. It applies the opt-in itself; never decide it here:
 
@@ -200,7 +200,7 @@ The container must exist before writing: the feature nav index (written at filin
 nexus feature-issue features
 ```
 
-- On `"off"`, features are recorded in the docs tree: run the steps below exactly as before, reading the feature folders and `<docs-root>/features/README.md` as today.
+- On `"off"`, features are recorded in the docs tree: run the steps below, reading the feature folders and `<docs-root>/features/README.md`.
 - On any other answer, the repository records features as issues. Its `features` list is every feature, open or closed, each with `number`, `name`, `state`, `featurePath`, `statement` and `retired`. **Read no feature README and no features index in this run.** Match features only against that list. A non-zero exit stops the run with nothing filed: report its stderr line.
 
 1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. When the listing answered `"off"`, create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
@@ -339,7 +339,7 @@ at a time and ends when every goal is sharp enough to file — then `/nxs.epic -
 
 Weigh distinct components, data entities, integration points, non-trivial NFRs (security, performance, observability), and known unknowns. Record the rating and its **drivers**; they go into the epic frontmatter (`complexity`, `complexity_drivers`).
 
-### Story-level sizing rolls up to the epic (0009)
+### Story-level sizing rolls up to the epic
 
 The epic's size is **not** guessed top-down. It is the **rollup of its story sizes**. Each story is sized **S or M** in Phase 3, at story scale (S ≈ ≤1 day, M ≈ 1–3 days), and **no single story may exceed M**. A story that reads larger is split into ≤ M stories there, because the story is the implementation unit; an oversized story is a planning defect, not a big issue to file. The epic `complexity` is then **derived** from the story set: the dominant story size, the **story count**, and **cross-story integration**. A handful of S stories is an S/M epic. Many stories, or several M stories with heavy interlock, roll up to L/XL and re-fire the gate below.
 
@@ -559,7 +559,7 @@ The stub choice at the Phase 2 gate (`split-*` or `stubs-*`) is the consent for 
     nexus planning-dir remove --name "nxs-epic-${RUN_NAME}"
     ```
 
-    **Skip this step** on anything short of that: an `⚠️ INCOMPLETE` filing, a feature read-back that did not pass, a discovery-mode gist post that failed, or, for the successors of a stub under an initiative, a successor not yet confirmed as one of the initiative's children. The folder stays exactly as it is, so the same run can be repeated against it (decision record #646) — a repeated `nexus create-story` skips what its ledger already shows created and files only the remainder.
+    **Skip this step** on anything short of that: an `⚠️ INCOMPLETE` filing, a feature read-back that did not pass, a discovery-mode gist post that failed, or, for the successors of a stub under an initiative, a successor not yet confirmed as one of the initiative's children. The folder stays exactly as it is, so the same run can be repeated against it — a repeated `nexus create-story` skips what its ledger already shows created and files only the remainder.
 
 ### Under an initiative (`split-initiative` / `stubs-initiative` only)
 
@@ -690,25 +690,25 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 2. Parse the capability description. In promotion mode that is the stub's goal + candidate story titles, and, under an initiative, the initiative's body and kept context, bounded by the stub's own goal (Phase 0): build on the decisions they already made rather than re-deriving them, and put work they assign to a sibling stub under Out of Scope, naming that stub. In discovery mode it is the discovery doc's destination plus the resolved decisions in full; the epic is built **on top of** those decisions, not by re-deriving them.
     - Extract actors, goals, actions, data, constraints, business value.
     - Decompose into **3–8 user stories**, each independently deliverable (INVEST).
-    - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M** into ≤ M stories before finalizing. The story is the implementation unit (0009), so an oversized story is split here, not filed. Record each story's `size`.
+    - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M** into ≤ M stories before finalizing. The story is the implementation unit, so an oversized story is split here, not filed. Record each story's `size`.
     - **Order the stories while you draft them** (nxs-razor §10). Write the epic's `## Implementation Order` block: one row per story, naming the stories it waits on by title, or `none`. Ordering is not assigned after approval: the gate shows the reviewer what each story waits on, and the closure check needs the graph before anything is filed. Generate both the rows and the necessity line below from the story headings; never re-type a title.
     - **Answer the necessity question** (nxs-razor §7): which of these stories does the smallest usable version of this capability need? Write the answer as the epic's `## Smallest Usable Version` line. It is scope reasoning a later reader consumes, so it is one of the few razor outputs that reaches the filed body. It is also **checked, not asserted** (nxs-razor §11): the set you name must be closed under the ordering block's blockers, so name a story's blockers alongside it or leave that story out.
     - For unclear aspects, make informed guesses from context and standards. Mark `[NEEDS CLARIFICATION: …]` only when the choice materially changes scope or UX and no reasonable default exists. **Max 3 markers.** Prioritize: scope > security/privacy > UX > technical.
 3. For each story assign **`story_type`**:
     - `user`: acceptance criteria describe a behavioral outcome observable by an end-user.
     - `system`: acceptance criteria are a measurable technical assertion (metric, threshold, or pass/fail contract). Prose-only ACs ("implement caching") are not acceptable for a `system` story.
-4. **Roll up the epic complexity (0009).** Derive `complexity` from the sized stories (dominant story size + story count + cross-story integration) and set `complexity_drivers` to match. **If the rollup exceeds M**, stop and return to the Phase 2 gate (present the L/XL/XXL options; stubs are the expected path) before writing anything.
+4. **Roll up the epic complexity.** Derive `complexity` from the sized stories (dominant story size + story count + cross-story integration) and set `complexity_drivers` to match. **If the rollup exceeds M**, stop and return to the Phase 2 gate (present the L/XL/XXL options; stubs are the expected path) before writing anything.
 5. Write the epic document (structure below). Resolve any remaining clarifications with the user before finalizing (use the clarification format in the guidelines).
 
 ## Phase 4 — Write the draft to the run folder (commit nothing)
 
-The epic is drafted **only into `RUN_DIR`** (established in Phase 1), never to `.nexus/queue/` and never under `docs/`. Nothing is committed at planning (#114); the committed queue entry is created at close.
+The epic is drafted **only into `RUN_DIR`** (established in Phase 1), never to `.nexus/queue/` and never under `docs/`. Nothing is committed at planning; the committed queue entry is created at close.
 
 ```bash
 DRAFT_DIR="$RUN_DIR"
 ```
 
-`DRAFT_DIR` is `RUN_DIR` itself, not a folder nested inside it: the whole run — the draft, its source text, its derived filing body and (on the decomposition path) its stub work items — sits beside itself in one place a reviewer can open (decision record #646, story #642).
+`DRAFT_DIR` is `RUN_DIR` itself, not a folder nested inside it: the whole run — the draft, its source text, its derived filing body and (on the decomposition path) its stub work items — sits beside itself in one place a reviewer can open.
 
 **Store the assets intake result beside the draft** (when `--assets` was passed): write the JSON the intake step printed (`declared` or `unsupported`, with its `assets` list) verbatim to `${DRAFT_DIR}/assets.json`. A resumed run (Phase 0 step 1) recovers `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY` from it after a `revise`. It stays inside `RUN_DIR` like the draft: it is never copied into `epic.filing.md` and never reaches an issue. **Do not put the declared paths in the draft's frontmatter**: the frontmatter is embedded onto the epic issue as its meta block, and the Phase 6 assertion scans every line of the filing body, frontmatter included.
 
@@ -740,7 +740,7 @@ nexus reading-list --draft "${DRAFT_DIR}/epic.md" --input "${DRAFT_DIR}/source.m
 
 It matches the source text, the draft's title and its Description against every active concept page's title and aliases as whole phrases, adds the pages those matches name one step away and no further, caps the list at seven (direct matches first, then neighbours named by more matches) and writes the list into the draft's `concepts:` field. It also saves the offered pages, with the ones beyond the cap, beside the draft for the digest. Archived and deprecated pages are never proposed. A resumed draft that already carries a list keeps it, hand edits included. An empty store or no match leaves `concepts: []`; that is not an error. Never write page text onto the draft or any issue: the field holds page names only.
 
-**Invariant:** after this command completes, the working tree shows **zero** new files under `.nexus/queue/` (Success Metric 1). If you ever feel the urge to `mkdir .nexus/queue/…`, stop; that is the old contract.
+**Invariant:** after this command completes, the working tree shows **zero** new files under `.nexus/queue/` (Success Metric 1). Never `mkdir .nexus/queue/…`: the queue entry is created at close.
 
 The feature nav index (`<feature-path>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue.
 
@@ -983,7 +983,7 @@ A non-zero exit stops the run: **file nothing**, fix the derived body, and re-as
 
 Because the derived file is rebuilt each run, the epic issue number is recorded on the labelled `epic.md`, not on the derived file. Step 1 says how.
 
-Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this one step. There is no separate task command. The story is the implementation unit (0009), so each story becomes one GitHub issue, child of the epic issue.
+Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this one step. There is no separate task command. The story is the implementation unit, so each story becomes one GitHub issue, child of the epic issue.
 
 1. **Create (or reuse) the epic issue (idempotent).** If `${DRAFT_DIR}/epic.md`'s frontmatter already carries `link`, the epic issue was filed in a prior run of this command: **reuse that number; do not create a second epic issue** (Success Metric / AC: a re-run reuses the recorded number). Otherwise:
 
@@ -1002,7 +1002,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 
     **Then copy that `link: "#<n>"` line, and the `issues_repo:` line when present, into `${DRAFT_DIR}/epic.md`'s frontmatter.** The derived file is rebuilt from `epic.md` on every run, so a number recorded only on it is lost the moment the run is repeated, and the next run files a second epic issue. Recording it on the labelled draft is what makes the idempotency check at the top of this step true.
 
-    It also applies the **needs-design** label from the epic's `complexity` rollup (#139): **M or larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is the declarative gate. `/nxs.decision-record` files the decision record as a sub-issue for a labelled epic, and the downstream gates decide "should this epic have a record?" from the issue graph alone, so an epic filed by hand outside Nexus (no label, no record) is treated as an epic without a record rather than an error. The threshold is a stated default: **edit the label on the issue** to override it either way; nothing here is remembered off the issue.
+    It also applies the **needs-design** label from the epic's `complexity` rollup: **M or larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is the declarative gate. `/nxs.decision-record` files the decision record as a sub-issue for a labelled epic, and the downstream gates decide "should this epic have a record?" from the issue graph alone, so an epic filed by hand outside Nexus (no label, no record) is treated as an epic without a record rather than an error. The threshold is a stated default: **edit the label on the issue** to override it either way; nothing here is remembered off the issue.
 
 2. **Sequence the stories: derive the sequence from the draft's `## Implementation Order` block.** The ordering was settled in Phase 3 and shown to the reviewer at the digest; deriving it again here from scratch would file an ordering nobody approved. Walk the block so a story follows everything it waits on, assign each a ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in that order), and translate each row's blocker titles into that story's `blocked_by` refs, `none` where the row says `none`. Do **not** split or merge; sizing happened in Phase 3.
 
@@ -1152,7 +1152,7 @@ A **promotion** needs no follow-up here beyond step 10: the stub issue *is* the 
 Report in the run-discipline skill's layout:
 
 - **Blocked on me:**
-    - **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07 write-back): a repo with no `github:` block had its resolved publishing decisions (classification mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a **tracked config file**, distinct from the no-queue-commit planning contract below. Tell the user to review that diff and commit it, so the fragile probe never runs again.
+    - **If the creation scripts printed "Seeded github config … — review and commit"**: a repo with no `github:` block had its resolved publishing decisions (classification mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a **tracked config file**, distinct from the no-queue-commit planning contract below. Tell the user to review that diff and commit it, so the fragile probe never runs again.
     - **In discovery mode**: that the discovery folder has been **consumed** and can be removed, and that removing it is a plain commit the user makes. This command does not delete it. Name it in the report only, never in an issue body or comment.
     - If the user chose `revise`: that no issues were created, and how to resume (`/nxs.epic --resume`).
     - Last, on a filing: `/nxs.decision-record <epic-issue-#>` as the next step, to produce the decision record for this epic (it resolves the epic from its issue number; there is no committed planning file). When nothing above applies, this is the one line, opening with "Nothing.".
@@ -1186,7 +1186,7 @@ epic: "<Epic Title>"
 slug: <epic-slug>
 created: <YYYY-MM-DD>
 type: enhancement
-complexity: <S|M|L|XL>   # rollup of story sizes + count + cross-story integration (0009)
+complexity: <S|M|L|XL>   # rollup of story sizes + count + cross-story integration
 complexity_drivers: [<driver>, <driver>]
 concepts: []          # reading list: concept page names later stages read; filled by `nexus reading-list`, at most 7
 link:                 # GitHub epic issue, set by nxs-gh-create-epic
@@ -1279,7 +1279,7 @@ Notes on the shape (vs. the pre-refactor epic):
 
 - Split by user action/workflow, data entity, permission level, or core-vs-enhancement.
 - Order foundational stories first (core CRUD / data), then enhancements, then polish.
-- **Each story is sized `S` or `M` and must not exceed M (0009).** Split any larger story further. The story is the implementation unit, so an oversized story is split here, not filed as a big issue.
+- **Each story is sized `S` or `M` and must not exceed M.** Split any larger story further. The story is the implementation unit, so an oversized story is split here, not filed as a big issue.
 
 ### Clarifications (max 3)
 

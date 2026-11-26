@@ -6,7 +6,7 @@ description: The one normative statement of the provenance rule, the counted lim
 # nxs-razor
 
 Other gates in this pipeline measure effort or testability. None asks whether anyone asked for the
-scope. The razor is that missing axis, and this file is its **one normative home** (epic #284).
+scope. The razor is that missing axis, and this file is its **one normative home**.
 Three drafting stages load it: `/nxs.epic`, `/nxs.decision-record` and `/nxs.discover`. Each of
 their templates restates only the short phrase that bounds the heading it sits beside.
 **Where a restatement and this file disagree, this file governs.**
@@ -193,7 +193,7 @@ enough that approving as drafted is always cheaper, which is the opposite of wha
 Two gates render such a list: the epic approval digest and the decision-record stage's pre-filing
 checkpoint. They share a **shape** and **no implementation**. What is mechanically decidable in
 either already lives in `nexus razor-check`; the rest is prose one stage generates and a selection
-it parses. **They no longer share a convention.** One offers addition and the other removal,
+it parses. **They do not share a convention.** One offers addition and the other removal,
 because a refuted alternative is not scope and there is nothing at that gate to add it to.
 
 **This page governs where a stage's own wording disagrees with it**, here as everywhere else in this

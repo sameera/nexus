@@ -35,11 +35,11 @@ Frontmatter carries only what a bare epic issue recoverably provides — the `ep
 `link` number. Fields the filing skills strip (`complexity`, `feature_path`, `slug`, …) are omitted,
 never fabricated. When the issue carries its `nexus:epic-meta` block, the planning frontmatter in it
 comes back as filed, with only `link` reset. That includes `feature_issue`, so a rebuilt epic names
-the same feature issue it was filed with (epic #998).
+the same feature issue it was filed with.
 
 ## The decision-record sub-issue
 
-An epic's **decision record** lives as a sub-issue of the epic issue (epic #139), so the sub-issue
+An epic's **decision record** lives as a sub-issue of the epic issue, so the sub-issue
 set is not homogeneous. The resolver identifies that sub-issue **record-positively** and keeps it out
 of the story set — otherwise every stage that iterates stories (design coverage, conformance,
 close's all-stories-closed gate) would act on a phantom story.
@@ -52,13 +52,13 @@ close's all-stories-closed gate) would act on a phantom story.
 -   **Recoverable fields.** When a record sub-issue exists, the materialized frontmatter carries
     `record: "#<n>"` and `record_state: open | closed` (closed = approved), and the printed JSON
     carries `record: { number, state }`. An epic with **no** record sub-issue emits neither field —
-    never a placeholder — and resolves byte-identically to the pre-#139 output.
+    never a placeholder.
 -   **At most one.** Two record sub-issues abort with `multiple-record-subissues`; the resolver never
     silently picks one.
 
 ## Unplanned epics
 
-An **epic stub** is an epic issue that has been identified but not yet planned (epic #185) — it
+An **epic stub** is an epic issue that has been identified but not yet planned — it
 carries the repository's declared unplanned label, has no planning meta block, and has no story
 sub-issues. Resolving one would emit an epic whose story set is empty, which every downstream stage
 reads as "an epic that plans nothing" rather than "work nobody has planned".
@@ -70,7 +70,7 @@ not, because every stage that reconstructs an epic can meet one.
 
 ## Initiatives
 
-An **initiative** is the parent issue a coherent decomposition's stubs are filed under (epic #705).
+An **initiative** is the parent issue a coherent decomposition's stubs are filed under.
 It is a planning container: no code is delivered against it, and it is never the target of a
 decision record or a conformance check. Left alone it would resolve as an epic whose child epics
 read as its stories.
@@ -80,13 +80,13 @@ marker is read through the shared publishing resolver (`initiative-label`, or `i
 under `classification: types`), never hard-coded. The check reads only that marker. It adds no
 failure for an issue that is not an initiative, and none in a repository that declares no
 initiative marker. An issue that also carries the epic marker is an epic. An epic that has an
-initiative above it resolves exactly as before: the resolver never reads an epic's parent to decide
+initiative above it resolves like any other epic: the resolver never reads an epic's parent to decide
 this.
 
 ## Features
 
 A **feature issue** is the GitHub issue a feature is filed as, in a repository that records
-features as issues (epic #998, `github.features: types` or `labels` in the publishing settings). Epics are
+features as issues (`github.features: types` or `labels` in the publishing settings). Epics are
 related to it and are never its sub-issues. It is a planning record: no code is delivered against
 it, and it has no stories or decision record. A feature issue has no parent, so left alone it would
 resolve as an epic with no stories.
@@ -135,7 +135,7 @@ none).
 
 -   Success prints exactly one JSON object on stdout; a failure prints an `epic-resolve <problem>:
     <message>` diagnostic on stderr. Exit codes: `0` success · `1` a named diagnostic · `2` usage.
--   **Targeting comes from the workspace resolver (#38)**, never a fresh heuristic: in a workspace it
+-   **Targeting comes from the workspace resolver**, never a fresh heuristic: in a workspace it
     queries the hub repo's issues; in single-repo it queries the local repo.
 -   **Read-only.** It fetches via `gh` (issue view, the sub-issues and sub-issue-type GraphQL
     queries, the `dependencies/blocked_by` REST endpoint) and reads classification through the

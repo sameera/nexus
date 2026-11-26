@@ -6,9 +6,7 @@ description: The one normative statement of the continue rule every Nexus stage 
 # nxs-run-discipline
 
 This file is the **one normative home** of how a Nexus stage runs between its gates. Every stage
-command except `/nxs.close` loads it at its start: `/nxs.setup`, `/nxs.discover`, `/nxs.epic`,
-`/nxs.decision-record`, `/nxs.analyze`, `/nxs.distill`, `/nxs.fix`, `/nxs.intake` and
-`/nxs.council`. No command restates it. Each command's opening names its own finish line and its
+command except `/nxs.close` loads it at its start. No command restates it. Each command's opening names its own finish line and its
 own gates, because those differ per stage. This file says what happens between them, and how the
 run's completion report is laid out.
 

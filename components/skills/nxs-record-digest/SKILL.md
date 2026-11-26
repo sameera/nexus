@@ -5,7 +5,7 @@ description: Compute the canonical digest of an epic's decision-record sub-issue
 
 # nxs-record-digest
 
-The **one** digest implementation over an approved decision-record body (epic #139). Four stages
+The **one** digest implementation over an approved decision-record body. Four stages
 stamp or verify this value — the design stage, the conformance gate, close, and the drain — and each
 one obtains it by running this helper.
 

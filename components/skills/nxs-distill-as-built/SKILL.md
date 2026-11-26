@@ -11,8 +11,8 @@ phase order and numbering are unchanged, and a phase this file does not name run
 base stage states it.
 
 An as-built decision record opens, after its title, with the statement
-"This decision record was written after the build by the retroactive `nexus implement` run of pull request <pr>. …" (epic #1041, decision record #1051, D9). Recognise an as-built
+"This decision record was written after the build by the retroactive `nexus implement` run of pull request <pr>. …". Recognise an as-built
 record by that opening in its hashed body, never by a label. Every decision-log entry /nxs.distill
 writes from such a record states that the retroactive run, not the lead, decided it, and names the
 run's pull request — for example "Decided by the retroactive `nexus implement` run of PR #<pr>, not
-by the lead." A record without that opening is attributed as before.
+by the lead." A record without that opening is attributed to the lead.
