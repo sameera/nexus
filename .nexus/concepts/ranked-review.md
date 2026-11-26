@@ -2,7 +2,7 @@
 title: "Ranked Pull Request Review"
 aliases: ["code-review skill", "ranked review", "review finding ranking", "fix-now and follow-up groups", "four rating axes", "body-only finding", "finding moved to its head line"]
 touches: ["review-posting-gate", "component-mirror"]
-last_updated_by: "#918"
+last_updated_by: "#963"
 status: active
 verification: verified
 ---
@@ -38,3 +38,7 @@ The lead sees the ranking before choosing any verdict. The skill changes no file
 ### 2026-10-16 — #918 — Findings come only from Claude Code's review, and the ranking rules ship fixed
 
 The skill has no review logic of its own. Claude Code's review is maintained with Claude Code, and a second review written inside Nexus would drift from it until the two disagreed. Where that review cannot be run, the skill refuses rather than review the code itself; making it work with Codex's own review is the follow-up epic #922. The rating scales, group rules and numbering order are fixed in the skill, so two runs on the same pull request group and number a finding the same way and the author can compare reviews. The base is the lead's personal skill, with three approved changes: the High and Medium severity wording, a group order that puts every finding in exactly one group, and the order inside a group. Low and Negligible severity keep the personal skill's wording. The skill, not the executable, moves each finding to its head line, because the lead must see head lines before choosing a verdict, and the posting check catches a wrong move. The skill ships as a skill folder of the same name, so installing replaces the personal skill. Refuted alternatives: review instructions written into the skill, which duplicate a maintained capability; axis and group names only, with the values left to model judgment, which lets two runs disagree; and an executable command that maps base lines to head lines, which adds a second command for little gain.
+
+### 2026-11-26 — #963 — The review is written for the pull request's author, and every scale value is defined
+
+A check against the earlier personal code-review skill found bugs and gaps worth fixing. The review body now opens with the verdict, the finding that drives it, and which findings fit in this pull request. It then gives every finding with its four ratings, and the suggested order. Each inline comment says what goes wrong in a concrete case and how to fix it, or suggests an issue for a follow-up item. The skill never posts a one-click suggestion. Every value on the probability, fix effort and regression risk scales now has a definition, so two runs rate the same finding the same way.
